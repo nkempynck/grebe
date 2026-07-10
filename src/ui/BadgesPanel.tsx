@@ -33,7 +33,9 @@ export function BadgesPanel({ stats, player }: Props) {
         <div className="badge-grid">
           {badges.map((b) => (
             <div className={`badge badge-${b.tier}`} key={b.id} title={b.desc}>
-              <span className="badge-ico" aria-hidden="true">{b.icon}</span>
+              <span className="badge-medal">
+                <span className="badge-ico" aria-hidden="true">{b.icon}</span>
+              </span>
               <span className="badge-label">{b.label}</span>
             </div>
           ))}
