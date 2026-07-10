@@ -95,6 +95,20 @@ export async function fetchLeaderboard(
   }
 }
 
+/** The caller's live badge inputs: daily-win count + rank/total overall and per
+ *  clade group. All computed server-side; the client maps them to badge tiers.
+ *  Returns null when Supabase isn't configured or the call fails. */
+export async function fetchPlayerBadges(): Promise<import("./badges").PlayerBadges | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc("player_badges");
+    if (error || !data) return null;
+    return data as import("./badges").PlayerBadges;
+  } catch {
+    return null;
+  }
+}
+
 /** Record one finished game via the submit_game() RPC (direct INSERT is denied by
  *  RLS). The server pins `tier` from the date and derives guess/hint counts from
  *  the id arrays — so g.guesses/g.hints/g.tier are not sent; they're computed

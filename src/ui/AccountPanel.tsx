@@ -3,6 +3,7 @@ import type { DerivedStats } from "../data/stats";
 import type { UsePlayer } from "../hooks/usePlayer";
 import { fetchStanding, type Standing } from "../data/games";
 import { StatsPanel } from "./StatsPanel";
+import { BadgesPanel } from "./BadgesPanel";
 
 interface Props {
   stats: DerivedStats;
@@ -78,6 +79,7 @@ export function AccountPanel({ stats, player }: Props) {
     <>
       {player.session && <Profile player={player} />}
       <StatsPanel stats={stats} player={player} />
+      <BadgesPanel stats={stats} player={player} />
     </>
   );
 }
