@@ -1,0 +1,19 @@
+node_modules
+dist
+*.log
+.DS_Store
+.vite
+.env
+.env.local
+.env.*.local
+
+# compiled config / build metadata (source is the .ts)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+# stray backups
+*.bak
+
+# backend setup script — run manually in Supabase, kept out of the repo
+supabase/
