@@ -100,27 +100,24 @@ function highest<T extends { min: number }>(tiers: T[], value: number): T | null
   return tiers.find((t) => value >= t.min) ?? null;
 }
 
-/** Milestone badges from local stats — no network, always available. */
+/** Milestone badges from local stats — no network, always available. Only DAILY
+ *  games count toward badges; free play is unranked and earns nothing (it still
+ *  shows in the account Practice stats for personal viewing). */
 export function localBadges(stats: DerivedStats): Badge[] {
   const out: Badge[] = [];
 
-  // Total puzzles completed (daily + practice).
-  const totalPlayed = stats.daily.played + stats.practice.played;
-  const play = highest(PLAY_TIERS, totalPlayed);
-  if (play) out.push({ id: "played", icon: play.icon, label: play.label, tier: play.tier, desc: `${totalPlayed} puzzles completed` });
+  // Daily puzzles completed.
+  const played = highest(PLAY_TIERS, stats.daily.played);
+  if (played) out.push({ id: "played", icon: played.icon, label: played.label, tier: played.tier, desc: `${stats.daily.played} daily puzzles completed` });
 
   // Best streak.
   const streak = highest(STREAK_TIERS, stats.daily.maxStreak);
   if (streak) out.push({ id: "streak", icon: "🔥", label: streak.label, tier: streak.tier, desc: `Best daily streak: ${stats.daily.maxStreak}` });
 
-  // Per-clade dedication (daily + practice games in one group).
-  const played: Record<string, number> = {};
-  for (const g of stats.daily.groups) played[g.id] = (played[g.id] ?? 0) + g.played;
-  for (const g of stats.practice.groups) played[g.id] = (played[g.id] ?? 0) + g.played;
-  for (const [id, n] of Object.entries(played)) {
-    if (n >= CLADE_PLAY_MIN) {
-      const g = cladeGroup(id);
-      out.push({ id: `clade-${id}`, icon: g.icon, label: `${g.label} regular`, tier: "silver", desc: `${n} games in ${g.label}` });
+  // Per-clade dedication (daily games in one group).
+  for (const g of stats.daily.groups) {
+    if (g.played >= CLADE_PLAY_MIN) {
+      out.push({ id: `clade-${g.id}`, icon: g.icon, label: `${g.label} regular`, tier: "silver", desc: `${g.played} daily games in ${g.label}` });
     }
   }
 
@@ -151,9 +148,9 @@ export function competitiveBadges(server: PlayerBadges | null): Badge[] {
   return out;
 }
 
-/** How many more puzzles to the next collector tier (for a gentle nudge), or null. */
+/** How many more DAILY puzzles to the next collector tier (a gentle nudge), or null. */
 export function nextPlayMilestone(stats: DerivedStats): { remaining: number; label: string } | null {
-  const total = stats.daily.played + stats.practice.played;
+  const total = stats.daily.played;
   const next = [...PLAY_TIERS].reverse().find((t) => t.min > total);
   return next ? { remaining: next.min - total, label: next.label } : null;
 }
