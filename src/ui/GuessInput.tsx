@@ -47,9 +47,19 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
     return out;
   }, [tree, config, focusCladeId]);
 
+  // Full in-scope list, sorted for browsing (groups first, then species, A–Z).
+  // Shown as-is when the box is empty so you can scroll every option; typing
+  // filters it down.
+  const sortedCandidates = useMemo(() => {
+    const byName = (a: Cand, b: Cand) => (a.common ?? a.sci).localeCompare(b.common ?? b.sci);
+    const groups = candidates.filter((c) => c.kind === "group").sort(byName);
+    const species = candidates.filter((c) => c.kind === "species").sort(byName);
+    return [...groups, ...species];
+  }, [candidates]);
+
   const q = text.trim().toLowerCase();
   const suggestions = useMemo(() => {
-    if (!q) return [];
+    if (!q) return sortedCandidates; // empty box → browse the whole scope/subset
     const pre: Cand[] = [];
     const sub: Cand[] = [];
     for (const c of candidates) {
@@ -60,10 +70,13 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
     // Groups surface above species within each tier.
     const order = (arr: Cand[]) => [...arr.filter((c) => c.kind === "group"), ...arr.filter((c) => c.kind === "species")];
     return [...order(pre), ...order(sub)].slice(0, 8);
-  }, [candidates, q]);
+  }, [candidates, q, sortedCandidates]);
 
-  // Indices you can actually pick (already-guessed ones are shown but not selectable).
+  // Entries you can actually pick (already-guessed ones are shown but not
+  // selectable). activeId lets each row test "am I active?" in O(1) — important
+  // when the browse list is hundreds/thousands of rows.
   const selectable = suggestions.filter((c) => !guessedById.has(c.id));
+  const activeId = selectable[active]?.id;
 
   const focusNode = focusCladeId ? tree.byId.get(focusCladeId) : null;
   const placeholder = focusNode
@@ -94,7 +107,9 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
       e.preventDefault();
       setActive((a) => Math.max(a - 1, 0));
     } else if (e.key === "Enter") {
-      if (open && selectable[active]) choose(selectable[active]);
+      // Only auto-pick a highlighted row when the user has typed something —
+      // otherwise Enter on an empty box would guess the first browse entry.
+      if (open && q && selectable[active]) choose(selectable[active]);
       else submitTyped();
     } else if (e.key === "Escape") {
       setOpen(false);
@@ -110,6 +125,10 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
           disabled={disabled}
           onChange={(e) => { setText(e.target.value); setOpen(true); setActive(0); }}
           onFocus={() => setOpen(true)}
+          // Also open on click: after picking a guess the input keeps focus, so a
+          // second click wouldn't re-fire onFocus — without this the list would
+          // stay closed for the next guess.
+          onClick={() => setOpen(true)}
           onBlur={() => setOpen(false)}
           onKeyDown={onKeyDown}
           aria-label="Your guess"
@@ -119,8 +138,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
           <ul className="gs-list" role="listbox">
             {suggestions.map((c) => {
               const r = guessedById.get(c.id);
-              const selIdx = selectable.indexOf(c);
-              const isActive = selIdx >= 0 && selIdx === active;
+              const isActive = c.id === activeId;
               const warm = r ? warmthColor(r.warmth, r.isWin) : undefined;
               return (
                 <li
