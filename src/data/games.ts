@@ -2,16 +2,17 @@ import { supabase } from "./supabase";
 
 export interface GameRow {
   userId: string;
-  puzzleDate: string | null; // the daily's date; null for free play
-  mode: "daily" | "free";
+  puzzleDate: string; // the daily's date (only daily games are recorded)
   scopeId: string;
   cladeGroup: string;
-  guesses: number;
-  hints: number;
   won: boolean;
-  tier: number | null;
   guessIds: string[];
   hintIds: string[];
+  // Descriptive detail — stored but never scored (see submit_game).
+  answerId: string;
+  assist: boolean;
+  winWithin: number;
+  par: number | null;
 }
 
 export interface TodayDaily {
@@ -113,21 +114,25 @@ export async function fetchPlayerBadges(): Promise<import("./badges").PlayerBadg
   }
 }
 
-/** Record one finished game via the submit_game() RPC (direct INSERT is denied by
- *  RLS). The server pins `tier` from the date and derives guess/hint counts from
- *  the id arrays — so g.guesses/g.hints/g.tier are not sent; they're computed
- *  server-side. Best-effort: only when Supabase is configured and signed in. */
+/** Record one finished DAILY game via the submit_game() RPC (direct INSERT is
+ *  denied by RLS; free play isn't stored server-side). The server pins `tier`
+ *  from the date and derives guess/hint counts from the id arrays. The trailing
+ *  fields are descriptive detail and don't affect scoring. Best-effort. */
 export async function recordGame(g: GameRow): Promise<void> {
   if (!supabase) return;
   try {
     await supabase.rpc("submit_game", {
-      p_mode: g.mode,
+      p_mode: "daily",
       p_puzzle_date: g.puzzleDate,
       p_scope_id: g.scopeId,
       p_clade_group: g.cladeGroup,
       p_won: g.won,
       p_guess_ids: g.guessIds,
       p_hint_ids: g.hintIds,
+      p_answer_id: g.answerId,
+      p_assist: g.assist,
+      p_win_within: g.winWithin,
+      p_par: g.par,
     });
   } catch {
     /* best-effort — a lost row shouldn't break the game */

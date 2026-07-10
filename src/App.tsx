@@ -71,6 +71,14 @@ export default function App() {
   // Record each finished game once (per mode+answer), tagged with its clade
   // group. Daily results also pop the stats panel open.
   const recordedKey = useRef<string | null>(null);
+
+  // Informed-solver "par" for the finished puzzle (cheap; only when it's over).
+  // Computed here so the record effect can persist it with the game row.
+  const par = useMemo(
+    () => (roundOver && g.tree && g.answerId ? informedPar(g.tree, g.config, g.answerId, g.assist) : null),
+    [roundOver, g.tree, g.answerId, g.config.scopeRootId, g.config.winWithin, g.assist]
+  );
+
   useEffect(() => {
     if (!roundOver || !g.tree || !g.answerId) return;
     // A restored (already-played) daily is already recorded — don't count it again.
@@ -85,25 +93,25 @@ export default function App() {
       hints: g.hintIds.length,
       tier: g.daily.tier,
     });
-    // Signed-in players also get a durable per-game row (for stats/leaderboards).
-    // When the write resolves the row is committed, so bump boardReload to refetch
-    // the post-game leaderboard (otherwise it renders before the row exists).
-    if (player.session) {
+    // Only DAILY games get a durable cloud row (free play is tracked in stats
+    // only). Descriptive detail (answer, assist, resolution, par) rides along but
+    // never affects scoring. On resolve, bump boardReload to refetch the board.
+    if (daily && player.session) {
       void recordGame({
         userId: player.session.user.id,
-        puzzleDate: daily ? todayKey() : null,
-        mode: g.mode,
+        puzzleDate: todayKey(),
         scopeId: g.config.scopeRootId,
         cladeGroup: group,
-        guesses: g.guesses.length,
-        hints: g.hintIds.length,
         won: g.status === "won",
-        tier: daily ? g.daily.tier : null,
         guessIds: g.guesses.map((r) => r.guess.id),
         hintIds: g.hintIds,
+        answerId: g.answerId!,
+        assist: g.assist,
+        winWithin: g.config.winWithin,
+        par,
       }).then(() => setBoardReload((c) => c + 1));
     }
-  }, [roundOver, daily, g.dailyLocked, g.mode, g.tree, g.answerId, g.status, g.guesses, g.hintIds, g.daily.tier, g.config.scopeRootId, player.session, record]);
+  }, [roundOver, daily, g.dailyLocked, g.mode, g.tree, g.answerId, g.status, g.guesses, g.hintIds, g.daily.tier, g.config.scopeRootId, g.config.winWithin, g.assist, par, player.session, record]);
 
   useEffect(() => {
     if (!player.session) { setWinNudge([]); return; }
@@ -115,12 +123,6 @@ export default function App() {
     });
     return () => { live = false; };
   }, [player.session]);
-
-  // Informed-solver "par" for the finished puzzle (cheap; only when it's over).
-  const par = useMemo(
-    () => (roundOver && g.tree && g.answerId ? informedPar(g.tree, g.config, g.answerId, g.assist) : null),
-    [roundOver, g.tree, g.answerId, g.config.scopeRootId, g.config.winWithin, g.assist]
-  );
 
   if (g.error && !g.tree) {
     return <div className="wrap"><p className="empty">Couldn't load the tree: {g.error}</p></div>;
