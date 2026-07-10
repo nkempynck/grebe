@@ -4,7 +4,8 @@ import { informedPar } from "./core";
 import { groupOf } from "./data/clades";
 import { useStats } from "./hooks/useStats";
 import { usePlayer } from "./hooks/usePlayer";
-import { recordGame } from "./data/games";
+import { recordGame, fetchPlayerBadges } from "./data/games";
+import { newDailyWins } from "./data/badges";
 import { todayKey, dailyNumber, dailyAnswerId } from "./core/daily";
 import { resolveDailyRules } from "./data/dailySchedule";
 import { SettingsPanel } from "./ui/SettingsPanel";
@@ -39,6 +40,9 @@ export default function App() {
   // Bumped once a finished game's server write resolves, so the post-game board
   // refetches and includes the row just submitted (instead of racing the write).
   const [boardReload, setBoardReload] = useState(0);
+  // Daily-winner celebration: on sign-in, fetch the player's recent winning days
+  // and surface any not yet shown on this device (see newDailyWins for baseline).
+  const [winNudge, setWinNudge] = useState<string[]>([]);
   const [hash, setHash] = useState(() => window.location.hash);
 
   useEffect(() => {
@@ -88,6 +92,17 @@ export default function App() {
       }).then(() => setBoardReload((c) => c + 1));
     }
   }, [roundOver, daily, g.dailyLocked, g.mode, g.tree, g.answerId, g.status, g.guesses, g.hintIds, g.daily.tier, g.config.scopeRootId, player.session, record]);
+
+  useEffect(() => {
+    if (!player.session) { setWinNudge([]); return; }
+    let live = true;
+    fetchPlayerBadges().then((b) => {
+      if (!live || !b) return;
+      const fresh = newDailyWins(b.win_dates ?? []);
+      if (fresh.length) setWinNudge(fresh);
+    });
+    return () => { live = false; };
+  }, [player.session]);
 
   // Informed-solver "par" for the finished puzzle (cheap; only when it's over).
   const par = useMemo(
@@ -247,6 +262,18 @@ export default function App() {
           );
         })}
       </nav>
+
+      {winNudge.length > 0 && (
+        <div className="winbanner" role="status">
+          <span className="winbanner-ico" aria-hidden="true">👑</span>
+          <span className="winbanner-txt">
+            {winNudge.length === 1
+              ? <>You topped the daily — <b>№{dailyNumber(winNudge[0])}</b> ({winNudge[0]}). Daily-winner badge earned.</>
+              : <>You topped <b>{winNudge.length}</b> recent dailies. Daily-winner badge earned.</>}
+          </span>
+          <button className="winbanner-x" onClick={() => setWinNudge([])} aria-label="Dismiss">×</button>
+        </div>
+      )}
 
       {view === "play" && play}
       {view === "leaderboard" && (

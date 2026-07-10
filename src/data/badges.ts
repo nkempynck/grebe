@@ -22,8 +22,34 @@ export interface Badge {
 /** What the server's player_badges() RPC returns (all live, no persistence). */
 export interface PlayerBadges {
   daily_wins: number;
+  /** Recent dates the player topped the daily (YYYY-MM-DD, newest first). */
+  win_dates: string[];
   overall: { rank: number; total: number } | null;
   groups: Record<string, { rank: number; total: number }>;
+}
+
+const SEEN_WINS_KEY = "cladensis.seenWins";
+
+/** Compare the server's win dates against what we've already celebrated on this
+ *  device, and return the newly-won dates (newest first). On the very first run
+ *  it records all existing wins as a baseline and returns none — so historical
+ *  wins aren't dumped as "new". Best-effort; storage failures just skip the nudge. */
+export function newDailyWins(winDates: string[]): string[] {
+  try {
+    const raw = localStorage.getItem(SEEN_WINS_KEY);
+    const merge = (all: string[]) =>
+      localStorage.setItem(SEEN_WINS_KEY, JSON.stringify([...new Set(all)]));
+    if (raw === null) {
+      merge(winDates); // baseline — don't celebrate pre-existing wins
+      return [];
+    }
+    const seen = new Set(JSON.parse(raw) as string[]);
+    const fresh = winDates.filter((d) => !seen.has(d));
+    if (fresh.length) merge([...seen, ...winDates]);
+    return fresh;
+  } catch {
+    return [];
+  }
 }
 
 // ---- tunables ----

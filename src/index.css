@@ -655,6 +655,22 @@ body {
 .stats-strength { font-family: var(--font-body); font-style: italic; font-size: 14px; color: var(--ink-soft); margin: 10px 0 0; }
 .stats-strength b { color: var(--brass-bright); font-style: normal; }
 
+/* ---- Daily-winner banner ---- */
+.winbanner {
+  display: flex; align-items: center; gap: 12px;
+  margin: 0 0 18px; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid var(--brass); background: rgba(217, 154, 91, 0.09);
+  box-shadow: 0 0 14px rgba(217, 154, 91, 0.15);
+}
+.winbanner-ico { font-size: 22px; line-height: 1; }
+.winbanner-txt { flex: 1; font-family: var(--font-body); font-size: 14px; color: var(--ink); line-height: 1.4; }
+.winbanner-txt b { color: var(--brass-bright); }
+.winbanner-x {
+  border: none; background: none; cursor: pointer; padding: 0 4px;
+  font-size: 20px; line-height: 1; color: var(--ink-faint);
+}
+.winbanner-x:hover { color: var(--ink); }
+
 /* ---- Badges ---- */
 .badges { margin-top: 16px; }
 .badge-grid { display: flex; flex-wrap: wrap; gap: 16px 14px; }
