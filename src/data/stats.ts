@@ -1,7 +1,10 @@
-/** Browser-local stats. The daily history drives streaks + guess distribution
- *  (daily puzzle only); the per-clade tallies gauge "how good are you" at each
- *  group and count every finished game (daily + free play). No accounts, no
- *  network — all derived from localStorage. */
+/** Browser-local stats, split cleanly into two worlds:
+ *   • DAILY   — the shared, ranked puzzle. Everything (streaks, points, per-clade
+ *               scoring) derives from `history`, which stores one entry per date
+ *               tagged with its clade group. Points mirror the leaderboard.
+ *   • PRACTICE — free play. Self-chosen difficulty carries no leaderboard weight,
+ *               so it has no score; we track only games + win-rate per clade.
+ *  No accounts, no network — all from localStorage (optionally synced). */
 
 import { CLADE_GROUPS, cladeGroup, OTHER_GROUP } from "./clades";
 import { gamePoints } from "./score";
@@ -12,93 +15,105 @@ export interface DailyEntry {
   guesses: number;
   hints: number;
   tier: number;
+  /** Clade group id (added v3). Optional only for entries migrated from v2. */
+  group?: string;
 }
 
-interface CladeTally {
+/** Free-play tally per clade group (practice is unranked → no points). */
+interface CladeFree {
   played: number;
   wins: number;
-  guessSum: number; // total guesses across wins, for an average
-  dailyPlayed: number; // daily games only (points denominator)
-  pointsSum: number;   // leaderboard points across daily games in this group
 }
 
 interface StatsStore {
-  version: 2;
-  /** date (YYYY-MM-DD) -> the daily result. */
+  version: 3;
+  /** date (YYYY-MM-DD) -> the daily result (drives ALL daily stats). */
   history: Record<string, DailyEntry>;
-  /** group id -> aggregate performance across all finished games. */
-  clades: Record<string, CladeTally>;
+  /** group id -> free-play tally (drives ALL practice stats). */
+  clades: Record<string, CladeFree>;
 }
 
-export interface CladeStat {
+/** Per-clade DAILY performance — score-based. */
+export interface GroupScore {
   id: string;
   label: string;
   icon: string;
   played: number;
   wins: number;
   winPct: number;
-  avgGuesses: number | null;
-  /** Average leaderboard points per daily game in this group (null if none). */
-  avgPoints: number | null;
-  /** Total leaderboard points earned in this group (daily games). */
+  /** Average leaderboard points per daily game in this group. */
+  avgPoints: number;
+  /** Total leaderboard points earned in this group. */
   totalPoints: number;
 }
 
-export interface DerivedStats {
-  // Daily-only (streaks make sense only for the shared daily)
+/** Per-clade PRACTICE performance — win-rate only (unranked). */
+export interface GroupWin {
+  id: string;
+  label: string;
+  icon: string;
+  played: number;
+  wins: number;
+  winPct: number;
+}
+
+export interface DailyStats {
   played: number;
   wins: number;
   winPct: number;
   currentStreak: number;
   maxStreak: number;
-  distribution: number[];
-  recordedToday: boolean;
-  // Across all finished games
-  overall: { played: number; wins: number; winPct: number };
-  /** Daily leaderboard points (matches the server standing): total + per-game avg. */
-  points: { total: number; avg: number };
-  clades: CladeStat[];
-  /** id of your strongest group (best win% with enough games), or null. */
+  /** Leaderboard points (mirrors the server): lifetime total, per-game avg, best. */
+  points: { total: number; avg: number; best: number };
+  /** Per-clade scoring, strongest first is marked via strengthId. */
+  groups: GroupScore[];
+  /** id of the group you score highest in (by avg points, ≥3 games), or null. */
   strengthId: string | null;
+}
+
+export interface PracticeStats {
+  played: number;
+  wins: number;
+  winPct: number;
+  groups: GroupWin[];
+}
+
+export interface DerivedStats {
+  daily: DailyStats;
+  practice: PracticeStats;
 }
 
 const KEY = "cladensis.stats.v1"; // key kept stable; payload is versioned inside
 
-// Guess-count histogram buckets. A hard daily routinely runs well past 8 guesses,
-// so single-guess columns (1..8+) pile everything into the last bar — bin into
-// ranges instead. Lower bound of each bucket; the last one is open-ended.
-const BUCKET_LOWS = [1, 6, 11, 16, 21, 31];
-export const GUESS_BUCKET_LABELS = BUCKET_LOWS.map((lo, i) =>
-  i === BUCKET_LOWS.length - 1 ? `${lo}+` : `${lo}–${BUCKET_LOWS[i + 1] - 1}`
-);
-/** Histogram bucket index for a guess count (clamped to the open-ended last). */
-export function guessBucket(guesses: number): number {
-  let idx = 0;
-  for (let i = 0; i < BUCKET_LOWS.length; i++) if (guesses >= BUCKET_LOWS[i]) idx = i;
-  return idx;
+const emptyStore = (): StatsStore => ({ version: 3, history: {}, clades: {} });
+
+/** Accept a raw payload (localStorage or DB) and coerce to a valid v3 store.
+ *  v1/v2 histories carry over (their daily aggregate still works); their old
+ *  clade tallies had an incompatible, daily+free-mixed shape, so they reset. */
+function migrate(parsed: unknown): StatsStore {
+  const s = parsed as {
+    version?: number;
+    history?: Record<string, DailyEntry>;
+    clades?: Record<string, CladeFree>;
+  } | null;
+  if (!s) return emptyStore();
+  if (s.version === 3 && s.history && s.clades) {
+    return { version: 3, history: s.history, clades: s.clades };
+  }
+  if ((s.version === 1 || s.version === 2) && s.history) {
+    return { version: 3, history: s.history, clades: {} };
+  }
+  return emptyStore();
 }
 
 export function loadStore(): StatsStore {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as {
-        version?: number;
-        history?: Record<string, DailyEntry>;
-        clades?: Record<string, CladeTally>;
-      };
-      if (parsed?.version === 2 && parsed.history && parsed.clades) {
-        return { version: 2, history: parsed.history, clades: parsed.clades };
-      }
-      // migrate v1 (history only) → v2
-      if (parsed?.version === 1 && parsed.history) {
-        return { version: 2, history: parsed.history, clades: {} };
-      }
-    }
+    if (raw) return migrate(JSON.parse(raw));
   } catch {
     /* corrupt or unavailable storage — start fresh */
   }
-  return { version: 2, history: {}, clades: {} };
+  return emptyStore();
 }
 
 export function saveStore(store: StatsStore): void {
@@ -109,18 +124,9 @@ export function saveStore(store: StatsStore): void {
   }
 }
 
-/** Coerce an untrusted blob (e.g. from the DB) into a valid v2 store. */
+/** Coerce an untrusted blob (e.g. from the DB) into a valid v3 store. */
 export function coerceStore(raw: unknown): StatsStore {
-  const s = raw as {
-    version?: number;
-    history?: Record<string, DailyEntry>;
-    clades?: Record<string, CladeTally>;
-  } | null;
-  if (s && s.version === 2 && s.history && s.clades) {
-    return { version: 2, history: s.history, clades: s.clades };
-  }
-  if (s && s.version === 1 && s.history) return { version: 2, history: s.history, clades: {} };
-  return { version: 2, history: {}, clades: {} };
+  return migrate(raw);
 }
 
 export function isEmptyStore(store: StatsStore): boolean {
@@ -156,35 +162,20 @@ export async function pushCloudStats(store: StatsStore): Promise<void> {
   }
 }
 
-function bumpClade(store: StatsStore, groupId: string, entry: DailyEntry, isDaily: boolean): void {
-  const c = store.clades[groupId] ?? { played: 0, wins: 0, guessSum: 0, dailyPlayed: 0, pointsSum: 0 };
-  c.played++;
-  if (entry.status === "won") {
-    c.wins++;
-    c.guessSum += entry.guesses;
-  }
-  // Points are a daily concept (leaderboard-weighted); free play carries none.
-  if (isDaily) {
-    c.dailyPlayed = (c.dailyPlayed ?? 0) + 1;
-    c.pointsSum = (c.pointsSum ?? 0) + gamePoints(entry.status === "won", entry.tier, entry.guesses, entry.hints);
-  }
-  store.clades[groupId] = c;
-}
-
 /** Apply a daily result onto a store IN PLACE, once per date (so replays don't
- *  inflate). Pure w.r.t. storage — used both for local recording and for
- *  replaying a during-sync record onto the freshly-fetched cloud store. */
+ *  inflate). The entry is tagged with its clade group so per-clade daily stats
+ *  derive straight from history. */
 export function applyDaily(store: StatsStore, dateKey: string, entry: DailyEntry, groupId: string): StatsStore {
-  if (!store.history[dateKey]) {
-    store.history[dateKey] = entry;
-    bumpClade(store, groupId, entry, true);
-  }
+  if (!store.history[dateKey]) store.history[dateKey] = { ...entry, group: groupId };
   return store;
 }
 
-/** Apply a finished free-play game onto a store IN PLACE (clade stats only). */
+/** Apply a finished free-play game onto a store IN PLACE (practice tally only). */
 export function applyFree(store: StatsStore, entry: DailyEntry, groupId: string): StatsStore {
-  bumpClade(store, groupId, entry, false);
+  const c = store.clades[groupId] ?? { played: 0, wins: 0 };
+  c.played++;
+  if (entry.status === "won") c.wins++;
+  store.clades[groupId] = c;
   return store;
 }
 
@@ -195,7 +186,7 @@ export function recordDaily(dateKey: string, entry: DailyEntry, groupId: string)
   return store;
 }
 
-/** Record a finished free-play game to local storage — clade stats only. */
+/** Record a finished free-play game to local storage — practice tally only. */
 export function recordFree(entry: DailyEntry, groupId: string): StatsStore {
   const store = applyFree(loadStore(), entry, groupId);
   saveStore(store);
@@ -213,31 +204,41 @@ function nextDay(dateKey: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function derive(store: StatsStore, todayKey: string): DerivedStats {
-  const h = store.history;
-  const dates = Object.keys(h);
-  const played = dates.length;
-  const wins = dates.filter((d) => h[d].status === "won").length;
+const pct = (wins: number, played: number) => (played ? Math.round((wins / played) * 100) : 0);
+const orderedIds = [...CLADE_GROUPS.map((g) => g.id), OTHER_GROUP.id];
 
-  const distribution = new Array(GUESS_BUCKET_LABELS.length).fill(0);
-  let pointsTotal = 0;
+function deriveDaily(history: Record<string, DailyEntry>, todayKey: string): DailyStats {
+  const dates = Object.keys(history);
+  const played = dates.length;
+  const wins = dates.filter((d) => history[d].status === "won").length;
+
+  let total = 0;
+  let best = 0;
+  // Accumulate per-clade daily scoring from the tagged history entries.
+  const tally: Record<string, { played: number; wins: number; pts: number }> = {};
   for (const d of dates) {
-    const e = h[d];
-    if (e.status === "won") distribution[guessBucket(e.guesses)]++;
-    // Daily points, recomputed from stored facts — matches the server standing.
-    pointsTotal += gamePoints(e.status === "won", e.tier, e.guesses, e.hints);
+    const e = history[d];
+    const p = gamePoints(e.status === "won", e.tier, e.guesses, e.hints);
+    total += p;
+    if (p > best) best = p;
+    const gid = e.group;
+    if (gid) {
+      const t = (tally[gid] ??= { played: 0, wins: 0, pts: 0 });
+      t.played++;
+      if (e.status === "won") t.wins++;
+      t.pts += p;
+    }
   }
-  const points = { total: pointsTotal, avg: played ? Math.round(pointsTotal / played) : 0 };
 
   let currentStreak = 0;
-  let cursor = h[todayKey] ? todayKey : prevDay(todayKey);
-  while (h[cursor]?.status === "won") {
+  let cursor = history[todayKey] ? todayKey : prevDay(todayKey);
+  while (history[cursor]?.status === "won") {
     currentStreak++;
     cursor = prevDay(cursor);
   }
 
   let maxStreak = 0;
-  const wonSet = new Set(dates.filter((d) => h[d].status === "won"));
+  const wonSet = new Set(dates.filter((d) => history[d].status === "won"));
   for (const d of wonSet) {
     if (wonSet.has(prevDay(d))) continue;
     let len = 0;
@@ -249,53 +250,61 @@ export function derive(store: StatsStore, todayKey: string): DerivedStats {
     maxStreak = Math.max(maxStreak, len);
   }
 
-  // Per-clade — keep a stable order (known groups, then "other"), only groups
-  // that have been played.
-  const order = [...CLADE_GROUPS.map((g) => g.id), OTHER_GROUP.id];
-  const clades: CladeStat[] = order
-    .filter((id) => store.clades[id]?.played)
+  const groups: GroupScore[] = orderedIds
+    .filter((id) => tally[id]?.played)
     .map((id) => {
-      const t = store.clades[id];
+      const t = tally[id];
       const g = cladeGroup(id);
-      const dp = t.dailyPlayed ?? 0;
-      const ps = t.pointsSum ?? 0;
       return {
         id,
         label: g.label,
         icon: g.icon,
         played: t.played,
         wins: t.wins,
-        winPct: Math.round((t.wins / t.played) * 100),
-        avgGuesses: t.wins ? Math.round((t.guessSum / t.wins) * 10) / 10 : null,
-        avgPoints: dp ? Math.round(ps / dp) : null,
-        totalPoints: Math.round(ps),
+        winPct: pct(t.wins, t.played),
+        avgPoints: Math.round(t.pts / t.played),
+        totalPoints: Math.round(t.pts),
       };
     });
 
-  const oPlayed = clades.reduce((s, c) => s + c.played, 0);
-  const oWins = clades.reduce((s, c) => s + c.wins, 0);
-
-  // Strength = best win% among groups with at least 3 games.
+  // Strength = highest average points among groups with at least 3 daily games.
   let strengthId: string | null = null;
-  let best = -1;
-  for (const c of clades) {
-    if (c.played >= 3 && c.winPct > best) {
-      best = c.winPct;
-      strengthId = c.id;
+  let bestAvg = -1;
+  for (const g of groups) {
+    if (g.played >= 3 && g.avgPoints > bestAvg) {
+      bestAvg = g.avgPoints;
+      strengthId = g.id;
     }
   }
 
   return {
     played,
     wins,
-    winPct: played ? Math.round((wins / played) * 100) : 0,
+    winPct: pct(wins, played),
     currentStreak,
     maxStreak,
-    distribution,
-    recordedToday: !!h[todayKey],
-    overall: { played: oPlayed, wins: oWins, winPct: oPlayed ? Math.round((oWins / oPlayed) * 100) : 0 },
-    points,
-    clades,
+    points: { total, avg: played ? Math.round(total / played) : 0, best },
+    groups,
     strengthId,
+  };
+}
+
+function derivePractice(clades: Record<string, CladeFree>): PracticeStats {
+  const groups: GroupWin[] = orderedIds
+    .filter((id) => clades[id]?.played)
+    .map((id) => {
+      const t = clades[id];
+      const g = cladeGroup(id);
+      return { id, label: g.label, icon: g.icon, played: t.played, wins: t.wins, winPct: pct(t.wins, t.played) };
+    });
+  const played = groups.reduce((s, g) => s + g.played, 0);
+  const wins = groups.reduce((s, g) => s + g.wins, 0);
+  return { played, wins, winPct: pct(wins, played), groups };
+}
+
+export function derive(store: StatsStore, todayKey: string): DerivedStats {
+  return {
+    daily: deriveDaily(store.history, todayKey),
+    practice: derivePractice(store.clades),
   };
 }

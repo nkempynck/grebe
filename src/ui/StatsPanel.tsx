@@ -1,16 +1,12 @@
 import { useState } from "react";
-import { GUESS_BUCKET_LABELS, guessBucket, type DerivedStats } from "../data/stats";
+import type { DerivedStats, GroupScore, GroupWin } from "../data/stats";
 import type { UsePlayer } from "../hooks/usePlayer";
 
 interface Props {
   stats: DerivedStats;
   player: UsePlayer;
-  /** Highlight this guess-count bucket (this round's result), if won. */
-  highlightGuesses?: number | null;
   onClose?: () => void;
 }
-
-const BUCKET_LABELS = GUESS_BUCKET_LABELS;
 
 function SyncBar({ player }: { player: UsePlayer }) {
   const [open, setOpen] = useState(false);
@@ -52,78 +48,96 @@ function SyncBar({ player }: { player: UsePlayer }) {
   );
 }
 
-export function StatsPanel({ stats, player, highlightGuesses, onClose }: Props) {
-  const maxBar = Math.max(1, ...stats.distribution);
-  const hlIndex = highlightGuesses != null ? guessBucket(highlightGuesses) : -1;
+/** Per-clade rows whose bar length encodes the primary metric (points for daily,
+ *  win% for practice), so the strongest groups read at a glance. */
+function GroupBars({ groups, metric, strengthId }: {
+  groups: (GroupScore | GroupWin)[];
+  metric: "points" | "winpct";
+  strengthId?: string | null;
+}) {
+  const valueOf = (g: GroupScore | GroupWin) =>
+    metric === "points" ? (g as GroupScore).avgPoints : g.winPct;
+  const max = Math.max(1, ...groups.map(valueOf));
+  return (
+    <div className="stats-clades">
+      {groups.map((g) => {
+        const val = valueOf(g);
+        const isStrength = g.id === strengthId;
+        return (
+          <div className={`clade-row${isStrength ? " is-strength" : ""}`} key={g.id}>
+            <span className="clade-ico">{g.icon}</span>
+            <span className="clade-name">{g.label}{isStrength && <span className="clade-star">★</span>}</span>
+            <div className="clade-track">
+              <div className="clade-bar" style={{ width: `${(val / max) * 100}%` }} />
+            </div>
+            {metric === "points" ? (
+              <>
+                <span className="clade-pct">{(g as GroupScore).avgPoints}p</span>
+                <span className="clade-meta" title={`${(g as GroupScore).totalPoints} pts total`}>
+                  {g.wins}/{g.played} · {g.winPct}%
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="clade-pct">{g.winPct}%</span>
+                <span className="clade-meta">{g.wins}/{g.played}</span>
+              </>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function StatsPanel({ stats, player, onClose }: Props) {
+  const { daily, practice } = stats;
 
   return (
     <div className="stats">
       {onClose && (
         <button className="stats-close" onClick={onClose} aria-label="Close stats">×</button>
       )}
-      <div className="stats-sub">Daily statistics</div>
       <SyncBar player={player} />
 
+      {/* ---------- DAILY — ranked, score-based ---------- */}
+      <div className="stats-sub">Daily · ranked</div>
       <div className="stats-nums">
-        <div className="stat"><b>{stats.played}</b><span>Played</span></div>
-        <div className="stat"><b>{stats.winPct}</b><span>Win %</span></div>
-        <div className="stat"><b>{stats.currentStreak}</b><span>Streak</span></div>
-        <div className="stat"><b>{stats.maxStreak}</b><span>Max streak</span></div>
-        <div className="stat"><b>{stats.points.total}</b><span>Points</span></div>
-        <div className="stat"><b>{stats.points.avg}</b><span>Avg / game</span></div>
+        <div className="stat"><b>{daily.points.total}</b><span>Total points</span></div>
+        <div className="stat"><b>{daily.points.avg}</b><span>Avg / game</span></div>
+        <div className="stat"><b>{daily.points.best}</b><span>Best game</span></div>
+        <div className="stat"><b>{daily.currentStreak}</b><span>Streak</span></div>
+        <div className="stat"><b>{daily.maxStreak}</b><span>Max streak</span></div>
+        <div className="stat"><b>{daily.played}</b><span>Played · {daily.winPct}% won</span></div>
       </div>
 
-      <div className="stats-dist-ttl">Daily guess distribution</div>
-      {stats.wins === 0 ? (
-        <p className="stats-empty">No solved dailies yet — your histogram fills in here.</p>
-      ) : (
-        <div className="stats-dist">
-          {stats.distribution.map((count, i) => (
-            <div className="dist-row" key={i}>
-              <span className="dist-label">{BUCKET_LABELS[i]}</span>
-              <div className="dist-track">
-                <div
-                  className={`dist-bar${i === hlIndex ? " is-hl" : ""}`}
-                  style={{ width: `${(count / maxBar) * 100}%` }}
-                >
-                  <span className="dist-count">{count}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="stats-clade-head">
-        <span className="stats-dist-ttl">By clade — all games</span>
-        {stats.overall.played > 0 && (
-          <span className="stats-overall">{stats.overall.winPct}% of {stats.overall.played}</span>
-        )}
-      </div>
-      {stats.clades.length === 0 ? (
-        <p className="stats-empty">Play some rounds (daily or free) to see which groups you're best at.</p>
+      <div className="stats-dist-ttl">Points by clade</div>
+      {daily.groups.length === 0 ? (
+        <p className="stats-empty">Play a daily to start scoring. Points reward harder days, fewer guesses, and no hints.</p>
       ) : (
         <>
-          <div className="stats-clades">
-            {stats.clades.map((c) => (
-              <div className={`clade-row${c.id === stats.strengthId ? " is-strength" : ""}`} key={c.id}>
-                <span className="clade-ico">{c.icon}</span>
-                <span className="clade-name">{c.label}{c.id === stats.strengthId && <span className="clade-star">★</span>}</span>
-                <div className="clade-track">
-                  <div className="clade-bar" style={{ width: `${c.winPct}%` }} />
-                </div>
-                <span className="clade-pct">{c.winPct}%</span>
-                <span className="clade-meta" title={c.totalPoints ? `${c.totalPoints} pts total` : undefined}>
-                  {c.wins}/{c.played}{c.avgPoints != null && ` · ⌀${c.avgPoints}p`}
-                </span>
-              </div>
-            ))}
-          </div>
-          {stats.strengthId && (
+          <GroupBars groups={daily.groups} metric="points" strengthId={daily.strengthId} />
+          {daily.strengthId && (
             <p className="stats-strength">
-              Strongest: <b>{stats.clades.find((c) => c.id === stats.strengthId)?.label}</b>
+              Highest-scoring: <b>{daily.groups.find((g) => g.id === daily.strengthId)?.label}</b>
             </p>
           )}
+        </>
+      )}
+
+      {/* ---------- PRACTICE — free play, unranked ---------- */}
+      <div className="stats-sub stats-sub-2">Practice · free play</div>
+      {practice.played === 0 ? (
+        <p className="stats-empty">Free-play rounds show up here. Practice is unranked, so it isn't scored — just win-rate by group.</p>
+      ) : (
+        <>
+          <div className="stats-nums">
+            <div className="stat"><b>{practice.played}</b><span>Played</span></div>
+            <div className="stat"><b>{practice.wins}</b><span>Won</span></div>
+            <div className="stat"><b>{practice.winPct}</b><span>Win %</span></div>
+          </div>
+          <div className="stats-dist-ttl">Win rate by clade</div>
+          <GroupBars groups={practice.groups} metric="winpct" />
         </>
       )}
     </div>

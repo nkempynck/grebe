@@ -597,6 +597,8 @@ body {
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--brass); margin-bottom: 14px;
 }
+/* Second section header (Practice) — clear divider from the Daily block above. */
+.stats-sub-2 { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--line-soft); }
 .stats-sync {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
   margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line-soft);

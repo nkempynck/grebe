@@ -167,7 +167,7 @@ export default function App() {
 
       {roundOver && (
         <>
-          <ResultCard tree={g.tree} answer={answer} won={g.status === "won"} guessCount={g.guesses.length} streak={daily ? stats.currentStreak : null} par={par} />
+          <ResultCard tree={g.tree} answer={answer} won={g.status === "won"} guessCount={g.guesses.length} streak={daily ? stats.daily.currentStreak : null} par={par} />
           <ShareCard
             config={g.config}
             guesses={g.guesses}
@@ -176,7 +176,7 @@ export default function App() {
             date={today}
             mode={g.mode}
             tier={daily ? g.daily.tier : null}
-            streak={daily ? stats.currentStreak : null}
+            streak={daily ? stats.daily.currentStreak : null}
           />
           {/* Show where you landed among everyone right after a daily. */}
           {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} reloadKey={boardReload} />}
