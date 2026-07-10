@@ -17,3 +17,6 @@ vite.config.d.ts
 
 # backend setup script — run manually in Supabase, kept out of the repo
 supabase/
+
+# personal dev notes / roadmap — not part of the package
+dev-notes.md

@@ -1,128 +1,153 @@
 # Grebe
 
-A daily *guess-the-organism* game played on the tree of life — the Metazooa idea,
-but with user-chosen **scope** (root the tree wherever you like) and **resolution**
-(how close counts as a win), reaching past animals into fungi, plants, and beyond.
+Grebe is a daily *guess-the-organism* web game played on the tree of life. The player
+names organisms; each wrong guess is placed on a shared-ancestry tree at the clade it
+has in common with the hidden answer, so every miss narrows down where the answer sits.
+It is inspired by [Metazooa](https://metazooa.com), and adds a configurable **scope**
+(the tree can be rooted anywhere — not only animals, but also fungi, plants, or all of
+life) and **resolution** (how close a guess must be to count as a win).
 
-Every miss tells you the shared ancestor you branched apart at, plus a warmth score
-that's **rescaled to your scope** so hints stay meaningful even in narrow modes.
+Alongside the shared-ancestry feedback, each guess carries a warmth score that is
+rescaled to the current scope, so the signal stays meaningful even in narrow modes
+(in a birds-only game every guess already shares `Aves`, which a global score would
+read as uniformly "hot").
 
-## Quick start
+## Stack
+
+React 18 + TypeScript, built with Vite. Three runtime dependencies (`react`,
+`react-dom`, `@supabase/supabase-js`). The backend is optional; without it the game
+runs entirely in the browser.
+
+## Running
 
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm run build      # typechecks + production build
+npm run build      # typecheck + production build
 npm run typecheck  # types only
+npm test           # vitest unit tests
 ```
 
-Node 18+ recommended. The app runs fully **offline** out of the box — the taxonomy is
-bundled and the daily is computed client-side. The backend (accounts + leaderboard) is
-optional; see [Backend](#backend-optional).
+Node 18+. The app runs fully offline out of the box: the taxonomy is bundled and the
+daily puzzle is computed client-side, so no network is required to play.
 
-## The one idea to keep in mind
+## Architecture
 
-The whole game is a **pure function over a tree**. That logic lives in `src/core/`
-and imports *nothing* from React or the DOM. Everything else is replaceable around it.
+The game logic is a pure function over a tree. It lives in `src/core/` and imports
+nothing from React or the DOM; everything else is arranged around it.
 
 ```
 src/
-  core/            ← PORTABLE ENGINE. No React, no DOM. Keep it that way.
+  core/              portable engine — no React, no DOM
     types.ts         shared shapes (TaxonNode, GameConfig, GuessResult)
     tree.ts          build/index the tree; ancestry, MRCA, descendants, distance
     game.ts          evaluateGuess + scope-relative warmth + rank-ladder win logic
     daily.ts         deterministic daily pick (seeded by date + scope) + puzzle number
     solver.ts        informed "par" solver — plays the puzzle from the same feedback
-    resolve.ts       typed-name → node
+    resolve.ts       typed name -> node
     index.ts         public barrel — UI imports from "../core" only
   data/
     taxonomy.json    the bundled tree (built by scripts/build-taxonomy.mjs)
-    loadTaxonomy.ts  the ONE place the tree comes from
+    loadTaxonomy.ts  the single source of the tree
     presets.ts       scope + resolution presets (validated against taxonomy.json)
     dailySchedule.ts weekday difficulty ramp + per-day seeded recipe pool
     dailyPlan.ts     curator overrides (committed dailyPlan.json + admin drafts)
-    clades.ts        clade groupings used for per-group stats/leaderboards
+    clades.ts        clade groupings for per-group stats/leaderboards
     score.ts         difficulty-weighted points (mirrors the SQL scoring)
     stats.ts         local stats model (streaks, points, per-clade tallies)
-    games.ts         Supabase RPCs: submit_game, leaderboard, standing
-    supabase.ts      client (null when env vars are absent → offline mode)
-    wikipedia.ts     CORS-friendly Wikipedia summary + article links
+    badges.ts        badge tiers/thresholds; derivation from stats + server standing
+    games.ts         Supabase RPCs: submit_game, leaderboard, standing, player_badges
+    supabase.ts      client (null when env vars are absent -> offline mode)
+    wikipedia.ts     Wikipedia summary + article links for the reveal card
   hooks/
     useGame.ts       couples the engine to React state
     useStats.ts      local + cloud stats sync
     usePlayer.ts     auth session, display name, admin flag
-  ui/                presentational components (the swappable layer)
+  ui/                presentational components
 ```
 
-**Why this shape matters for going native:** moving to Expo / React Native brings
-`core/` and `data/` across untouched. You rewrite `ui/` and the hooks against native
-components; the hard part — the tree math — never changes.
+Because `core/` and `data/` have no UI dependencies, they are portable to a native
+(React Native / Expo) shell; only `ui/` and the hooks are web-specific.
 
-## How the two knobs work
+## Gameplay model
 
-They look like difficulty sliders. They're really coordinates on the tree:
+The two player-facing controls are coordinates on the tree rather than difficulty dials:
 
-- **Scope** = *where the tree is rooted.* "Birds" sets the root to `Aves`.
-- **Resolution** = *how far down a win has to land.* It's an index into a rank ladder
-  (`0` = exact species, `1` = same genus, `2` = family, `3` = order): a guess wins when
+- **Scope** is where the tree is rooted (e.g. "Birds" roots it at `Aves`).
+- **Resolution** is how far down a win must land. It indexes a rank ladder
+  (`0` = exact species, `1` = same genus, `2` = family, `3` = order); a guess wins when
   it shares the answer's clade at that rank.
 
-The non-obvious part, in `game.ts`: **narrowing scope flattens the hint signal.** In
-birds-only every guess already shares `Aves`, so a global warmth score would read
-"all hot." Warmth is therefore rescaled to the scope root — sharing only the scope root
-reads coldest (0), an exact hit reads 1.
+Warmth is rescaled to the scope root (`game.ts`): sharing only the scope root reads as
+coldest, an exact hit reads as warmest.
 
 ## Daily puzzles
 
-`dailySchedule.ts` turns a date into a puzzle deterministically, so everyone plays the
-same thing without a server:
+`dailySchedule.ts` turns a date into a puzzle deterministically, so every player gets
+the same puzzle without a server round-trip:
 
-- **Weekday sets the difficulty tier** (Mon = gentle … Sun = brutal). The tier is also
-  the leaderboard's point weight, so it stays locked to the weekday.
-- **A per-day seed draws the specific recipe** from that day's pool (scope + resolution +
-  assist), so the puzzle is unpredictable but reproducible from the date alone.
-- **`daily.ts` picks the answer** by hashing `date + scope` into the scope's leaves.
+- The **weekday** sets a difficulty tier (Monday gentlest, Sunday hardest). The tier is
+  also the leaderboard's point weight, so it is fixed to the weekday.
+- A **per-day seed** draws the specific recipe (scope + resolution + assist) from that
+  day's pool, so the puzzle is unpredictable but reproducible from the date.
+- `daily.ts` selects the answer by hashing `date + scope` into the scope's leaves.
 
-A curator can override any day (scope, resolution, assist, or a pinned answer) via the
-admin panel (`#admin`); `resolveDailyRules` folds the override over the auto-suggestion.
+Because this is seeded rather than truly random, the puzzle is a pure function of the
+date and is fully reproducible (and, with the source public, computable in advance).
+A curator can override any day — scope, resolution, assist, or a pinned answer — through
+the admin panel (`#admin`); `resolveDailyRules` folds an override over the auto-suggestion.
 
-## The taxonomy
+## Taxonomy
 
-`src/data/taxonomy.json` is built by `scripts/build-taxonomy.mjs` from two sources:
+`src/data/taxonomy.json` is generated by `scripts/build-taxonomy.mjs` from two sources:
 
-- **GBIF backbone** — the species list and clean nested hierarchy (common names, ranks).
-- **Open Tree of Life** — the induced topology used for honest MRCA hints.
+- **GBIF backbone** — the species list and nested hierarchy (common names, ranks).
+- **Open Tree of Life** — the induced topology used for the shared-ancestry hints.
 
-It currently holds ~1,700 recognisable species across ~5,000 nodes. Raw dumps have 1M+
-species (mostly obscure beetles); the curation down to organisms people can actually name
-is the real content work. To rebuild, run the script and commit the regenerated JSON.
+The snapshot holds roughly 1,700 recognisable species across about 5,000 nodes. The
+underlying dumps contain over a million species, most of them obscure; curating down to
+organisms people can recognise is the bulk of the content work. Regenerating the JSON is
+the only step that touches the network.
 
 ## Backend (optional)
 
-With no Supabase env vars set, the app is fully local (bundled daily plan + localStorage).
-Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (see `.env.example`) to enable
-accounts, cross-device sync, and the leaderboard. The anon key is public-safe: **row-level
-security** in the database is what protects writes.
+With no Supabase environment variables set, the app is fully local (bundled daily plan
+plus `localStorage`). Setting `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (see
+`.env.example`) enables accounts, cross-device sync, and the leaderboard. The anon key is
+public by design; row-level security in the database is what protects writes.
 
-- **Leaderboard scores are server-computed.** Clients call the `submit_game()` RPC; the
-  server pins the difficulty tier from the date and derives guess/hint counts, so a client
-  can't post a fabricated score. Direct table inserts are revoked.
-- **Setup lives in `supabase/schema.sql`** (kept out of this repo — run it once in the
-  Supabase SQL editor). The admin panel has a live schema self-check.
+- **Scores are computed server-side.** Clients call the `submit_game()` RPC, which pins
+  the difficulty tier from the date and derives guess/hint counts from the submitted id
+  arrays; direct table inserts are denied by RLS. Only daily games are stored server-side
+  (free play is tracked client-side).
+- The schema lives in `supabase/schema.sql` (kept out of the repository; run once in the
+  Supabase SQL editor). The admin panel includes a live schema self-check.
 
-## Design tensions you may still want to decide on
+## Scoring
 
-- **The synonym layer is the expensive content.** `resolve.ts` matches exact
-  common/scientific names. Real play wants "orca" = "killer whale", typo tolerance, etc.
-  Build it as **data**, not code, so it can grow. Likely the biggest content cost.
-- **Folk categories aren't clades.** "Fish", "reptiles", "bugs" aren't monophyletic.
-  Whether a scope obeys cladistics or folk intuition is a per-scope call — a "reptiles"
-  scope that excludes birds is a *feature* that teaches.
+A game's points are `weight × efficiency × hint-factor`, zero for a loss. The weight is
+the day's difficulty tier (`40 + 20 × tier`); efficiency decays gently with guess count;
+the hint factor decreases with an escalating penalty per hint. The formula exists in two
+places that must stay identical — `gamePoints` in `src/data/score.ts` and `game_points`
+in `supabase/schema.sql` — and a unit test pins the client side against golden values to
+catch drift.
 
-## Suggested next steps
+## Limitations
 
-- Fuzzy, synonym-aware guess matching (see the synonym note above).
-- Lift `core/` into its own workspace package to share with a future native app.
-- Truly-random (server-rolled) daily answers, if seeded determinism ever feels too
-  predictable now that the code is public.
-- Richer per-clade / past-day leaderboard browsing.
+- **Name matching is exact.** `resolve.ts` matches a guess against exact common or
+  scientific names; there is no synonym table or typo tolerance, so "orca" does not
+  resolve to "killer whale". A data-driven synonym layer is the largest outstanding gap.
+- **Folk categories are not clades.** "Fish", "reptiles", and "bugs" are not
+  monophyletic; where a scope follows folk intuition rather than strict cladistics (e.g. a
+  "reptiles" scope that excludes birds) that is a deliberate simplification.
+- **Leaderboard integrity is casual.** `won` cannot be verified server-side (the tree is
+  client-only), so the board is effectively self-reported. Volume is capped at one daily
+  result per player per day, but a crafted request could submit a fabricated result.
+- **Standing/leaderboard/badge queries aggregate on each request.** This is inexpensive at
+  small scale; at a large player base it would warrant a materialised standings table.
+- **Accounts have no email**, so a forgotten password cannot be recovered.
+
+## Testing
+
+`npm test` runs the Vitest suite: a scoring golden-table (guarding client/SQL parity),
+daily determinism, the win-rank ladder, and solver-par bounds.
