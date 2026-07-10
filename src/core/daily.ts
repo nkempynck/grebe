@@ -13,7 +13,9 @@ function xmur3(str: string): number {
   return (h ^= h >>> 16) >>> 0;
 }
 
-/** YYYY-MM-DD in local time. */
+/** YYYY-MM-DD in UTC. Deliberately UTC (not local): it matches the server's
+ *  current_date and keeps the daily global — the puzzle flips at the same instant
+ *  everywhere. Don't "fix" this to local time; it would desync from the board. */
 export function todayKey(d = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
