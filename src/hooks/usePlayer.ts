@@ -8,6 +8,9 @@ export interface UsePlayer {
   session: Session | null;
   /** Login-derived username (the account identifier, sans internal domain). */
   username: string | null;
+  /** True only for allowlisted admins (server-checked via is_admin()). Gates
+   *  admin-only affordances like the leaderboard demo preview. */
+  isAdmin: boolean;
   /** The editable public name shown on leaderboards (profiles.display_name). */
   displayName: string | null;
   error: string | null;
@@ -32,6 +35,7 @@ const fromEmail = (e: string | undefined) =>
 export function usePlayer(): UsePlayer {
   const [session, setSession] = useState<Session | null>(null);
   const [displayName, setDisplayNameState] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,6 +55,16 @@ export function usePlayer(): UsePlayer {
       .eq("id", session.user.id)
       .maybeSingle()
       .then(({ data }) => { if (live) setDisplayNameState(data?.display_name ?? null); });
+    return () => { live = false; };
+  }, [session]);
+
+  // Server-verified admin flag. is_admin() is SECURITY DEFINER and keys off the
+  // caller's JWT, so this can't be spoofed client-side. Non-admins (and signed-out
+  // players) resolve to false, which hides admin-only affordances.
+  useEffect(() => {
+    if (!supabase || !session) { setIsAdmin(false); return; }
+    let live = true;
+    supabase.rpc("is_admin").then(({ data }) => { if (live) setIsAdmin(data === true); });
     return () => { live = false; };
   }, [session]);
 
@@ -88,6 +102,7 @@ export function usePlayer(): UsePlayer {
     configured: isSupabaseConfigured,
     session,
     username: fromEmail(session?.user.email),
+    isAdmin,
     displayName,
     error,
     signIn,

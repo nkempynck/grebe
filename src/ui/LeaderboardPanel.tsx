@@ -14,6 +14,8 @@ interface Props {
   me: string | null;
   /** "today" = the fixed daily board (no controls); "config" = filterable. */
   variant: "today" | "config";
+  /** Admin-only: expose the demo-data preview toggle (a layout preview tool). */
+  canPreview?: boolean;
   onClose?: () => void;
 }
 
@@ -29,7 +31,7 @@ const GROUPS: { id: string | null; label: string; icon: string }[] = [
   { id: OTHER_GROUP.id, label: OTHER_GROUP.label, icon: OTHER_GROUP.icon },
 ];
 
-export function LeaderboardPanel({ me, variant, onClose }: Props) {
+export function LeaderboardPanel({ me, variant, canPreview = false, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [group, setGroup] = useState<string | null>(null);
@@ -40,10 +42,13 @@ export function LeaderboardPanel({ me, variant, onClose }: Props) {
 
   const groupLabel = GROUPS.find((g) => g.id === group)?.label ?? null;
   const groupLabelForDemo = group === null ? null : groupLabel;
+  // Demo preview is an admin-only layout tool; never active for regular players
+  // even if state somehow flips (the toggle that sets it is admin-gated below).
+  const previewing = demo && canPreview;
 
   useEffect(() => {
     let live = true;
-    if (demo) {
+    if (previewing) {
       const b = demoBoard(period, groupLabelForDemo);
       setRows(b.rows);
       setTotal(b.totalPlayers);
@@ -58,17 +63,17 @@ export function LeaderboardPanel({ me, variant, onClose }: Props) {
       setTotal(s?.total_players ?? r.length);
     });
     return () => { live = false; };
-  }, [period, group, demo, groupLabelForDemo]);
+  }, [period, group, previewing, groupLabelForDemo]);
 
-  const highlight = demo ? "you" : me;
+  const highlight = previewing ? "you" : me;
   const maxScore = rows && rows.length ? Math.max(...rows.map((r) => r.total_score), 1) : 1;
-  const canShowYou = demo || !!me;
+  const canShowYou = previewing || !!me;
 
   return (
     <div className="lb">
       {onClose && <button className="stats-close" onClick={onClose} aria-label="Close leaderboard">×</button>}
       <div className="stats-sub">
-        {isToday ? "Today’s leaderboard" : `Rankings — ${groupLabel ?? "Overall"}`}{demo && " · demo"}
+        {isToday ? "Today’s leaderboard" : `Rankings — ${groupLabel ?? "Overall"}`}{previewing && " · demo"}
       </div>
 
       {!isToday && (
@@ -140,10 +145,12 @@ export function LeaderboardPanel({ me, variant, onClose }: Props) {
       )}
 
       <p className="lb-note">
-        Score rewards harder days, fewer guesses, and no hints. Daily games only.{" "}
-        <button className="lb-demo-toggle" onClick={() => setDemo((d) => !d)}>
-          {demo ? "show live" : "preview demo data"}
-        </button>
+        Score rewards harder days, fewer guesses, and no hints. Daily games only.{canPreview && " "}
+        {canPreview && (
+          <button className="lb-demo-toggle" onClick={() => setDemo((d) => !d)}>
+            {demo ? "show live" : "preview demo data"}
+          </button>
+        )}
       </p>
     </div>
   );

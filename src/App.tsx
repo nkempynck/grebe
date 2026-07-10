@@ -73,8 +73,8 @@ export default function App() {
 
   // Informed-solver "par" for the finished puzzle (cheap; only when it's over).
   const par = useMemo(
-    () => (roundOver && g.tree && g.answerId ? informedPar(g.tree, g.config, g.answerId) : null),
-    [roundOver, g.tree, g.answerId, g.config.scopeRootId, g.config.winWithin]
+    () => (roundOver && g.tree && g.answerId ? informedPar(g.tree, g.config, g.answerId, g.assist) : null),
+    [roundOver, g.tree, g.answerId, g.config.scopeRootId, g.config.winWithin, g.assist]
   );
 
   if (g.error && !g.tree) {
@@ -174,7 +174,7 @@ export default function App() {
             streak={daily ? stats.currentStreak : null}
           />
           {/* Show where you landed among everyone right after a daily. */}
-          {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" />}
+          {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} />}
         </>
       )}
 
@@ -233,8 +233,8 @@ export default function App() {
       {view === "play" && play}
       {view === "leaderboard" && (
         <>
-          <LeaderboardPanel me={boardName} variant="today" />
-          <LeaderboardPanel me={boardName} variant="config" />
+          <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} />
+          <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} />
         </>
       )}
       {view === "account" && <AccountPanel stats={stats} player={player} />}

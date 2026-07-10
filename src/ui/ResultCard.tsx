@@ -45,9 +45,9 @@ export function ResultCard({ tree, answer, won, guessCount, streak, par }: Props
       {par != null && (
         <div className="par">
           🤖 Solver's par: {par}
-          {won && (
-            <span className={guessCount <= par ? "par-beat" : "par-over"}>
-              {guessCount < par ? " · you beat it!" : guessCount === par ? " · you matched it" : ` · you +${guessCount - par}`}
+          {won && guessCount <= par && (
+            <span className="par-beat">
+              {guessCount < par ? " · you beat it!" : " · you matched it"}
             </span>
           )}
         </div>
