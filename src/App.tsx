@@ -23,6 +23,9 @@ export default function App() {
   const g = useGame(userId);
   const { stats, record } = useStats(userId);
   const [view, setView] = useState<"play" | "leaderboard" | "account" | "about">("play");
+  // Bumped once a finished game's server write resolves, so the post-game board
+  // refetches and includes the row just submitted (instead of racing the write).
+  const [boardReload, setBoardReload] = useState(0);
   const [hash, setHash] = useState(() => window.location.hash);
 
   useEffect(() => {
@@ -54,6 +57,8 @@ export default function App() {
       tier: g.daily.tier,
     });
     // Signed-in players also get a durable per-game row (for stats/leaderboards).
+    // When the write resolves the row is committed, so bump boardReload to refetch
+    // the post-game leaderboard (otherwise it renders before the row exists).
     if (player.session) {
       void recordGame({
         userId: player.session.user.id,
@@ -67,7 +72,7 @@ export default function App() {
         tier: daily ? g.daily.tier : null,
         guessIds: g.guesses.map((r) => r.guess.id),
         hintIds: g.hintIds,
-      });
+      }).then(() => setBoardReload((c) => c + 1));
     }
   }, [roundOver, daily, g.dailyLocked, g.mode, g.tree, g.answerId, g.status, g.guesses, g.hintIds, g.daily.tier, g.config.scopeRootId, player.session, record]);
 
@@ -174,7 +179,7 @@ export default function App() {
             streak={daily ? stats.currentStreak : null}
           />
           {/* Show where you landed among everyone right after a daily. */}
-          {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} />}
+          {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} reloadKey={boardReload} />}
         </>
       )}
 

@@ -16,6 +16,8 @@ interface Props {
   variant: "today" | "config";
   /** Admin-only: expose the demo-data preview toggle (a layout preview tool). */
   canPreview?: boolean;
+  /** Bump to force a refetch (e.g. after a just-finished game is submitted). */
+  reloadKey?: number;
   onClose?: () => void;
 }
 
@@ -31,7 +33,7 @@ const GROUPS: { id: string | null; label: string; icon: string }[] = [
   { id: OTHER_GROUP.id, label: OTHER_GROUP.label, icon: OTHER_GROUP.icon },
 ];
 
-export function LeaderboardPanel({ me, variant, canPreview = false, onClose }: Props) {
+export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 0, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [group, setGroup] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export function LeaderboardPanel({ me, variant, canPreview = false, onClose }: P
       setTotal(s?.total_players ?? r.length);
     });
     return () => { live = false; };
-  }, [period, group, previewing, groupLabelForDemo]);
+  }, [period, group, previewing, groupLabelForDemo, reloadKey]);
 
   const highlight = previewing ? "you" : me;
   const maxScore = rows && rows.length ? Math.max(...rows.map((r) => r.total_score), 1) : 1;
