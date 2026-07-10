@@ -207,7 +207,16 @@ function nextDay(dateKey: string): string {
 const pct = (wins: number, played: number) => (played ? Math.round((wins / played) * 100) : 0);
 const orderedIds = [...CLADE_GROUPS.map((g) => g.id), OTHER_GROUP.id];
 
-function deriveDaily(history: Record<string, DailyEntry>, todayKey: string): DailyStats {
+/** Resolve a daily's clade group from its date (the daily is deterministic, so
+ *  this recovers the group for history entries recorded before groups were
+ *  stored). Returns null when it can't (e.g. tree not loaded yet). */
+export type DailyGroupResolver = (dateKey: string) => string | null;
+
+function deriveDaily(
+  history: Record<string, DailyEntry>,
+  todayKey: string,
+  groupForDate?: DailyGroupResolver
+): DailyStats {
   const dates = Object.keys(history);
   const played = dates.length;
   const wins = dates.filter((d) => history[d].status === "won").length;
@@ -221,7 +230,9 @@ function deriveDaily(history: Record<string, DailyEntry>, todayKey: string): Dai
     const p = gamePoints(e.status === "won", e.tier, e.guesses, e.hints);
     total += p;
     if (p > best) best = p;
-    const gid = e.group;
+    // Prefer the group tagged at play time; fall back to recomputing from the
+    // date for entries recorded before groups were stored.
+    const gid = e.group ?? groupForDate?.(d) ?? null;
     if (gid) {
       const t = (tally[gid] ??= { played: 0, wins: 0, pts: 0 });
       t.played++;
@@ -302,9 +313,9 @@ function derivePractice(clades: Record<string, CladeFree>): PracticeStats {
   return { played, wins, winPct: pct(wins, played), groups };
 }
 
-export function derive(store: StatsStore, todayKey: string): DerivedStats {
+export function derive(store: StatsStore, todayKey: string, groupForDate?: DailyGroupResolver): DerivedStats {
   return {
-    daily: deriveDaily(store.history, todayKey),
+    daily: deriveDaily(store.history, todayKey, groupForDate),
     practice: derivePractice(store.clades),
   };
 }

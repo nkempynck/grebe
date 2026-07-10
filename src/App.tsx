@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGame } from "./hooks/useGame";
 import { informedPar } from "./core";
 import { groupOf } from "./data/clades";
 import { useStats } from "./hooks/useStats";
 import { usePlayer } from "./hooks/usePlayer";
 import { recordGame } from "./data/games";
-import { todayKey, dailyNumber } from "./core/daily";
+import { todayKey, dailyNumber, dailyAnswerId } from "./core/daily";
+import { resolveDailyRules } from "./data/dailySchedule";
 import { SettingsPanel } from "./ui/SettingsPanel";
 import { GuessInput } from "./ui/GuessInput";
 import { ResultCard } from "./ui/ResultCard";
@@ -21,7 +22,19 @@ export default function App() {
   const player = usePlayer();
   const userId = player.session?.user.id ?? null;
   const g = useGame(userId);
-  const { stats, record } = useStats(userId);
+  // The daily is deterministic, so a past date's clade group is recomputable —
+  // lets per-clade daily stats include games recorded before groups were stored.
+  const tree = g.tree;
+  const dailyGroupOf = useCallback(
+    (dateKey: string): string | null => {
+      if (!tree) return null;
+      const rules = resolveDailyRules(dateKey);
+      const answerId = rules.answerId ?? dailyAnswerId(tree, rules.config.scopeRootId, dateKey);
+      return groupOf(tree, answerId);
+    },
+    [tree]
+  );
+  const { stats, record } = useStats(userId, dailyGroupOf);
   const [view, setView] = useState<"play" | "leaderboard" | "account" | "about">("play");
   // Bumped once a finished game's server write resolves, so the post-game board
   // refetches and includes the row just submitted (instead of racing the write).

@@ -12,6 +12,7 @@ import {
   saveStore,
   isEmptyStore,
   type DailyEntry,
+  type DailyGroupResolver,
   type DerivedStats,
 } from "../data/stats";
 
@@ -29,8 +30,10 @@ export interface UseStats {
   record: (mode: "daily" | "free", groupId: string, entry: DailyEntry) => void;
 }
 
-/** @param userId  signed-in player's id, or null for local-only. */
-export function useStats(userId: string | null): UseStats {
+/** @param userId  signed-in player's id, or null for local-only.
+ *  @param groupForDate  resolves a daily's clade group from its date, so
+ *  per-clade daily stats work even for entries recorded before groups existed. */
+export function useStats(userId: string | null, groupForDate?: DailyGroupResolver): UseStats {
   const today = todayKey();
   const [store, setStore] = useState(() => loadStore());
   const [syncing, setSyncing] = useState(false);
@@ -83,7 +86,7 @@ export function useStats(userId: string | null): UseStats {
     };
   }, [userId]);
 
-  const stats = useMemo(() => derive(store, today), [store, today]);
+  const stats = useMemo(() => derive(store, today, groupForDate), [store, today, groupForDate]);
 
   const record = useCallback(
     (mode: "daily" | "free", groupId: string, entry: DailyEntry) => {
