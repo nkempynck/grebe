@@ -768,6 +768,29 @@ body {
 .lb-seg:hover { border-color: var(--brass); color: var(--ink); }
 .lb-seg.is-on { border-color: var(--brass); color: var(--ink); background: color-mix(in srgb, var(--brass) 16%, var(--bg)); }
 
+/* Day navigator — step through past dailies. */
+.lb-daynav { display: flex; align-items: center; gap: 10px; }
+.lb-daynav-btn {
+  font-family: var(--font-mono); font-size: 16px; line-height: 1;
+  width: 30px; height: 30px; display: grid; place-items: center;
+  background: var(--bg); color: var(--ink-soft);
+  border: 1px solid var(--line); border-radius: 50%; cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+.lb-daynav-btn:hover:not(:disabled) { border-color: var(--brass); color: var(--ink); }
+.lb-daynav-btn:disabled { opacity: 0.35; cursor: default; }
+.lb-daynav-lbl {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
+  color: var(--ink); font-variant-numeric: tabular-nums; min-width: 0;
+}
+.lb-dayanswer {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.03em;
+  color: var(--ink-soft); flex-basis: 100%;
+}
+.lb-dayanswer b { color: var(--vermilion); font-weight: 600; }
+.lb-dayanswer i { color: var(--ink-faint); font-style: italic; }
+.lb-dayanswer.is-muted { color: var(--ink-faint); font-style: italic; }
+
 .lb-rows { display: flex; flex-direction: column; }
 .lb-row {
   position: relative;
@@ -815,7 +838,7 @@ body {
 }
 .share-btn:hover { background: var(--brass-bright); }
 
-/* ---- About the data ---- */
+/* ---- About ---- */
 .about { display: flex; flex-direction: column; gap: 22px; }
 .about-lede { font-size: 18px; color: var(--ink-soft); margin: 0; max-width: 62ch; }
 .about-lede b { color: var(--ink); font-weight: 600; }

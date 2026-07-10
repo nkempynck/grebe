@@ -59,14 +59,16 @@ export interface Standing {
   avg_guesses: number | null;
 }
 
-/** The caller's standing (rank + total players) for a filter. */
+/** The caller's standing (rank + total players) for a filter. When `forDate` is
+ *  set, the standing is for exactly that past puzzle date (period is ignored). */
 export async function fetchStanding(
   period: LeaderboardPeriod = "all",
-  groupKey: string | null = null
+  groupKey: string | null = null,
+  forDate: string | null = null
 ): Promise<Standing | null> {
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase.rpc("leaderboard_standing", { period, group_key: groupKey });
+    const { data, error } = await supabase.rpc("leaderboard_standing", { period, group_key: groupKey, for_date: forDate });
     if (error || !data || !data[0]) return null;
     return data[0] as Standing;
   } catch {
@@ -79,7 +81,8 @@ export async function fetchStanding(
 export async function fetchLeaderboard(
   period: LeaderboardPeriod = "all",
   groupKey: string | null = null,
-  limit = 50
+  limit = 50,
+  forDate: string | null = null
 ): Promise<LeaderboardEntry[]> {
   if (!supabase) return [];
   try {
@@ -87,6 +90,7 @@ export async function fetchLeaderboard(
       period,
       group_key: groupKey,
       limit_n: limit,
+      for_date: forDate,
     });
     if (error || !data) return [];
     return data as LeaderboardEntry[];

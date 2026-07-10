@@ -35,6 +35,18 @@ export default function App() {
     },
     [tree]
   );
+  // The answer species for a past date (deterministic) — shown on that day's
+  // leaderboard. Callers only use it for finished days, never today's puzzle.
+  const dailyAnswerOf = useCallback(
+    (dateKey: string): { name: string; sci: string } | null => {
+      if (!tree) return null;
+      const rules = resolveDailyRules(dateKey);
+      const answerId = rules.answerId ?? dailyAnswerId(tree, rules.config.scopeRootId, dateKey);
+      const node = tree.byId.get(answerId);
+      return node ? { name: node.common ?? node.sciName, sci: node.sciName } : null;
+    },
+    [tree]
+  );
   const { stats, record } = useStats(userId, dailyGroupOf);
   const [view, setView] = useState<"play" | "leaderboard" | "account" | "about">("play");
   // Bumped once a finished game's server write resolves, so the post-game board
@@ -128,7 +140,7 @@ export default function App() {
   const eyebrow =
     view === "leaderboard" ? "Leaderboard" :
     view === "account" ? "Your account" :
-    view === "about" ? "About the data" :
+    view === "about" ? "About Grebe" :
     daily ? `Daily specimen №${dailyNumber(today)}` : "Free play";
 
   const play = (
@@ -279,7 +291,7 @@ export default function App() {
       {view === "leaderboard" && (
         <>
           <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} />
-          <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} />
+          <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} />
         </>
       )}
       {view === "account" && <AccountPanel stats={stats} player={player} />}

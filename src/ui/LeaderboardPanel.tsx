@@ -8,6 +8,7 @@ import {
 } from "../data/games";
 import { demoBoard } from "../data/demoLeaderboard";
 import { CLADE_GROUPS, OTHER_GROUP } from "../data/clades";
+import { todayKey, dailyNumber, DAILY_EPOCH } from "../core/daily";
 
 interface Props {
   /** Signed-in player's display name, to highlight their own row. */
@@ -18,6 +19,9 @@ interface Props {
   canPreview?: boolean;
   /** Bump to force a refetch (e.g. after a just-finished game is submitted). */
   reloadKey?: number;
+  /** Resolve a past day's answer species (for the day-browsing view). Only ever
+   *  called for finished days, so it never reveals today's puzzle. */
+  answerForDate?: (dateKey: string) => { name: string; sci: string } | null;
   onClose?: () => void;
 }
 
@@ -25,7 +29,15 @@ const PERIODS: { k: LeaderboardPeriod; label: string }[] = [
   { k: "all", label: "All time" },
   { k: "month", label: "Month" },
   { k: "week", label: "Week" },
+  { k: "day", label: "By day" },
 ];
+
+/** Shift a YYYY-MM-DD key by whole days (UTC), for the day navigator. */
+function stepDate(key: string, delta: number): string {
+  const d = new Date(`${key}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
 
 const GROUPS: { id: string | null; label: string; icon: string }[] = [
   { id: null, label: "Overall", icon: "🏆" },
@@ -33,10 +45,11 @@ const GROUPS: { id: string | null; label: string; icon: string }[] = [
   { id: OTHER_GROUP.id, label: OTHER_GROUP.label, icon: OTHER_GROUP.icon },
 ];
 
-export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 0, onClose }: Props) {
+export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 0, answerForDate, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [group, setGroup] = useState<string | null>(null);
+  const [dayDate, setDayDate] = useState<string>(() => todayKey());
   const [demo, setDemo] = useState(false);
   const [rows, setRows] = useState<LeaderboardEntry[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -47,6 +60,12 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
   // Demo preview is an admin-only layout tool; never active for regular players
   // even if state somehow flips (the toggle that sets it is admin-gated below).
   const previewing = demo && canPreview;
+  // When browsing a specific past day, pin the board to that date (period ignored).
+  const today = todayKey();
+  const browsingDay = !isToday && period === "day";
+  const forDate = browsingDay ? dayDate : null;
+  // The answer is revealed only for a finished day (never today's live puzzle).
+  const dayAnswer = browsingDay && dayDate < today && answerForDate ? answerForDate(dayDate) : null;
 
   useEffect(() => {
     let live = true;
@@ -58,14 +77,14 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
       return;
     }
     setRows(null);
-    Promise.all([fetchLeaderboard(period, group, 10), fetchStanding(period, group)]).then(([r, s]) => {
+    Promise.all([fetchLeaderboard(period, group, 10, forDate), fetchStanding(period, group, forDate)]).then(([r, s]) => {
       if (!live) return;
       setRows(r);
       setStanding(s);
       setTotal(s?.total_players ?? r.length);
     });
     return () => { live = false; };
-  }, [period, group, previewing, groupLabelForDemo, reloadKey]);
+  }, [period, group, previewing, groupLabelForDemo, reloadKey, forDate]);
 
   const highlight = previewing ? "you" : me;
   const maxScore = rows && rows.length ? Math.max(...rows.map((r) => r.total_score), 1) : 1;
@@ -75,7 +94,12 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
     <div className="lb">
       {onClose && <button className="stats-close" onClick={onClose} aria-label="Close leaderboard">×</button>}
       <div className="stats-sub">
-        {isToday ? "Today’s leaderboard" : `Rankings — ${groupLabel ?? "Overall"}`}{previewing && " · demo"}
+        {isToday
+          ? "Today’s leaderboard"
+          : browsingDay
+            ? `Daily №${dailyNumber(dayDate)} — ${groupLabel ?? "Overall"}`
+            : `Rankings — ${groupLabel ?? "Overall"}`}
+        {previewing && " · demo"}
       </div>
 
       {!isToday && (
@@ -94,13 +118,37 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
               </button>
             ))}
           </div>
+          {browsingDay && (
+            <div className="lb-daynav">
+              <button
+                className="lb-daynav-btn"
+                onClick={() => setDayDate((d) => stepDate(d, -1))}
+                disabled={dayDate <= DAILY_EPOCH}
+                aria-label="Previous day"
+              >‹</button>
+              <span className="lb-daynav-lbl">№{dailyNumber(dayDate)} · {dayDate}{dayDate === today && " · today"}</span>
+              <button
+                className="lb-daynav-btn"
+                onClick={() => setDayDate((d) => stepDate(d, 1))}
+                disabled={dayDate >= today}
+                aria-label="Next day"
+              >›</button>
+            </div>
+          )}
+          {browsingDay && (
+            dayAnswer ? (
+              <div className="lb-dayanswer">Answer · <b>{dayAnswer.name}</b> <i>{dayAnswer.sci}</i></div>
+            ) : dayDate === today ? (
+              <div className="lb-dayanswer is-muted">Today’s answer is hidden until the day ends.</div>
+            ) : null
+          )}
         </div>
       )}
 
       {rows === null ? (
         <p className="stats-empty">Loading…</p>
       ) : rows.length === 0 ? (
-        <p className="stats-empty">No ranked games {isToday ? "today" : "here yet"}. Play a signed-in daily to appear.</p>
+        <p className="stats-empty">No ranked games {isToday ? "today" : browsingDay ? "on this day" : "here yet"}. Play a signed-in daily to appear.</p>
       ) : (
         <>
           <div className="lb-rows">
