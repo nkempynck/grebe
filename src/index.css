@@ -879,3 +879,28 @@ body {
   margin: 6px 0 0; padding-top: 18px; border-top: 1px solid var(--line);
   font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); line-height: 1.6;
 }
+/* Jump links to the sections below. */
+.about-toc { display: flex; flex-wrap: wrap; gap: 8px; }
+.about-toc-link {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
+  color: var(--ink-soft); background: none; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 20px; padding: 5px 12px;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.about-toc-link:hover { color: var(--brass-bright); border-color: var(--brass); }
+/* Body prose in the About sections. */
+.about-p { margin: 0; font-size: 15px; color: var(--ink-soft); line-height: 1.6; max-width: 66ch; }
+.about-p b { color: var(--ink); font-weight: 600; }
+.about-personal { padding-left: 12px; border-left: 2px solid var(--line); color: var(--ink-faint); }
+.about-privacy { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.about-privacy li {
+  font-size: 14.5px; color: var(--ink-soft); line-height: 1.55; max-width: 66ch;
+  padding-left: 16px; position: relative;
+}
+.about-privacy li b { color: var(--ink); font-weight: 600; }
+.about-privacy li::before {
+  content: ""; position: absolute; left: 0; top: 9px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--cold);
+}
+/* Scrolled-to headings clear the sticky masthead a little. */
+.about-h { scroll-margin-top: 16px; }
