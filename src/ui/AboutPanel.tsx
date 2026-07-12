@@ -36,18 +36,25 @@ export function AboutPanel() {
       <h3 id="about-game" className="about-h">The game</h3>
       <p className="about-lede">
         Guess the hidden organism. Every miss lands on a shared-ancestry tree at the clade it has in
-        common with the answer, so each guess narrows where the target sits — closer guesses branch
+        common with the answer, so each guess narrows where the target sits, closer guesses branch
         off lower down.
       </p>
       <p className="about-p">
         Grebe is directly inspired by{" "}
         <a href="https://metazooa.com" target="_blank" rel="noreferrer">Metazooa</a> (and its plant
-        counterpart, Metaflora) — the daily animal-guessing game where each wrong guess reveals the
-        nearest shared taxonomic rank. Grebe keeps that core loop and adds a few twists: you can
-        <b> re-root the tree</b> to any scope (not just animals — fungi, plants, all of life), pick
+        counterpart, Metaflora), the daily animal-guessing game where each wrong guess reveals the
+        nearest shared taxonomic rank (check it out!). Grebe keeps that core loop and adds a few twists: you can
+        <b> re-root the tree</b> to any scope (animals, fungi, plants, all of life), pick
         how close counts as a win (<b>resolution</b>, from exact species out to same order), and
         read a <b>drawn cladogram</b> that shows exactly where each guess split off. There's a shared
         daily puzzle with a leaderboard, plus free play for practice.
+      </p>
+        
+      
+      <p className="about-p">
+        This game was purely made as a personal project, coming from my interest in evoluationary biology and 
+        love for daily puzzle games. It is not affiliated with Metazooa or its creator in any way. It is intended
+        for fun and educational purposes, and I hope it helps people learn more about the diversity of life on Earth.
       </p>
 
       {/* ---------- Data sources ---------- */}
@@ -70,7 +77,7 @@ export function AboutPanel() {
             The <a href="https://www.gbif.org" target="_blank" rel="noreferrer">Global
             Biodiversity Information Facility</a> aggregates occurrence records from museums,
             herbaria, and citizen-science platforms (iNaturalist, eBird). It provides the set of
-            species — selected per group and ranked by number of occurrence records — along with
+            species, selected per group and ranked by number of occurrence records — along with
             their English common names.
           </p>
         </div>
@@ -79,7 +86,7 @@ export function AboutPanel() {
           <p>
             The <a href="https://tree.opentreeoflife.org" target="_blank" rel="noreferrer">Open
             Tree of Life</a> is a synthetic phylogeny assembled from published studies and
-            reference taxonomies. It provides the tree connecting those species — the branching
+            reference taxonomies. It provides the tree connecting those species; the branching
             structure, the named clades (Amniota, Tetrapoda…), and the taxonomic ranks.
           </p>
         </div>
@@ -106,7 +113,7 @@ export function AboutPanel() {
         </li>
         <li>
           <b>Write the snapshot.</b> The result is written to a single JSON file. The network is
-          used only during this build step — run <code>npm run build:taxonomy</code> to refresh it.
+          used only during this build step: run <code>npm run build:taxonomy</code> to refresh it.
         </li>
       </ol>
 
@@ -114,13 +121,10 @@ export function AboutPanel() {
       <h3 id="about-name" className="about-h">The name</h3>
       <p className="about-p">
         Grebes are a family of diving waterbirds (<i>Podicipedidae</i>) found on lakes and ponds
-        worldwide — striking to watch, easy to overlook, and not closely related to the ducks and
-        loons they superficially resemble. A small, unshowy reminder that the tree of life is full
-        of look-alikes that branched apart long ago.
-      </p>
-      {/* TODO(you): replace with your personal note on why "Grebe". */}
-      <p className="about-p about-personal">
-        <i>[Personal note about the name goes here.]</i>
+        worldwide. Striking to watch, easy to overlook, and not closely related to the ducks and
+        loons they superficially resemble. They also have very interesting courtship displays, <a href="https://www.youtube.com/watch?v=98ceB5SPRXI " target="_blank" rel="noreferrer">check that out for sure</a>.
+
+        I chose the name Grebe because the Great Crested Grebe was one of the first birds in my birding journey that I observed and photographed quite closely.
       </p>
 
       {/* ---------- Privacy ---------- */}
@@ -134,7 +138,7 @@ export function AboutPanel() {
           about your games leaves your device.
         </li>
         <li>
-          <b>Accounts are optional.</b> If you create one, it's a username and password only — no
+          <b>Accounts are optional.</b> If you create one, it's a username and password only, no
           email. Your stats and finished games then sync so they carry across devices and can appear
           on the leaderboard. (No email means a forgotten password can't be recovered.)
         </li>
