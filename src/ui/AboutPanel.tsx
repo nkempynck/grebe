@@ -7,7 +7,8 @@ function jump(id: string) {
 }
 
 const SECTIONS = [
-  { id: "about-game", label: "The game" },
+  { id: "about-platform", label: "What Grebe is" },
+  { id: "about-games", label: "The games" },
   { id: "about-data", label: "Data sources" },
   { id: "about-build", label: "How it's built" },
   { id: "about-name", label: "The name" },
@@ -32,30 +33,64 @@ export function AboutPanel() {
         ))}
       </nav>
 
-      {/* ---------- The game ---------- */}
-      <h3 id="about-game" className="about-h">The game</h3>
+      {/* ---------- What Grebe is ---------- */}
+      <h3 id="about-platform" className="about-h">What Grebe is</h3>
       <p className="about-lede">
-        Guess the hidden organism. Every miss lands on a shared-ancestry tree at the clade it has in
-        common with the answer, so each guess narrows where the target sits, closer guesses branch
-        off lower down.
+        Grebe is a small platform of daily puzzle games, each played on the <b>tree of life</b> —
+        the shared-ancestry tree that connects every living thing. Every game is new each day and
+        the same for all players.
       </p>
       <p className="about-p">
-        Grebe is directly inspired by{" "}
-        <a href="https://metazooa.com" target="_blank" rel="noreferrer">Metazooa</a> (and its plant
-        counterpart, Metaflora), the daily animal-guessing game where each wrong guess reveals the
-        nearest shared taxonomic rank (check it out!). Grebe keeps that core loop and adds a few twists: you can
-        <b> re-root the tree</b> to any scope (animals, fungi, plants, all of life), pick
-        how close counts as a win (<b>resolution</b>, from exact species out to same order), and
-        read a <b>drawn cladogram</b> that shows exactly where each guess split off. There's a shared
-        daily puzzle with a leaderboard, plus free play for practice.
+        Grebe was made purely as a personal project, coming from my interest in evolutionary biology
+        and love for daily puzzle games. It is not affiliated with Metazooa, the New York Times, or
+        their creators in any way. It is intended for fun and educational purposes, and I hope it
+        helps people learn more about the diversity of life on Earth.
       </p>
-        
-      
-      <p className="about-p">
-        This game was purely made as a personal project, coming from my interest in evoluationary biology and 
-        love for daily puzzle games. It is not affiliated with Metazooa or its creator in any way. It is intended
-        for fun and educational purposes, and I hope it helps people learn more about the diversity of life on Earth.
-      </p>
+
+      {/* ---------- The games ---------- */}
+      <h3 id="about-games" className="about-h">The games</h3>
+      <div className="about-games">
+        <div className="about-game">
+          <div className="about-game-hd">
+            <span className="about-game-ico" aria-hidden="true">🧬</span>
+            <b>Lineage</b>
+            <span className="about-game-src">inspired by Metazooa</span>
+          </div>
+          <p>
+            Guess the hidden organism. Every wrong guess lands on the shared-ancestry tree at the
+            clade it has in common with the answer, so each guess narrows where the target sits —
+            closer guesses branch off lower down. You can re-root the tree to any scope (animals,
+            fungi, plants, all of life), pick how close counts as a win (from exact species out to
+            same order), and read a drawn cladogram of where each guess split off. It has a shared
+            daily with a leaderboard, plus free play. Directly inspired by{" "}
+            <a href="https://metazooa.com" target="_blank" rel="noreferrer">Metazooa</a> and its
+            plant counterpart Metaflora — check them out!
+          </p>
+        </div>
+
+        <div className="about-game">
+          <div className="about-game-hd">
+            <span className="about-game-ico" aria-hidden="true">🧩</span>
+            <b>Kinship</b>
+            <span className="about-game-src">inspired by Connections</span>
+          </div>
+          <p>
+            Sixteen species, four hidden groups of four — each group a real clade. Sort every
+            species into the family it belongs to before four wrong guesses run out; the harder the
+            day, the more the groups look alike (four kinds of perch rather than a frog, a fern and a
+            beetle). A daily grid in the spirit of the New York Times'{" "}
+            <a href="https://www.nytimes.com/games/connections" target="_blank" rel="noreferrer">Connections</a>.
+          </p>
+        </div>
+
+        <div className="about-game is-soon">
+          <div className="about-game-hd">
+            <span className="about-game-ico" aria-hidden="true">🌱</span>
+            <b>More to come</b>
+          </div>
+          <p>Further tree-of-life games are in the works.</p>
+        </div>
+      </div>
 
       {/* ---------- Data sources ---------- */}
       <h3 id="about-data" className="about-h">Data sources</h3>

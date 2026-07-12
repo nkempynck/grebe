@@ -999,3 +999,55 @@ body {
 
 .grid-verdict { font-family: var(--font-display); font-weight: 800; font-size: 22px; margin: 4px 0 14px; }
 .grid-share-rows { font-size: 22px; line-height: 1.35; letter-spacing: 2px; margin: 10px 0 14px; }
+
+/* ---- Home / platform landing ---- */
+.home-intro {
+  font-size: 18px; color: var(--ink-soft); line-height: 1.6; max-width: 60ch; margin: 0 0 22px;
+}
+.home-intro b { color: var(--ink); font-weight: 600; }
+.home-games {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;
+}
+.home-card {
+  display: flex; flex-direction: column; gap: 8px; text-align: left;
+  padding: 18px 20px; min-height: 200px;
+  background: var(--bg-2); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  font-family: inherit; cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease, transform 0.06s ease;
+}
+.home-card:hover { border-color: var(--brass); background: var(--bg-3); }
+.home-card:active { transform: scale(0.99); }
+.home-card-top { display: flex; align-items: center; justify-content: space-between; }
+.home-card-ico { font-size: 26px; line-height: 1; }
+.home-card-daily {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.home-card-name { font-family: var(--font-display); font-weight: 800; font-size: 24px; margin: 2px 0 0; }
+.home-card-tag { font-size: 14.5px; color: var(--ink-soft); line-height: 1.5; margin: 0; flex: 1; }
+.home-card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+.home-card-inspired {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.home-card-play { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--brass); }
+.home-card:hover .home-card-play { color: var(--brass-bright); }
+.home-card.is-soon { cursor: default; opacity: 0.55; border-style: dashed; }
+.home-card.is-soon:hover { border-color: var(--line); background: var(--bg-2); transform: none; }
+
+/* Per-game blocks in the About tab. */
+.about-games { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+.about-game {
+  padding: 14px 16px; background: var(--bg-2);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.about-game-hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.about-game-hd b { font-family: var(--font-display); font-size: 17px; color: var(--ink); }
+.about-game-ico { font-size: 18px; }
+.about-game-src {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-faint); margin-left: auto;
+}
+.about-game p { margin: 0; font-size: 14.5px; color: var(--ink-soft); line-height: 1.55; }
+.about-game.is-soon { opacity: 0.6; border-style: dashed; }

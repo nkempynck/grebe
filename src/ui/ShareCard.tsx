@@ -50,7 +50,7 @@ export function ShareCard({ config, guesses, status, hintCount, date, mode, tier
   const showStreak = mode === "daily" && status === "won" && streak != null && streak > 0;
   const streakLine = showStreak ? ` · 🔥${streak}` : "";
 
-  const head = mode === "daily" ? `🧬 Grebe · #${dailyNumber(date)} · ${date}${day ? ` (${day})` : ""}` : "🧬 Grebe · free play";
+  const head = mode === "daily" ? `🧬 Grebe Lineage · №${dailyNumber(date)} · ${date}${day ? ` (${day})` : ""}` : "🧬 Grebe Lineage · free play";
   const sub = [scope, res, dots].filter(Boolean).join(" · ");
   const text = `${head}\n${sub}\n${row}\n${verdict}${hintLine}${scoreLine}${streakLine}`;
 
@@ -67,7 +67,7 @@ export function ShareCard({ config, guesses, status, hintCount, date, mode, tier
   return (
     <div className="share">
       <div className="share-head">
-        🧬 Grebe <span>· {mode === "daily" ? `#${dailyNumber(date)} · ${date}${day ? ` (${day})` : ""}` : "free play"}</span>
+        🧬 Grebe Lineage <span>· {mode === "daily" ? `№${dailyNumber(date)} · ${date}${day ? ` (${day})` : ""}` : "free play"}</span>
       </div>
       <div className="share-sub">
         {scope} · {res}

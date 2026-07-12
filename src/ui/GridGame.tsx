@@ -41,7 +41,7 @@ export function GridGame({ tree }: { tree: Tree }) {
 
   // Share: the classic coloured-square grid, one row per guess.
   const shareText = (() => {
-    const head = `🧬 Grebe Grid · #${dailyNumber(g.date)} · ${g.date} (${day})`;
+    const head = `🧬 Grebe Kinship · №${dailyNumber(g.date)} · ${g.date} (${day})`;
     const rows = g.attempts.map((r) => r.map((l) => LEVEL_SQUARE[l]).join("")).join("\n");
     const verdict =
       g.status === "won"
@@ -63,7 +63,6 @@ export function GridGame({ tree }: { tree: Tree }) {
   return (
     <div className="grid-game">
       <div className="grid-head">
-        <span className="grid-eyebrow">Grid №{dailyNumber(g.date)}</span>
         <span className="grid-diff">
           <span className="dr-dots" aria-hidden="true">{pips}</span>
           {rules.dayName} · {rules.difficulty}
@@ -145,7 +144,7 @@ export function GridGame({ tree }: { tree: Tree }) {
               : `Out of guesses — found ${g.solvedGroups.length}/4`}
           </div>
           <div className="share">
-            <div className="share-head">🧬 Grebe Grid <span>· №{dailyNumber(g.date)} · {g.date} ({day})</span></div>
+            <div className="share-head">🧬 Grebe Kinship <span>· №{dailyNumber(g.date)} · {g.date} ({day})</span></div>
             <div className="grid-share-rows">
               {g.attempts.map((r, i) => (
                 <div key={i} className="grid-share-row">{r.map((l) => LEVEL_SQUARE[l]).join("")}</div>

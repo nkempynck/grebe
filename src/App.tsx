@@ -18,6 +18,7 @@ import { AccountPanel } from "./ui/AccountPanel";
 import { AboutPanel } from "./ui/AboutPanel";
 import { AdminPanel } from "./ui/AdminPanel";
 import { GridGame } from "./ui/GridGame";
+import { HomePanel } from "./ui/HomePanel";
 import { RESOLUTION_PRESETS, SCOPE_PRESETS } from "./data/presets";
 
 export default function App() {
@@ -49,7 +50,7 @@ export default function App() {
     [tree]
   );
   const { stats, record } = useStats(userId, dailyGroupOf);
-  const [view, setView] = useState<"play" | "grid" | "leaderboard" | "account" | "about">("play");
+  const [view, setView] = useState<"home" | "lineage" | "kinship" | "leaderboard" | "account" | "about">("home");
   // Bumped once a finished game's server write resolves, so the post-game board
   // refetches and includes the row just submitted (instead of racing the write).
   const [boardReload, setBoardReload] = useState(0);
@@ -141,11 +142,21 @@ export default function App() {
   const resLabel = RESOLUTION_PRESETS.find((r) => r.winWithin === g.config.winWithin)?.label ?? "";
 
   const eyebrow =
-    view === "grid" ? "Daily grid" :
+    view === "home" ? "Daily games on the tree of life" :
+    view === "kinship" ? `Kinship · №${dailyNumber(today)}` :
     view === "leaderboard" ? "Leaderboard" :
     view === "account" ? "Your account" :
     view === "about" ? "About Grebe" :
-    daily ? `Daily specimen №${dailyNumber(today)}` : "Free play";
+    daily ? `Lineage · №${dailyNumber(today)}` : "Lineage · free play";
+
+  const subtitle =
+    view === "home"
+      ? "Daily puzzles played on the shared-ancestry tree that connects all living things."
+      : view === "kinship"
+      ? "Sort sixteen species into the four clades they belong to."
+      : view === "lineage"
+      ? "Guess the organism. Every miss tells you where you branched apart."
+      : "Daily puzzles on the tree of life.";
 
   const play = (
     <>
@@ -258,13 +269,13 @@ export default function App() {
       <header className="masthead">
         <div className="eyebrow">{eyebrow}</div>
         <h1 className="title">Grebe</h1>
-        <div className="subtitle">Guess the organism. Every miss tells you where you branched apart.</div>
+        <div className="subtitle">{subtitle}</div>
       </header>
 
       <nav className="topnav" role="tablist" aria-label="Sections">
-        {(["play", "grid", "leaderboard", "account", "about"] as const).map((v) => {
+        {(["home", "lineage", "kinship", "leaderboard", "account", "about"] as const).map((v) => {
           if (v === "account" && !player.configured) return null;
-          const labels = { play: "Play", grid: "Grid", leaderboard: "Leaderboard", account: "Account", about: "About" };
+          const labels = { home: "Home", lineage: "Lineage", kinship: "Kinship", leaderboard: "Leaderboard", account: "Account", about: "About" };
           return (
             <button
               key={v}
@@ -291,8 +302,9 @@ export default function App() {
         </div>
       )}
 
-      {view === "play" && play}
-      {view === "grid" && <GridGame tree={g.tree} />}
+      {view === "home" && <HomePanel onPlay={(v) => setView(v)} />}
+      {view === "lineage" && play}
+      {view === "kinship" && <GridGame tree={g.tree} />}
       {view === "leaderboard" && (
         <>
           <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} />
