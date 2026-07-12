@@ -17,6 +17,7 @@ import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import { AccountPanel } from "./ui/AccountPanel";
 import { AboutPanel } from "./ui/AboutPanel";
 import { AdminPanel } from "./ui/AdminPanel";
+import { GridGame } from "./ui/GridGame";
 import { RESOLUTION_PRESETS, SCOPE_PRESETS } from "./data/presets";
 
 export default function App() {
@@ -48,7 +49,7 @@ export default function App() {
     [tree]
   );
   const { stats, record } = useStats(userId, dailyGroupOf);
-  const [view, setView] = useState<"play" | "leaderboard" | "account" | "about">("play");
+  const [view, setView] = useState<"play" | "grid" | "leaderboard" | "account" | "about">("play");
   // Bumped once a finished game's server write resolves, so the post-game board
   // refetches and includes the row just submitted (instead of racing the write).
   const [boardReload, setBoardReload] = useState(0);
@@ -140,6 +141,7 @@ export default function App() {
   const resLabel = RESOLUTION_PRESETS.find((r) => r.winWithin === g.config.winWithin)?.label ?? "";
 
   const eyebrow =
+    view === "grid" ? "Daily grid" :
     view === "leaderboard" ? "Leaderboard" :
     view === "account" ? "Your account" :
     view === "about" ? "About Grebe" :
@@ -260,9 +262,9 @@ export default function App() {
       </header>
 
       <nav className="topnav" role="tablist" aria-label="Sections">
-        {(["play", "leaderboard", "account", "about"] as const).map((v) => {
+        {(["play", "grid", "leaderboard", "account", "about"] as const).map((v) => {
           if (v === "account" && !player.configured) return null;
-          const labels = { play: "Play", leaderboard: "Leaderboard", account: "Account", about: "About" };
+          const labels = { play: "Play", grid: "Grid", leaderboard: "Leaderboard", account: "Account", about: "About" };
           return (
             <button
               key={v}
@@ -290,6 +292,7 @@ export default function App() {
       )}
 
       {view === "play" && play}
+      {view === "grid" && <GridGame tree={g.tree} />}
       {view === "leaderboard" && (
         <>
           <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} />

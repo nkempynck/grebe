@@ -5,3 +5,4 @@ export * from "./game";
 export * from "./daily";
 export * from "./resolve";
 export * from "./solver";
+export * from "./grid";

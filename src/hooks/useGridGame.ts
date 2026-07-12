@@ -1,0 +1,165 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Tree } from "../core";
+import { checkGridSelection, GRID_GROUPS, GRID_GROUP_SIZE, type GridBoard, type GridGroup } from "../core";
+import { todayKey } from "../core/daily";
+import { gridBoardFor } from "../data/gridDaily";
+import { loadGridProgress, saveGridProgress } from "../data/gridProgress";
+
+/** Wrong guesses allowed before the board is lost (matches Connections). */
+export const GRID_MAX_MISTAKES = 4;
+
+export type GridStatus = "playing" | "won" | "lost";
+
+export interface UseGridGame {
+  board: GridBoard | null;
+  date: string;
+  tier: number;
+  /** Tile ids currently selected (max four). */
+  selected: string[];
+  /** Remaining (unsolved) tile ids, in display order. */
+  remaining: string[];
+  /** Solution groups already found, in the order solved. */
+  solvedGroups: GridGroup[];
+  mistakes: number;
+  mistakesLeft: number;
+  status: GridStatus;
+  /** Transient feedback after a guess ("Not a group", "One away…"), else null. */
+  feedback: string | null;
+  /** Each past guess as its four tiles' true group levels — drives the share. */
+  attempts: number[][];
+  /** The group level (0–3) a tile belongs to — for colouring. */
+  levelOf: (id: string) => number;
+  toggle: (id: string) => void;
+  submit: () => void;
+  deselectAll: () => void;
+  shuffle: () => void;
+}
+
+function shuffled<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+export function useGridGame(tree: Tree | null): UseGridGame {
+  const date = todayKey();
+  const board = useMemo(() => (tree ? gridBoardFor(tree, date) : null), [tree, date]);
+
+  const [order, setOrder] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [solved, setSolved] = useState<number[]>([]);
+  const [mistakes, setMistakes] = useState(0);
+  const [attempts, setAttempts] = useState<number[][]>([]);
+  const [status, setStatus] = useState<GridStatus>("playing");
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Tile → group level, for colouring solved tiles and building the share.
+  const levelById = useMemo(() => {
+    const m = new Map<string, number>();
+    board?.groups.forEach((g) => g.memberIds.forEach((id) => m.set(id, g.level)));
+    return m;
+  }, [board]);
+  const levelOf = useCallback((id: string) => levelById.get(id) ?? 0, [levelById]);
+
+  // (Re)initialise when the board changes, restoring a same-day attempt.
+  useEffect(() => {
+    if (!board) return;
+    const prog = loadGridProgress();
+    if (prog && prog.date === date) {
+      setSolved(prog.solved);
+      setMistakes(prog.mistakes);
+      setAttempts(prog.attempts);
+      setStatus(prog.status);
+    } else {
+      setSolved([]);
+      setMistakes(0);
+      setAttempts([]);
+      setStatus("playing");
+    }
+    setSelected([]);
+    setOrder(board.tiles);
+  }, [board, date]);
+
+  // Persist every change against today's board.
+  useEffect(() => {
+    if (!board) return;
+    saveGridProgress({ date, solved, mistakes, attempts, status });
+  }, [board, date, solved, mistakes, attempts, status]);
+
+  const solvedTiles = useMemo(() => {
+    const s = new Set<string>();
+    if (board) for (const i of solved) board.groups[i].memberIds.forEach((id) => s.add(id));
+    return s;
+  }, [board, solved]);
+
+  const remaining = useMemo(() => order.filter((id) => !solvedTiles.has(id)), [order, solvedTiles]);
+  const solvedGroups = useMemo(() => (board ? solved.map((i) => board.groups[i]) : []), [board, solved]);
+
+  const flash = useCallback((msg: string) => {
+    setFeedback(msg);
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => setFeedback(null), 2200);
+  }, []);
+  useEffect(() => () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); }, []);
+
+  const toggle = useCallback(
+    (id: string) => {
+      if (status !== "playing" || solvedTiles.has(id)) return;
+      setSelected((sel) => {
+        if (sel.includes(id)) return sel.filter((x) => x !== id);
+        if (sel.length >= GRID_GROUP_SIZE) return sel;
+        return [...sel, id];
+      });
+    },
+    [status, solvedTiles]
+  );
+
+  const deselectAll = useCallback(() => setSelected([]), []);
+  const shuffle = useCallback(() => setOrder((o) => shuffled(o)), []);
+
+  const submit = useCallback(() => {
+    if (!board || status !== "playing" || selected.length !== GRID_GROUP_SIZE) return;
+    const row = selected.map((id) => levelOf(id));
+    const { solvedIndex, oneAway } = checkGridSelection(board, selected);
+    setAttempts((a) => [...a, row]);
+
+    if (solvedIndex !== null) {
+      const nextSolved = [...solved, solvedIndex];
+      setSolved(nextSolved);
+      setSelected([]);
+      if (nextSolved.length === GRID_GROUPS) setStatus("won");
+      return;
+    }
+    const nextMistakes = mistakes + 1;
+    setMistakes(nextMistakes);
+    if (nextMistakes >= GRID_MAX_MISTAKES) {
+      setStatus("lost");
+      setSelected([]);
+    } else {
+      flash(oneAway ? "One away…" : "Not a group");
+    }
+  }, [board, status, selected, solved, mistakes, levelOf, flash]);
+
+  return {
+    board,
+    date,
+    tier: board?.tier ?? 0,
+    selected,
+    remaining,
+    solvedGroups,
+    mistakes,
+    mistakesLeft: GRID_MAX_MISTAKES - mistakes,
+    status,
+    feedback,
+    attempts,
+    levelOf,
+    toggle,
+    submit,
+    deselectAll,
+    shuffle,
+  };
+}

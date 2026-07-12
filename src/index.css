@@ -927,3 +927,75 @@ body {
 }
 /* Scrolled-to headings clear the sticky masthead a little. */
 .about-h { scroll-margin-top: 16px; }
+
+/* ---- Grid game (Connections-style) ---- */
+/* Four group levels as a fixed difficulty scale, easiest (0) to trickiest (3):
+   yellow → green → blue → purple, like Connections. */
+.grid-game { --g0: #e6c34f; --g1: #6fae86; --g2: #5b9fd0; --g3: #a781c9; }
+.grid-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  flex-wrap: wrap; gap: 6px 14px; margin-bottom: 14px;
+}
+.grid-eyebrow {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--brass);
+}
+.grid-diff { color: var(--brass); display: inline-flex; align-items: baseline; gap: 8px; font-size: 13px; }
+
+.grid-board {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 16px;
+}
+.grid-tile {
+  min-height: 76px; padding: 6px 8px; display: flex; align-items: center; justify-content: center;
+  text-align: center; hyphens: auto; overflow-wrap: anywhere;
+  background: var(--bg-3); color: var(--ink); cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  font-family: var(--font-body); font-size: 13px; line-height: 1.18;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.06s ease;
+}
+.grid-tile:hover { border-color: var(--brass); }
+.grid-tile:active { transform: scale(0.97); }
+.grid-tile.is-sel {
+  background: var(--brass); color: var(--bg); border-color: var(--brass); font-weight: 600;
+}
+
+/* A solved (or revealed) group bar, coloured by level. */
+.grid-solved {
+  border-radius: var(--radius); padding: 10px 14px; margin-bottom: 8px; text-align: center;
+  color: #17150f;
+}
+.grid-solved.lvl-0 { background: var(--g0); }
+.grid-solved.lvl-1 { background: var(--g1); }
+.grid-solved.lvl-2 { background: var(--g2); }
+.grid-solved.lvl-3 { background: var(--g3); }
+.grid-solved.is-dim { opacity: 0.5; }
+.grid-solved-label { font-family: var(--font-display); font-weight: 800; font-size: 15px; }
+.grid-solved-sci { font-weight: 600; font-style: italic; opacity: 0.75; font-size: 13px; }
+.grid-solved-members { font-size: 13px; margin-top: 2px; }
+
+.grid-mistakes { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0 14px; }
+.grid-mistakes-lbl {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-soft);
+}
+.grid-dots { display: inline-flex; gap: 8px; }
+.grid-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--brass); }
+.grid-dot.is-used { background: var(--line); }
+
+.grid-feedback {
+  text-align: center; font-family: var(--font-mono); font-size: 12px;
+  color: var(--brass-bright); margin-bottom: 10px;
+}
+
+.grid-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 26px; }
+.grid-submit {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; font-weight: 700;
+  padding: 9px 22px; border: none; border-radius: 20px; cursor: pointer;
+  background: var(--brass); color: var(--bg);
+  transition: background 0.14s ease, opacity 0.14s ease;
+}
+.grid-submit:hover:not(:disabled) { background: var(--brass-bright); }
+.grid-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.grid-verdict { font-family: var(--font-display); font-weight: 800; font-size: 22px; margin: 4px 0 14px; }
+.grid-share-rows { font-size: 22px; line-height: 1.35; letter-spacing: 2px; margin: 10px 0 14px; }
