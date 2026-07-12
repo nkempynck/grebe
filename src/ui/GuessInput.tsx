@@ -33,8 +33,11 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
     [guesses]
   );
 
-  // Everything guessable in scope (species + named groups), rebuilt only when the
-  // scope/focus changes. Filtered per keystroke below.
+  // Everything guessable in scope, rebuilt only when the scope/focus changes.
+  // Species (leaves) plus EVERY named clade — a clade counts as guessable if it
+  // has any scientific name, so you can scout by the Latin name of any group
+  // (e.g. "Carnivora", "Percidae"), not only the ones with a friendly common
+  // name. Filtered per keystroke below.
   const candidates = useMemo(() => {
     const out: Cand[] = [];
     for (const node of tree.byId.values()) {
@@ -42,17 +45,18 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
       if (focusCladeId && !isAncestor(tree, focusCladeId, node.id)) continue;
       const isLeaf = (tree.childrenOf.get(node.id) ?? []).length === 0;
       if (isLeaf) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "species" });
-      else if (node.common) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "group" });
+      else if (node.sciName) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "group" });
     }
     return out;
   }, [tree, config, focusCladeId]);
 
-  // Full in-scope list, sorted for browsing (groups first, then species, A–Z).
-  // Shown as-is when the box is empty so you can scroll every option; typing
-  // filters it down.
+  // The empty-box BROWSE list (groups first, then species, A–Z). Latin-only
+  // clades are typeable but kept OUT of this list, so idly scrolling isn't a wall
+  // of scientific names — only species and friendly common-named groups show.
+  // Typing still searches the full `candidates` set below, Latin names included.
   const sortedCandidates = useMemo(() => {
     const byName = (a: Cand, b: Cand) => (a.common ?? a.sci).localeCompare(b.common ?? b.sci);
-    const groups = candidates.filter((c) => c.kind === "group").sort(byName);
+    const groups = candidates.filter((c) => c.kind === "group" && c.common).sort(byName);
     const species = candidates.filter((c) => c.kind === "species").sort(byName);
     return [...groups, ...species];
   }, [candidates]);
@@ -79,8 +83,9 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
   const activeId = selectable[active]?.id;
 
   const focusNode = focusCladeId ? tree.byId.get(focusCladeId) : null;
+  const speciesCount = candidates.reduce((n, c) => (c.kind === "species" ? n + 1 : n), 0);
   const placeholder = focusNode
-    ? `Name a ${focusNode.common ?? focusNode.sciName}… (${candidates.length} options)`
+    ? `Name a ${focusNode.common ?? focusNode.sciName}… (${speciesCount} options)`
     : "Name a species — or a group like 'snakes' to scout…";
 
   const choose = (c: Cand) => {
