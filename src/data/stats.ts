@@ -25,7 +25,7 @@ interface CladeFree {
   wins: number;
 }
 
-interface StatsStore {
+export interface StatsStore {
   version: 3;
   /** date (YYYY-MM-DD) -> the daily result (drives ALL daily stats). */
   history: Record<string, DailyEntry>;
@@ -207,6 +207,17 @@ function nextDay(dateKey: string): string {
 const pct = (wins: number, played: number) => (played ? Math.round((wins / played) * 100) : 0);
 const orderedIds = [...CLADE_GROUPS.map((g) => g.id), OTHER_GROUP.id];
 
+/** A give-up keeps (doesn't break) the daily streak once the player has made a
+ *  real attempt — this many guesses. Some dailies are genuinely hard, so a
+ *  well-fought give-up shouldn't wipe a long streak. Tunable in one place. */
+export const STREAK_SAVE_MIN_GUESSES = 5;
+
+/** Does this day keep the streak alive? A win always does; a give-up does only
+ *  after a real attempt. Either way it doesn't *add* to the streak (only wins
+ *  do) — a qualifying give-up just bridges the run instead of breaking it. */
+const keepsStreak = (e: DailyEntry) =>
+  e.status === "won" || (e.status === "gaveup" && e.guesses >= STREAK_SAVE_MIN_GUESSES);
+
 /** Resolve a daily's clade group from its date (the daily is deterministic, so
  *  this recovers the group for history entries recorded before groups were
  *  stored). Returns null when it can't (e.g. tree not loaded yet). */
@@ -241,21 +252,23 @@ function deriveDaily(
     }
   }
 
+  // Walk back over an unbroken run of streak-keeping days; only wins add to the
+  // count, so a qualifying give-up bridges the run without inflating it.
   let currentStreak = 0;
   let cursor = history[todayKey] ? todayKey : prevDay(todayKey);
-  while (history[cursor]?.status === "won") {
-    currentStreak++;
+  while (history[cursor] && keepsStreak(history[cursor])) {
+    if (history[cursor].status === "won") currentStreak++;
     cursor = prevDay(cursor);
   }
 
   let maxStreak = 0;
-  const wonSet = new Set(dates.filter((d) => history[d].status === "won"));
-  for (const d of wonSet) {
-    if (wonSet.has(prevDay(d))) continue;
+  const keptSet = new Set(dates.filter((d) => keepsStreak(history[d])));
+  for (const d of keptSet) {
+    if (keptSet.has(prevDay(d))) continue; // only start at a run's first day
     let len = 0;
     let c: string = d;
-    while (wonSet.has(c)) {
-      len++;
+    while (keptSet.has(c)) {
+      if (history[c].status === "won") len++;
       c = nextDay(c);
     }
     maxStreak = Math.max(maxStreak, len);

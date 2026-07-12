@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { TaxonNode, Tree } from "../core";
 import { ancestryChain } from "../core";
 import { fetchWikiSummary, wikiUrlFor, type WikiSummary } from "../data/wikipedia";
+import { STREAK_SAVE_MIN_GUESSES } from "../data/stats";
 
 interface Props {
   tree: Tree;
@@ -40,6 +41,11 @@ export function ResultCard({ tree, answer, won, guessCount, streak, par }: Props
         {won ? `Solved in ${guessCount} ${guessCount === 1 ? "guess" : "guesses"}` : "Revealed"}
         {won && streak != null && streak > 0 && (
           <span className="verdict-streak">🔥 {streak}-day streak</span>
+        )}
+        {/* A daily give-up (streak != null) after a real attempt keeps the run —
+            the streak we're handed already reflects that bridge. */}
+        {!won && streak != null && streak > 0 && guessCount >= STREAK_SAVE_MIN_GUESSES && (
+          <span className="verdict-streak">🔥 {streak}-day streak kept</span>
         )}
       </div>
       {par != null && (
