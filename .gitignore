@@ -20,3 +20,6 @@ supabase/
 
 # personal dev notes / roadmap — not part of the package
 dev-notes.md
+
+# backend setup docs — kept local, out of the repo (see also supabase/)
+SUPABASE_SETUP.md
