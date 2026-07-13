@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import taxonomy from "../data/taxonomy.json";
 
 /** Smoothly scroll a section into view without touching the URL hash (the app
@@ -17,11 +18,19 @@ const SECTIONS = [
 
 /** What Grebe is, where its data comes from, how it's built, and what it stores.
  *  Data numbers come straight from the built snapshot so they never drift. */
-export function AboutPanel() {
+/** @param focus  a section id to scroll to on open (e.g. deep-linked from a game
+ *  page's "How this works" link). */
+export function AboutPanel({ focus }: { focus?: string | null }) {
   const species = taxonomy.counts?.species ?? 0;
   const nodes = taxonomy.counts?.nodes ?? 0;
   const scopes = taxonomy.scopes?.length ?? 0;
   const built = (taxonomy.generatedAt ?? "").slice(0, 10);
+
+  useEffect(() => {
+    if (!focus) return;
+    const el = document.getElementById(focus);
+    if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [focus]);
 
   return (
     <div className="about">
@@ -50,7 +59,7 @@ export function AboutPanel() {
       {/* ---------- The games ---------- */}
       <h3 id="about-games" className="about-h">The games</h3>
       <div className="about-games">
-        <div className="about-game">
+        <div className="about-game" id="about-lineage">
           <div className="about-game-hd">
             <span className="about-game-ico" aria-hidden="true">🧬</span>
             <b>Lineage</b>
@@ -67,9 +76,18 @@ export function AboutPanel() {
             plant counterpart Metaflora — check them out! Also thanks to my buddy Jasper for introducing
             me to Metazooa!
           </p>
+          <details className="about-score">
+            <summary>How scoring works</summary>
+            <p>
+              A daily is scored <b>difficulty&nbsp;weight × efficiency × hint&nbsp;factor</b>, and zero
+              for a loss. The weight is the day's tier (<code>40 + 20 × tier</code>), so a Sunday win is
+              worth far more than a Monday one. Efficiency rewards fewer guesses; every hint and giving
+              up trims the score. Only the daily is ranked — free play isn't scored.
+            </p>
+          </details>
         </div>
 
-        <div className="about-game">
+        <div className="about-game" id="about-kinship">
           <div className="about-game-hd">
             <span className="about-game-ico" aria-hidden="true">🧩</span>
             <b>Kinship</b>
@@ -83,6 +101,15 @@ export function AboutPanel() {
             <a href="https://www.nytimes.com/games/connections" target="_blank" rel="noreferrer">Connections</a>.
             The idea to Grebe-inize this came from my partner, the goat, Maria.
           </p>
+          <details className="about-score">
+            <summary>How scoring works</summary>
+            <p>
+              A board is scored <b>the day's weight × (1 − mistakes⁄4)</b>, and zero for a loss. A clean
+              board earns the full weight (<code>40 + 20 × tier</code>); each of your up-to-four mistakes
+              shaves a quarter. It shares the weekday weight with Lineage, so scores are comparable
+              across the two games.
+            </p>
+          </details>
         </div>
 
         <div className="about-game is-soon">

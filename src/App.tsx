@@ -83,6 +83,16 @@ export default function App() {
     return () => { live = false; };
   }, [tree, stats]);
   const [view, setView] = useState<"home" | "lineage" | "kinship" | "leaderboard" | "account" | "about">("home");
+  // A section id for the About page to scroll to — set when a game page's
+  // "How this works" link is clicked, cleared when About is opened from the nav.
+  const [aboutFocus, setAboutFocus] = useState<string | null>(null);
+  const explainLink = (section: string, name: string) => (
+    <div className="explain-row">
+      <button className="linkbtn explain-link" onClick={() => { setAboutFocus(section); setView("about"); }}>
+        ⓘ How {name} works
+      </button>
+    </div>
+  );
   // Bumped once a finished game's server write resolves, so the post-game board
   // refetches and includes the row just submitted (instead of racing the write).
   const [boardReload, setBoardReload] = useState(0);
@@ -333,7 +343,7 @@ export default function App() {
               role="tab"
               aria-selected={view === v}
               className={`topnav-tab${view === v ? " is-on" : ""}`}
-              onClick={() => setView(v)}
+              onClick={() => { if (v === "about") setAboutFocus(null); setView(v); }}
             >
               {labels[v]}
             </button>
@@ -354,16 +364,19 @@ export default function App() {
       )}
 
       {view === "home" && <HomePanel onPlay={(v) => setView(v)} />}
-      {view === "lineage" && play}
+      {view === "lineage" && <>{explainLink("about-lineage", "Lineage")}{play}</>}
       {view === "kinship" && (
-        <GridGame
-          tree={g.tree}
-          streak={stats.kinship.currentStreak}
-          onComplete={recordKinshipResult}
-          me={boardName}
-          configured={player.configured}
-          reloadKey={kinBoardReload}
-        />
+        <>
+          {explainLink("about-kinship", "Kinship")}
+          <GridGame
+            tree={g.tree}
+            streak={stats.kinship.currentStreak}
+            onComplete={recordKinshipResult}
+            me={boardName}
+            configured={player.configured}
+            reloadKey={kinBoardReload}
+          />
+        </>
       )}
       {view === "leaderboard" && (
         <>
@@ -385,7 +398,7 @@ export default function App() {
         </>
       )}
       {view === "account" && <AccountPanel stats={stats} player={player} />}
-      {view === "about" && <AboutPanel />}
+      {view === "about" && <AboutPanel focus={aboutFocus} />}
     </div>
   );
 }
