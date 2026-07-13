@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Spectral:ital,wght@0,400;0,500;1,400&family=Spline+Sans+Mono:wght@400;600&display=swap");
+@import "./fonts.css";
 
 :root {
   /* ---- "Specimen at dusk" palette ----
@@ -644,15 +644,16 @@ body {
 .stats-clade-head { display: flex; align-items: baseline; justify-content: space-between; margin-top: 20px; }
 .stats-overall { font-family: var(--font-mono); font-size: 11px; color: var(--brass); }
 .stats-clades { display: flex; flex-direction: column; gap: 6px; }
-.clade-row { display: grid; grid-template-columns: 20px 1fr 72px 34px 76px; align-items: center; gap: 8px; }
+.clade-row { display: grid; grid-template-columns: 20px 1fr 56px 52px 116px; align-items: center; gap: 8px; }
 .clade-ico { font-size: 16px; filter: saturate(0.85); }
 .clade-name { font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--ink); }
 .clade-star { color: var(--vermilion); margin-left: 5px; }
 .clade-track { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
 .clade-bar { height: 100%; background: var(--cold); border-radius: 4px; transition: width 0.3s ease; }
 .clade-row.is-strength .clade-bar { background: var(--brass); }
-.clade-pct { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink); text-align: right; }
-.clade-meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink-soft); text-align: right; }
+.clade-pct { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.clade-unit { font-size: 9px; font-weight: 400; color: var(--ink-faint); margin-left: 2px; }
+.clade-meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink-soft); text-align: right; font-variant-numeric: tabular-nums; }
 .stats-strength { font-family: var(--font-body); font-style: italic; font-size: 14px; color: var(--ink-soft); margin: 10px 0 0; }
 .stats-strength b { color: var(--brass-bright); font-style: normal; }
 

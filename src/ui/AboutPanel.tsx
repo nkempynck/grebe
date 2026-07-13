@@ -98,8 +98,8 @@ export function AboutPanel() {
       <h3 id="about-data" className="about-h">Data sources</h3>
       <p className="about-p">
         The species and the tree come from two open biodiversity databases, combined once into a
-        static snapshot the game ships with. The app reads that snapshot locally and never touches
-        the network while you play.
+        static snapshot the game ships with. The app reads that snapshot locally — the species and
+        tree themselves never need the network.
       </p>
       <div className="about-snap">
         <span><b>{species.toLocaleString()}</b> species</span>
@@ -153,6 +153,10 @@ export function AboutPanel() {
           used only during this build step: run <code>npm run build:taxonomy</code> to refresh it.
         </li>
       </ol>
+      <p className="about-p">
+        The full source — the engine, the data build, and this page — is on{" "}
+        <a href="https://github.com/nkempynck/grebe" target="_blank" rel="noreferrer">GitHub</a>.
+      </p>
 
       {/* ---------- The name ---------- */}
       <h3 id="about-name" className="about-h">The name</h3>
@@ -167,7 +171,8 @@ export function AboutPanel() {
       {/* ---------- Privacy ---------- */}
       <h3 id="about-privacy" className="about-h">Privacy</h3>
       <p className="about-p">
-        Grebe collects as little as possible, and works fully offline unless you choose to sign in.
+        Grebe collects as little as possible. Nothing about your games leaves your device unless you
+        create an account.
       </p>
       <ul className="about-privacy">
         <li>
@@ -184,9 +189,11 @@ export function AboutPanel() {
           Your individual guesses are never shared; the leaderboard shows totals, not your rows.
         </li>
         <li>
-          <b>One external request.</b> When a round ends, the reveal card fetches a short summary and
-          thumbnail from <a href="https://www.wikipedia.org" target="_blank" rel="noreferrer">Wikipedia</a>.
-          That's the only third-party call during normal play.
+          <b>Network requests.</b> When a round ends, the reveal card fetches a summary and thumbnail
+          from <a href="https://www.wikipedia.org" target="_blank" rel="noreferrer">Wikipedia</a> —
+          the only third-party service Grebe uses. While you're online, the day's puzzle and the
+          leaderboards load from Grebe's own backend. Fonts are bundled with the app, not loaded from
+          a CDN. Nothing about your play is uploaded unless you've signed in.
         </li>
         <li>
           <b>No tracking.</b> No analytics, no ads, no third-party trackers.

@@ -84,10 +84,8 @@ function GroupBars({ groups, metric, strengthId }: {
             </div>
             {metric === "points" ? (
               <>
-                <span className="clade-pct">{(g as GroupScore).avgPoints}p</span>
-                <span className="clade-meta" title={`${(g as GroupScore).totalPoints} pts total`}>
-                  {g.wins}/{g.played} · {g.winPct}%
-                </span>
+                <span className="clade-pct">{(g as GroupScore).avgPoints}p<span className="clade-unit"> avg</span></span>
+                <span className="clade-meta">{(g as GroupScore).totalPoints}p total · {g.wins}/{g.played}</span>
               </>
             ) : (
               <>

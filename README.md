@@ -64,8 +64,9 @@ npm run typecheck  # types only
 npm test           # vitest unit tests
 ```
 
-Node 18+. The app runs fully offline out of the box: the taxonomy is bundled and every daily
-is computed client-side, so no network is required to play.
+Node 18+. With no backend configured the app needs no server of its own — the taxonomy and
+fonts are bundled and every daily is computed client-side, so you can play with no network.
+(It still fetches a Wikipedia blurb when a round ends.)
 
 ## Architecture
 
@@ -205,3 +206,5 @@ board generator (structure, determinism, difficulty ordering, one-away detection
   topology behind the shared-ancestry hints.
 - **[Wikipedia](https://www.wikipedia.org)** — summary and thumbnail on the reveal card (the
   only third-party request during normal play).
+- **Fonts** — Bricolage Grotesque, Spectral, and Spline Sans Mono (SIL Open Font License),
+  self-hosted and bundled with the app (no CDN).
