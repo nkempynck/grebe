@@ -13,6 +13,7 @@ import {
 import { loadTree } from "../data/loadTaxonomy";
 import { DEFAULT_SCOPE_ID } from "../data/presets";
 import { resolveDailyRules, dailyAnswerFor, type DailyRules } from "../data/dailySchedule";
+import { fetchPinnedPuzzle, type LineagePuzzle } from "../data/pinnedPuzzles";
 import { effectivePlan, fetchRemotePlan, type DailyPlan } from "../data/dailyPlan";
 import { isSupabaseConfigured } from "../data/supabase";
 import { fetchTodayDaily } from "../data/games";
@@ -85,9 +86,35 @@ export function useGame(userId: string | null): UseGame {
   const today = todayKey();
   const daily = useMemo(() => resolveDailyRules(today, dailyPlan), [today, dailyPlan]);
 
-  // Daily runs on the day's scheduled rules; free play uses your chip selections.
-  const config = mode === "daily" ? daily.config : freeConfig;
-  const assist = mode === "daily" ? daily.assist : freeAssist;
+  // A frozen pin for today, set only when it DIFFERS from the generator (i.e. the
+  // content/seeding changed since it was pinned). When set it supersedes the
+  // schedule wholesale — answer AND the rules the answer was frozen under — so a
+  // hand-swapped or thematic day evaluates exactly as recorded.
+  const [pinnedDaily, setPinnedDaily] = useState<LineagePuzzle | null>(null);
+  useEffect(() => {
+    if (mode !== "daily" || !tree) { setPinnedDaily(null); return; }
+    let live = true;
+    fetchPinnedPuzzle("lineage", today).then((p) => {
+      if (!live) return;
+      if (!p) { setPinnedDaily(null); return; }
+      const r = resolveDailyRules(today, dailyPlan);
+      const same =
+        p.answerId === dailyAnswerFor(tree, today, dailyPlan) &&
+        p.scopeRootId === r.config.scopeRootId &&
+        p.winWithin === r.config.winWithin &&
+        p.assist === r.assist;
+      setPinnedDaily(same ? null : p);
+    });
+    return () => { live = false; };
+  }, [mode, tree, today, dailyPlan]);
+
+  // Daily runs on the day's scheduled rules (or a pin that overrides them); free
+  // play uses your chip selections.
+  const dailyConfig = pinnedDaily
+    ? { scopeRootId: pinnedDaily.scopeRootId, winWithin: pinnedDaily.winWithin }
+    : daily.config;
+  const config = mode === "daily" ? dailyConfig : freeConfig;
+  const assist = mode === "daily" ? (pinnedDaily?.assist ?? daily.assist) : freeAssist;
 
   // Deepest clade shared with the answer so far (via guesses OR hints) — what
   // "focused" difficulty narrows the search to.
@@ -146,7 +173,7 @@ export function useGame(userId: string | null): UseGame {
     // free play is always random.
     const ans =
       mode === "daily"
-        ? dailyAnswerFor(tree, today, dailyPlan)
+        ? pinnedDaily?.answerId ?? dailyAnswerFor(tree, today, dailyPlan)
         : randomAnswerId(tree, config.scopeRootId);
     setAnswerId(ans);
     setError(null);
@@ -165,7 +192,7 @@ export function useGame(userId: string | null): UseGame {
       setStatus("playing");
       setDailyLocked(false);
     }
-  }, [tree, mode, config.scopeRootId, daily.answerId]);
+  }, [tree, mode, config.scopeRootId, daily.answerId, pinnedDaily]);
 
   // Signed-in players restore an already-played daily from the cloud (works on
   // any device). Overlays the local cache; runs once per (user, answer).

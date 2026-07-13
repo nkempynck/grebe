@@ -8,6 +8,8 @@ import { recordGame, fetchPlayerBadges, recordGridGame } from "./data/games";
 import { newDailyWins } from "./data/badges";
 import { todayKey, dailyNumber } from "./core/daily";
 import { dailyAnswerFor } from "./data/dailySchedule";
+import { loadStore } from "./data/stats";
+import { primePinnedPuzzles, pinnedPuzzleCached } from "./data/pinnedPuzzles";
 import { SettingsPanel } from "./ui/SettingsPanel";
 import { GuessInput } from "./ui/GuessInput";
 import { ResultCard } from "./ui/ResultCard";
@@ -30,24 +32,49 @@ export default function App() {
   // The daily is deterministic, so a past date's clade group is recomputable —
   // lets per-clade daily stats include games recorded before groups were stored.
   const tree = g.tree;
-  const dailyGroupOf = useCallback(
+  // A past date's answer, preferring the FROZEN pin over the generator: after a
+  // content/seeding change the generator would recompute a different species for
+  // an old date, mislabelling history. `pinEpoch` bumps once the pins for the
+  // relevant dates are primed, so these memoised lookups re-run against them.
+  const [pinEpoch, setPinEpoch] = useState(0);
+  const answerIdFor = useCallback(
     (dateKey: string): string | null => {
       if (!tree) return null;
-      return groupOf(tree, dailyAnswerFor(tree, dateKey));
+      const pin = pinnedPuzzleCached("lineage", dateKey);
+      return pin ? pin.answerId : dailyAnswerFor(tree, dateKey);
     },
-    [tree]
+    [tree, pinEpoch]
   );
-  // The answer species for a past date (deterministic) — shown on that day's
-  // leaderboard. Callers only use it for finished days, never today's puzzle.
+  const dailyGroupOf = useCallback(
+    (dateKey: string): string | null => {
+      const id = answerIdFor(dateKey);
+      return tree && id ? groupOf(tree, id) : null;
+    },
+    [tree, answerIdFor]
+  );
+  // The answer species for a past date — shown on that day's leaderboard. Callers
+  // only use it for finished days, never today's puzzle.
   const dailyAnswerOf = useCallback(
     (dateKey: string): { name: string; sci: string } | null => {
-      if (!tree) return null;
-      const node = tree.byId.get(dailyAnswerFor(tree, dateKey));
+      const id = answerIdFor(dateKey);
+      const node = tree && id ? tree.byId.get(id) : null;
       return node ? { name: node.common ?? node.sciName, sci: node.sciName } : null;
     },
-    [tree]
+    [tree, answerIdFor]
   );
   const { stats, record, recordKinship } = useStats(userId, dailyGroupOf);
+
+  // Prime the frozen pins for the past dates these lookups touch — the player's
+  // local Lineage history, plus a recent window for the admin leaderboard preview.
+  useEffect(() => {
+    if (!tree) return;
+    const dates = new Set<string>(Object.keys(loadStore().history));
+    const t = Date.parse(`${todayKey()}T00:00:00Z`);
+    for (let i = 1; i <= 120; i++) dates.add(new Date(t - i * 86_400_000).toISOString().slice(0, 10));
+    let live = true;
+    primePinnedPuzzles("lineage", [...dates]).then((added) => { if (live && added) setPinEpoch((v) => v + 1); });
+    return () => { live = false; };
+  }, [tree, stats]);
   const [view, setView] = useState<"home" | "lineage" | "kinship" | "leaderboard" | "account" | "about">("home");
   // Bumped once a finished game's server write resolves, so the post-game board
   // refetches and includes the row just submitted (instead of racing the write).

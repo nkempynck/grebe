@@ -3,6 +3,7 @@ import type { Tree } from "../core";
 import { checkGridSelection, GRID_GROUPS, GRID_GROUP_SIZE, type GridBoard, type GridGroup } from "../core";
 import { todayKey } from "../core/daily";
 import { gridBoardFor } from "../data/gridDaily";
+import { fetchPinnedPuzzle, kinshipBoard } from "../data/pinnedPuzzles";
 import { loadGridProgress, saveGridProgress } from "../data/gridProgress";
 
 /** Wrong guesses allowed before the board is lost (matches Connections). */
@@ -52,9 +53,31 @@ function shuffled<T>(arr: T[]): T[] {
   return a;
 }
 
+/** Order-independent identity of a board — used to tell a frozen pin apart from
+ *  the freshly computed board (so we only swap when they actually differ). */
+function boardSig(b: GridBoard | null): string {
+  return b ? JSON.stringify({ t: b.tier, g: b.groups.map((g) => [g.cladeId, g.memberIds, g.level]), tl: b.tiles }) : "";
+}
+
 export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) => void): UseGridGame {
   const date = todayKey();
-  const board = useMemo(() => (tree ? gridBoardFor(tree, date) : null), [tree, date]);
+  // The board defaults to the deterministic generator (instant, offline). If a
+  // frozen pin exists for today AND differs (i.e. the generator changed since it
+  // was pinned), the pinned board takes over — the pin is the authoritative record.
+  const computed = useMemo(() => (tree ? gridBoardFor(tree, date) : null), [tree, date]);
+  const [pinned, setPinned] = useState<GridBoard | null>(null);
+  const board = pinned ?? computed;
+
+  useEffect(() => {
+    if (!tree) { setPinned(null); return; }
+    let live = true;
+    fetchPinnedPuzzle("kinship", date).then((p) => {
+      if (!live) return;
+      const frozen = p ? kinshipBoard(tree, date, p) : null;
+      setPinned(frozen && boardSig(frozen) !== boardSig(computed) ? frozen : null);
+    });
+    return () => { live = false; };
+  }, [tree, date, computed]);
 
   // Latest onComplete, held in a ref so submit() doesn't need it as a dependency
   // (and so it fires with the current closure, not a stale one).
