@@ -1,4 +1,5 @@
-import type { GameConfig } from "../core";
+import type { GameConfig, Tree } from "../core";
+import { dailyAnswerFromLeaves, leavesUnder, DAILY_EPOCH } from "../core";
 import { SCOPE_PRESETS } from "./presets";
 import { DAILY_PLAN, type DailyPlan, type DayPlan } from "./dailyPlan";
 
@@ -161,4 +162,70 @@ export function mergeDayPlan(auto: DailyRules, ov: DayPlan | undefined): DailyRu
  *  from `plan` (the committed plan by default) applied on top. */
 export function resolveDailyRules(dateKey: string, plan: DailyPlan = DAILY_PLAN): DailyRules {
   return mergeDayPlan(dailyRules(dateKey), plan[dateKey]);
+}
+
+/** Days a Lineage answer must stay clear of its recent predecessors: a full year,
+ *  so no organism recurs within 365 days. The per-scope pools comfortably support
+ *  this (simulated: zero forced repeats even at 500) — raise/lower freely. */
+const ANTI_REPEAT_WINDOW = 365;
+const RESOLVE_ATTEMPTS = 40;
+
+function shiftDate(dateKey: string, delta: number): string {
+  const d = new Date(`${dateKey}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+// leavesUnder is the costly part of a pick; cache it per (tree, scope) so the
+// epoch replay below is O(1) per day.
+const leavesByTree = new WeakMap<Tree, Map<string, string[]>>();
+function scopeLeaves(tree: Tree, scope: string): string[] {
+  let m = leavesByTree.get(tree);
+  if (!m) { m = new Map(); leavesByTree.set(tree, m); }
+  let l = m.get(scope);
+  if (!l) { l = leavesUnder(tree, scope); m.set(scope, l); }
+  return l;
+}
+
+/** One day's answer: a curator pin, else the first re-roll not blocked by `avoid`. */
+function pickDay(tree: Tree, dateKey: string, plan: DailyPlan, avoid: (id: string) => boolean): string {
+  const rules = resolveDailyRules(dateKey, plan);
+  if (rules.answerId && tree.byId.has(rules.answerId)) return rules.answerId;
+  const scope = rules.config.scopeRootId;
+  const leaves = scopeLeaves(tree, scope);
+  for (let attempt = 0; attempt < RESOLVE_ATTEMPTS; attempt++) {
+    const cand = dailyAnswerFromLeaves(leaves, dateKey, scope, attempt);
+    if (!avoid(cand)) return cand;
+  }
+  return dailyAnswerFromLeaves(leaves, dateKey, scope, 0);
+}
+
+/** The daily answer species for a date, skipping any species used in the previous
+ *  ANTI_REPEAT_WINDOW days so nearby days never repeat. A curator pin always wins.
+ *
+ *  It replays the sequence from DAILY_EPOCH up to the date, keeping a rolling
+ *  window of the species actually shown. Anchoring at the fixed epoch (rather
+ *  than the target minus a window) makes every date resolve identically no matter
+ *  which date is asked for — so a species picked on one day is visible to the days
+ *  that follow it, giving a solid guarantee rather than an approximation. Pure and
+ *  deterministic; cheap (O(1) per replayed day with leaves cached). */
+export function dailyAnswerFor(tree: Tree, dateKey: string, plan: DailyPlan = DAILY_PLAN): string {
+  if (dateKey <= DAILY_EPOCH) return pickDay(tree, dateKey, plan, () => false);
+
+  const queue: string[] = []; // last WINDOW shown answers (FIFO)
+  const counts = new Map<string, number>(); // multiset view of queue
+  const avoid = (id: string) => (counts.get(id) ?? 0) > 0;
+
+  for (let d = DAILY_EPOCH; ; d = shiftDate(d, 1)) {
+    const pick = pickDay(tree, d, plan, avoid);
+    if (d === dateKey) return pick;
+    queue.push(pick);
+    counts.set(pick, (counts.get(pick) ?? 0) + 1);
+    if (queue.length > ANTI_REPEAT_WINDOW) {
+      const old = queue.shift()!;
+      const c = (counts.get(old) ?? 0) - 1;
+      if (c <= 0) counts.delete(old);
+      else counts.set(old, c);
+    }
+  }
 }

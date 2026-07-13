@@ -13,6 +13,7 @@
 
 import type { Tree } from "./types";
 import { leavesUnder, mrca } from "./tree";
+import { DAILY_EPOCH } from "./daily";
 
 export const GRID_GROUPS = 4;
 export const GRID_GROUP_SIZE = 4;
@@ -173,33 +174,60 @@ const label = (tree: Tree, id: string) => {
   return n?.common ?? n?.sciName ?? id;
 };
 
-/**
- * Build the grid board for a date at a difficulty tier (1 gentle … 7 brutal).
- * Deterministic: a pure function of (tree, date, tier). Returns null only if the
- * tree can't field any valid board (never expected for the shipped taxonomy).
- */
-export function generateGridBoard(tree: Tree, dateKey: string, tier: number): GridBoard | null {
-  const themes = allThemes(tree);
-  const candidates = containers(tree, themes);
-  if (candidates.length === 0) return null;
+interface Discovered {
+  /** Candidate containers nearest the target depth for each tier (1…7). */
+  windowByTier: Map<number, Container[]>;
+}
 
+const TIER_WINDOW = 8; // containers considered per tier before the seeded pick
+
+/** Expensive, tree-only discovery (theme + container enumeration), plus the
+ *  per-tier container windows. Cached per tree so the epoch replay is cheap. */
+function discover(tree: Tree): Discovered | null {
+  const candidates = containers(tree, allThemes(tree));
+  if (candidates.length === 0) return null;
   candidates.sort((a, b) => a.depth - b.depth || (a.id < b.id ? -1 : 1));
   const minD = candidates[0].depth;
   const maxD = candidates[candidates.length - 1].depth;
 
-  // Map the weekday tier onto a target container depth: tier 1 → shallowest
-  // (groups far apart, easy), tier 7 → deepest (clustered/sibling groups, hard).
-  const frac = Math.min(Math.max((tier - 1) / 6, 0), 1);
-  const targetDepth = minD + frac * (maxD - minD);
+  // Precompute, per weekday tier, the containers nearest that tier's target depth:
+  // tier 1 → shallowest (groups far apart, easy), tier 7 → deepest (sibling groups).
+  const windowByTier = new Map<number, Container[]>();
+  for (let tier = 1; tier <= 7; tier++) {
+    const frac = (tier - 1) / 6;
+    const target = minD + frac * (maxD - minD);
+    const byCloseness = [...candidates].sort(
+      (a, b) => Math.abs(a.depth - target) - Math.abs(b.depth - target)
+    );
+    windowByTier.set(tier, byCloseness.slice(0, Math.min(TIER_WINDOW, byCloseness.length)));
+  }
+  return { windowByTier };
+}
 
-  const rng = mulberry32(xmur3(`grebe:grid:${dateKey}:${tier}`));
+const discoverCache = new WeakMap<Tree, Discovered | null>();
+function getDiscovered(tree: Tree): Discovered | null {
+  if (!discoverCache.has(tree)) discoverCache.set(tree, discover(tree));
+  return discoverCache.get(tree) ?? null;
+}
 
-  // Consider the containers nearest the target depth, then seed-pick among them so
-  // the same weekday doesn't always reuse one container.
-  const byCloseness = [...candidates].sort(
-    (a, b) => Math.abs(a.depth - targetDepth) - Math.abs(b.depth - targetDepth)
-  );
-  const window = byCloseness.slice(0, Math.min(8, byCloseness.length));
+/** Weekday difficulty tier for a date (Mon=1 … Sun=7) — matches dailySchedule. */
+function tierForDate(dateKey: string): number {
+  const day = new Date(`${dateKey}T00:00:00Z`).getUTCDay(); // Sun=0 … Sat=6
+  return ((day + 6) % 7) + 1;
+}
+
+function shiftDate(dateKey: string, delta: number): string {
+  const d = new Date(`${dateKey}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+/** The cheap per-day board selection over already-discovered containers.
+ *  `attempt` salts the seed so the anti-repeat layer can draw an alternative. */
+function selectBoard(tree: Tree, d: Discovered, dateKey: string, tier: number, attempt: number): GridBoard {
+  const seedKey = attempt === 0 ? `grebe:grid:${dateKey}:${tier}` : `grebe:grid:${dateKey}:${tier}:${attempt}`;
+  const rng = mulberry32(xmur3(seedKey));
+  const window = d.windowByTier.get(tier) ?? d.windowByTier.get(1)!;
   const container = pickN(window, 1, rng)[0];
 
   // Four pairwise-disjoint themes, each sampled to four members. Prefer members
@@ -222,11 +250,10 @@ export function generateGridBoard(tree: Tree, dateKey: string, tier: number): Gr
   // the closer it sits to its nearest neighbour group on the board — those are
   // the ones easy to mix up (Connections' "purple is the trap"). Closeness =
   // depth of the deepest common ancestor it shares with any other group; deeper
-  // = more confusable. Least-confusable → level 0 (yellow), most → level 3.
-  // The confusable pair ties on closeness (they share that ancestor), so break
-  // the tie by clade breadth: the broader, more familiar group takes the easier
-  // colour, the narrower one takes the harder. Clade id is a final tiebreak so
-  // the ranking is fully deterministic.
+  // = more confusable. Least-confusable → level 0 (yellow), most → level 3. The
+  // confusable pair ties on closeness (they share that ancestor), so break the
+  // tie by clade breadth (broader = easier colour), then clade id for full
+  // determinism.
   const leafCount = new Map(groups.map((g) => [g.cladeId, leavesUnder(tree, g.cladeId).length]));
   const closeness = (id: string) =>
     Math.max(
@@ -243,8 +270,66 @@ export function generateGridBoard(tree: Tree, dateKey: string, tier: number): Gr
   order.forEach((g, i) => (g.level = i));
 
   const tiles = shuffle(groups.flatMap((g) => g.memberIds), rng);
-
   return { date: dateKey, tier, groups, tiles };
+}
+
+/** A board's four categories, order-independent — the anti-repeat key. */
+const groupSig = (b: GridBoard) => b.groups.map((g) => g.cladeId).sort().join(",");
+
+/** Days a board's group-set must stay clear of its recent predecessors: ~3
+ *  months (member species vary daily regardless). Capped here — only ~289
+ *  distinct category-sets exist, so a larger window would force repeats inside
+ *  it (simulated: clean at 90, breaks by 120). */
+const GRID_ANTI_REPEAT_WINDOW = 90;
+const GRID_ATTEMPTS = 24;
+
+/** One day's board: the first re-roll whose group-set isn't blocked by `avoid`. */
+function boardForDay(tree: Tree, d: Discovered, dateKey: string, tier: number, avoid: (s: string) => boolean): GridBoard {
+  let board = selectBoard(tree, d, dateKey, tier, 0);
+  for (let attempt = 1; attempt < GRID_ATTEMPTS && avoid(groupSig(board)); attempt++) {
+    board = selectBoard(tree, d, dateKey, tier, attempt);
+  }
+  return board;
+}
+
+/**
+ * Build the grid board for a date at a difficulty tier (1 gentle … 7 brutal).
+ * Deterministic pure function of (tree, date, tier). Skips any group-set used in
+ * the previous GRID_ANTI_REPEAT_WINDOW days so nearby boards don't reuse the same
+ * four categories (member species always vary regardless). Returns null only if
+ * the tree can't field a board.
+ *
+ * Replays the boards from DAILY_EPOCH up to the target date, keeping a rolling
+ * window of the group-sets actually shown. Anchoring at the fixed epoch (not the
+ * target minus a window) makes every date resolve identically no matter which is
+ * asked for, so a board shown on one day is visible to the days that follow it —
+ * a solid guarantee, not an approximation. Cheap: discovery is cached per tree
+ * and each replayed day is O(1).
+ */
+export function generateGridBoard(tree: Tree, dateKey: string, tier: number): GridBoard | null {
+  const d = getDiscovered(tree);
+  if (!d) return null;
+  if (dateKey <= DAILY_EPOCH) return boardForDay(tree, d, dateKey, tier, () => false);
+
+  const queue: string[] = []; // last WINDOW shown group-sets (FIFO)
+  const counts = new Map<string, number>(); // multiset view of queue
+  const avoid = (s: string) => (counts.get(s) ?? 0) > 0;
+
+  for (let dk = DAILY_EPOCH; ; dk = shiftDate(dk, 1)) {
+    const t = dk === dateKey ? tier : tierForDate(dk);
+    const board = boardForDay(tree, d, dk, t, avoid);
+    if (dk === dateKey) return board;
+
+    const sig = groupSig(board);
+    queue.push(sig);
+    counts.set(sig, (counts.get(sig) ?? 0) + 1);
+    if (queue.length > GRID_ANTI_REPEAT_WINDOW) {
+      const old = queue.shift()!;
+      const c = (counts.get(old) ?? 0) - 1;
+      if (c <= 0) counts.delete(old);
+      else counts.set(old, c);
+    }
+  }
 }
 
 /** Which solution group a set of four selected tiles forms, plus a Connections

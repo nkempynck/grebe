@@ -40,15 +40,29 @@ export function dailyNumber(dateKey = todayKey()): number {
  * works if you fix the scope. With user-defined scope you get a *personal*
  * daily instead. Swap `seedKey` to just `dateKey` if you later lock the scope.
  */
+/** Pick a leaf from a PRECOMPUTED leaf list. Split out so the anti-repeat layer
+ *  can cache `leavesUnder` once and replay many days cheaply. */
+export function dailyAnswerFromLeaves(
+  leaves: string[],
+  dateKey: string,
+  scopeRootId: string,
+  /** Re-roll index. 0 is the canonical pick; the anti-repeat layer bumps this to
+   *  draw an alternative when the canonical pick was used too recently. */
+  attempt = 0
+): string {
+  if (leaves.length === 0) throw new Error(`No leaves under scope ${scopeRootId}`);
+  // attempt 0 keeps the original seed key, so it stays a stable canonical pick.
+  const seedKey = attempt === 0 ? `${dateKey}::${scopeRootId}` : `${dateKey}::${scopeRootId}::${attempt}`;
+  return leaves[xmur3(seedKey) % leaves.length];
+}
+
 export function dailyAnswerId(
   tree: Tree,
   scopeRootId: string,
-  dateKey = todayKey()
+  dateKey = todayKey(),
+  attempt = 0
 ): string {
-  const leaves = leavesUnder(tree, scopeRootId);
-  if (leaves.length === 0) throw new Error(`No leaves under scope ${scopeRootId}`);
-  const seed = xmur3(`${dateKey}::${scopeRootId}`);
-  return leaves[seed % leaves.length];
+  return dailyAnswerFromLeaves(leavesUnder(tree, scopeRootId), dateKey, scopeRootId, attempt);
 }
 
 /** A random leaf under scope — handy for a "practice" / dev button. */

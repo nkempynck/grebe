@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ancestryChain,
-  dailyAnswerId,
   evaluateGuess,
   isInScope,
   randomAnswerId,
@@ -13,7 +12,7 @@ import {
 } from "../core";
 import { loadTree } from "../data/loadTaxonomy";
 import { DEFAULT_SCOPE_ID } from "../data/presets";
-import { resolveDailyRules, type DailyRules } from "../data/dailySchedule";
+import { resolveDailyRules, dailyAnswerFor, type DailyRules } from "../data/dailySchedule";
 import { effectivePlan, fetchRemotePlan, type DailyPlan } from "../data/dailyPlan";
 import { isSupabaseConfigured } from "../data/supabase";
 import { fetchTodayDaily } from "../data/games";
@@ -143,15 +142,11 @@ export function useGame(userId: string | null): UseGame {
   // deterministic per day; free play draws a fresh random specimen.
   useEffect(() => {
     if (!tree) return;
-    // Daily honors a curator-pinned answer if it's a real leaf in scope,
-    // otherwise the deterministic pick; free play is always random.
-    const pinned =
-      mode === "daily" && daily.answerId && tree.byId.has(daily.answerId)
-        ? daily.answerId
-        : null;
+    // Daily resolves via dailyAnswerFor (curator pin, else the anti-repeat pick);
+    // free play is always random.
     const ans =
       mode === "daily"
-        ? pinned ?? dailyAnswerId(tree, config.scopeRootId)
+        ? dailyAnswerFor(tree, today, dailyPlan)
         : randomAnswerId(tree, config.scopeRootId);
     setAnswerId(ans);
     setError(null);
