@@ -73,9 +73,14 @@ export function usePlayer(): UsePlayer {
       const clean = name.trim();
       if (!supabase || !session) return { error: "not signed in" };
       if (!clean) return { error: "name can't be empty" };
-      const { error } = await supabase.from("profiles").update({ display_name: clean }).eq("id", session.user.id);
-      if (!error) setDisplayNameState(clean);
-      return { error: error?.message ?? null };
+      // Goes through the set_display_name() RPC — the ONLY write path — which
+      // validates length/charset, screens a denylist, and enforces uniqueness
+      // server-side (a direct profiles UPDATE is no longer permitted by RLS). It
+      // returns the stored, normalised name; a rejection surfaces as error.message.
+      const { data, error } = await supabase.rpc("set_display_name", { p_name: clean });
+      if (error) return { error: error.message };
+      setDisplayNameState((data as string | null) ?? clean);
+      return { error: null };
     },
     [session]
   );

@@ -45,7 +45,7 @@ function Profile({ player }: { player: UsePlayer }) {
           <div className="acct-label">Leaderboard name</div>
           {editing ? (
             <div className="acct-edit">
-              <input value={name} onChange={(e) => setName(e.target.value)} maxLength={24} aria-label="Display name" />
+              <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} aria-label="Display name" placeholder="3–20 chars, must be unique" />
               <button className="admin-rand" onClick={save}>Save</button>
               <button className="linkbtn" onClick={() => { setEditing(false); setName(player.displayName ?? ""); }}>Cancel</button>
             </div>
