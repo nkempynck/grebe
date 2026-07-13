@@ -45,7 +45,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       {/* ---------- What Grebe is ---------- */}
       <h3 id="about-platform" className="about-h">What Grebe is</h3>
       <p className="about-lede">
-        Grebe is a small platform of daily puzzle games, each played on the <b>tree of life</b> —
+        Grebe is a small platform of daily puzzle games, each played on the <b>tree of life</b>,
         the shared-ancestry tree that connects every living thing. Every game is new each day and
         the same for all players.
       </p>
@@ -67,13 +67,13 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
           </div>
           <p>
             Guess the hidden organism. Every wrong guess lands on the shared-ancestry tree at the
-            clade it has in common with the answer, so each guess narrows where the target sits —
+            clade it has in common with the answer, so each guess narrows where the target sits:
             closer guesses branch off lower down. You can re-root the tree to any scope (animals,
             fungi, plants, all of life), pick how close counts as a win (from exact species out to
             same order), and read a drawn cladogram of where each guess split off. It has a shared
             daily with a leaderboard, plus free play. Directly inspired by{" "}
             <a href="https://metazooa.com" target="_blank" rel="noreferrer">Metazooa</a> and its
-            plant counterpart Metaflora — check them out! Also thanks to my buddy Jasper for introducing
+            plant counterpart Metaflora. Check them out! Also thanks to my buddy Jasper for introducing
             me to Metazooa!
           </p>
           <details className="about-score">
@@ -82,7 +82,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
               A daily is scored <b>difficulty&nbsp;weight × efficiency × hint&nbsp;factor</b>, and zero
               for a loss. The weight is the day's tier (<code>40 + 20 × tier</code>), so a Sunday win is
               worth far more than a Monday one. Efficiency rewards fewer guesses; every hint and giving
-              up trims the score. Only the daily is ranked — free play isn't scored.
+              up trims the score. Only the daily is ranked. Free play isn't scored.
             </p>
           </details>
         </div>
@@ -125,7 +125,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       <h3 id="about-data" className="about-h">Data sources</h3>
       <p className="about-p">
         The species and the tree come from two open biodiversity databases, combined once into a
-        static snapshot the game ships with. The app reads that snapshot locally — the species and
+        static snapshot the game ships with. The app reads that snapshot locally, the species and
         tree themselves never need the network.
       </p>
       <div className="about-snap">
@@ -141,7 +141,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             The <a href="https://www.gbif.org" target="_blank" rel="noreferrer">Global
             Biodiversity Information Facility</a> aggregates occurrence records from museums,
             herbaria, and citizen-science platforms (iNaturalist, eBird). It provides the set of
-            species, selected per group and ranked by number of occurrence records — along with
+            species, selected per group and ranked by number of occurrence records, along with
             their English common names.
           </p>
         </div>
@@ -162,12 +162,12 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         <li>
           <b>Select species.</b> GBIF is queried per group (mammals, birds, insects, plants…)
           with a target count per group, filled from the most-recorded species that have a clean
-          English common name. A short curated list of extras — humans and lab model organisms —
+          English common name. A short curated list of extras — humans and lab model organisms, popular species —
           is added on top.
         </li>
         <li>
           <b>Resolve to the tree.</b> Each name is matched to its Open Tree identifier, and the
-          induced subtree over those identifiers is fetched — the minimal slice of the global
+          induced subtree over those identifiers is fetched; the minimal slice of the global
           tree that connects them.
         </li>
         <li>
@@ -183,6 +183,9 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       <p className="about-p">
         The full source (the engine, the data build, and this page) is on{" "}
         <a href="https://github.com/nkempynck/grebe" target="_blank" rel="noreferrer">GitHub</a>.
+        Coding was done by Claude Opus 4.8. Software engineering and page design were done by me and Claude. Game design and
+        feature design were done by me (and inspiration from the existing games mentioned before obviously),
+        with help from my partner.
       </p>
 
       {/* ---------- The name ---------- */}
@@ -217,7 +220,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         </li>
         <li>
           <b>Network requests.</b> When a round ends, the reveal card fetches a summary and thumbnail
-          from <a href="https://www.wikipedia.org" target="_blank" rel="noreferrer">Wikipedia</a> —
+          from <a href="https://www.wikipedia.org" target="_blank" rel="noreferrer">Wikipedia</a>, which is
           the only third-party service Grebe uses. While you're online, the day's puzzle and the
           leaderboards load from Grebe's own backend. Fonts are bundled with the app, not loaded from
           a CDN. Nothing about your play is uploaded unless you've signed in.
@@ -231,6 +234,9 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         Snapshot built {built || "—"} · GBIF (species + names) × Open Tree of Life (topology + ranks).
         Sources: <a href="https://www.gbif.org" target="_blank" rel="noreferrer">gbif.org</a> ·{" "}
         <a href="https://tree.opentreeoflife.org" target="_blank" rel="noreferrer">tree.opentreeoflife.org</a>
+      </p>
+      <p className="about-foot">
+        Made by Niklas.
       </p>
     </div>
   );

@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Grebe — daily tree-of-life game</title>
+    <script>
+      // Apply a remembered theme before first paint so a forced choice doesn't
+      // flash the OS default. No stored value → CSS drives from prefers-color-scheme.
+      try {
+        var t = localStorage.getItem("grebe.theme");
+        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

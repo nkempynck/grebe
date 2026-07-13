@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { DerivedStats, GroupScore, GroupWin } from "../data/stats";
 import type { UsePlayer } from "../hooks/usePlayer";
 import { Turnstile, captchaEnabled } from "./Turnstile";
+import { randomSpeciesName } from "../data/speciesNames";
 
 interface Props {
   stats: DerivedStats;
@@ -11,17 +12,27 @@ interface Props {
 
 function SyncBar({ player }: { player: UsePlayer }) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"register" | "login">("register");
+  // Register: the handle is chosen for you (a creature name) and locked — you
+  // rename yourself later in Account. Login: you type the name you registered.
+  const [regName, setRegName] = useState(randomSpeciesName);
   const [u, setU] = useState("");
   const [p, setP] = useState("");
   const [token, setToken] = useState<string | null>(null);
   // Bumped after each attempt to remount the widget for a fresh, single-use token.
   const [capKey, setCapKey] = useState(0);
   const blocked = captchaEnabled && !token;
-  const attempt = async (fn: (u: string, p: string, t?: string) => Promise<boolean>) => {
-    if (blocked) return;
-    await fn(u, p, token ?? undefined);
-    setToken(null);
-    setCapKey((k) => k + 1);
+  const resetCaptcha = () => { setToken(null); setCapKey((k) => k + 1); };
+
+  const doRegister = async () => {
+    if (blocked || !p) return;
+    await player.signUp(regName, p, token ?? undefined);
+    resetCaptcha();
+  };
+  const doLogin = async () => {
+    if (blocked || !u.trim() || !p) return;
+    await player.signIn(u, p, token ?? undefined);
+    resetCaptcha();
   };
 
   if (!player.configured) {
@@ -41,19 +52,43 @@ function SyncBar({ player }: { player: UsePlayer }) {
         <button className="linkbtn" onClick={() => setOpen(true)}>Sync across devices →</button>
       ) : (
         <div className="stats-sync-form">
-          <p>Use a username + password to carry your stats to other devices. No email needed.</p>
-          <p className="stats-sync-note">You'll start with a random creature name — change it anytime in Account.</p>
-          <p className="stats-sync-warn">Because there's no email, a forgotten password can't be recovered — pick one you'll remember.</p>
-          <div className="admin-login-fields">
-            <input type="text" autoComplete="username" placeholder="username" value={u} onChange={(e) => setU(e.target.value)} />
-            <input type="password" autoComplete="current-password" placeholder="password" value={p} onChange={(e) => setP(e.target.value)} />
+          <div className="sync-tabs" role="tablist">
+            <button role="tab" aria-selected={mode === "register"} className={mode === "register" ? "is-on" : ""} onClick={() => setMode("register")}>Create account</button>
+            <button role="tab" aria-selected={mode === "login"} className={mode === "login" ? "is-on" : ""} onClick={() => setMode("login")}>Log in</button>
           </div>
-          <Turnstile key={capKey} onToken={setToken} />
-          <div className="stats-sync-actions">
-            <button className="admin-rand" disabled={blocked} onClick={() => attempt(player.signIn)}>Sign in</button>
-            <button className="admin-rand" disabled={blocked} onClick={() => attempt(player.signUp)}>Create account</button>
-            <button className="linkbtn" onClick={() => setOpen(false)}>Cancel</button>
-          </div>
+
+          {mode === "register" ? (
+            <>
+              <p>Carry your stats to other devices. <b>No email</b> — just a creature name and a password.</p>
+              <div className="admin-login-fields">
+                <div className="sync-handle">
+                  <input type="text" value={regName} readOnly aria-label="Your creature name (assigned)" />
+                  <button type="button" className="sync-reroll" title="Shuffle name" aria-label="Shuffle name" onClick={() => setRegName(randomSpeciesName())}>🎲</button>
+                </div>
+                <input type="password" autoComplete="new-password" placeholder="password" value={p} onChange={(e) => setP(e.target.value)} />
+              </div>
+              <p className="stats-sync-note">You'll be <b>{regName}</b> — rename yourself anytime in Account. Note it to log in elsewhere.</p>
+              <p className="stats-sync-warn">No email means a forgotten password can't be recovered — pick one you'll remember.</p>
+              <Turnstile key={capKey} onToken={setToken} />
+              <div className="stats-sync-actions">
+                <button className="admin-rand" disabled={blocked} onClick={doRegister}>Create account</button>
+                <button className="linkbtn" onClick={() => setOpen(false)}>Cancel</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>Log in with the name and password you created. <b>Don't use your email.</b></p>
+              <div className="admin-login-fields">
+                <input type="text" autoComplete="username" placeholder="your creature name" value={u} onChange={(e) => setU(e.target.value)} />
+                <input type="password" autoComplete="current-password" placeholder="password" value={p} onChange={(e) => setP(e.target.value)} />
+              </div>
+              <Turnstile key={capKey} onToken={setToken} />
+              <div className="stats-sync-actions">
+                <button className="admin-rand" disabled={blocked} onClick={doLogin}>Log in</button>
+                <button className="linkbtn" onClick={() => setOpen(false)}>Cancel</button>
+              </div>
+            </>
+          )}
           {player.error && <p className="admin-authmsg is-err">{player.error}</p>}
         </div>
       )}

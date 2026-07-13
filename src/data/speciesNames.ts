@@ -9,8 +9,17 @@ const POOL: string[] = ((taxonomy.nodes as { rank: string; common?: string }[]) 
   .map((n) => n.common as string)
   .filter((c) => /^[A-Za-z][A-Za-z0-9 -]*$/.test(c) && c.length >= 3 && c.length <= 15);
 
-/** A random species common name (leaves room for a trailing number within the
- *  20-char display-name limit). Falls back to "Explorer" if the pool is empty. */
+/** A random species name shaped into a username-y handle: words CamelCased and
+ *  joined with no spaces or hyphens ("Red Fox" → "RedFox", "Three-toed Sloth" →
+ *  "ThreeToedSloth"). This becomes both the login handle and the initial
+ *  leaderboard name for a new player. Falls back to "Explorer" if empty. */
 export function randomSpeciesName(): string {
-  return POOL[Math.floor(Math.random() * POOL.length)] ?? "Explorer";
+  const raw = POOL[Math.floor(Math.random() * POOL.length)] ?? "Explorer";
+  const handle = raw
+    .split(/[\s-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join("")
+    .slice(0, 20);
+  return handle.length >= 3 ? handle : "Explorer";
 }

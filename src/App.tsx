@@ -24,6 +24,7 @@ import { HomePanel } from "./ui/HomePanel";
 import { KinshipLeaderboard } from "./ui/KinshipLeaderboard";
 import type { GridComplete } from "./hooks/useGridGame";
 import { RESOLUTION_PRESETS, SCOPE_PRESETS } from "./data/presets";
+import { useTheme } from "./data/theme";
 
 // The admin route lives behind a build-time env var so the real path is never in
 // the source (only this "admin" dev fallback is). Set VITE_ADMIN_ROUTE to an
@@ -34,6 +35,7 @@ const ADMIN_HASH = `#${import.meta.env.VITE_ADMIN_ROUTE ?? "admin"}`;
 
 export default function App() {
   const player = usePlayer();
+  const [theme, toggleTheme] = useTheme();
   const userId = player.session?.user.id ?? null;
   const g = useGame(userId);
   // The daily is deterministic, so a past date's clade group is recomputable —
@@ -328,6 +330,14 @@ export default function App() {
   return (
     <div className="wrap">
       <header className="masthead">
+        <button
+          className="theme-toggle"
+          onClick={toggleTheme}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={theme === "dark" ? "Light mode" : "Dark mode"}
+        >
+          {theme === "dark" ? "☀" : "☾"}
+        </button>
         <div className="eyebrow">{eyebrow}</div>
         <h1 className="title">Grebe</h1>
         <div className="subtitle">{subtitle}</div>

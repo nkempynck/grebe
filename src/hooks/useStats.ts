@@ -12,6 +12,7 @@ import {
   recordFree,
   recordKinship as recordKinshipLocal,
   saveStore,
+  clearStore,
   isEmptyStore,
   type DailyEntry,
   type KinshipEntry,
@@ -45,15 +46,23 @@ export function useStats(userId: string | null, groupForDate?: DailyGroupResolve
   const synced = useRef(false);
   // Records made during that window, replayed onto the cloud store once it lands.
   const pending = useRef<PendingRecord[]>([]);
+  // Tracks the previous signed-in user so we can tell a genuine sign-OUT (clear
+  // the device) from being anonymous since load (keep local progress to carry
+  // into a first account).
+  const prevUserId = useRef<string | null>(null);
 
   // When a player signs in, adopt the cloud row as the source of truth; if the
-  // cloud is empty, seed it from this device's local stats. On sign-out, fall
-  // back to whatever is stored locally.
+  // cloud is empty, seed it from this device's local stats. On sign-out, wipe the
+  // device so the next account can't inherit the previous one's stats.
   useEffect(() => {
     let cancelled = false;
+    const wasSignedIn = prevUserId.current !== null;
+    prevUserId.current = userId;
     if (!userId) {
       synced.current = true; // local-only: no cloud to race, push is a no-op
-      setStore(loadStore());
+      // Signing out clears the device (data is safe in the cloud); an anonymous
+      // first load keeps whatever local progress is there.
+      setStore(wasSignedIn ? clearStore() : loadStore());
       return;
     }
     synced.current = false;

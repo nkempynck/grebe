@@ -1,44 +1,103 @@
 @import "./fonts.css";
 
 :root {
-  /* ---- "Specimen at dusk" palette ----
-     A warm indigo-charcoal plate, ivory ink. The temperature axis runs
-     teal (distant) -> terracotta (close), and a win/answer glows a distinct
-     gold. Variable NAMES kept from the old brass theme so the rest of the
-     sheet inherits the new hues untouched. */
-  --bg: #15141c;
-  --bg-2: #1c1b26;
-  --bg-3: #262433;
-  --ink: #ece7dd;
-  --ink-soft: #9f9aad;
-  --ink-faint: #67647a;
-  --line: #322f42;
-  --line-soft: #24222f;
+  /* ---- "Field Guide" palette · LIGHT (default) ----
+     An aged naturalist plate: warm ivory paper, herbarium green as the lead,
+     cochineal red for errors/answers, verdigris teal for distance, ochre gold
+     for wins. Variable NAMES are kept from the old theme so the whole sheet
+     inherits the new hues untouched (--brass = accent, --cold = teal,
+     --vermilion = gold). The dark variant and the on-page toggle live below. */
+  --bg: #f1e8d4;
+  --bg-2: #fbf6ea;
+  --bg-3: #f5eeda;
+  --ink: #2e2a22;
+  --ink-soft: #6f6857;
+  --ink-faint: #9a927d;
+  --line: #ddd0b3;
+  --line-soft: #e8dfc7;
 
-  --brass: #dd7751; /* primary accent — terracotta */
-  --brass-bright: #ef9a6f;
-  --cold: #579dac; /* distant clade — teal */
-  --vermilion: #f2c14e; /* win / the answer — gold */
-  --danger: #e0574e;
+  --brass: #4a6f3d;        /* primary accent — herbarium green */
+  --brass-bright: #5c874c;
+  --cold: #3f7d86;         /* distant clade — verdigris teal */
+  --vermilion: #c68a22;    /* win / the answer — ochre gold */
+  --danger: #c0463b;       /* error — cochineal red */
+  --on-accent: #f7f2e4;    /* ink on a filled accent surface (e.g. buttons) */
 
-  --clado-line: #3a3850;
+  --clado-line: #d3c6a6;
+  --glow-warm: rgba(74, 111, 61, 0.10);
+  --glow-cool: rgba(63, 125, 134, 0.08);
 
   --font-display: "Bricolage Grotesque", "Segoe UI", sans-serif;
   --font-body: "Spectral", Georgia, serif;
   --font-mono: "Spline Sans Mono", ui-monospace, monospace;
 
   --radius: 5px;
+  color-scheme: light;
+}
+
+/* ---- "Field Guide" palette · DARK ----
+   The same plate at dusk: a deep warm olive-charcoal ground under ivory ink,
+   accents pushed brighter so they hold against the dark. Only the tokens change
+   — every component stays themed through the variables above. Applies when the
+   OS asks for dark AND the user hasn't forced light via the toggle. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #191a13;
+    --bg-2: #212219;
+    --bg-3: #2b2c21;
+    --ink: #ece7dd;
+    --ink-soft: #a8a28f;
+    --ink-faint: #726c5b;
+    --line: #35362a;
+    --line-soft: #26271d;
+
+    --brass: #6ea355;
+    --brass-bright: #86bd6b;
+    --cold: #5aa6b2;
+    --vermilion: #e3b24a;
+    --danger: #e0574e;
+    --on-accent: #10140b;
+
+    --clado-line: #3c3d30;
+    --glow-warm: rgba(110, 163, 85, 0.10);
+    --glow-cool: rgba(90, 166, 178, 0.09);
+    color-scheme: dark;
+  }
+}
+
+/* The on-page toggle stamps data-theme on <html>; dark forced here must win over
+   an OS light preference. (Forced light needs no block — it just falls through to
+   :root, and the media query above excludes [data-theme="light"].) */
+:root[data-theme="dark"] {
+  --bg: #191a13;
+  --bg-2: #212219;
+  --bg-3: #2b2c21;
+  --ink: #ece7dd;
+  --ink-soft: #a8a28f;
+  --ink-faint: #726c5b;
+  --line: #35362a;
+  --line-soft: #26271d;
+
+  --brass: #6ea355;
+  --brass-bright: #86bd6b;
+  --cold: #5aa6b2;
+  --vermilion: #e3b24a;
+  --danger: #e0574e;
+  --on-accent: #10140b;
+
+  --clado-line: #3c3d30;
+  --glow-warm: rgba(110, 163, 85, 0.10);
+  --glow-cool: rgba(90, 166, 178, 0.09);
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 
-html { color-scheme: dark; }
-
 body {
   margin: 0;
   background:
-    radial-gradient(1200px 620px at 82% -8%, rgba(221, 119, 81, 0.09), transparent 60%),
-    radial-gradient(900px 500px at -6% 4%, rgba(87, 157, 172, 0.07), transparent 55%),
+    radial-gradient(1200px 620px at 82% -8%, var(--glow-warm), transparent 60%),
+    radial-gradient(900px 500px at -6% 4%, var(--glow-cool), transparent 55%),
     var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
@@ -62,6 +121,16 @@ body {
   position: absolute; left: 0; bottom: -1px; width: 84px; height: 2px;
   background: var(--brass);
 }
+.theme-toggle {
+  position: absolute; top: 0; right: 0;
+  width: 34px; height: 34px; padding: 0;
+  display: grid; place-items: center;
+  font-size: 16px; line-height: 1; color: var(--ink-soft);
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 50%;
+  cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.theme-toggle:hover { color: var(--brass); border-color: var(--brass); }
+.theme-toggle:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
 .eyebrow {
   font-family: var(--font-mono);
   font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase;
@@ -217,7 +286,7 @@ body {
 .guessbar button {
   font-family: var(--font-mono); font-weight: 700; font-size: 13px;
   letter-spacing: 0.1em; text-transform: uppercase;
-  padding: 0 22px; background: var(--brass); color: #17130a;
+  padding: 0 22px; background: var(--brass); color: var(--on-accent);
   border: none; border-radius: var(--radius); cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -492,7 +561,7 @@ body {
 }
 .admin-preview-answer .tag {
   font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
-  color: #17130a; background: var(--brass); padding: 2px 7px; border-radius: 20px; font-weight: 600;
+  color: var(--on-accent); background: var(--brass); padding: 2px 7px; border-radius: 20px; font-weight: 600;
 }
 .admin-preview-answer .tag.auto { color: var(--ink-soft); background: var(--bg-3); }
 .admin-preview-cfg { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); }
@@ -615,6 +684,27 @@ body {
 }
 .stats-sync-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
 
+/* Log in / Create account switch. */
+.sync-tabs { display: inline-flex; gap: 4px; margin-bottom: 12px; background: var(--bg-3); border-radius: 8px; padding: 3px; }
+.sync-tabs button {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.03em;
+  padding: 5px 12px; border: none; border-radius: 6px; cursor: pointer;
+  background: transparent; color: var(--ink-soft);
+}
+.sync-tabs button.is-on { background: var(--bg); color: var(--brass); box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+.sync-tabs button:not(.is-on):hover { color: var(--ink); }
+
+/* The assigned (read-only) creature handle + its shuffle die. */
+.sync-handle { display: inline-flex; align-items: stretch; gap: 6px; }
+.sync-handle input[readonly] { font-weight: 600; color: var(--ink); cursor: default; }
+.sync-reroll {
+  flex: none; width: 38px; font-size: 15px; line-height: 1;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer;
+}
+.sync-reroll:hover { border-color: var(--brass); }
+.sync-reroll:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+
 .stats-nums { display: flex; flex-wrap: wrap; gap: 18px 26px; margin-bottom: 18px; }
 .stat { display: flex; flex-direction: column; }
 .stat b { font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1; color: var(--ink); }
@@ -638,7 +728,7 @@ body {
 }
 .dist-bar.is-hl { background: var(--brass); }
 .dist-count { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--ink); }
-.dist-bar.is-hl .dist-count { color: #17130a; }
+.dist-bar.is-hl .dist-count { color: var(--on-accent); }
 
 /* per-clade "how good are you" */
 .stats-clade-head { display: flex; align-items: baseline; justify-content: space-between; margin-top: 20px; }
@@ -870,7 +960,7 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .share-btn {
   font-family: var(--font-mono); font-weight: 600; font-size: 12px;
   letter-spacing: 0.1em; text-transform: uppercase;
-  padding: 9px 18px; background: var(--brass); color: #17130a;
+  padding: 9px 18px; background: var(--brass); color: var(--on-accent);
   border: none; border-radius: var(--radius); cursor: pointer; transition: background 0.15s ease;
 }
 .share-btn:hover { background: var(--brass-bright); }

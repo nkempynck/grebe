@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "../data/supabase";
-import { randomSpeciesName } from "../data/speciesNames";
 
 export interface UsePlayer {
   /** Whether sync is even possible (Supabase configured). */
@@ -24,11 +23,13 @@ export interface UsePlayer {
 
 const PLAYER_DOMAIN = "@cladensis.player";
 
-/** Turn a bare username into the email-format string Supabase Auth needs. If the
- *  user typed a real email, keep it (lets them use password reset). */
+/** Map a username to the email-format string Supabase Auth needs — and pointedly
+ *  NOT a real email. We strip anything from '@' onward and keep only handle-safe
+ *  characters, so even if someone pastes an address, only the local part before
+ *  the '@' is used against our internal domain. Players never store an email. */
 const asEmail = (u: string) => {
-  const v = u.trim().toLowerCase();
-  return v.includes("@") ? v : `${v}${PLAYER_DOMAIN}`;
+  const v = u.trim().toLowerCase().split("@")[0].replace(/[^a-z0-9_.-]/g, "");
+  return `${v || "player"}${PLAYER_DOMAIN}`;
 };
 const fromEmail = (e: string | undefined) =>
   e ? e.replace(new RegExp(`${PLAYER_DOMAIN}$`), "") : null;
@@ -97,35 +98,33 @@ export function usePlayer(): UsePlayer {
     return !error;
   }, []);
 
-  // Give a brand-new player a fun random creature name instead of their login
-  // handle (which, for a real-email signup, would leak the email prefix). Goes
-  // through set_display_name so it respects uniqueness + the profanity filter: a
-  // taken name gets a number, a filter-blocked species is swapped for another.
-  // Best-effort — if it can't land one, the signup trigger's default stands.
-  const assignRandomName = useCallback(async () => {
-    if (!supabase) return;
-    let base = randomSpeciesName();
-    for (let attempt = 0; attempt < 12; attempt++) {
-      const name = attempt === 0 ? base : `${base} ${Math.floor(10 + Math.random() * 990)}`;
-      const { data, error } = await supabase.rpc("set_display_name", { p_name: name });
-      if (!error) { setDisplayNameState((data as string | null) ?? name); return; }
-      if (/allow/i.test(error.message)) base = randomSpeciesName(); // blocked species → try another
-      // otherwise "already taken" → keep the base, next loop appends a number
-    }
-  }, []);
-
+  // Register with the creature handle the form prefilled. The handle is both the
+  // login identifier and the initial leaderboard name — no email is ever used
+  // (asEmail strips it). If the handle is already registered, Supabase (with
+  // email-confirm disabled) returns an obfuscated user with no identities; we
+  // treat that as a collision and retry with a numeric suffix. On success we set
+  // the display name to the claimed handle so its casing shows on the board.
   const signUp = useCallback(async (username: string, password: string, captchaToken?: string) => {
     if (!supabase || !username.trim() || !password) return false;
-    const { error } = await supabase.auth.signUp({
-      email: asEmail(username),
-      password,
-      options: captchaToken ? { captchaToken } : undefined,
-    });
-    setError(error?.message ?? null);
-    if (error) return false;
-    await assignRandomName();
-    return true;
-  }, [assignRandomName]);
+    const base = username.trim();
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const handle = attempt === 0 ? base : `${base}${attempt}`;
+      const { data, error } = await supabase.auth.signUp({
+        email: asEmail(handle),
+        password,
+        options: captchaToken ? { captchaToken } : undefined,
+      });
+      if (error) { setError(error.message); return false; }
+      const taken = !data.session && (data.user?.identities?.length ?? 0) === 0;
+      if (taken) continue; // handle already registered — try the next suffix
+      setError(null);
+      const { data: nm } = await supabase.rpc("set_display_name", { p_name: handle });
+      setDisplayNameState((nm as string | null) ?? handle);
+      return true;
+    }
+    setError("That name is taken — pick another and try again.");
+    return false;
+  }, []);
 
   const signOut = useCallback(() => {
     void supabase?.auth.signOut();

@@ -158,6 +158,15 @@ export function saveStore(store: StatsStore): void {
   }
 }
 
+/** Wipe this device's local stats, returning the fresh empty store. Used on
+ *  sign-out: the account's data lives in the cloud, so clearing the device keeps
+ *  the next account (or a brand-new registration) from inheriting these stats. */
+export function clearStore(): StatsStore {
+  const empty = emptyStore();
+  saveStore(empty);
+  return empty;
+}
+
 /** Coerce an untrusted blob (e.g. from the DB) into a valid v4 store. */
 export function coerceStore(raw: unknown): StatsStore {
   return migrate(raw);
