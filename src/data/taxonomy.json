@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-07-09T09:32:31.862Z",
+  "generatedAt": "2026-07-13T09:48:09.611Z",
   "source": "GBIF (species + common names) × Open Tree of Life (topology)",
   "counts": {
-    "nodes": 4996,
-    "species": 1738
+    "nodes": 5291,
+    "species": 1834
   },
   "scopes": [
     {
@@ -140,10 +140,16 @@
       "parentId": "ott248"
     },
     {
-      "id": "ott2464",
+      "id": "ott8384",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott557"
+    },
+    {
+      "id": "ott2464",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott8384"
     },
     {
       "id": "ott607",
@@ -213,11 +219,24 @@
       "parentId": "ott199561"
     },
     {
+      "id": "ott948911",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott62917"
+    },
+    {
+      "id": "3189859",
+      "sciName": "Acer saccharum",
+      "common": "Sugar maple",
+      "rank": "species",
+      "parentId": "ott948911"
+    },
+    {
       "id": "3189870",
       "sciName": "Acer pseudoplatanus",
       "common": "False Planetree",
       "rank": "species",
-      "parentId": "ott62917"
+      "parentId": "ott948911"
     },
     {
       "id": "ott506137",
@@ -647,10 +666,16 @@
       "parentId": "ott42100"
     },
     {
+      "id": "ott4729332",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott42100"
+    },
+    {
       "id": "ott84015",
       "sciName": "Humulus",
       "rank": "genus",
-      "parentId": "ott42100"
+      "parentId": "ott4729332"
     },
     {
       "id": "2984535",
@@ -658,6 +683,19 @@
       "common": "Bine",
       "rank": "species",
       "parentId": "ott84015"
+    },
+    {
+      "id": "ott84008",
+      "sciName": "Cannabis",
+      "rank": "genus",
+      "parentId": "ott4729332"
+    },
+    {
+      "id": "5361880",
+      "sciName": "Cannabis sativa",
+      "common": "Cannabis",
+      "rank": "species",
+      "parentId": "ott84008"
     },
     {
       "id": "ott1014672",
@@ -821,7 +859,7 @@
     {
       "id": "3002461",
       "sciName": "Rosa canina",
-      "common": "Common-briar",
+      "common": "Dog rose",
       "rank": "species",
       "parentId": "ott259066"
     },
@@ -885,10 +923,23 @@
       "parentId": "ott10421"
     },
     {
-      "id": "ott156939",
+      "id": "ott22639",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott34671"
+    },
+    {
+      "id": "3001244",
+      "sciName": "Malus domestica",
+      "common": "Apple",
+      "rank": "species",
+      "parentId": "ott22639"
+    },
+    {
+      "id": "ott156939",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott22639"
     },
     {
       "id": "ott842028",
@@ -1318,7 +1369,7 @@
     {
       "id": "2878688",
       "sciName": "Quercus robur",
-      "common": "Common Oak",
+      "common": "English oak",
       "rank": "species",
       "parentId": "ott288806"
     },
@@ -1542,16 +1593,35 @@
       "parentId": "ott509332"
     },
     {
+      "id": "ott1069308",
+      "sciName": "Vitales",
+      "rank": "order",
+      "parentId": "ott8384"
+    },
+    {
+      "id": "5372392",
+      "sciName": "Vitis vinifera",
+      "common": "Grapevine",
+      "rank": "species",
+      "parentId": "ott1069308"
+    },
+    {
       "id": "ott216628",
       "sciName": "Caryophyllales",
       "rank": "order",
       "parentId": "ott557"
     },
     {
-      "id": "ott5200",
+      "id": "ott904",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott216628"
+    },
+    {
+      "id": "ott5200",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott904"
     },
     {
       "id": "ott317818",
@@ -1716,10 +1786,41 @@
       "parentId": "ott5200"
     },
     {
+      "id": "ott584111",
+      "sciName": "Cactaceae",
+      "rank": "family",
+      "parentId": "ott904"
+    },
+    {
+      "id": "ott227063",
+      "sciName": "Cactoideae",
+      "rank": "subfamily",
+      "parentId": "ott584111"
+    },
+    {
+      "id": "ott897401",
+      "sciName": "Carnegiea",
+      "rank": "genus",
+      "parentId": "ott227063"
+    },
+    {
+      "id": "5384200",
+      "sciName": "Carnegiea gigantea",
+      "common": "Saguaro",
+      "rank": "species",
+      "parentId": "ott897401"
+    },
+    {
+      "id": "ott6468",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott216628"
+    },
+    {
       "id": "ott904376",
       "sciName": "Polygonaceae",
       "rank": "family",
-      "parentId": "ott216628"
+      "parentId": "ott6468"
     },
     {
       "id": "ott839947",
@@ -1830,6 +1931,25 @@
       "common": "Jesusplant",
       "rank": "species",
       "parentId": "ott839947"
+    },
+    {
+      "id": "ott14966",
+      "sciName": "Droseraceae",
+      "rank": "family",
+      "parentId": "ott6468"
+    },
+    {
+      "id": "ott14965",
+      "sciName": "Dionaea",
+      "rank": "genus",
+      "parentId": "ott14966"
+    },
+    {
+      "id": "5421410",
+      "sciName": "Dionaea muscipula",
+      "common": "Venus flytrap",
+      "rank": "species",
+      "parentId": "ott14965"
     },
     {
       "id": "ott650",
@@ -2431,10 +2551,36 @@
       "parentId": "ott473827"
     },
     {
-      "id": "ott121226",
+      "id": "ott121202",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott1020645"
+    },
+    {
+      "id": "ott98033",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott121202"
+    },
+    {
+      "id": "2930262",
+      "sciName": "Solanum tuberosum",
+      "common": "Potato",
+      "rank": "species",
+      "parentId": "ott98033"
+    },
+    {
+      "id": "2930137",
+      "sciName": "Solanum lycopersicum",
+      "common": "Tomato",
+      "rank": "species",
+      "parentId": "ott98033"
+    },
+    {
+      "id": "ott121226",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott121202"
     },
     {
       "id": "9150405",
@@ -2521,10 +2667,29 @@
       "parentId": "ott2192"
     },
     {
+      "id": "ott4439",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott1014022"
+    },
+    {
+      "id": "ott227658",
+      "sciName": "Coffea",
+      "rank": "genus",
+      "parentId": "ott4439"
+    },
+    {
+      "id": "2895345",
+      "sciName": "Coffea arabica",
+      "common": "Arabica coffee",
+      "rank": "species",
+      "parentId": "ott227658"
+    },
+    {
       "id": "ott521012",
       "sciName": "Rubieae",
       "rank": "tribe",
-      "parentId": "ott1014022"
+      "parentId": "ott4439"
     },
     {
       "id": "ott233573",
@@ -2773,7 +2938,7 @@
     {
       "id": "5394163",
       "sciName": "Taraxacum officinale",
-      "common": "Blowball",
+      "common": "Dandelion",
       "rank": "species",
       "parentId": "ott451182"
     },
@@ -3015,10 +3180,29 @@
       "parentId": "ott8262"
     },
     {
+      "id": "ott27848",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott353449"
+    },
+    {
+      "id": "ott515718",
+      "sciName": "Helianthus",
+      "rank": "genus",
+      "parentId": "ott27848"
+    },
+    {
+      "id": "9206251",
+      "sciName": "Helianthus annuus",
+      "common": "Sunflower",
+      "rank": "species",
+      "parentId": "ott515718"
+    },
+    {
       "id": "ott394959",
       "sciName": "Eupatorium",
       "rank": "genus",
-      "parentId": "ott353449"
+      "parentId": "ott27848"
     },
     {
       "id": "5402943",
@@ -3977,6 +4161,25 @@
       "parentId": "ott156274"
     },
     {
+      "id": "ott679528",
+      "sciName": "Musaceae",
+      "rank": "family",
+      "parentId": "ott627015"
+    },
+    {
+      "id": "ott207473",
+      "sciName": "Musa",
+      "rank": "genus",
+      "parentId": "ott679528"
+    },
+    {
+      "id": "2762680",
+      "sciName": "Musa acuminata",
+      "common": "Banana",
+      "rank": "species",
+      "parentId": "ott207473"
+    },
+    {
       "id": "ott1477",
       "sciName": "",
       "rank": "clade",
@@ -3995,10 +4198,22 @@
       "parentId": "ott508090"
     },
     {
-      "id": "ott33577",
+      "id": "ott11561",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott1787"
+    },
+    {
+      "id": "ott1828",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott11561"
+    },
+    {
+      "id": "ott33577",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott1828"
     },
     {
       "id": "ott1808",
@@ -4188,11 +4403,74 @@
       "parentId": "ott34395"
     },
     {
+      "id": "ott31937",
+      "sciName": "Triticum",
+      "rank": "genus",
+      "parentId": "ott1828"
+    },
+    {
+      "id": "7795888",
+      "sciName": "Triticum aestivum",
+      "common": "Bread wheat",
+      "rank": "species",
+      "parentId": "ott31937"
+    },
+    {
+      "id": "ott641467",
+      "sciName": "Oryzoideae",
+      "rank": "subfamily",
+      "parentId": "ott11561"
+    },
+    {
+      "id": "ott415723",
+      "sciName": "Oryzeae",
+      "rank": "tribe",
+      "parentId": "ott641467"
+    },
+    {
+      "id": "ott135764",
+      "sciName": "Oryza",
+      "rank": "genus",
+      "parentId": "ott415723"
+    },
+    {
+      "id": "2703459",
+      "sciName": "Oryza sativa",
+      "common": "Rice",
+      "rank": "species",
+      "parentId": "ott135764"
+    },
+    {
+      "id": "ott1999",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott1787"
+    },
+    {
+      "id": "ott5759522",
+      "sciName": "Tripsacinae",
+      "rank": "subtribe",
+      "parentId": "ott1999"
+    },
+    {
+      "id": "ott605186",
+      "sciName": "Zea",
+      "rank": "genus",
+      "parentId": "ott5759522"
+    },
+    {
+      "id": "5290052",
+      "sciName": "Zea mays",
+      "common": "Maize",
+      "rank": "species",
+      "parentId": "ott605186"
+    },
+    {
       "id": "5290149",
       "sciName": "Phragmites australis",
       "common": "Common Reed",
       "rank": "species",
-      "parentId": "ott1787"
+      "parentId": "ott1999"
     },
     {
       "id": "ott931271",
@@ -4278,7 +4556,7 @@
     {
       "id": "2735117",
       "sciName": "Cocos nucifera",
-      "common": "Coconut",
+      "common": "Coconut palm",
       "rank": "species",
       "parentId": "ott366253"
     },
@@ -5306,10 +5584,16 @@
       "parentId": "ott10224"
     },
     {
-      "id": "ott309291",
+      "id": "ott47954",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott620757"
+    },
+    {
+      "id": "ott309291",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott47954"
     },
     {
       "id": "ott32699",
@@ -5427,6 +5711,19 @@
       "common": "Bald Cypress",
       "rank": "species",
       "parentId": "ott652337"
+    },
+    {
+      "id": "ott751760",
+      "sciName": "Sequoiadendron",
+      "rank": "genus",
+      "parentId": "ott47954"
+    },
+    {
+      "id": "2684120",
+      "sciName": "Sequoiadendron giganteum",
+      "common": "Giant sequoia",
+      "rank": "species",
+      "parentId": "ott751760"
     },
     {
       "id": "ott807158",
@@ -6540,7 +6837,7 @@
     {
       "id": "7429082",
       "sciName": "Mus musculus",
-      "common": "Eastern House Mouse",
+      "common": "House mouse",
       "rank": "species",
       "parentId": "ott1729"
     },
@@ -6618,7 +6915,7 @@
     {
       "id": "2439261",
       "sciName": "Rattus norvegicus",
-      "common": "Brown Rat",
+      "common": "Brown rat",
       "rank": "species",
       "parentId": "ott92106"
     },
@@ -6810,7 +7107,7 @@
     {
       "id": "2439838",
       "sciName": "Castor canadensis",
-      "common": "Admiralty Beaver",
+      "common": "American beaver",
       "rank": "species",
       "parentId": "ott1048190"
     },
@@ -7117,7 +7414,7 @@
     {
       "id": "2436940",
       "sciName": "Oryctolagus cuniculus",
-      "common": "Common Rabbit",
+      "common": "European rabbit",
       "rank": "species",
       "parentId": "ott864605"
     },
@@ -7153,10 +7450,16 @@
       "parentId": "ott6520519"
     },
     {
+      "id": "ott3428",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott913935"
+    },
+    {
       "id": "ott702152",
       "sciName": "Haplorrhini",
       "rank": "suborder",
-      "parentId": "ott913935"
+      "parentId": "ott3428"
     },
     {
       "id": "ott386195",
@@ -7195,10 +7498,48 @@
       "parentId": "ott842868"
     },
     {
+      "id": "ott111862",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott842860"
+    },
+    {
+      "id": "ott436611",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott111862"
+    },
+    {
+      "id": "ott741055",
+      "sciName": "Mandrillus",
+      "rank": "genus",
+      "parentId": "ott436611"
+    },
+    {
+      "id": "5219556",
+      "sciName": "Mandrillus sphinx",
+      "common": "Mandrill",
+      "rank": "species",
+      "parentId": "ott741055"
+    },
+    {
+      "id": "ott115460",
+      "sciName": "Papio",
+      "rank": "genus",
+      "parentId": "ott436611"
+    },
+    {
+      "id": "5707341",
+      "sciName": "Papio anubis",
+      "common": "Olive baboon",
+      "rank": "species",
+      "parentId": "ott115460"
+    },
+    {
       "id": "ott268324",
       "sciName": "Macaca",
       "rank": "genus",
-      "parentId": "ott842860"
+      "parentId": "ott111862"
     },
     {
       "id": "ott689663",
@@ -7214,23 +7555,54 @@
       "parentId": "ott689663"
     },
     {
+      "id": "ott1067495",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott689663"
+    },
+    {
+      "id": "2436604",
+      "sciName": "Macaca mulatta",
+      "common": "Rhesus macaque",
+      "rank": "species",
+      "parentId": "ott1067495"
+    },
+    {
       "id": "2436615",
       "sciName": "Macaca cyclopis",
       "common": "Formosan Rock Macaque",
       "rank": "species",
-      "parentId": "ott689663"
+      "parentId": "ott1067495"
+    },
+    {
+      "id": "ott96938",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott83926"
+    },
+    {
+      "id": "ott770295",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott96938"
     },
     {
       "id": "ott312031",
       "sciName": "Homininae",
       "rank": "subfamily",
-      "parentId": "ott83926"
+      "parentId": "ott770295"
+    },
+    {
+      "id": "ott84217",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott312031"
     },
     {
       "id": "ott770309",
       "sciName": "Homo",
       "rank": "genus",
-      "parentId": "ott312031"
+      "parentId": "ott84217"
     },
     {
       "id": "2436436",
@@ -7238,6 +7610,108 @@
       "common": "Human",
       "rank": "species",
       "parentId": "ott770309"
+    },
+    {
+      "id": "ott417957",
+      "sciName": "Pan",
+      "rank": "genus",
+      "parentId": "ott84217"
+    },
+    {
+      "id": "5219534",
+      "sciName": "Pan troglodytes",
+      "common": "Chimpanzee",
+      "rank": "species",
+      "parentId": "ott417957"
+    },
+    {
+      "id": "5219533",
+      "sciName": "Pan paniscus",
+      "common": "Bonobo",
+      "rank": "species",
+      "parentId": "ott417957"
+    },
+    {
+      "id": "ott417969",
+      "sciName": "Gorilla",
+      "rank": "genus",
+      "parentId": "ott312031"
+    },
+    {
+      "id": "2436441",
+      "sciName": "Gorilla gorilla",
+      "common": "Western gorilla",
+      "rank": "species",
+      "parentId": "ott417969"
+    },
+    {
+      "id": "ott1082538",
+      "sciName": "Ponginae",
+      "rank": "subfamily",
+      "parentId": "ott770295"
+    },
+    {
+      "id": "ott417949",
+      "sciName": "Pongo",
+      "rank": "genus",
+      "parentId": "ott1082538"
+    },
+    {
+      "id": "5219532",
+      "sciName": "Pongo pygmaeus",
+      "common": "Bornean orangutan",
+      "rank": "species",
+      "parentId": "ott417949"
+    },
+    {
+      "id": "ott166544",
+      "sciName": "Hylobatidae",
+      "rank": "family",
+      "parentId": "ott96938"
+    },
+    {
+      "id": "ott166552",
+      "sciName": "Hylobates",
+      "rank": "genus",
+      "parentId": "ott166544"
+    },
+    {
+      "id": "5219553",
+      "sciName": "Hylobates lar",
+      "common": "Lar gibbon",
+      "rank": "species",
+      "parentId": "ott166552"
+    },
+    {
+      "id": "ott702147",
+      "sciName": "Strepsirrhini",
+      "rank": "suborder",
+      "parentId": "ott3428"
+    },
+    {
+      "id": "ott702142",
+      "sciName": "Lemuriformes",
+      "rank": "infraorder",
+      "parentId": "ott702147"
+    },
+    {
+      "id": "ott913933",
+      "sciName": "Lemuridae",
+      "rank": "family",
+      "parentId": "ott702142"
+    },
+    {
+      "id": "ott913932",
+      "sciName": "Lemur",
+      "rank": "genus",
+      "parentId": "ott913933"
+    },
+    {
+      "id": "2436412",
+      "sciName": "Lemur catta",
+      "common": "Ring-tailed lemur",
+      "rank": "species",
+      "parentId": "ott913932"
     },
     {
       "id": "ott392223",
@@ -7332,7 +7806,7 @@
     {
       "id": "2440958",
       "sciName": "Cervus elaphus",
-      "common": "Elaphoid",
+      "common": "Red deer",
       "rank": "species",
       "parentId": "ott76720"
     },
@@ -7409,7 +7883,7 @@
     {
       "id": "2440965",
       "sciName": "Odocoileus virginianus",
-      "common": "American Deer",
+      "common": "White-tailed deer",
       "rank": "species",
       "parentId": "ott410142"
     },
@@ -7422,7 +7896,7 @@
     {
       "id": "5220114",
       "sciName": "Rangifer tarandus",
-      "common": "Caribou",
+      "common": "Reindeer",
       "rank": "species",
       "parentId": "ott936000"
     },
@@ -7441,7 +7915,7 @@
     {
       "id": "2440940",
       "sciName": "Alces alces",
-      "common": "Alce",
+      "common": "Moose",
       "rank": "species",
       "parentId": "ott460507"
     },
@@ -7502,10 +7976,16 @@
       "parentId": "ott561127"
     },
     {
+      "id": "ott98208",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott21273"
+    },
+    {
       "id": "ott122647",
       "sciName": "Caprinae",
       "rank": "subfamily",
-      "parentId": "ott21273"
+      "parentId": "ott98208"
     },
     {
       "id": "ott132224",
@@ -7522,7 +8002,7 @@
     {
       "id": "2441056",
       "sciName": "Capra hircus",
-      "common": "Billy Goat",
+      "common": "Goat",
       "rank": "species",
       "parentId": "ott556488"
     },
@@ -7581,7 +8061,7 @@
     {
       "id": "2441110",
       "sciName": "Ovis aries",
-      "common": "Domestic Sheep",
+      "common": "Sheep",
       "rank": "species",
       "parentId": "ott540244"
     },
@@ -7604,6 +8084,25 @@
       "common": "Japanese Serow",
       "rank": "species",
       "parentId": "ott122641"
+    },
+    {
+      "id": "ott385449",
+      "sciName": "Alcelaphinae",
+      "rank": "subfamily",
+      "parentId": "ott98208"
+    },
+    {
+      "id": "ott19027",
+      "sciName": "Connochaetes",
+      "rank": "genus",
+      "parentId": "ott385449"
+    },
+    {
+      "id": "2441105",
+      "sciName": "Connochaetes taurinus",
+      "common": "Blue wildebeest",
+      "rank": "species",
+      "parentId": "ott19027"
     },
     {
       "id": "ott540235",
@@ -7682,10 +8181,16 @@
       "parentId": "ott346071"
     },
     {
+      "id": "ott116346",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott354607"
+    },
+    {
       "id": "ott122649",
       "sciName": "Syncerus",
       "rank": "genus",
-      "parentId": "ott354607"
+      "parentId": "ott116346"
     },
     {
       "id": "2441034",
@@ -7693,6 +8198,19 @@
       "common": "African Buffalo",
       "rank": "species",
       "parentId": "ott122649"
+    },
+    {
+      "id": "ott756071",
+      "sciName": "Bubalus",
+      "rank": "genus",
+      "parentId": "ott116346"
+    },
+    {
+      "id": "7422937",
+      "sciName": "Bubalus bubalis",
+      "common": "Water buffalo",
+      "rank": "species",
+      "parentId": "ott756071"
     },
     {
       "id": "ott374748",
@@ -7703,22 +8221,47 @@
     {
       "id": "2441176",
       "sciName": "Bison bison",
-      "common": "American Bison",
+      "common": "American bison",
       "rank": "species",
       "parentId": "ott374748"
     },
     {
       "id": "2441022",
       "sciName": "Bos taurus",
-      "common": "Aurochs",
+      "common": "Cattle",
       "rank": "species",
       "parentId": "ott374748"
+    },
+    {
+      "id": "ott736438",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott403912"
+    },
+    {
+      "id": "ott768685",
+      "sciName": "Giraffidae",
+      "rank": "family",
+      "parentId": "ott736438"
+    },
+    {
+      "id": "ott768687",
+      "sciName": "Giraffa",
+      "rank": "genus",
+      "parentId": "ott768685"
+    },
+    {
+      "id": "2441205",
+      "sciName": "Giraffa camelopardalis",
+      "common": "Giraffe",
+      "rank": "species",
+      "parentId": "ott768687"
     },
     {
       "id": "ott194522",
       "sciName": "Antilocapridae",
       "rank": "family",
-      "parentId": "ott403912"
+      "parentId": "ott736438"
     },
     {
       "id": "ott768682",
@@ -7854,7 +8397,7 @@
     {
       "id": "2440447",
       "sciName": "Tursiops truncatus",
-      "common": "Black Porpoise",
+      "common": "Bottlenose dolphin",
       "rank": "species",
       "parentId": "ott124235"
     },
@@ -7913,15 +8456,21 @@
     {
       "id": "2440483",
       "sciName": "Orcinus orca",
-      "common": "Blackfish",
+      "common": "Orca",
       "rank": "species",
       "parentId": "ott124219"
+    },
+    {
+      "id": "ott306757",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott194312"
     },
     {
       "id": "ott851308",
       "sciName": "Phocoenidae",
       "rank": "family",
-      "parentId": "ott194312"
+      "parentId": "ott306757"
     },
     {
       "id": "2440669",
@@ -7929,6 +8478,38 @@
       "common": "Afro-Iberian Harbor Porpoise",
       "rank": "species",
       "parentId": "ott851308"
+    },
+    {
+      "id": "ott851307",
+      "sciName": "Monodontidae",
+      "rank": "family",
+      "parentId": "ott306757"
+    },
+    {
+      "id": "ott306759",
+      "sciName": "Monodon",
+      "rank": "genus",
+      "parentId": "ott851307"
+    },
+    {
+      "id": "5220008",
+      "sciName": "Monodon monoceros",
+      "common": "Narwhal",
+      "rank": "species",
+      "parentId": "ott306759"
+    },
+    {
+      "id": "ott851317",
+      "sciName": "Delphinapterus",
+      "rank": "genus",
+      "parentId": "ott851307"
+    },
+    {
+      "id": "5220003",
+      "sciName": "Delphinapterus leucas",
+      "common": "Beluga",
+      "rank": "species",
+      "parentId": "ott851317"
     },
     {
       "id": "ott276849",
@@ -7964,7 +8545,7 @@
     {
       "id": "8123917",
       "sciName": "Physeter macrocephalus",
-      "common": "Cachalot",
+      "common": "Sperm whale",
       "rank": "species",
       "parentId": "ott276856"
     },
@@ -8021,7 +8602,7 @@
     {
       "id": "5220086",
       "sciName": "Megaptera novaeangliae",
-      "common": "Buckelwal",
+      "common": "Humpback whale",
       "rank": "species",
       "parentId": "ott226201"
     },
@@ -8034,7 +8615,7 @@
     {
       "id": "2440735",
       "sciName": "Balaenoptera musculus",
-      "common": "Blue Rorqual",
+      "common": "Blue whale",
       "rank": "species",
       "parentId": "ott313151"
     },
@@ -8091,6 +8672,31 @@
       "parentId": "ott251473"
     },
     {
+      "id": "ott7655792",
+      "sciName": "Ancodonta",
+      "rank": "infraorder",
+      "parentId": "ott7655791"
+    },
+    {
+      "id": "ott510764",
+      "sciName": "Hippopotamidae",
+      "rank": "family",
+      "parentId": "ott7655792"
+    },
+    {
+      "id": "ott510761",
+      "sciName": "Hippopotamus",
+      "rank": "genus",
+      "parentId": "ott510764"
+    },
+    {
+      "id": "2441247",
+      "sciName": "Hippopotamus amphibius",
+      "common": "Hippopotamus",
+      "rank": "species",
+      "parentId": "ott510761"
+    },
+    {
       "id": "ott916745",
       "sciName": "Suina",
       "rank": "suborder",
@@ -8103,6 +8709,19 @@
       "parentId": "ott916745"
     },
     {
+      "id": "ott1036752",
+      "sciName": "Phacochoerus",
+      "rank": "genus",
+      "parentId": "ott730008"
+    },
+    {
+      "id": "2441212",
+      "sciName": "Phacochoerus africanus",
+      "common": "Warthog",
+      "rank": "species",
+      "parentId": "ott1036752"
+    },
+    {
       "id": "ott730021",
       "sciName": "Sus",
       "rank": "genus",
@@ -8111,7 +8730,7 @@
     {
       "id": "7705930",
       "sciName": "Sus scrofa",
-      "common": "Boar",
+      "common": "Wild boar",
       "rank": "species",
       "parentId": "ott730021"
     },
@@ -8160,17 +8779,56 @@
       "parentId": "ott510773"
     },
     {
+      "id": "ott143016",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott510775"
+    },
+    {
+      "id": "ott906305",
+      "sciName": "Vicugna",
+      "rank": "genus",
+      "parentId": "ott143016"
+    },
+    {
+      "id": "7515593",
+      "sciName": "Vicugna pacos",
+      "common": "Alpaca",
+      "rank": "species",
+      "parentId": "ott906305"
+    },
+    {
       "id": "ott510759",
       "sciName": "Lama",
       "rank": "genus",
-      "parentId": "ott510775"
+      "parentId": "ott143016"
     },
     {
       "id": "5220190",
       "sciName": "Lama glama",
-      "common": "Guanaco",
+      "common": "Llama",
       "rank": "species",
       "parentId": "ott510759"
+    },
+    {
+      "id": "ott510767",
+      "sciName": "Camelus",
+      "rank": "genus",
+      "parentId": "ott510775"
+    },
+    {
+      "id": "9055455",
+      "sciName": "Camelus dromedarius",
+      "common": "Dromedary",
+      "rank": "species",
+      "parentId": "ott510767"
+    },
+    {
+      "id": "2441238",
+      "sciName": "Camelus bactrianus",
+      "common": "Bactrian camel",
+      "rank": "species",
+      "parentId": "ott510767"
     },
     {
       "id": "ott541948",
@@ -8205,9 +8863,22 @@
     {
       "id": "2440892",
       "sciName": "Equus quagga",
-      "common": "Burchell's Zebra",
+      "common": "Plains zebra",
       "rank": "species",
       "parentId": "ott1068214"
+    },
+    {
+      "id": "ott615436",
+      "sciName": "Asinus",
+      "rank": "subgenus",
+      "parentId": "ott541951"
+    },
+    {
+      "id": "2440891",
+      "sciName": "Equus asinus",
+      "common": "Donkey",
+      "rank": "species",
+      "parentId": "ott615436"
     },
     {
       "id": "ott94003",
@@ -8218,15 +8889,21 @@
     {
       "id": "2440886",
       "sciName": "Equus caballus",
-      "common": "Alberta Mountain Horse",
+      "common": "Horse",
       "rank": "species",
       "parentId": "ott94003"
+    },
+    {
+      "id": "ott277746",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott541948"
     },
     {
       "id": "ott1068227",
       "sciName": "Tapiridae",
       "rank": "family",
-      "parentId": "ott541948"
+      "parentId": "ott277746"
     },
     {
       "id": "ott1087514",
@@ -8240,6 +8917,38 @@
       "common": "Brazilian Tapir",
       "rank": "species",
       "parentId": "ott1087514"
+    },
+    {
+      "id": "ott1034218",
+      "sciName": "Rhinocerotidae",
+      "rank": "family",
+      "parentId": "ott277746"
+    },
+    {
+      "id": "ott397576",
+      "sciName": "Diceros",
+      "rank": "genus",
+      "parentId": "ott1034218"
+    },
+    {
+      "id": "5220111",
+      "sciName": "Diceros bicornis",
+      "common": "Black rhinoceros",
+      "rank": "species",
+      "parentId": "ott397576"
+    },
+    {
+      "id": "ott1034201",
+      "sciName": "Ceratotherium",
+      "rank": "genus",
+      "parentId": "ott1034218"
+    },
+    {
+      "id": "2440880",
+      "sciName": "Ceratotherium simum",
+      "common": "White rhinoceros",
+      "rank": "species",
+      "parentId": "ott1034201"
     },
     {
       "id": "ott574724",
@@ -8715,10 +9424,22 @@
       "parentId": "ott827263"
     },
     {
-      "id": "ott203417",
+      "id": "ott231602",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott10732"
+    },
+    {
+      "id": "ott638813",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott231602"
+    },
+    {
+      "id": "ott203417",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott638813"
     },
     {
       "id": "ott348043",
@@ -8798,7 +9519,7 @@
     {
       "id": "2433875",
       "sciName": "Meles meles",
-      "common": "Eurasian Badger",
+      "common": "European badger",
       "rank": "species",
       "parentId": "ott923115"
     },
@@ -8815,17 +9536,36 @@
       "parentId": "ott39395"
     },
     {
+      "id": "ott167828",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott306281"
+    },
+    {
       "id": "ott348034",
       "sciName": "Lutra",
       "rank": "genus",
-      "parentId": "ott306281"
+      "parentId": "ott167828"
     },
     {
       "id": "2433753",
       "sciName": "Lutra lutra",
-      "common": "Common Otter",
+      "common": "European otter",
       "rank": "species",
       "parentId": "ott348034"
+    },
+    {
+      "id": "ott949684",
+      "sciName": "Enhydra",
+      "rank": "genus",
+      "parentId": "ott167828"
+    },
+    {
+      "id": "2433670",
+      "sciName": "Enhydra lutris",
+      "common": "Sea otter",
+      "rank": "species",
+      "parentId": "ott949684"
     },
     {
       "id": "ott275123",
@@ -8894,9 +9634,47 @@
     {
       "id": "5218786",
       "sciName": "Procyon lotor",
-      "common": "American Raccoon",
+      "common": "Raccoon",
       "rank": "species",
       "parentId": "ott348029"
+    },
+    {
+      "id": "ott827257",
+      "sciName": "Ailuridae",
+      "rank": "family",
+      "parentId": "ott638813"
+    },
+    {
+      "id": "ott872565",
+      "sciName": "Ailurus",
+      "rank": "genus",
+      "parentId": "ott827257"
+    },
+    {
+      "id": "5219446",
+      "sciName": "Ailurus fulgens",
+      "common": "Red panda",
+      "rank": "species",
+      "parentId": "ott872565"
+    },
+    {
+      "id": "ott445986",
+      "sciName": "Mephitidae",
+      "rank": "family",
+      "parentId": "ott231602"
+    },
+    {
+      "id": "ott231606",
+      "sciName": "Mephitis",
+      "rank": "genus",
+      "parentId": "ott445986"
+    },
+    {
+      "id": "5219380",
+      "sciName": "Mephitis mephitis",
+      "common": "Striped skunk",
+      "rank": "species",
+      "parentId": "ott231606"
     },
     {
       "id": "ott22064",
@@ -8917,18 +9695,44 @@
       "parentId": "ott297458"
     },
     {
+      "id": "ott350099",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott300426"
+    },
+    {
+      "id": "2433451",
+      "sciName": "Ursus maritimus",
+      "common": "Polar bear",
+      "rank": "species",
+      "parentId": "ott350099"
+    },
+    {
       "id": "2433433",
       "sciName": "Ursus arctos",
-      "common": "Brown Bear",
+      "common": "Brown bear",
       "rank": "species",
-      "parentId": "ott300426"
+      "parentId": "ott350099"
     },
     {
       "id": "2433407",
       "sciName": "Ursus americanus",
-      "common": "American Black Bear",
+      "common": "American black bear",
       "rank": "species",
       "parentId": "ott300426"
+    },
+    {
+      "id": "ott872566",
+      "sciName": "Ailuropoda",
+      "rank": "genus",
+      "parentId": "ott297458"
+    },
+    {
+      "id": "2433399",
+      "sciName": "Ailuropoda melanoleuca",
+      "common": "Giant panda",
+      "rank": "species",
+      "parentId": "ott872566"
     },
     {
       "id": "ott95364",
@@ -8951,7 +9755,7 @@
     {
       "id": "2434793",
       "sciName": "Phoca vitulina",
-      "common": "Atlantic harbor seal",
+      "common": "Harbor seal",
       "rank": "species",
       "parentId": "ott6145546"
     },
@@ -9020,10 +9824,16 @@
       "parentId": "ott175272"
     },
     {
+      "id": "ott433857",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott95364"
+    },
+    {
       "id": "ott749638",
       "sciName": "Otariidae",
       "rank": "family",
-      "parentId": "ott95364"
+      "parentId": "ott433857"
     },
     {
       "id": "ott273179",
@@ -9032,11 +9842,30 @@
       "parentId": "ott749638"
     },
     {
+      "id": "ott180381",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott273179"
+    },
+    {
+      "id": "ott749640",
+      "sciName": "Zalophus",
+      "rank": "genus",
+      "parentId": "ott180381"
+    },
+    {
+      "id": "2433458",
+      "sciName": "Zalophus californianus",
+      "common": "California sea lion",
+      "rank": "species",
+      "parentId": "ott749640"
+    },
+    {
       "id": "2433472",
       "sciName": "Arctocephalus gazella",
       "common": "Antarctic Fur Seal",
       "rank": "species",
-      "parentId": "ott273179"
+      "parentId": "ott180381"
     },
     {
       "id": "ott796567",
@@ -9050,6 +9879,25 @@
       "common": "Australian Sea Lion",
       "rank": "species",
       "parentId": "ott796567"
+    },
+    {
+      "id": "ott95367",
+      "sciName": "Odobenidae",
+      "rank": "family",
+      "parentId": "ott433857"
+    },
+    {
+      "id": "ott749643",
+      "sciName": "Odobenus",
+      "rank": "genus",
+      "parentId": "ott95367"
+    },
+    {
+      "id": "5218819",
+      "sciName": "Odobenus rosmarus",
+      "common": "Walrus",
+      "rank": "species",
+      "parentId": "ott749643"
     },
     {
       "id": "ott770319",
@@ -9076,11 +9924,30 @@
       "parentId": "ott110766"
     },
     {
+      "id": "ott684074",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott247331"
+    },
+    {
       "id": "5219173",
       "sciName": "Canis lupus",
-      "common": "American Wolf",
+      "common": "Gray wolf",
       "rank": "species",
-      "parentId": "ott247331"
+      "parentId": "ott684074"
+    },
+    {
+      "id": "ott821959",
+      "sciName": "Lycaon",
+      "rank": "genus",
+      "parentId": "ott684074"
+    },
+    {
+      "id": "5219317",
+      "sciName": "Lycaon pictus",
+      "common": "African wild dog",
+      "rank": "species",
+      "parentId": "ott821959"
     },
     {
       "id": "ott621168",
@@ -9091,7 +9958,7 @@
     {
       "id": "5219153",
       "sciName": "Canis latrans",
-      "common": "American Jackal",
+      "common": "Coyote",
       "rank": "species",
       "parentId": "ott621168"
     },
@@ -9135,11 +10002,37 @@
       "parentId": "ott534964"
     },
     {
+      "id": "ott315465",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott297455"
+    },
+    {
+      "id": "ott419501",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott315465"
+    },
+    {
+      "id": "5219303",
+      "sciName": "Vulpes lagopus",
+      "common": "Arctic fox",
+      "rank": "species",
+      "parentId": "ott419501"
+    },
+    {
       "id": "5219243",
       "sciName": "Vulpes vulpes",
-      "common": "American Cross Fox",
+      "common": "Red fox",
       "rank": "species",
-      "parentId": "ott297455"
+      "parentId": "ott419501"
+    },
+    {
+      "id": "5219310",
+      "sciName": "Vulpes zerda",
+      "common": "Fennec fox",
+      "rank": "species",
+      "parentId": "ott315465"
     },
     {
       "id": "ott827259",
@@ -9148,10 +10041,60 @@
       "parentId": "ott6940"
     },
     {
+      "id": "ott19397",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott827259"
+    },
+    {
+      "id": "ott383901",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott19397"
+    },
+    {
+      "id": "ott42311",
+      "sciName": "Herpestidae",
+      "rank": "family",
+      "parentId": "ott383901"
+    },
+    {
+      "id": "ott418480",
+      "sciName": "Suricata",
+      "rank": "genus",
+      "parentId": "ott42311"
+    },
+    {
+      "id": "2434126",
+      "sciName": "Suricata suricatta",
+      "common": "Meerkat",
+      "rank": "species",
+      "parentId": "ott418480"
+    },
+    {
+      "id": "ott397138",
+      "sciName": "Hyaenidae",
+      "rank": "family",
+      "parentId": "ott383901"
+    },
+    {
+      "id": "ott397140",
+      "sciName": "Crocuta",
+      "rank": "genus",
+      "parentId": "ott397138"
+    },
+    {
+      "id": "5218781",
+      "sciName": "Crocuta crocuta",
+      "common": "Spotted hyena",
+      "rank": "species",
+      "parentId": "ott397140"
+    },
+    {
       "id": "ott563159",
       "sciName": "Felidae",
       "rank": "family",
-      "parentId": "ott827259"
+      "parentId": "ott19397"
     },
     {
       "id": "ott563154",
@@ -9160,11 +10103,57 @@
       "parentId": "ott563159"
     },
     {
+      "id": "ott532117",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott563154"
+    },
+    {
+      "id": "5219416",
+      "sciName": "Panthera tigris",
+      "common": "Tiger",
+      "rank": "species",
+      "parentId": "ott532117"
+    },
+    {
+      "id": "2435238",
+      "sciName": "Panthera uncia",
+      "common": "Snow leopard",
+      "rank": "species",
+      "parentId": "ott532117"
+    },
+    {
+      "id": "ott371429",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott563154"
+    },
+    {
+      "id": "5219436",
+      "sciName": "Panthera pardus",
+      "common": "Leopard",
+      "rank": "species",
+      "parentId": "ott371429"
+    },
+    {
+      "id": "ott735488",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott371429"
+    },
+    {
+      "id": "5219404",
+      "sciName": "Panthera leo",
+      "common": "Lion",
+      "rank": "species",
+      "parentId": "ott735488"
+    },
+    {
       "id": "5219426",
       "sciName": "Panthera onca",
-      "common": "American Tiger",
+      "common": "Jaguar",
       "rank": "species",
-      "parentId": "ott563154"
+      "parentId": "ott735488"
     },
     {
       "id": "ott442049",
@@ -9173,10 +10162,16 @@
       "parentId": "ott563159"
     },
     {
+      "id": "ott86162",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott442049"
+    },
+    {
       "id": "ott563165",
       "sciName": "Felis",
       "rank": "genus",
-      "parentId": "ott442049"
+      "parentId": "ott86162"
     },
     {
       "id": "ott563166",
@@ -9194,9 +10189,47 @@
     {
       "id": "2435035",
       "sciName": "Felis catus",
-      "common": "Alley Cat",
+      "common": "Domestic cat",
       "rank": "species",
       "parentId": "ott563166"
+    },
+    {
+      "id": "ott752759",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott86162"
+    },
+    {
+      "id": "ott86161",
+      "sciName": "Puma",
+      "rank": "genus",
+      "parentId": "ott752759"
+    },
+    {
+      "id": "2435099",
+      "sciName": "Puma concolor",
+      "common": "Cougar",
+      "rank": "species",
+      "parentId": "ott86161"
+    },
+    {
+      "id": "ott626920",
+      "sciName": "Acinonychinae",
+      "rank": "subfamily",
+      "parentId": "ott752759"
+    },
+    {
+      "id": "ott752758",
+      "sciName": "Acinonyx",
+      "rank": "genus",
+      "parentId": "ott626920"
+    },
+    {
+      "id": "2435270",
+      "sciName": "Acinonyx jubatus",
+      "common": "Cheetah",
+      "rank": "species",
+      "parentId": "ott752758"
     },
     {
       "id": "ott886828",
@@ -9207,7 +10240,7 @@
     {
       "id": "2435240",
       "sciName": "Lynx lynx",
-      "common": "Eurasian Lynx",
+      "common": "Eurasian lynx",
       "rank": "species",
       "parentId": "ott886828"
     },
@@ -9381,7 +10414,7 @@
     {
       "id": "5219616",
       "sciName": "Erinaceus europaeus",
-      "common": "Brown-breasted Hedgehog",
+      "common": "European hedgehog",
       "rank": "species",
       "parentId": "ott796658"
     },
@@ -9424,7 +10457,7 @@
     {
       "id": "2435296",
       "sciName": "Trichechus manatus",
-      "common": "American Manatee",
+      "common": "West Indian manatee",
       "rank": "species",
       "parentId": "ott226189"
     },
@@ -9491,10 +10524,16 @@
       "parentId": "ott226176"
     },
     {
+      "id": "ott298128",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott541924"
+    },
+    {
       "id": "ott106255",
       "sciName": "Mammuthus",
       "rank": "clade",
-      "parentId": "ott541924"
+      "parentId": "ott298128"
     },
     {
       "id": "4825833",
@@ -9502,6 +10541,19 @@
       "common": "Woolly Mammoth",
       "rank": "species",
       "parentId": "ott106255"
+    },
+    {
+      "id": "ott541927",
+      "sciName": "Elephas",
+      "rank": "genus",
+      "parentId": "ott298128"
+    },
+    {
+      "id": "5219461",
+      "sciName": "Elephas maximus",
+      "common": "Asian elephant",
+      "rank": "species",
+      "parentId": "ott541927"
     },
     {
       "id": "ott541933",
@@ -9512,9 +10564,34 @@
     {
       "id": "2435350",
       "sciName": "Loxodonta africana",
-      "common": "African Bush Elephant",
+      "common": "African bush elephant",
       "rank": "species",
       "parentId": "ott541933"
+    },
+    {
+      "id": "ott561100",
+      "sciName": "Tubulidentata",
+      "rank": "order",
+      "parentId": "ott746703"
+    },
+    {
+      "id": "ott561103",
+      "sciName": "Orycteropodidae",
+      "rank": "family",
+      "parentId": "ott561100"
+    },
+    {
+      "id": "ott561106",
+      "sciName": "Orycteropus",
+      "rank": "genus",
+      "parentId": "ott561103"
+    },
+    {
+      "id": "5218416",
+      "sciName": "Orycteropus afer",
+      "common": "Aardvark",
+      "rank": "species",
+      "parentId": "ott561106"
     },
     {
       "id": "ott847764",
@@ -9543,9 +10620,65 @@
     {
       "id": "2440779",
       "sciName": "Dasypus novemcinctus",
-      "common": "Armored Pig",
+      "common": "Nine-banded armadillo",
       "rank": "species",
       "parentId": "ott796671"
+    },
+    {
+      "id": "ott495018",
+      "sciName": "Pilosa",
+      "rank": "order",
+      "parentId": "ott847764"
+    },
+    {
+      "id": "ott495016",
+      "sciName": "Vermilingua",
+      "rank": "suborder",
+      "parentId": "ott495018"
+    },
+    {
+      "id": "ott847766",
+      "sciName": "Myrmecophagidae",
+      "rank": "family",
+      "parentId": "ott495016"
+    },
+    {
+      "id": "ott490533",
+      "sciName": "Myrmecophaga",
+      "rank": "genus",
+      "parentId": "ott847766"
+    },
+    {
+      "id": "2436346",
+      "sciName": "Myrmecophaga tridactyla",
+      "common": "Giant anteater",
+      "rank": "species",
+      "parentId": "ott490533"
+    },
+    {
+      "id": "ott495015",
+      "sciName": "Folivora",
+      "rank": "suborder",
+      "parentId": "ott495018"
+    },
+    {
+      "id": "ott273225",
+      "sciName": "Bradypodidae",
+      "rank": "family",
+      "parentId": "ott495015"
+    },
+    {
+      "id": "ott527308",
+      "sciName": "Bradypus",
+      "rank": "genus",
+      "parentId": "ott273225"
+    },
+    {
+      "id": "2436353",
+      "sciName": "Bradypus variegatus",
+      "common": "Brown-throated sloth",
+      "rank": "species",
+      "parentId": "ott527308"
     },
     {
       "id": "ott16033",
@@ -9757,7 +10890,7 @@
     {
       "id": "5219963",
       "sciName": "Macropus rufus",
-      "common": "Plains Kangaroo",
+      "common": "Red kangaroo",
       "rank": "species",
       "parentId": "ott412086"
     },
@@ -9888,7 +11021,7 @@
     {
       "id": "2440301",
       "sciName": "Vombatus ursinus",
-      "common": "Bare-nosed Wombat",
+      "common": "Common wombat",
       "rank": "species",
       "parentId": "ott835327"
     },
@@ -10003,7 +11136,7 @@
     {
       "id": "2435451",
       "sciName": "Sarcophilus harrisii",
-      "common": "Tasmanian Devil",
+      "common": "Tasmanian devil",
       "rank": "species",
       "parentId": "ott948468"
     },
@@ -10326,7 +11459,7 @@
     {
       "id": "2492462",
       "sciName": "Erithacus rubecula",
-      "common": "Continental Robin",
+      "common": "European robin",
       "rank": "species",
       "parentId": "ott19467"
     },
@@ -10831,7 +11964,7 @@
     {
       "id": "2482492",
       "sciName": "Corvus corax",
-      "common": "American Raven",
+      "common": "Common raven",
       "rank": "species",
       "parentId": "ott111993"
     },
@@ -10879,11 +12012,30 @@
       "parentId": "ott7116"
     },
     {
+      "id": "ott734818",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott7124"
+    },
+    {
       "id": "2479686",
       "sciName": "Trichoglossus haematodus",
       "common": "Coconut Lorikeet",
       "rank": "species",
-      "parentId": "ott7124"
+      "parentId": "ott734818"
+    },
+    {
+      "id": "ott734817",
+      "sciName": "Melopsittacus",
+      "rank": "genus",
+      "parentId": "ott734818"
+    },
+    {
+      "id": "2479798",
+      "sciName": "Melopsittacus undulatus",
+      "common": "Budgerigar",
+      "rank": "species",
+      "parentId": "ott734817"
     },
     {
       "id": "ott512910",
@@ -10913,10 +12065,29 @@
       "parentId": "ott7116"
     },
     {
+      "id": "ott165615",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott33330"
+    },
+    {
+      "id": "ott1020129",
+      "sciName": "Ara",
+      "rank": "genus",
+      "parentId": "ott165615"
+    },
+    {
+      "id": "5959227",
+      "sciName": "Ara macao",
+      "common": "Scarlet macaw",
+      "rank": "species",
+      "parentId": "ott1020129"
+    },
+    {
       "id": "ott547248",
       "sciName": "Myiopsitta",
       "rank": "genus",
-      "parentId": "ott33330"
+      "parentId": "ott165615"
     },
     {
       "id": "2479407",
@@ -11002,7 +12173,7 @@
     {
       "id": "2481047",
       "sciName": "Falco peregrinus",
-      "common": "Duck Hawk",
+      "common": "Peregrine falcon",
       "rank": "species",
       "parentId": "ott137528"
     },
@@ -11098,7 +12269,7 @@
     {
       "id": "2480506",
       "sciName": "Aquila chrysaetos",
-      "common": "American War Bird",
+      "common": "Golden eagle",
       "rank": "species",
       "parentId": "ott8285"
     },
@@ -11240,7 +12411,7 @@
     {
       "id": "2480446",
       "sciName": "Haliaeetus leucocephalus",
-      "common": "American Bald Eagle",
+      "common": "Bald eagle",
       "rank": "species",
       "parentId": "ott773042"
     },
@@ -11412,11 +12583,24 @@
       "parentId": "ott116486"
     },
     {
+      "id": "ott4798",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott4797"
+    },
+    {
       "id": "5959118",
       "sciName": "Bubo virginianus",
       "common": "American Eagle-Owl",
       "rank": "species",
-      "parentId": "ott4797"
+      "parentId": "ott4798"
+    },
+    {
+      "id": "5959092",
+      "sciName": "Bubo bubo",
+      "common": "Eurasian eagle-owl",
+      "rank": "species",
+      "parentId": "ott4798"
     },
     {
       "id": "ott12995",
@@ -11675,6 +12859,19 @@
       "parentId": "ott1010556"
     },
     {
+      "id": "ott1068261",
+      "sciName": "Ramphastos",
+      "rank": "genus",
+      "parentId": "ott472432"
+    },
+    {
+      "id": "2478765",
+      "sciName": "Ramphastos toco",
+      "common": "Toco toucan",
+      "rank": "species",
+      "parentId": "ott1068261"
+    },
+    {
       "id": "ott150514",
       "sciName": "",
       "rank": "clade",
@@ -11689,7 +12886,7 @@
     {
       "id": "2475532",
       "sciName": "Alcedo atthis",
-      "common": "Choto machranga",
+      "common": "Common kingfisher",
       "rank": "species",
       "parentId": "ott26085"
     },
@@ -12459,7 +13656,7 @@
     {
       "id": "5228514",
       "sciName": "Archilochus colubris",
-      "common": "Ruby-throated Hummingbird",
+      "common": "Ruby-throated hummingbird",
       "rank": "species",
       "parentId": "ott759413"
     },
@@ -12936,6 +14133,13 @@
       "parentId": "ott613206"
     },
     {
+      "id": "2480350",
+      "sciName": "Pelecanus onocrotalus",
+      "common": "Great white pelican",
+      "rank": "species",
+      "parentId": "ott316994"
+    },
+    {
       "id": "ott480157",
       "sciName": "Threskiornithidae",
       "rank": "family",
@@ -13027,7 +14231,7 @@
     {
       "id": "2481912",
       "sciName": "Ciconia ciconia",
-      "common": "European White Stork",
+      "common": "White stork",
       "rank": "species",
       "parentId": "ott363012"
     },
@@ -13045,10 +14249,16 @@
       "parentId": "ott597793"
     },
     {
+      "id": "ott60413",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott18206"
+    },
+    {
       "id": "ott452461",
       "sciName": "Procellariiformes",
       "rank": "order",
-      "parentId": "ott18206"
+      "parentId": "ott60413"
     },
     {
       "id": "ott1028835",
@@ -13062,6 +14272,50 @@
       "common": "Fulmar",
       "rank": "species",
       "parentId": "ott1028835"
+    },
+    {
+      "id": "ott494366",
+      "sciName": "Sphenisciformes",
+      "rank": "order",
+      "parentId": "ott60413"
+    },
+    {
+      "id": "ott494367",
+      "sciName": "Spheniscidae",
+      "rank": "family",
+      "parentId": "ott494366"
+    },
+    {
+      "id": "ott494361",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott494367"
+    },
+    {
+      "id": "ott494360",
+      "sciName": "Spheniscus",
+      "rank": "genus",
+      "parentId": "ott494361"
+    },
+    {
+      "id": "5229384",
+      "sciName": "Spheniscus demersus",
+      "common": "African penguin",
+      "rank": "species",
+      "parentId": "ott494360"
+    },
+    {
+      "id": "ott494369",
+      "sciName": "Aptenodytes",
+      "rank": "genus",
+      "parentId": "ott494361"
+    },
+    {
+      "id": "2481661",
+      "sciName": "Aptenodytes forsteri",
+      "common": "Emperor penguin",
+      "rank": "species",
+      "parentId": "ott494369"
     },
     {
       "id": "ott70684",
@@ -13281,7 +14535,7 @@
     {
       "id": "2495414",
       "sciName": "Columba livia",
-      "common": "Common Pigeon",
+      "common": "Rock dove",
       "rank": "species",
       "parentId": "ott921832"
     },
@@ -13385,10 +14639,16 @@
       "parentId": "ott664463"
     },
     {
+      "id": "ott472423",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott92263"
+    },
+    {
       "id": "ott452464",
       "sciName": "Podicipediformes",
       "rank": "order",
-      "parentId": "ott92263"
+      "parentId": "ott472423"
     },
     {
       "id": "ott452459",
@@ -13494,6 +14754,31 @@
       "parentId": "ott14054"
     },
     {
+      "id": "ott472435",
+      "sciName": "Phoenicopteriformes",
+      "rank": "order",
+      "parentId": "ott472423"
+    },
+    {
+      "id": "ott472436",
+      "sciName": "Phoenicopteridae",
+      "rank": "family",
+      "parentId": "ott472435"
+    },
+    {
+      "id": "ott443649",
+      "sciName": "Phoenicopterus",
+      "rank": "genus",
+      "parentId": "ott472436"
+    },
+    {
+      "id": "4352332",
+      "sciName": "Phoenicopterus roseus",
+      "common": "Greater flamingo",
+      "rank": "species",
+      "parentId": "ott443649"
+    },
+    {
       "id": "ott5839486",
       "sciName": "Galloanserae",
       "rank": "superorder",
@@ -13538,7 +14823,7 @@
     {
       "id": "9606290",
       "sciName": "Meleagris gallopavo",
-      "common": "American turkey",
+      "common": "Wild turkey",
       "rank": "species",
       "parentId": "ott446481"
     },
@@ -13556,10 +14841,16 @@
       "parentId": "ott102718"
     },
     {
+      "id": "ott51349",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott49310"
+    },
+    {
       "id": "ott153562",
       "sciName": "Gallus",
       "rank": "genus",
-      "parentId": "ott49310"
+      "parentId": "ott51349"
     },
     {
       "id": "9326020",
@@ -13567,6 +14858,19 @@
       "common": "Chicken",
       "rank": "species",
       "parentId": "ott153562"
+    },
+    {
+      "id": "ott453587",
+      "sciName": "Pavo",
+      "rank": "genus",
+      "parentId": "ott51349"
+    },
+    {
+      "id": "9451184",
+      "sciName": "Pavo cristatus",
+      "common": "Indian peafowl",
+      "rank": "species",
+      "parentId": "ott453587"
     },
     {
       "id": "ott594197",
@@ -13740,7 +15044,7 @@
     {
       "id": "9761484",
       "sciName": "Anas platyrhynchos",
-      "common": "Common Mallard",
+      "common": "Mallard",
       "rank": "species",
       "parentId": "ott82410"
     },
@@ -14072,7 +15376,7 @@
     {
       "id": "2498343",
       "sciName": "Cygnus olor",
-      "common": "Mute Swan",
+      "common": "Mute swan",
       "rank": "species",
       "parentId": "ott817994"
     },
@@ -14095,6 +15399,56 @@
       "common": "Ruddy Duck",
       "rank": "species",
       "parentId": "ott88395"
+    },
+    {
+      "id": "ott81443",
+      "sciName": "Palaeognathae",
+      "rank": "superorder",
+      "parentId": "ott81461"
+    },
+    {
+      "id": "ott589166",
+      "sciName": "Casuariiformes",
+      "rank": "order",
+      "parentId": "ott81443"
+    },
+    {
+      "id": "ott283194",
+      "sciName": "Dromaiidae",
+      "rank": "family",
+      "parentId": "ott589166"
+    },
+    {
+      "id": "ott283193",
+      "sciName": "Dromaius",
+      "rank": "genus",
+      "parentId": "ott283194"
+    },
+    {
+      "id": "2495134",
+      "sciName": "Dromaius novaehollandiae",
+      "common": "Emu",
+      "rank": "species",
+      "parentId": "ott283193"
+    },
+    {
+      "id": "ott857849",
+      "sciName": "Struthionidae",
+      "rank": "family",
+      "parentId": "ott81443"
+    },
+    {
+      "id": "ott292466",
+      "sciName": "Struthio",
+      "rank": "genus",
+      "parentId": "ott857849"
+    },
+    {
+      "id": "2495150",
+      "sciName": "Struthio camelus",
+      "common": "Common ostrich",
+      "rank": "species",
+      "parentId": "ott292466"
     },
     {
       "id": "ott35864",
@@ -14181,7 +15535,7 @@
     {
       "id": "2441370",
       "sciName": "Alligator mississippiensis",
-      "common": "American Alligator",
+      "common": "American alligator",
       "rank": "species",
       "parentId": "ott335593"
     },
@@ -14218,7 +15572,7 @@
     {
       "id": "2441341",
       "sciName": "Crocodylus niloticus",
-      "common": "Nile Crocodile",
+      "common": "Nile crocodile",
       "rank": "species",
       "parentId": "ott458963"
     },
@@ -14439,10 +15793,29 @@
       "parentId": "ott910117"
     },
     {
-      "id": "ott464473",
+      "id": "ott265491",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott203272"
+    },
+    {
+      "id": "ott477615",
+      "sciName": "Chelonoidis",
+      "rank": "genus",
+      "parentId": "ott265491"
+    },
+    {
+      "id": "9527499",
+      "sciName": "Chelonoidis niger",
+      "common": "Galápagos tortoise",
+      "rank": "species",
+      "parentId": "ott477615"
+    },
+    {
+      "id": "ott464473",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott265491"
     },
     {
       "id": "ott3606343",
@@ -14799,7 +16172,7 @@
     {
       "id": "2442225",
       "sciName": "Chelonia mydas",
-      "common": "Atlantic Green Sea Turtle",
+      "common": "Green sea turtle",
       "rank": "species",
       "parentId": "ott66472"
     },
@@ -15363,10 +16736,22 @@
       "parentId": "ott904536"
     },
     {
-      "id": "ott57874",
+      "id": "ott6136",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott3192"
+    },
+    {
+      "id": "ott6128",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott6136"
+    },
+    {
+      "id": "ott57874",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott6128"
     },
     {
       "id": "ott527481",
@@ -15393,6 +16778,32 @@
       "common": "Red-bellied Black Snake",
       "rank": "species",
       "parentId": "ott6143"
+    },
+    {
+      "id": "ott630719",
+      "sciName": "Naja",
+      "rank": "genus",
+      "parentId": "ott6128"
+    },
+    {
+      "id": "2470351",
+      "sciName": "Naja naja",
+      "common": "Indian cobra",
+      "rank": "species",
+      "parentId": "ott630719"
+    },
+    {
+      "id": "ott6135",
+      "sciName": "Ophiophagus",
+      "rank": "genus",
+      "parentId": "ott6136"
+    },
+    {
+      "id": "2469850",
+      "sciName": "Ophiophagus hannah",
+      "common": "King cobra",
+      "rank": "species",
+      "parentId": "ott6135"
     },
     {
       "id": "ott262303",
@@ -15447,7 +16858,7 @@
     {
       "id": "2444356",
       "sciName": "Crotalus atrox",
-      "common": "Tortuga Island Rattlesnake",
+      "common": "Western diamondback rattlesnake",
       "rank": "species",
       "parentId": "ott373874"
     },
@@ -15504,10 +16915,16 @@
       "parentId": "ott405370"
     },
     {
+      "id": "ott58974",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott16254"
+    },
+    {
       "id": "ott897903",
       "sciName": "Pythonidae",
       "rank": "family",
-      "parentId": "ott16254"
+      "parentId": "ott58974"
     },
     {
       "id": "5225659",
@@ -15515,6 +16932,51 @@
       "common": "Carpet Python",
       "rank": "species",
       "parentId": "ott897903"
+    },
+    {
+      "id": "ott675102",
+      "sciName": "Python",
+      "rank": "genus",
+      "parentId": "ott897903"
+    },
+    {
+      "id": "2465380",
+      "sciName": "Python regius",
+      "common": "Ball python",
+      "rank": "species",
+      "parentId": "ott675102"
+    },
+    {
+      "id": "ott363519",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott58974"
+    },
+    {
+      "id": "ott1072293",
+      "sciName": "Eunectes",
+      "rank": "genus",
+      "parentId": "ott363519"
+    },
+    {
+      "id": "5225712",
+      "sciName": "Eunectes murinus",
+      "common": "Green anaconda",
+      "rank": "species",
+      "parentId": "ott1072293"
+    },
+    {
+      "id": "ott764397",
+      "sciName": "Boa",
+      "rank": "genus",
+      "parentId": "ott363519"
+    },
+    {
+      "id": "2464899",
+      "sciName": "Boa constrictor",
+      "common": "Boa constrictor",
+      "rank": "species",
+      "parentId": "ott764397"
     },
     {
       "id": "ott97368",
@@ -15535,10 +16997,16 @@
       "parentId": "ott608979"
     },
     {
+      "id": "ott4812",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott202365"
+    },
+    {
       "id": "ott101200",
       "sciName": "Agamidae",
       "rank": "family",
-      "parentId": "ott202365"
+      "parentId": "ott4812"
     },
     {
       "id": "ott32622",
@@ -15577,6 +17045,25 @@
       "common": "Eastern Water Dragon",
       "rank": "species",
       "parentId": "ott5558812"
+    },
+    {
+      "id": "ott362825",
+      "sciName": "Chamaeleonidae",
+      "rank": "family",
+      "parentId": "ott4812"
+    },
+    {
+      "id": "ott737832",
+      "sciName": "Chamaeleo",
+      "rank": "genus",
+      "parentId": "ott362825"
+    },
+    {
+      "id": "2449051",
+      "sciName": "Chamaeleo chamaeleon",
+      "common": "Common chameleon",
+      "rank": "species",
+      "parentId": "ott737832"
     },
     {
       "id": "ott53412",
@@ -15893,7 +17380,7 @@
     {
       "id": "2459658",
       "sciName": "Iguana iguana",
-      "common": "American Iguana",
+      "common": "Green iguana",
       "rank": "species",
       "parentId": "ott608971"
     },
@@ -15998,11 +17485,24 @@
       "parentId": "ott365509"
     },
     {
+      "id": "ott1091028",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott150432"
+    },
+    {
       "id": "2470715",
       "sciName": "Varanus varius",
       "common": "Lace Monitor",
       "rank": "species",
-      "parentId": "ott150432"
+      "parentId": "ott1091028"
+    },
+    {
+      "id": "2470854",
+      "sciName": "Varanus komodoensis",
+      "common": "Komodo dragon",
+      "rank": "species",
+      "parentId": "ott1091028"
     },
     {
       "id": "8875670",
@@ -16755,10 +18255,16 @@
       "parentId": "ott535782"
     },
     {
+      "id": "ott7239",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott1321"
+    },
+    {
       "id": "ott889358",
       "sciName": "Bufonidae",
       "rank": "family",
-      "parentId": "ott1321"
+      "parentId": "ott7239"
     },
     {
       "id": "ott29892",
@@ -16781,7 +18287,7 @@
     {
       "id": "5217160",
       "sciName": "Bufo bufo",
-      "common": "Common European Toad",
+      "common": "Common toad",
       "rank": "species",
       "parentId": "ott187219"
     },
@@ -16829,6 +18335,31 @@
       "common": "American Toad",
       "rank": "species",
       "parentId": "ott334620"
+    },
+    {
+      "id": "ott581837",
+      "sciName": "Dendrobatidae",
+      "rank": "family",
+      "parentId": "ott7239"
+    },
+    {
+      "id": "ott1096758",
+      "sciName": "Dendrobatinae",
+      "rank": "subfamily",
+      "parentId": "ott581837"
+    },
+    {
+      "id": "ott60809",
+      "sciName": "Dendrobates",
+      "rank": "genus",
+      "parentId": "ott1096758"
+    },
+    {
+      "id": "9724339",
+      "sciName": "Dendrobates tinctorius",
+      "common": "Dyeing poison dart frog",
+      "rank": "species",
+      "parentId": "ott60809"
     },
     {
       "id": "ott21502",
@@ -17764,7 +19295,7 @@
     {
       "id": "4286942",
       "sciName": "Carassius auratus",
-      "common": "Carp",
+      "common": "Goldfish",
       "rank": "species",
       "parentId": "ott1010092"
     },
@@ -17882,6 +19413,25 @@
       "sciName": "Characiphysae",
       "rank": "superorder",
       "parentId": "ott285818"
+    },
+    {
+      "id": "ott216180",
+      "sciName": "Gymnotiformes",
+      "rank": "order",
+      "parentId": "ott285825"
+    },
+    {
+      "id": "ott216167",
+      "sciName": "Electrophorus",
+      "rank": "genus",
+      "parentId": "ott216180"
+    },
+    {
+      "id": "2401958",
+      "sciName": "Electrophorus electricus",
+      "common": "Electric eel",
+      "rank": "species",
+      "parentId": "ott216167"
     },
     {
       "id": "ott1070",
@@ -18325,11 +19875,24 @@
       "parentId": "ott24679"
     },
     {
+      "id": "ott375109",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott783054"
+    },
+    {
       "id": "2354124",
       "sciName": "Serrasalmus rhombeus",
       "common": "Black Piranha",
       "rank": "species",
-      "parentId": "ott783054"
+      "parentId": "ott375109"
+    },
+    {
+      "id": "2352479",
+      "sciName": "Pygocentrus nattereri",
+      "common": "Red-bellied piranha",
+      "rank": "species",
+      "parentId": "ott375109"
     },
     {
       "id": "ott753567",
@@ -18693,7 +20256,7 @@
     {
       "id": "7595433",
       "sciName": "Salmo salar",
-      "common": "Atlantic Salmon",
+      "common": "Atlantic salmon",
       "rank": "species",
       "parentId": "ott982359"
     },
@@ -18912,11 +20475,24 @@
       "parentId": "ott847672"
     },
     {
+      "id": "ott27343",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott769569"
+    },
+    {
+      "id": "5212106",
+      "sciName": "Amphiprion ocellaris",
+      "common": "Clownfish",
+      "rank": "species",
+      "parentId": "ott27343"
+    },
+    {
       "id": "5212202",
       "sciName": "Chromis punctipinnis",
       "common": "Blacksmith Chromis",
       "rank": "species",
-      "parentId": "ott769569"
+      "parentId": "ott27343"
     },
     {
       "id": "ott5554903",
@@ -19142,10 +20718,16 @@
       "parentId": "ott4135032"
     },
     {
+      "id": "ott7722",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott497"
+    },
+    {
       "id": "ott5553751",
       "sciName": "Carangaria",
       "rank": "clade",
-      "parentId": "ott497"
+      "parentId": "ott7722"
     },
     {
       "id": "ott25363",
@@ -19493,7 +21075,7 @@
     {
       "id": "2397850",
       "sciName": "Xiphias gladius",
-      "common": "Atlantic Swordfish",
+      "common": "Swordfish",
       "rank": "species",
       "parentId": "ott358620"
     },
@@ -19510,11 +21092,24 @@
       "parentId": "ott280947"
     },
     {
+      "id": "ott673959",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott1015821"
+    },
+    {
+      "id": "9784990",
+      "sciName": "Sphyraena barracuda",
+      "common": "Great barracuda",
+      "rank": "species",
+      "parentId": "ott673959"
+    },
+    {
       "id": "2394265",
       "sciName": "Sphyraena argentea",
       "common": "Pacific Barracuda",
       "rank": "species",
-      "parentId": "ott1015821"
+      "parentId": "ott673959"
     },
     {
       "id": "ott280953",
@@ -19534,6 +21129,49 @@
       "common": "Common Dolphifish",
       "rank": "species",
       "parentId": "ott424332"
+    },
+    {
+      "id": "ott5553754",
+      "sciName": "Anabantaria",
+      "rank": "clade",
+      "parentId": "ott7722"
+    },
+    {
+      "id": "ott5554917",
+      "sciName": "Anabantiformes",
+      "rank": "order",
+      "parentId": "ott5553754"
+    },
+    {
+      "id": "ott956323",
+      "sciName": "Anabantoidei",
+      "rank": "suborder",
+      "parentId": "ott5554917"
+    },
+    {
+      "id": "ott612523",
+      "sciName": "Osphronemidae",
+      "rank": "family",
+      "parentId": "ott956323"
+    },
+    {
+      "id": "ott507323",
+      "sciName": "Macropodinae",
+      "rank": "subfamily",
+      "parentId": "ott612523"
+    },
+    {
+      "id": "ott1033359",
+      "sciName": "Betta",
+      "rank": "genus",
+      "parentId": "ott507323"
+    },
+    {
+      "id": "2393998",
+      "sciName": "Betta splendens",
+      "common": "Siamese fighting fish",
+      "rank": "species",
+      "parentId": "ott1033359"
     },
     {
       "id": "ott53653",
@@ -20442,11 +22080,24 @@
       "parentId": "ott74903"
     },
     {
+      "id": "ott358610",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott833200"
+    },
+    {
+      "id": "2373980",
+      "sciName": "Thunnus thynnus",
+      "common": "Atlantic bluefin tuna",
+      "rank": "species",
+      "parentId": "ott358610"
+    },
+    {
       "id": "2374013",
       "sciName": "Thunnus albacares",
       "common": "Allison tuna",
       "rank": "species",
-      "parentId": "ott833200"
+      "parentId": "ott358610"
     },
     {
       "id": "ott679814",
@@ -20620,7 +22271,7 @@
     {
       "id": "8084280",
       "sciName": "Gadus morhua",
-      "common": "Arctic Cod",
+      "common": "Atlantic cod",
       "rank": "species",
       "parentId": "ott470352"
     },
@@ -21078,10 +22729,35 @@
       "parentId": "ott234337"
     },
     {
+      "id": "ott151425",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott71599"
+    },
+    {
+      "id": "ott109557",
+      "sciName": "Mobulinae",
+      "rank": "subfamily",
+      "parentId": "ott151425"
+    },
+    {
+      "id": "ott674436",
+      "sciName": "Mobula",
+      "rank": "genus",
+      "parentId": "ott109557"
+    },
+    {
+      "id": "9548142",
+      "sciName": "Mobula birostris",
+      "common": "Giant manta ray",
+      "rank": "species",
+      "parentId": "ott674436"
+    },
+    {
       "id": "ott243095",
       "sciName": "Rhinopterinae",
       "rank": "subfamily",
-      "parentId": "ott71599"
+      "parentId": "ott151425"
     },
     {
       "id": "ott151428",
@@ -21382,10 +23058,16 @@
       "parentId": "ott748408"
     },
     {
-      "id": "ott147225",
+      "id": "ott69503",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott32029"
+    },
+    {
+      "id": "ott147225",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott69503"
     },
     {
       "id": "ott517931",
@@ -21432,6 +23114,19 @@
       "common": "Blue Dog",
       "rank": "species",
       "parentId": "ott976341"
+    },
+    {
+      "id": "ott218578",
+      "sciName": "Sphyrna",
+      "rank": "genus",
+      "parentId": "ott69503"
+    },
+    {
+      "id": "2418792",
+      "sciName": "Sphyrna mokarran",
+      "common": "Great hammerhead",
+      "rank": "species",
+      "parentId": "ott218578"
     },
     {
       "id": "2418369",
@@ -21494,7 +23189,7 @@
     {
       "id": "2417522",
       "sciName": "Rhincodon typus",
-      "common": "Checkerboard Shark",
+      "common": "Whale shark",
       "rank": "species",
       "parentId": "ott5264328"
     },
@@ -21589,7 +23284,7 @@
     {
       "id": "2420694",
       "sciName": "Carcharodon carcharias",
-      "common": "Great White",
+      "common": "Great white shark",
       "rank": "species",
       "parentId": "ott554300"
     },
@@ -22657,7 +24352,7 @@
     {
       "id": "5858758",
       "sciName": "Cornu aspersum",
-      "common": "Common Garden Snail",
+      "common": "Garden snail",
       "rank": "species",
       "parentId": "ott5327272"
     },
@@ -23728,7 +25423,7 @@
     {
       "id": "2289485",
       "sciName": "Enteroctopus dofleini",
-      "common": "Giant North Pacific octopus",
+      "common": "Giant Pacific octopus",
       "rank": "species",
       "parentId": "ott5704108"
     },
@@ -23747,7 +25442,7 @@
     {
       "id": "2289671",
       "sciName": "Octopus vulgaris",
-      "common": "Common Octopus",
+      "common": "Common octopus",
       "rank": "species",
       "parentId": "ott754416"
     },
@@ -24113,10 +25808,16 @@
       "parentId": "ott481256"
     },
     {
-      "id": "ott3236",
+      "id": "ott6210",
       "sciName": "",
       "rank": "clade",
       "parentId": "ott677"
+    },
+    {
+      "id": "ott3236",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott6210"
     },
     {
       "id": "ott2248",
@@ -24392,7 +26093,7 @@
     {
       "id": "5133088",
       "sciName": "Danaus plexippus",
-      "common": "Monarch",
+      "common": "Monarch butterfly",
       "rank": "species",
       "parentId": "ott276188"
     },
@@ -24537,6 +26238,31 @@
       "common": "Asian Large Skipper",
       "rank": "species",
       "parentId": "ott3236"
+    },
+    {
+      "id": "ott661439",
+      "sciName": "Papilionidae",
+      "rank": "family",
+      "parentId": "ott6210"
+    },
+    {
+      "id": "ott951465",
+      "sciName": "Papilionini",
+      "rank": "tribe",
+      "parentId": "ott661439"
+    },
+    {
+      "id": "ott661370",
+      "sciName": "Papilio",
+      "rank": "genus",
+      "parentId": "ott951465"
+    },
+    {
+      "id": "8225376",
+      "sciName": "Papilio machaon",
+      "common": "Old World swallowtail",
+      "rank": "species",
+      "parentId": "ott661370"
     },
     {
       "id": "ott457402",
@@ -25580,7 +27306,7 @@
     {
       "id": "4990191",
       "sciName": "Coccinella septempunctata",
-      "common": "Seven-spot Ladybird",
+      "common": "Seven-spot ladybird",
       "rank": "species",
       "parentId": "ott343293"
     },
@@ -25668,10 +27394,16 @@
       "parentId": "ott160343"
     },
     {
+      "id": "ott183094",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott865251"
+    },
+    {
       "id": "ott531390",
       "sciName": "Lampyris",
       "rank": "genus",
-      "parentId": "ott865251"
+      "parentId": "ott183094"
     },
     {
       "id": "5744295",
@@ -25679,6 +27411,13 @@
       "common": "European Glow-worm",
       "rank": "species",
       "parentId": "ott531390"
+    },
+    {
+      "id": "1162763",
+      "sciName": "Photinus pyralis",
+      "common": "Common eastern firefly",
+      "rank": "species",
+      "parentId": "ott183094"
     },
     {
       "id": "ott161625",
@@ -26194,7 +27933,7 @@
     {
       "id": "1341976",
       "sciName": "Apis mellifera",
-      "common": "European Honey Bee",
+      "common": "Western honey bee",
       "rank": "species",
       "parentId": "ott62412"
     },
@@ -27045,10 +28784,16 @@
       "parentId": "ott48286"
     },
     {
+      "id": "ott48288",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott920179"
+    },
+    {
       "id": "ott492334",
       "sciName": "Blaberoidea",
       "rank": "superfamily",
-      "parentId": "ott920179"
+      "parentId": "ott48288"
     },
     {
       "id": "ott246761",
@@ -27062,6 +28807,13 @@
       "common": "Dusky Cockroach",
       "rank": "species",
       "parentId": "ott246761"
+    },
+    {
+      "id": "2000152",
+      "sciName": "Periplaneta americana",
+      "common": "American cockroach",
+      "rank": "species",
+      "parentId": "ott48288"
     },
     {
       "id": "ott656293",
@@ -27078,7 +28830,7 @@
     {
       "id": "6258028",
       "sciName": "Mantis religiosa",
-      "common": "Praying Mantis",
+      "common": "European mantis",
       "rank": "species",
       "parentId": "ott641494"
     },
@@ -28748,6 +30500,31 @@
       "parentId": "ott935379"
     },
     {
+      "id": "ott706441",
+      "sciName": "Portunidae",
+      "rank": "family",
+      "parentId": "ott358080"
+    },
+    {
+      "id": "ott5809632",
+      "sciName": "Portuninae",
+      "rank": "subfamily",
+      "parentId": "ott706441"
+    },
+    {
+      "id": "ott1086763",
+      "sciName": "Callinectes",
+      "rank": "genus",
+      "parentId": "ott5809632"
+    },
+    {
+      "id": "2225646",
+      "sciName": "Callinectes sapidus",
+      "common": "Blue crab",
+      "rank": "species",
+      "parentId": "ott1086763"
+    },
+    {
       "id": "ott428460",
       "sciName": "Majoidea",
       "rank": "superfamily",
@@ -28799,7 +30576,7 @@
     {
       "id": "5972004",
       "sciName": "Homarus americanus",
-      "common": "American Lobster",
+      "common": "American lobster",
       "rank": "species",
       "parentId": "ott28240"
     },
@@ -29207,7 +30984,7 @@
     {
       "id": "ott660943",
       "sciName": "Phalangium",
-      "rank": "clade",
+      "rank": "genus",
       "parentId": "ott507975"
     },
     {
@@ -29328,7 +31105,7 @@
     {
       "id": "ott507971",
       "sciName": "Nemastoma",
-      "rank": "clade",
+      "rank": "genus",
       "parentId": "ott681738"
     },
     {
@@ -29742,6 +31519,25 @@
       "sciName": "Araneoidea",
       "rank": "superfamily",
       "parentId": "ott7883"
+    },
+    {
+      "id": "ott917915",
+      "sciName": "Theridiidae",
+      "rank": "family",
+      "parentId": "ott207308"
+    },
+    {
+      "id": "ott673751",
+      "sciName": "Latrodectus",
+      "rank": "genus",
+      "parentId": "ott917915"
+    },
+    {
+      "id": "2157949",
+      "sciName": "Latrodectus mactans",
+      "common": "Southern black widow",
+      "rank": "species",
+      "parentId": "ott673751"
     },
     {
       "id": "ott201929",
@@ -30596,11 +32392,30 @@
       "parentId": "ott30821"
     },
     {
+      "id": "ott136941",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott206"
+    },
+    {
       "id": "9217873",
       "sciName": "Rhodocollybia butyracea",
       "common": "Butter Cap",
       "rank": "species",
-      "parentId": "ott206"
+      "parentId": "ott136941"
+    },
+    {
+      "id": "ott162650",
+      "sciName": "Lentinula",
+      "rank": "genus",
+      "parentId": "ott136941"
+    },
+    {
+      "id": "2537743",
+      "sciName": "Lentinula edodes",
+      "common": "Shiitake",
+      "rank": "species",
+      "parentId": "ott162650"
     },
     {
       "id": "ott1137",
@@ -30666,10 +32481,23 @@
       "parentId": "ott8756"
     },
     {
+      "id": "ott48566",
+      "sciName": "",
+      "rank": "clade",
+      "parentId": "ott76585"
+    },
+    {
+      "id": "5243447",
+      "sciName": "Agaricus bisporus",
+      "common": "Button mushroom",
+      "rank": "species",
+      "parentId": "ott48566"
+    },
+    {
       "id": "ott397711",
       "sciName": "Lycoperdon",
       "rank": "genus",
-      "parentId": "ott76585"
+      "parentId": "ott48566"
     },
     {
       "id": "5243258",
@@ -30718,9 +32546,16 @@
       "parentId": "ott75256"
     },
     {
+      "id": "5240325",
+      "sciName": "Amanita phalloides",
+      "common": "Death cap",
+      "rank": "species",
+      "parentId": "ott75256"
+    },
+    {
       "id": "8168319",
       "sciName": "Amanita muscaria",
-      "common": "Fly Agaric",
+      "common": "Fly agaric",
       "rank": "species",
       "parentId": "ott75256"
     },
@@ -31725,6 +33560,37 @@
       "sciName": "saccharomyceta",
       "rank": "clade",
       "parentId": "ott439373"
+    },
+    {
+      "id": "ott971709",
+      "sciName": "Pezizomycotina",
+      "rank": "subphylum",
+      "parentId": "ott1098854"
+    },
+    {
+      "id": "ott880969",
+      "sciName": "Pezizales",
+      "rank": "order",
+      "parentId": "ott971709"
+    },
+    {
+      "id": "ott526210",
+      "sciName": "Tuberaceae",
+      "rank": "family",
+      "parentId": "ott880969"
+    },
+    {
+      "id": "ott508058",
+      "sciName": "Tuber",
+      "rank": "clade",
+      "parentId": "ott526210"
+    },
+    {
+      "id": "5258468",
+      "sciName": "Tuber melanosporum",
+      "common": "Black truffle",
+      "rank": "species",
+      "parentId": "ott508058"
     },
     {
       "id": "ott971714",

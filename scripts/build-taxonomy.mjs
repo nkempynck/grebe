@@ -56,10 +56,13 @@ const ANCHORS = [
 // Per-anchor cap so no single order dominates a group; scales with the quota.
 const orderCap = (quota) => Math.max(5, Math.ceil(quota / 7));
 
-// Curated must-include species: humans + classic biology model organisms. These
-// are added regardless of occurrence volume, with hand-set common names (several
-// have no clean vernacular, so the normal recognizability filter would drop
-// them). Open Tree still supplies their real placement in the tree.
+// Curated must-include species: added regardless of occurrence volume, with
+// hand-set common names, so the game isn't missing organisms everyone knows.
+// Ranking by GBIF occurrence records favours well-surveyed birds/insects over
+// culturally famous animals, so this list is the popularity counterweight —
+// the ~150 species people recognise "from culture". Deduped against the
+// occurrence set; Open Tree supplies their real placement (a few obscure or
+// domestic-subspecies names may not resolve and are pruned — harmless).
 const EXTRAS = [
   // Humans + classic lab model organisms
   { name: "Homo sapiens", common: "Human" },
@@ -88,6 +91,192 @@ const EXTRAS = [
   { name: "Danaus plexippus", common: "Monarch butterfly" },
   { name: "Phascolarctos cinereus", common: "Koala" },
   { name: "Milnesium tardigradum", common: "Water bear" },
+
+  // ---- Culturally famous species (the "everyone knows these" set) ----
+  // Big cats & other cats
+  { name: "Panthera leo", common: "Lion" },
+  { name: "Panthera tigris", common: "Tiger" },
+  { name: "Panthera pardus", common: "Leopard" },
+  { name: "Panthera onca", common: "Jaguar" },
+  { name: "Panthera uncia", common: "Snow leopard" },
+  { name: "Acinonyx jubatus", common: "Cheetah" },
+  { name: "Puma concolor", common: "Cougar" },
+  { name: "Felis catus", common: "Domestic cat" },
+  { name: "Lynx lynx", common: "Eurasian lynx" },
+  // Canids
+  // (Domestic dog is Canis lupus familiaris — the same Open Tree tip as the wolf,
+  //  so it can't be a distinct leaf here; "Gray wolf" stands in for the lineage.)
+  { name: "Canis lupus", common: "Gray wolf" },
+  { name: "Canis latrans", common: "Coyote" },
+  { name: "Vulpes vulpes", common: "Red fox" },
+  { name: "Vulpes lagopus", common: "Arctic fox" },
+  { name: "Vulpes zerda", common: "Fennec fox" },
+  { name: "Lycaon pictus", common: "African wild dog" },
+  // Bears & other carnivores
+  { name: "Ursus arctos", common: "Brown bear" },
+  { name: "Ursus maritimus", common: "Polar bear" },
+  { name: "Ursus americanus", common: "American black bear" },
+  { name: "Ailuropoda melanoleuca", common: "Giant panda" },
+  { name: "Ailurus fulgens", common: "Red panda" },
+  { name: "Procyon lotor", common: "Raccoon" },
+  { name: "Suricata suricatta", common: "Meerkat" },
+  { name: "Meles meles", common: "European badger" },
+  { name: "Lutra lutra", common: "European otter" },
+  { name: "Enhydra lutris", common: "Sea otter" },
+  { name: "Mephitis mephitis", common: "Striped skunk" },
+  { name: "Crocuta crocuta", common: "Spotted hyena" },
+  // Primates
+  { name: "Pan troglodytes", common: "Chimpanzee" },
+  { name: "Pan paniscus", common: "Bonobo" },
+  { name: "Gorilla gorilla", common: "Western gorilla" },
+  { name: "Pongo pygmaeus", common: "Bornean orangutan" },
+  { name: "Hylobates lar", common: "Lar gibbon" },
+  { name: "Papio anubis", common: "Olive baboon" },
+  { name: "Mandrillus sphinx", common: "Mandrill" },
+  { name: "Macaca mulatta", common: "Rhesus macaque" },
+  { name: "Lemur catta", common: "Ring-tailed lemur" },
+  // Large herbivores & hoofed mammals
+  { name: "Loxodonta africana", common: "African bush elephant" },
+  { name: "Elephas maximus", common: "Asian elephant" },
+  { name: "Ceratotherium simum", common: "White rhinoceros" },
+  { name: "Diceros bicornis", common: "Black rhinoceros" },
+  { name: "Hippopotamus amphibius", common: "Hippopotamus" },
+  { name: "Giraffa camelopardalis", common: "Giraffe" },
+  { name: "Equus quagga", common: "Plains zebra" },
+  { name: "Equus caballus", common: "Horse" },
+  { name: "Equus asinus", common: "Donkey" },
+  { name: "Bos taurus", common: "Cattle" },
+  { name: "Bison bison", common: "American bison" },
+  { name: "Bubalus bubalis", common: "Water buffalo" },
+  { name: "Sus scrofa", common: "Wild boar" },
+  { name: "Ovis aries", common: "Sheep" },
+  { name: "Capra hircus", common: "Goat" },
+  { name: "Alces alces", common: "Moose" },
+  { name: "Rangifer tarandus", common: "Reindeer" },
+  { name: "Cervus elaphus", common: "Red deer" },
+  { name: "Odocoileus virginianus", common: "White-tailed deer" },
+  { name: "Camelus dromedarius", common: "Dromedary" },
+  { name: "Camelus bactrianus", common: "Bactrian camel" },
+  { name: "Lama glama", common: "Llama" },
+  { name: "Vicugna pacos", common: "Alpaca" },
+  { name: "Connochaetes taurinus", common: "Blue wildebeest" },
+  { name: "Aepyceros melampus", common: "Impala" },
+  { name: "Phacochoerus africanus", common: "Warthog" },
+  { name: "Oryctolagus cuniculus", common: "European rabbit" },
+  // Other mammals
+  { name: "Osphranter rufus", common: "Red kangaroo" },
+  { name: "Vombatus ursinus", common: "Common wombat" },
+  { name: "Sarcophilus harrisii", common: "Tasmanian devil" },
+  { name: "Bradypus variegatus", common: "Brown-throated sloth" },
+  { name: "Dasypus novemcinctus", common: "Nine-banded armadillo" },
+  { name: "Myrmecophaga tridactyla", common: "Giant anteater" },
+  { name: "Erinaceus europaeus", common: "European hedgehog" },
+  { name: "Castor canadensis", common: "American beaver" },
+  { name: "Orycteropus afer", common: "Aardvark" },
+  // Marine mammals
+  { name: "Tursiops truncatus", common: "Bottlenose dolphin" },
+  { name: "Orcinus orca", common: "Orca" },
+  { name: "Balaenoptera musculus", common: "Blue whale" },
+  { name: "Megaptera novaeangliae", common: "Humpback whale" },
+  { name: "Physeter macrocephalus", common: "Sperm whale" },
+  { name: "Monodon monoceros", common: "Narwhal" },
+  { name: "Delphinapterus leucas", common: "Beluga" },
+  { name: "Odobenus rosmarus", common: "Walrus" },
+  { name: "Phoca vitulina", common: "Harbor seal" },
+  { name: "Trichechus manatus", common: "West Indian manatee" },
+  { name: "Zalophus californianus", common: "California sea lion" },
+  // Birds
+  { name: "Haliaeetus leucocephalus", common: "Bald eagle" },
+  { name: "Aquila chrysaetos", common: "Golden eagle" },
+  { name: "Falco peregrinus", common: "Peregrine falcon" },
+  { name: "Tyto alba", common: "Barn owl" },
+  { name: "Bubo bubo", common: "Eurasian eagle-owl" },
+  { name: "Aptenodytes forsteri", common: "Emperor penguin" },
+  { name: "Spheniscus demersus", common: "African penguin" },
+  { name: "Struthio camelus", common: "Common ostrich" },
+  { name: "Dromaius novaehollandiae", common: "Emu" },
+  { name: "Phoenicopterus roseus", common: "Greater flamingo" },
+  { name: "Pavo cristatus", common: "Indian peafowl" },
+  { name: "Cygnus olor", common: "Mute swan" },
+  { name: "Anas platyrhynchos", common: "Mallard" },
+  { name: "Ramphastos toco", common: "Toco toucan" },
+  { name: "Ara macao", common: "Scarlet macaw" },
+  { name: "Melopsittacus undulatus", common: "Budgerigar" },
+  { name: "Corvus corax", common: "Common raven" },
+  { name: "Columba livia", common: "Rock dove" },
+  { name: "Erithacus rubecula", common: "European robin" },
+  { name: "Alcedo atthis", common: "Common kingfisher" },
+  { name: "Pelecanus onocrotalus", common: "Great white pelican" },
+  { name: "Ciconia ciconia", common: "White stork" },
+  { name: "Meleagris gallopavo", common: "Wild turkey" },
+  { name: "Archilochus colubris", common: "Ruby-throated hummingbird" },
+  // Reptiles & amphibians
+  { name: "Crocodylus niloticus", common: "Nile crocodile" },
+  { name: "Alligator mississippiensis", common: "American alligator" },
+  { name: "Ophiophagus hannah", common: "King cobra" },
+  { name: "Naja naja", common: "Indian cobra" },
+  { name: "Python regius", common: "Ball python" },
+  { name: "Boa constrictor", common: "Boa constrictor" },
+  { name: "Crotalus atrox", common: "Western diamondback rattlesnake" },
+  { name: "Eunectes murinus", common: "Green anaconda" },
+  { name: "Varanus komodoensis", common: "Komodo dragon" },
+  { name: "Iguana iguana", common: "Green iguana" },
+  { name: "Chamaeleo chamaeleon", common: "Common chameleon" },
+  { name: "Chelonoidis niger", common: "Galápagos tortoise" },
+  { name: "Bufo bufo", common: "Common toad" },
+  { name: "Dendrobates tinctorius", common: "Dyeing poison dart frog" },
+  // Fish
+  { name: "Carcharodon carcharias", common: "Great white shark" },
+  { name: "Rhincodon typus", common: "Whale shark" },
+  { name: "Sphyrna mokarran", common: "Great hammerhead" },
+  { name: "Amphiprion ocellaris", common: "Clownfish" },
+  { name: "Carassius auratus", common: "Goldfish" },
+  { name: "Salmo salar", common: "Atlantic salmon" },
+  { name: "Thunnus thynnus", common: "Atlantic bluefin tuna" },
+  { name: "Xiphias gladius", common: "Swordfish" },
+  { name: "Pygocentrus nattereri", common: "Red-bellied piranha" },
+  { name: "Mobula birostris", common: "Giant manta ray" },
+  { name: "Electrophorus electricus", common: "Electric eel" },
+  { name: "Betta splendens", common: "Siamese fighting fish" },
+  { name: "Sphyraena barracuda", common: "Great barracuda" },
+  { name: "Gadus morhua", common: "Atlantic cod" },
+  // Invertebrates
+  { name: "Latrodectus mactans", common: "Southern black widow" },
+  { name: "Mantis religiosa", common: "European mantis" },
+  { name: "Coccinella septempunctata", common: "Seven-spot ladybird" },
+  { name: "Homarus americanus", common: "American lobster" },
+  { name: "Callinectes sapidus", common: "Blue crab" },
+  { name: "Octopus vulgaris", common: "Common octopus" },
+  { name: "Cornu aspersum", common: "Garden snail" },
+  { name: "Periplaneta americana", common: "American cockroach" },
+  { name: "Papilio machaon", common: "Old World swallowtail" },
+  { name: "Photinus pyralis", common: "Common eastern firefly" },
+  // Plants
+  { name: "Helianthus annuus", common: "Sunflower" },
+  { name: "Rosa canina", common: "Dog rose" },
+  { name: "Quercus robur", common: "English oak" },
+  { name: "Acer saccharum", common: "Sugar maple" },
+  { name: "Sequoiadendron giganteum", common: "Giant sequoia" },
+  { name: "Dionaea muscipula", common: "Venus flytrap" },
+  { name: "Cannabis sativa", common: "Cannabis" },
+  { name: "Solanum lycopersicum", common: "Tomato" },
+  { name: "Solanum tuberosum", common: "Potato" },
+  { name: "Oryza sativa", common: "Rice" },
+  { name: "Triticum aestivum", common: "Bread wheat" },
+  { name: "Zea mays", common: "Maize" },
+  { name: "Coffea arabica", common: "Arabica coffee" },
+  { name: "Vitis vinifera", common: "Grapevine" },
+  { name: "Malus domestica", common: "Apple" },
+  { name: "Taraxacum officinale", common: "Dandelion" },
+  { name: "Cocos nucifera", common: "Coconut palm" },
+  { name: "Musa acuminata", common: "Banana" },
+  { name: "Carnegiea gigantea", common: "Saguaro" },
+  // Fungi
+  { name: "Amanita muscaria", common: "Fly agaric" },
+  { name: "Agaricus bisporus", common: "Button mushroom" },
+  { name: "Amanita phalloides", common: "Death cap" },
+  { name: "Lentinula edodes", common: "Shiitake" },
+  { name: "Tuber melanosporum", common: "Black truffle" },
 ];
 
 // Scope presets: clade NAMES to expose if OTL places them in the pulled tree.
@@ -314,12 +503,23 @@ async function main() {
   const specs = nested.flat().filter((s) => (seen.has(s.speciesKey) ? false : seen.add(s.speciesKey)));
   console.log(`   ${specs.length} species selected (all with common names)`);
 
-  console.log("→ [GBIF] adding curated extras (humans + model organisms)…");
+  console.log("→ [GBIF] adding curated extras…");
   const extras = (await mapLimit(EXTRAS, 6, resolveExtra)).filter(Boolean);
+  // A curated species may already be in the occurrence set — often under an odd
+  // GBIF vernacular ("Alley Cat", "Blackfish", "Aurochs"). The hand-set common
+  // name is intentional, so it WINS: override the existing entry rather than skip
+  // it, else add it. (Two curated names can map to one species key — e.g. a
+  // domestic subspecies onto its wild species — so last-writer-wins by list order.)
+  const specByKey = new Map(specs.map((s) => [String(s.speciesKey), s]));
+  let added = 0;
+  let renamed = 0;
   for (const s of extras) {
-    if (!seen.has(s.speciesKey)) { seen.add(s.speciesKey); specs.push(s); }
+    const key = String(s.speciesKey);
+    const existing = specByKey.get(key);
+    if (existing) { existing.common = s.common; renamed++; }
+    else { seen.add(s.speciesKey); specs.push(s); specByKey.set(key, s); added++; }
   }
-  console.log(`   +${extras.length} extras (${extras.map((e) => e.common).join(", ")})`);
+  console.log(`   +${added} new, ${renamed} renamed to their curated common name`);
 
   console.log("→ [OTL] matching names → OTT ids…");
   const nameToOtt = await tnrsMatch(specs.map((s) => s.canonicalName));
