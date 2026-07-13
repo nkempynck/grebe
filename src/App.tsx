@@ -25,6 +25,13 @@ import { KinshipLeaderboard } from "./ui/KinshipLeaderboard";
 import type { GridComplete } from "./hooks/useGridGame";
 import { RESOLUTION_PRESETS, SCOPE_PRESETS } from "./data/presets";
 
+// The admin route lives behind a build-time env var so the real path is never in
+// the source (only this "admin" dev fallback is). Set VITE_ADMIN_ROUTE to an
+// obscure string in production. NB: this is defence-in-depth only — the actual
+// protection is is_admin() + the admin password; the value is still present in
+// the compiled bundle, just not in git.
+const ADMIN_HASH = `#${import.meta.env.VITE_ADMIN_ROUTE ?? "admin"}`;
+
 export default function App() {
   const player = usePlayer();
   const userId = player.session?.user.id ?? null;
@@ -177,7 +184,7 @@ export default function App() {
     return <div className="wrap"><p className="empty">Growing the tree of life…</p></div>;
   }
 
-  if (hash === "#admin") return <AdminPanel tree={g.tree} />;
+  if (hash === ADMIN_HASH) return <AdminPanel tree={g.tree} />;
 
   const answer = g.tree.byId.get(g.answerId)!;
   const today = new Date().toISOString().slice(0, 10);

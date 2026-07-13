@@ -58,57 +58,74 @@ const scopeLabel = (id: string) =>
   (SCOPE_PRESETS.find((s) => s.id === id)?.label ?? id).replace(/\s+only$/i, "");
 const resLabel = (n: number) => RESOLUTION_PRESETS.find((r) => r.winWithin === n)?.label ?? `±${n}`;
 
-/** Live "is the schema up to date?" panel — calls the schema_check() function.
- *  If that function is missing, the schema hasn't been re-run with this version. */
+// Each backend SQL file exposes a *_schema_check() RPC; the panel calls all of
+// them so one glance confirms every file applied. A missing RPC = that file was
+// never run.
+const SCHEMA_CHECKS = [
+  { rpc: "schema_check", label: "Core", file: "schema.sql" },
+  { rpc: "grid_schema_check", label: "Kinship", file: "kinship.sql" },
+  { rpc: "puzzles_schema_check", label: "Puzzles", file: "puzzles.sql" },
+  { rpc: "names_schema_check", label: "Names", file: "names.sql" },
+  { rpc: "badges_schema_check", label: "Badges", file: "badges.sql" },
+];
+
+interface FileCheck {
+  label: string;
+  file: string;
+  rows: Array<[string, boolean]> | null; // null → RPC unavailable (file not applied)
+  error: string | null;
+}
+
+/** Live "is the schema up to date?" panel — calls every backend file's
+ *  *_schema_check() RPC and flags any file that's missing or incomplete. */
 function SchemaCheck() {
-  const [rows, setRows] = useState<Array<[string, boolean]> | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [results, setResults] = useState<FileCheck[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   const run = useCallback(async () => {
     if (!supabase) return;
+    const sb = supabase; // capture the non-null client for the async closures below
     setLoading(true);
-    const { data, error } = await supabase.rpc("schema_check");
-    if (error || !data) {
-      setRows(null);
-      setErr(error?.message ?? "no response");
-    } else {
-      setRows(Object.entries(data as Record<string, boolean>));
-      setErr(null);
-    }
+    const out = await Promise.all(
+      SCHEMA_CHECKS.map(async (c): Promise<FileCheck> => {
+        const { data, error } = await sb.rpc(c.rpc);
+        if (error || !data) return { label: c.label, file: c.file, rows: null, error: error?.message ?? "no response" };
+        return { label: c.label, file: c.file, rows: Object.entries(data as Record<string, boolean>), error: null };
+      })
+    );
+    setResults(out);
     setLoading(false);
   }, []);
   useEffect(() => { void run(); }, [run]);
 
-  const failing = rows?.filter(([, ok]) => !ok).length ?? 0;
-  const allOk = rows !== null && failing === 0;
+  const failing = results?.filter((r) => r.rows === null || r.rows.some(([, ok]) => !ok)) ?? [];
+  const allOk = results !== null && failing.length === 0;
 
   return (
-    <div className={`admin-schema${allOk ? " is-ok" : rows || err ? " is-bad" : ""}`}>
+    <div className={`admin-schema${allOk ? " is-ok" : results ? " is-bad" : ""}`}>
       <div className="admin-schema-head">
         <span className="admin-schema-ttl">
           {loading ? "Checking schema…"
-            : err ? "⚠ Schema self-check unavailable"
-            : allOk ? "✓ Schema is up to date"
-            : `⚠ Schema is out of date — ${failing} item${failing === 1 ? "" : "s"} missing`}
+            : allOk ? "✓ All schema files up to date"
+            : `⚠ ${failing.length} schema file${failing.length === 1 ? "" : "s"} need attention`}
         </span>
         <button className="linkbtn" onClick={() => void run()} disabled={loading}>Re-check</button>
       </div>
-      {err && (
-        <p className="admin-schema-hint">
-          Couldn't reach <code>schema_check()</code> ({err}). Re-run <code>supabase/schema.sql</code> in the
-          Supabase SQL editor, then re-check.
-        </p>
-      )}
-      {rows && !allOk && (
-        <ul className="admin-schema-list">
-          {rows.map(([k, ok]) => (
-            <li key={k} className={ok ? "is-ok" : "is-bad"}>{ok ? "✓" : "✗"} {k}</li>
-          ))}
-        </ul>
-      )}
-      {rows && !allOk && (
-        <p className="admin-schema-hint">Re-run <code>supabase/schema.sql</code> to add the missing pieces (it's safe to re-run), then re-check.</p>
+      {results && !allOk && (
+        <>
+          <ul className="admin-schema-list">
+            {results.map((r) => {
+              if (r.rows === null) {
+                return <li key={r.file} className="is-bad">✗ <b>{r.label}</b> — <code>{r.file}</code> not applied ({r.error})</li>;
+              }
+              const bad = r.rows.filter(([, ok]) => !ok).map(([k]) => k);
+              return bad.length === 0
+                ? <li key={r.file} className="is-ok">✓ <b>{r.label}</b> <code>{r.file}</code></li>
+                : <li key={r.file} className="is-bad">✗ <b>{r.label}</b> — missing: {bad.join(", ")}</li>;
+            })}
+          </ul>
+          <p className="admin-schema-hint">Run the flagged file(s) in the Supabase SQL editor (safe to re-run), then re-check.</p>
+        </>
       )}
     </div>
   );
