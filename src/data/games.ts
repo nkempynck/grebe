@@ -169,6 +169,19 @@ export async function recordGridGame(g: { puzzleDate: string; won: boolean; mist
   }
 }
 
+/** The caller's live Kinship competitive badges (day/week/month champions +
+ *  all-time percentile), same shape as player_badges(). See supabase/badges.sql. */
+export async function fetchGridPlayerBadges(): Promise<import("./badges").PlayerBadges | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc("grid_player_badges");
+    if (error || !data) return null;
+    return data as import("./badges").PlayerBadges;
+  } catch {
+    return null;
+  }
+}
+
 /** Ranked Kinship board, filtered by time window (or pinned to `forDate`). */
 export async function fetchGridLeaderboard(
   period: LeaderboardPeriod = "all",

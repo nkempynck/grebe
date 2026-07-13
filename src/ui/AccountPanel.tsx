@@ -79,7 +79,8 @@ export function AccountPanel({ stats, player }: Props) {
     <>
       {player.session && <Profile player={player} />}
       <StatsPanel stats={stats} player={player} />
-      <BadgesPanel stats={stats} player={player} />
+      <BadgesPanel stats={stats} player={player} game="lineage" />
+      <BadgesPanel stats={stats} player={player} game="kinship" />
     </>
   );
 }

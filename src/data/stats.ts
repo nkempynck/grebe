@@ -73,6 +73,12 @@ export interface DailyStats {
   winPct: number;
   currentStreak: number;
   maxStreak: number;
+  /** Play dates ascending — index N-1 is when the "N puzzles" badge was earned. */
+  playedDates: string[];
+  /** Win dates ascending — index N-1 is when the "N solved" badge was earned. */
+  solvedDates: string[];
+  /** Last winning day of the best streak — when that streak badge was earned. */
+  bestStreakEnd: string | null;
   /** Leaderboard points (mirrors the server): lifetime total, per-game avg, best. */
   points: { total: number; avg: number; best: number };
   /** Per-clade scoring, strongest first is marked via strengthId. */
@@ -92,9 +98,16 @@ export interface PracticeStats {
 export interface KinshipStats {
   played: number;
   wins: number;
+  /** Wins with zero mistakes (perfect boards) — drives the ✨ flawless badge. */
+  flawless: number;
   winPct: number;
   currentStreak: number;
   maxStreak: number;
+  /** Ascending dates behind each milestone badge's earned-on lookup. */
+  playedDates: string[];
+  solvedDates: string[];
+  flawlessDates: string[];
+  bestStreakEnd: string | null;
   points: { total: number; avg: number; best: number };
 }
 
@@ -300,16 +313,18 @@ function deriveDaily(
   }
 
   let maxStreak = 0;
+  let bestStreakEnd: string | null = null;
   const keptSet = new Set(dates.filter((d) => keepsStreak(history[d])));
   for (const d of keptSet) {
     if (keptSet.has(prevDay(d))) continue; // only start at a run's first day
     let len = 0;
+    let lastWin: string | null = null;
     let c: string = d;
     while (keptSet.has(c)) {
-      if (history[c].status === "won") len++;
+      if (history[c].status === "won") { len++; lastWin = c; }
       c = nextDay(c);
     }
-    maxStreak = Math.max(maxStreak, len);
+    if (len > maxStreak) { maxStreak = len; bestStreakEnd = lastWin; }
   }
 
   const groups: GroupScore[] = orderedIds
@@ -345,6 +360,9 @@ function deriveDaily(
     winPct: pct(wins, played),
     currentStreak,
     maxStreak,
+    playedDates: [...dates].sort(),
+    solvedDates: dates.filter((d) => history[d].status === "won").sort(),
+    bestStreakEnd,
     points: { total, avg: played ? Math.round(total / played) : 0, best },
     groups,
     strengthId,
@@ -370,6 +388,7 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
   const dates = Object.keys(kinship);
   const played = dates.length;
   const wins = dates.filter((d) => kinship[d].status === "won").length;
+  const flawless = dates.filter((d) => kinship[d].status === "won" && kinship[d].mistakes === 0).length;
 
   let total = 0;
   let best = 0;
@@ -388,24 +407,32 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
   }
 
   let maxStreak = 0;
+  let bestStreakEnd: string | null = null;
   const wonSet = new Set(dates.filter((d) => kinship[d].status === "won"));
   for (const d of wonSet) {
     if (wonSet.has(prevDay(d))) continue;
     let len = 0;
+    let end: string | null = null;
     let c: string = d;
     while (wonSet.has(c)) {
       len++;
+      end = c;
       c = nextDay(c);
     }
-    maxStreak = Math.max(maxStreak, len);
+    if (len > maxStreak) { maxStreak = len; bestStreakEnd = end; }
   }
 
   return {
     played,
     wins,
+    flawless,
     winPct: pct(wins, played),
     currentStreak,
     maxStreak,
+    playedDates: [...dates].sort(),
+    solvedDates: dates.filter((d) => kinship[d].status === "won").sort(),
+    flawlessDates: dates.filter((d) => kinship[d].status === "won" && kinship[d].mistakes === 0).sort(),
+    bestStreakEnd,
     points: { total, avg: played ? Math.round(total / played) : 0, best },
   };
 }
