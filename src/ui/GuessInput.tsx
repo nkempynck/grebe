@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { GameConfig, GuessResult, Tree } from "../core";
-import { isAncestor, isInScope } from "../core";
+import { isAncestor, isInScope, normalizeName } from "../core";
 import { warmthColor } from "./temperature";
 
 interface Props {
@@ -50,6 +50,10 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
     return out;
   }, [tree, config, focusCladeId]);
 
+  // id → candidate, so a synonym match can pull in its target species (only if
+  // that species is itself in scope/focus and therefore guessable).
+  const candById = useMemo(() => new Map(candidates.map((c) => [c.id, c])), [candidates]);
+
   // The empty-box BROWSE list (groups first, then species, A–Z). Latin-only
   // clades are typeable but kept OUT of this list, so idly scrolling isn't a wall
   // of scientific names — only species and friendly common-named groups show.
@@ -66,15 +70,31 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
     if (!q) return sortedCandidates; // empty box → browse the whole scope/subset
     const pre: Cand[] = [];
     const sub: Cand[] = [];
+    const seen = new Set<string>();
+    const take = (arr: Cand[], c: Cand) => { if (!seen.has(c.id)) { seen.add(c.id); arr.push(c); } };
     for (const c of candidates) {
       const names = [c.common, c.sci].filter(Boolean).map((s) => s!.toLowerCase());
-      if (names.some((n) => n.startsWith(q))) pre.push(c);
-      else if (names.some((n) => n.includes(q))) sub.push(c);
+      if (names.some((n) => n.startsWith(q))) take(pre, c);
+      else if (names.some((n) => n.includes(q))) take(sub, c);
+    }
+    // Synonyms: a typed alternate name ("orca") surfaces its target species
+    // ("Killer whale"), as long as that species is guessable in the current scope.
+    if (tree.synonyms) {
+      const nq = normalizeName(text);
+      if (nq) {
+        for (const [alt, id] of tree.synonyms) {
+          if (seen.has(id)) continue;
+          const c = candById.get(id);
+          if (!c) continue;
+          if (alt.startsWith(nq)) take(pre, c);
+          else if (alt.includes(nq)) take(sub, c);
+        }
+      }
     }
     // Groups surface above species within each tier.
     const order = (arr: Cand[]) => [...arr.filter((c) => c.kind === "group"), ...arr.filter((c) => c.kind === "species")];
     return [...order(pre), ...order(sub)].slice(0, 8);
-  }, [candidates, q, sortedCandidates]);
+  }, [candidates, candById, q, text, sortedCandidates, tree]);
 
   // Entries you can actually pick (already-guessed ones are shown but not
   // selectable). activeId lets each row test "am I active?" in O(1) — important
