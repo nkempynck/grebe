@@ -13,11 +13,26 @@ function xmur3(str: string): number {
   return (h ^= h >>> 16) >>> 0;
 }
 
-/** YYYY-MM-DD in UTC. Deliberately UTC (not local): it matches the server's
- *  current_date and keeps the daily global — the puzzle flips at the same instant
- *  everywhere. Don't "fix" this to local time; it would desync from the board. */
+/** The active puzzle date (YYYY-MM-DD). The daily rolls over at 09:00
+ *  Europe/Brussels — a single GLOBAL instant for everyone (DST-aware, so it stays
+ *  9am local year-round), mirroring LinkedIn/Ponder (midnight Pacific ≈ 09:00
+ *  CET). It is deliberately NOT per-user local time; every player flips at the
+ *  same moment, which keeps the shared board and its earliest-first tie-break
+ *  fair. MUST stay in lockstep with public.grebe_today() in supabase/schema.sql. */
+export const RESET_TZ = "Europe/Brussels";
+export const RESET_HOUR = 9; // local hour in RESET_TZ at which the puzzle flips
 export function todayKey(d = new Date()): string {
-  return d.toISOString().slice(0, 10);
+  // Read the wall-clock in the reset zone (DST included), then step back the
+  // reset hour so the calendar date only advances once it's past 09:00 there.
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone: RESET_TZ,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
+  const v = (t: string) => Number(p.find((x) => x.type === t)!.value);
+  const wall = Date.UTC(v("year"), v("month") - 1, v("day"), v("hour"), v("minute"), v("second"));
+  return new Date(wall - RESET_HOUR * 3_600_000).toISOString().slice(0, 10);
 }
 
 /** Day #1 of the daily series. Set this to the public launch date — it only

@@ -10,9 +10,9 @@
   --bg: #f1e8d4;
   --bg-2: #fbf6ea;
   --bg-3: #f5eeda;
-  --ink: #2e2a22;
-  --ink-soft: #6f6857;
-  --ink-faint: #9a927d;
+  --ink: #17140d;        /* near-black warm — the reading ink */
+  --ink-soft: #4a4433;   /* darkened: a lot of body/secondary copy uses this */
+  --ink-faint: #837c64;
   --line: #ddd0b3;
   --line-soft: #e8dfc7;
 
@@ -101,9 +101,13 @@ body {
     var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
+  /* Spectral 400 reads thin on the light paper (antialiasing thins it further),
+     so the base body weight is 500 — a real bundled weight, no faux-bold. Serif
+     body text inherits it; mono/display pick their own weights, and the few
+     explicit 400s (muted/italic secondary text) stay deliberately lighter. */
+  font-weight: 500;
   font-size: 17px;
   line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
