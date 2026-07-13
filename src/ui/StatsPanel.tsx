@@ -42,6 +42,7 @@ function SyncBar({ player }: { player: UsePlayer }) {
       ) : (
         <div className="stats-sync-form">
           <p>Use a username + password to carry your stats to other devices. No email needed.</p>
+          <p className="stats-sync-note">You'll start with a random creature name — change it anytime in Account.</p>
           <p className="stats-sync-warn">Because there's no email, a forgotten password can't be recovered — pick one you'll remember.</p>
           <div className="admin-login-fields">
             <input type="text" autoComplete="username" placeholder="username" value={u} onChange={(e) => setU(e.target.value)} />

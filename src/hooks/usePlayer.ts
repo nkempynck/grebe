@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "../data/supabase";
+import { randomSpeciesName } from "../data/speciesNames";
 
 export interface UsePlayer {
   /** Whether sync is even possible (Supabase configured). */
@@ -96,6 +97,23 @@ export function usePlayer(): UsePlayer {
     return !error;
   }, []);
 
+  // Give a brand-new player a fun random creature name instead of their login
+  // handle (which, for a real-email signup, would leak the email prefix). Goes
+  // through set_display_name so it respects uniqueness + the profanity filter: a
+  // taken name gets a number, a filter-blocked species is swapped for another.
+  // Best-effort — if it can't land one, the signup trigger's default stands.
+  const assignRandomName = useCallback(async () => {
+    if (!supabase) return;
+    let base = randomSpeciesName();
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const name = attempt === 0 ? base : `${base} ${Math.floor(10 + Math.random() * 990)}`;
+      const { data, error } = await supabase.rpc("set_display_name", { p_name: name });
+      if (!error) { setDisplayNameState((data as string | null) ?? name); return; }
+      if (/allow/i.test(error.message)) base = randomSpeciesName(); // blocked species → try another
+      // otherwise "already taken" → keep the base, next loop appends a number
+    }
+  }, []);
+
   const signUp = useCallback(async (username: string, password: string, captchaToken?: string) => {
     if (!supabase || !username.trim() || !password) return false;
     const { error } = await supabase.auth.signUp({
@@ -104,8 +122,10 @@ export function usePlayer(): UsePlayer {
       options: captchaToken ? { captchaToken } : undefined,
     });
     setError(error?.message ?? null);
-    return !error;
-  }, []);
+    if (error) return false;
+    await assignRandomName();
+    return true;
+  }, [assignRandomName]);
 
   const signOut = useCallback(() => {
     void supabase?.auth.signOut();
