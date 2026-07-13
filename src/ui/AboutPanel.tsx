@@ -76,7 +76,7 @@ export function AboutPanel() {
             <span className="about-game-src">inspired by Connections</span>
           </div>
           <p>
-            Sixteen species, four hidden groups of four — each group a real clade. Sort every
+            Sixteen species, four hidden groups of four; each group a real clade. Sort every
             species into the family it belongs to before four wrong guesses run out; the harder the
             day, the more the groups look alike (four kinds of perch rather than a frog, a fern and a
             beetle). A daily grid in the spirit of the New York Times'{" "}
@@ -154,7 +154,7 @@ export function AboutPanel() {
         </li>
       </ol>
       <p className="about-p">
-        The full source — the engine, the data build, and this page — is on{" "}
+        The full source (the engine, the data build, and this page) is on{" "}
         <a href="https://github.com/nkempynck/grebe" target="_blank" rel="noreferrer">GitHub</a>.
       </p>
 

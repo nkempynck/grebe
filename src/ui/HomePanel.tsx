@@ -29,9 +29,9 @@ export function HomePanel({ onPlay }: Props) {
   return (
     <div className="home">
       <p className="home-intro">
-        Grebe is a set of daily puzzle games played on the <b>tree of life</b> — the
+        Grebe is a set of daily puzzle games played on the <b>tree of life</b>, the
         shared-ancestry tree that connects every living thing. Each game is new every day and
-        the same for everyone. Pick one.
+        the same for everyone. Pick one, or more, and enjoy!
       </p>
 
       <div className="home-games">
