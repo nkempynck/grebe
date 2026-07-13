@@ -720,6 +720,29 @@ body {
 .badge-gold .badge-medal    { box-shadow: 0 0 10px 0 var(--medal-glow), 0 3px 9px rgba(0,0,0,.5), inset 0 2px 2px rgba(255,255,255,.22), inset 0 -7px 11px rgba(0,0,0,.4); }
 .badge-crown .badge-medal   { box-shadow: 0 0 11px 0 var(--medal-glow), 0 3px 9px rgba(0,0,0,.5), inset 0 2px 2px rgba(255,255,255,.22), inset 0 -7px 11px rgba(0,0,0,.4); }
 .badge-diamond .badge-medal { box-shadow: 0 0 13px 1px var(--medal-glow), 0 3px 9px rgba(0,0,0,.5), inset 0 2px 3px rgba(255,255,255,.28), inset 0 -7px 11px rgba(0,0,0,.4); }
+/* Clickable champion badges (reset the button chrome; keep the medal look). */
+button.badge { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; appearance: none; -webkit-appearance: none; }
+.badge.is-clickable { position: relative; }
+.badge.is-clickable:focus-visible { outline: none; }
+.badge.is-clickable:focus-visible .badge-medal { outline: 2px solid var(--brass); outline-offset: 3px; }
+.badge.is-open .badge-medal { transform: translateY(-2px); box-shadow: 0 0 12px 1px var(--medal-glow), 0 3px 9px rgba(0,0,0,.5), inset 0 2px 2px rgba(255,255,255,.22), inset 0 -7px 11px rgba(0,0,0,.4); }
+.badge-count {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.04em;
+  color: var(--ink-faint); margin-top: -3px;
+}
+/* The winning-dates panel shown when a champion badge is clicked. */
+.badge-dates {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin-top: 14px; padding: 10px 12px;
+  background: var(--bg-soft, color-mix(in srgb, var(--brass) 6%, transparent));
+  border: 1px solid var(--line-soft); border-radius: var(--radius);
+}
+.badge-dates-lbl { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-right: 2px; }
+.badge-date {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px;
+  font-variant-numeric: tabular-nums;
+}
 .badge-next { font-family: var(--font-body); font-size: 13px; color: var(--ink-soft); margin: 14px 0 0; }
 .badge-next b { color: var(--brass-bright); }
 .badge-note { font-family: var(--font-body); font-style: italic; font-size: 13px; color: var(--ink-faint); margin: 10px 0 0; }
@@ -797,23 +820,31 @@ body {
 
 .lb-rows { display: flex; flex-direction: column; }
 .lb-row {
-  position: relative;
-  display: grid; grid-template-columns: 28px 1fr auto auto; align-items: center; gap: 12px;
-  padding: 7px 10px; border-bottom: 1px solid var(--line-soft);
+  display: grid; grid-template-columns: 30px 1fr auto 64px; align-items: center; gap: 12px;
+  padding: 8px 10px; border-bottom: 1px solid var(--line-soft);
 }
 .lb-row:last-child { border-bottom: none; }
-.lb-row > span:not(.lb-bar) { position: relative; z-index: 1; }
-/* score-proportional bar behind each row → reads as a horizontal bar graph */
-.lb-bar {
-  position: absolute; left: 0; top: 3px; bottom: 3px; z-index: 0;
-  background: color-mix(in srgb, var(--brass) 13%, transparent); border-radius: 4px;
-}
+/* single-day boards drop the wins/games column (it's always 1/1 there) */
+.lb-rows.is-slim .lb-row { grid-template-columns: 30px 1fr 64px; }
 .lb-head { border-bottom: 1px solid var(--line); padding-bottom: 6px; }
 .lb-head span { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
-.lb-rank { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); text-align: right; }
-.lb-name { font-family: var(--font-display); font-weight: 600; font-size: 15px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lb-meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
-.lb-score { font-family: var(--font-mono); font-weight: 700; font-size: 14px; color: var(--brass-bright); }
+.lb-rank { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); text-align: center; }
+.lb-rank.is-medal { font-size: 17px; line-height: 1; }
+.lb-name {
+  font-family: var(--font-display); font-weight: 600; font-size: 15px; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 6px;
+}
+.lb-row.is-podium .lb-name { font-weight: 700; }
+.lb-youtag {
+  flex: none; font-family: var(--font-mono); font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--brass); border: 1px solid color-mix(in srgb, var(--brass) 40%, transparent);
+  border-radius: 999px; padding: 1px 6px;
+}
+.lb-meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.lb-score {
+  font-family: var(--font-mono); font-weight: 700; font-size: 15px; color: var(--brass-bright);
+  text-align: right; font-variant-numeric: tabular-nums;
+}
 .lb-row.is-me { background: color-mix(in srgb, var(--brass) 12%, transparent); border-radius: var(--radius); }
 .lb-row.is-me .lb-name { color: var(--brass-bright); }
 .lb-row.is-me .lb-rank { color: var(--brass); }
@@ -823,6 +854,7 @@ body {
   font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft);
 }
 .lb-you { color: var(--brass-bright); font-weight: 700; }
+.lb-streak { color: var(--vermilion); }
 .lb-you.is-unranked { color: var(--ink-faint); font-weight: 400; font-style: italic; }
 .lb-delta { font-weight: 600; }
 .lb-delta.is-up { color: var(--cold); }

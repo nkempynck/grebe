@@ -174,7 +174,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey }
             </div>
             <button className="share-btn" onClick={copy}>{copied ? "Copied ✓" : "Copy result"}</button>
           </div>
-          {configured && <KinshipLeaderboard variant="today" me={me ?? null} reloadKey={reloadKey} />}
+          {configured && <KinshipLeaderboard variant="today" me={me ?? null} reloadKey={reloadKey} streak={streak} />}
         </div>
       )}
     </div>

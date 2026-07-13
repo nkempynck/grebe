@@ -19,6 +19,9 @@ interface Props {
   canPreview?: boolean;
   /** Bump to force a refetch (e.g. after a just-finished game is submitted). */
   reloadKey?: number;
+  /** The viewer's current daily streak, shown in the footer (their own only —
+   *  other players' streaks aren't exposed by the server). */
+  streak?: number | null;
   /** Resolve a past day's answer species (for the day-browsing view). Only ever
    *  called for finished days, so it never reveals today's puzzle. */
   answerForDate?: (dateKey: string) => { name: string; sci: string } | null;
@@ -39,13 +42,16 @@ function stepDate(key: string, delta: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Podium medals for ranks 1–3; plain numbers below. */
+const MEDALS = ["🥇", "🥈", "🥉"];
+
 const GROUPS: { id: string | null; label: string; icon: string }[] = [
   { id: null, label: "Overall", icon: "🏆" },
   ...CLADE_GROUPS.map((g) => ({ id: g.id, label: g.label, icon: g.icon })),
   { id: OTHER_GROUP.id, label: OTHER_GROUP.label, icon: OTHER_GROUP.icon },
 ];
 
-export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 0, answerForDate, onClose }: Props) {
+export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 0, streak, answerForDate, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [group, setGroup] = useState<string | null>(null);
@@ -63,6 +69,9 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
   // When browsing a specific past day, pin the board to that date (period ignored).
   const today = todayKey();
   const browsingDay = !isToday && period === "day";
+  // A single-day board: everyone has one game, so per-row wins/games is noise —
+  // drop that column and surface the viewer's streak in the footer instead.
+  const oneDay = isToday || browsingDay;
   const forDate = browsingDay ? dayDate : null;
   // The answer is revealed only for a finished day (never today's live puzzle).
   const dayAnswer = browsingDay && dayDate < today && answerForDate ? answerForDate(dayDate) : null;
@@ -87,7 +96,6 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
   }, [period, group, previewing, groupLabelForDemo, reloadKey, forDate]);
 
   const highlight = previewing ? "you" : me;
-  const maxScore = rows && rows.length ? Math.max(...rows.map((r) => r.total_score), 1) : 1;
   const canShowYou = previewing || !!me;
 
   return (
@@ -151,22 +159,24 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
         <p className="stats-empty">No ranked games {isToday ? "today" : browsingDay ? "on this day" : "here yet"}. Play a signed-in daily to appear.</p>
       ) : (
         <>
-          <div className="lb-rows">
+          <div className={`lb-rows${oneDay ? " is-slim" : ""}`}>
             <div className="lb-row lb-head">
               <span className="lb-rank">#</span>
               <span className="lb-name">Player</span>
-              <span className="lb-meta">won</span>
+              {!oneDay && <span className="lb-meta">won</span>}
               <span className="lb-score">pts</span>
             </div>
-            {rows.map((r, i) => (
-              <div className={`lb-row${r.display_name === highlight ? " is-me" : ""}`} key={`${r.display_name}-${i}`}>
-                <span className="lb-bar" style={{ width: `${(r.total_score / maxScore) * 100}%` }} aria-hidden="true" />
-                <span className="lb-rank">{i + 1}</span>
-                <span className="lb-name">{r.display_name}</span>
-                <span className="lb-meta" title="wins / games played">{r.wins}/{r.games}</span>
-                <span className="lb-score">{r.total_score}</span>
-              </div>
-            ))}
+            {rows.map((r, i) => {
+              const isMe = r.display_name === highlight;
+              return (
+                <div className={`lb-row${isMe ? " is-me" : ""}${i < 3 ? " is-podium" : ""}`} key={`${r.display_name}-${i}`}>
+                  <span className={`lb-rank${i < 3 ? " is-medal" : ""}`}>{i < 3 ? MEDALS[i] : i + 1}</span>
+                  <span className="lb-name">{r.display_name}{isMe && <span className="lb-youtag">you</span>}</span>
+                  {!oneDay && <span className="lb-meta" title="wins / games played">{r.wins}/{r.games}</span>}
+                  <span className="lb-score">{r.total_score}</span>
+                </div>
+              );
+            })}
           </div>
 
           <div className="lb-foot">
@@ -179,6 +189,7 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
               standing.my_rank != null ? (
                 <span className="lb-you">
                   You · #{standing.my_rank}{total ? ` of ${total}` : ""} · {standing.my_score} pts
+                  {streak != null && streak > 0 && <span className="lb-streak"> · 🔥 {streak}</span>}
                   {standing.avg_score != null && standing.my_score != null && (
                     <span className={`lb-delta ${standing.my_score >= standing.avg_score ? "is-up" : "is-down"}`}>
                       {" "}{standing.my_score >= standing.avg_score ? "▲" : "▼"} {standing.my_score >= standing.avg_score ? "+" : ""}

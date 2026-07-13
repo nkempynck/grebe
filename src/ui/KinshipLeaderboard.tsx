@@ -15,6 +15,8 @@ interface Props {
   variant: "today" | "config";
   /** Bump to force a refetch (e.g. after a just-finished game is submitted). */
   reloadKey?: number;
+  /** The viewer's current Kinship streak, shown in the footer (their own only). */
+  streak?: number | null;
   onClose?: () => void;
 }
 
@@ -31,10 +33,13 @@ function stepDate(key: string, delta: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Podium medals for ranks 1–3; plain numbers below. */
+const MEDALS = ["🥇", "🥈", "🥉"];
+
 /** Kinship (grid) ranked board. Same shape as the Lineage board, but there's no
  *  clade-group filter (groups are per-board, not persistent categories) and the
  *  population "par" is average mistakes rather than guesses. */
-export function KinshipLeaderboard({ me, variant, reloadKey = 0, onClose }: Props) {
+export function KinshipLeaderboard({ me, variant, reloadKey = 0, streak, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [dayDate, setDayDate] = useState<string>(() => todayKey());
@@ -44,6 +49,8 @@ export function KinshipLeaderboard({ me, variant, reloadKey = 0, onClose }: Prop
 
   const today = todayKey();
   const browsingDay = !isToday && period === "day";
+  // Single-day board: per-row wins/games is always 1/1 — drop it, show streak.
+  const oneDay = isToday || browsingDay;
   const forDate = isToday ? today : browsingDay ? dayDate : null;
 
   useEffect(() => {
@@ -60,8 +67,6 @@ export function KinshipLeaderboard({ me, variant, reloadKey = 0, onClose }: Prop
     });
     return () => { live = false; };
   }, [period, reloadKey, forDate]);
-
-  const maxScore = rows && rows.length ? Math.max(...rows.map((r) => r.total_score), 1) : 1;
 
   return (
     <div className="lb">
@@ -109,22 +114,24 @@ export function KinshipLeaderboard({ me, variant, reloadKey = 0, onClose }: Prop
         <p className="stats-empty">No ranked Kinship games {isToday ? "today" : browsingDay ? "on this day" : "here yet"}. Play a signed-in daily to appear.</p>
       ) : (
         <>
-          <div className="lb-rows">
+          <div className={`lb-rows${oneDay ? " is-slim" : ""}`}>
             <div className="lb-row lb-head">
               <span className="lb-rank">#</span>
               <span className="lb-name">Player</span>
-              <span className="lb-meta">won</span>
+              {!oneDay && <span className="lb-meta">won</span>}
               <span className="lb-score">pts</span>
             </div>
-            {rows.map((r, i) => (
-              <div className={`lb-row${r.display_name === me ? " is-me" : ""}`} key={`${r.display_name}-${i}`}>
-                <span className="lb-bar" style={{ width: `${(r.total_score / maxScore) * 100}%` }} aria-hidden="true" />
-                <span className="lb-rank">{i + 1}</span>
-                <span className="lb-name">{r.display_name}</span>
-                <span className="lb-meta" title="wins / games played">{r.wins}/{r.games}</span>
-                <span className="lb-score">{r.total_score}</span>
-              </div>
-            ))}
+            {rows.map((r, i) => {
+              const isMe = r.display_name === me;
+              return (
+                <div className={`lb-row${isMe ? " is-me" : ""}${i < 3 ? " is-podium" : ""}`} key={`${r.display_name}-${i}`}>
+                  <span className={`lb-rank${i < 3 ? " is-medal" : ""}`}>{i < 3 ? MEDALS[i] : i + 1}</span>
+                  <span className="lb-name">{r.display_name}{isMe && <span className="lb-youtag">you</span>}</span>
+                  {!oneDay && <span className="lb-meta" title="wins / games played">{r.wins}/{r.games}</span>}
+                  <span className="lb-score">{r.total_score}</span>
+                </div>
+              );
+            })}
           </div>
 
           <div className="lb-foot">
@@ -137,6 +144,7 @@ export function KinshipLeaderboard({ me, variant, reloadKey = 0, onClose }: Prop
               standing.my_rank != null ? (
                 <span className="lb-you">
                   You · #{standing.my_rank}{total ? ` of ${total}` : ""} · {standing.my_score} pts
+                  {streak != null && streak > 0 && <span className="lb-streak"> · 🔥 {streak}</span>}
                 </span>
               ) : (
                 <span className="lb-you is-unranked">You · not ranked here yet</span>

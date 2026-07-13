@@ -278,7 +278,7 @@ export default function App() {
             streak={daily ? stats.daily.currentStreak : null}
           />
           {/* Show where you landed among everyone right after a daily. */}
-          {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} reloadKey={boardReload} />}
+          {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} reloadKey={boardReload} streak={stats.daily.currentStreak} />}
         </>
       )}
 
@@ -366,13 +366,13 @@ export default function App() {
           </div>
           {lbGame === "lineage" ? (
             <>
-              <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} />
-              <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} />
+              <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} streak={stats.daily.currentStreak} />
+              <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} />
             </>
           ) : (
             <>
-              <KinshipLeaderboard me={boardName} variant="today" />
-              <KinshipLeaderboard me={boardName} variant="config" />
+              <KinshipLeaderboard me={boardName} variant="today" streak={stats.kinship.currentStreak} />
+              <KinshipLeaderboard me={boardName} variant="config" streak={stats.kinship.currentStreak} />
             </>
           )}
         </>
