@@ -28,6 +28,10 @@ export interface Tree {
   /** depth from the dataset root (root = 0) */
   depthOf: Map<string, number>;
   rootId: string;
+  /** Optional: normalized alternate name → node id, for synonym guesses
+   *  ("orca" → the killer-whale node). Attached by the data loader; `core/`
+   *  stays data-free, so this is undefined for a bare buildTree(). */
+  synonyms?: Map<string, string>;
 }
 
 /** User-defined difficulty. Both knobs are just coordinates on the tree:

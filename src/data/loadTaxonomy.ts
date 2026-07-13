@@ -1,7 +1,9 @@
 import { buildTree } from "../core/tree";
+import { normalizeName } from "../core/resolve";
 import type { TaxonNode, Tree } from "../core/types";
 import taxonomy from "./taxonomy.json";
 import { CLADE_COMMON } from "./cladeNames";
+import { SYNONYMS } from "./synonyms";
 
 /**
  * The single place the app gets its tree from. It reads a build-time snapshot
@@ -17,5 +19,16 @@ export async function loadTree(): Promise<Tree> {
       ? { ...n, common: CLADE_COMMON[n.sciName] }
       : n
   );
-  return buildTree(nodes);
+  const tree = buildTree(nodes);
+
+  // Attach curated synonyms: resolve each alternate name to a node via its
+  // scientific name. Entries whose target isn't in this snapshot are dropped.
+  const bySci = new Map<string, string>();
+  for (const n of tree.byId.values()) bySci.set(normalizeName(n.sciName), n.id);
+  const synonyms = new Map<string, string>();
+  for (const [alt, sci] of Object.entries(SYNONYMS)) {
+    const id = bySci.get(normalizeName(sci));
+    if (id) synonyms.set(normalizeName(alt), id);
+  }
+  return { ...tree, synonyms };
 }

@@ -175,9 +175,11 @@ Both are pinned by golden-value unit tests to catch client/SQL drift.
 
 ## Limitations
 
-- **Name matching is exact.** `resolve.ts` matches a guess against exact common or scientific
-  names (any clade is guessable by either); there is no synonym table or typo tolerance, so
-  "orca" does not resolve to "killer whale". A data-driven synonym layer is the largest gap.
+- **Name matching is forgiving but bounded.** `resolve.ts` matches common/scientific names
+  (case-, diacritic-, and hyphen-insensitive), a curated synonym table (`data/synonyms.ts`, e.g.
+  "orca" → killer whale), and a conservative typo-tolerant fallback (unambiguous edit-distance ≤2,
+  never fuzzing very short words). Automatic synonym coverage from GBIF's full vernacular lists at
+  build time is the remaining enhancement.
 - **Folk categories are not clades.** "Fish", "reptiles", and "bugs" are not monophyletic;
   where a scope follows folk intuition rather than strict cladistics that is a deliberate
   simplification.
