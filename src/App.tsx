@@ -4,10 +4,10 @@ import { informedPar } from "./core";
 import { groupOf } from "./data/clades";
 import { useStats } from "./hooks/useStats";
 import { usePlayer } from "./hooks/usePlayer";
-import { recordGame, fetchPlayerBadges } from "./data/games";
+import { recordGame, fetchPlayerBadges, recordGridGame } from "./data/games";
 import { newDailyWins } from "./data/badges";
-import { todayKey, dailyNumber, dailyAnswerId } from "./core/daily";
-import { resolveDailyRules } from "./data/dailySchedule";
+import { todayKey, dailyNumber } from "./core/daily";
+import { dailyAnswerFor } from "./data/dailySchedule";
 import { SettingsPanel } from "./ui/SettingsPanel";
 import { GuessInput } from "./ui/GuessInput";
 import { ResultCard } from "./ui/ResultCard";
@@ -19,6 +19,8 @@ import { AboutPanel } from "./ui/AboutPanel";
 import { AdminPanel } from "./ui/AdminPanel";
 import { GridGame } from "./ui/GridGame";
 import { HomePanel } from "./ui/HomePanel";
+import { KinshipLeaderboard } from "./ui/KinshipLeaderboard";
+import type { GridComplete } from "./hooks/useGridGame";
 import { RESOLUTION_PRESETS, SCOPE_PRESETS } from "./data/presets";
 
 export default function App() {
@@ -31,9 +33,7 @@ export default function App() {
   const dailyGroupOf = useCallback(
     (dateKey: string): string | null => {
       if (!tree) return null;
-      const rules = resolveDailyRules(dateKey);
-      const answerId = rules.answerId ?? dailyAnswerId(tree, rules.config.scopeRootId, dateKey);
-      return groupOf(tree, answerId);
+      return groupOf(tree, dailyAnswerFor(tree, dateKey));
     },
     [tree]
   );
@@ -42,18 +42,20 @@ export default function App() {
   const dailyAnswerOf = useCallback(
     (dateKey: string): { name: string; sci: string } | null => {
       if (!tree) return null;
-      const rules = resolveDailyRules(dateKey);
-      const answerId = rules.answerId ?? dailyAnswerId(tree, rules.config.scopeRootId, dateKey);
-      const node = tree.byId.get(answerId);
+      const node = tree.byId.get(dailyAnswerFor(tree, dateKey));
       return node ? { name: node.common ?? node.sciName, sci: node.sciName } : null;
     },
     [tree]
   );
-  const { stats, record } = useStats(userId, dailyGroupOf);
+  const { stats, record, recordKinship } = useStats(userId, dailyGroupOf);
   const [view, setView] = useState<"home" | "lineage" | "kinship" | "leaderboard" | "account" | "about">("home");
   // Bumped once a finished game's server write resolves, so the post-game board
   // refetches and includes the row just submitted (instead of racing the write).
   const [boardReload, setBoardReload] = useState(0);
+  // Same idea for the Kinship board after a grid result is submitted.
+  const [kinBoardReload, setKinBoardReload] = useState(0);
+  // Which game's rankings the Leaderboard tab is showing.
+  const [lbGame, setLbGame] = useState<"lineage" | "kinship">("lineage");
   // Daily-winner celebration: on sign-in, fetch the player's recent winning days
   // and surface any not yet shown on this device (see newDailyWins for baseline).
   const [winNudge, setWinNudge] = useState<string[]>([]);
@@ -64,6 +66,21 @@ export default function App() {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
+  // Record a finished Kinship board (ranked, once per date): local stat + streak
+  // always; a signed-in player also gets a durable leaderboard row, then the
+  // post-game board refetches to include it.
+  const recordKinshipResult = useCallback(
+    (r: GridComplete) => {
+      recordKinship({ status: r.won ? "won" : "lost", mistakes: r.mistakes, tier: r.tier });
+      if (player.session) {
+        void recordGridGame({ puzzleDate: r.date, won: r.won, mistakes: r.mistakes }).then(() =>
+          setKinBoardReload((c) => c + 1)
+        );
+      }
+    },
+    [recordKinship, player.session]
+  );
 
   const daily = g.mode === "daily";
   const roundOver = g.status !== "playing";
@@ -304,11 +321,33 @@ export default function App() {
 
       {view === "home" && <HomePanel onPlay={(v) => setView(v)} />}
       {view === "lineage" && play}
-      {view === "kinship" && <GridGame tree={g.tree} />}
+      {view === "kinship" && (
+        <GridGame
+          tree={g.tree}
+          streak={stats.kinship.currentStreak}
+          onComplete={recordKinshipResult}
+          me={boardName}
+          configured={player.configured}
+          reloadKey={kinBoardReload}
+        />
+      )}
       {view === "leaderboard" && (
         <>
-          <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} />
-          <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} />
+          <div className="lb-gametabs" role="tablist" aria-label="Leaderboard game">
+            <button role="tab" aria-selected={lbGame === "lineage"} className={`lb-seg${lbGame === "lineage" ? " is-on" : ""}`} onClick={() => setLbGame("lineage")}>🧬 Lineage</button>
+            <button role="tab" aria-selected={lbGame === "kinship"} className={`lb-seg${lbGame === "kinship" ? " is-on" : ""}`} onClick={() => setLbGame("kinship")}>🧩 Kinship</button>
+          </div>
+          {lbGame === "lineage" ? (
+            <>
+              <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} />
+              <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} />
+            </>
+          ) : (
+            <>
+              <KinshipLeaderboard me={boardName} variant="today" />
+              <KinshipLeaderboard me={boardName} variant="config" />
+            </>
+          )}
         </>
       )}
       {view === "account" && <AccountPanel stats={stats} player={player} />}

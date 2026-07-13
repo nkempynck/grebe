@@ -91,7 +91,7 @@ function GroupBars({ groups, metric, strengthId }: {
 }
 
 export function StatsPanel({ stats, player, onClose }: Props) {
-  const { daily, practice } = stats;
+  const { daily, practice, kinship } = stats;
 
   return (
     <div className="stats">
@@ -100,8 +100,8 @@ export function StatsPanel({ stats, player, onClose }: Props) {
       )}
       <SyncBar player={player} />
 
-      {/* ---------- DAILY — ranked, score-based ---------- */}
-      <div className="stats-sub">Daily · ranked</div>
+      {/* ---------- LINEAGE — ranked, score-based ---------- */}
+      <div className="stats-sub">Lineage · daily</div>
       <div className="stats-nums">
         <div className="stat"><b>{daily.points.total}</b><span>Total points</span></div>
         <div className="stat"><b>{daily.points.avg}</b><span>Avg / game</span></div>
@@ -123,6 +123,21 @@ export function StatsPanel({ stats, player, onClose }: Props) {
             </p>
           )}
         </>
+      )}
+
+      {/* ---------- KINSHIP — ranked grid ---------- */}
+      <div className="stats-sub stats-sub-2">Kinship · daily</div>
+      {kinship.played === 0 ? (
+        <p className="stats-empty">Play the daily Kinship grid to start scoring. Fewer mistakes score more; a clean board earns the full weight.</p>
+      ) : (
+        <div className="stats-nums">
+          <div className="stat"><b>{kinship.points.total}</b><span>Total points</span></div>
+          <div className="stat"><b>{kinship.points.avg}</b><span>Avg / game</span></div>
+          <div className="stat"><b>{kinship.points.best}</b><span>Best game</span></div>
+          <div className="stat"><b>{kinship.currentStreak}</b><span>Streak</span></div>
+          <div className="stat"><b>{kinship.maxStreak}</b><span>Max streak</span></div>
+          <div className="stat"><b>{kinship.played}</b><span>Played · {kinship.winPct}% won</span></div>
+        </div>
       )}
 
       {/* ---------- PRACTICE — free play, unranked ---------- */}

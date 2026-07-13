@@ -7,7 +7,7 @@
  *  No accounts, no network — all from localStorage (optionally synced). */
 
 import { CLADE_GROUPS, cladeGroup, OTHER_GROUP } from "./clades";
-import { gamePoints } from "./score";
+import { gamePoints, kinshipPoints } from "./score";
 import { supabase } from "./supabase";
 
 export interface DailyEntry {
@@ -19,6 +19,14 @@ export interface DailyEntry {
   group?: string;
 }
 
+/** One finished Kinship (grid) daily. Points scale down with mistakes; a loss
+ *  (four mistakes) scores zero. Added in stats v4. */
+export interface KinshipEntry {
+  status: "won" | "lost";
+  mistakes: number;
+  tier: number;
+}
+
 /** Free-play tally per clade group (practice is unranked → no points). */
 interface CladeFree {
   played: number;
@@ -26,11 +34,13 @@ interface CladeFree {
 }
 
 export interface StatsStore {
-  version: 3;
-  /** date (YYYY-MM-DD) -> the daily result (drives ALL daily stats). */
+  version: 4;
+  /** date (YYYY-MM-DD) -> the Lineage daily result (drives ALL daily stats). */
   history: Record<string, DailyEntry>;
   /** group id -> free-play tally (drives ALL practice stats). */
   clades: Record<string, CladeFree>;
+  /** date (YYYY-MM-DD) -> the Kinship daily result (drives ALL Kinship stats). */
+  kinship: Record<string, KinshipEntry>;
 }
 
 /** Per-clade DAILY performance — score-based. */
@@ -78,32 +88,43 @@ export interface PracticeStats {
   groups: GroupWin[];
 }
 
+/** Kinship (grid) daily performance — ranked, score-based. */
+export interface KinshipStats {
+  played: number;
+  wins: number;
+  winPct: number;
+  currentStreak: number;
+  maxStreak: number;
+  points: { total: number; avg: number; best: number };
+}
+
 export interface DerivedStats {
   daily: DailyStats;
   practice: PracticeStats;
+  kinship: KinshipStats;
 }
 
 const KEY = "cladensis.stats.v1"; // key kept stable; payload is versioned inside
 
-const emptyStore = (): StatsStore => ({ version: 3, history: {}, clades: {} });
+const emptyStore = (): StatsStore => ({ version: 4, history: {}, clades: {}, kinship: {} });
 
-/** Accept a raw payload (localStorage or DB) and coerce to a valid v3 store.
- *  v1/v2 histories carry over (their daily aggregate still works); their old
- *  clade tallies had an incompatible, daily+free-mixed shape, so they reset. */
+/** Accept a raw payload (localStorage or DB) and coerce to a valid v4 store.
+ *  Lineage history carries over from any prior version; v1/v2 clade tallies had
+ *  an incompatible, daily+free-mixed shape so they reset; the Kinship history
+ *  arrived in v4, so older stores just start it empty. */
 function migrate(parsed: unknown): StatsStore {
   const s = parsed as {
     version?: number;
     history?: Record<string, DailyEntry>;
     clades?: Record<string, CladeFree>;
+    kinship?: Record<string, KinshipEntry>;
   } | null;
-  if (!s) return emptyStore();
-  if (s.version === 3 && s.history && s.clades) {
-    return { version: 3, history: s.history, clades: s.clades };
-  }
-  if ((s.version === 1 || s.version === 2) && s.history) {
-    return { version: 3, history: s.history, clades: {} };
-  }
-  return emptyStore();
+  if (!s || typeof s !== "object") return emptyStore();
+  const v = s.version;
+  const history = (v === 1 || v === 2 || v === 3 || v === 4) && s.history ? s.history : {};
+  const clades = (v === 3 || v === 4) && s.clades ? s.clades : {};
+  const kinship = v === 4 && s.kinship ? s.kinship : {};
+  return { version: 4, history, clades, kinship };
 }
 
 export function loadStore(): StatsStore {
@@ -124,13 +145,17 @@ export function saveStore(store: StatsStore): void {
   }
 }
 
-/** Coerce an untrusted blob (e.g. from the DB) into a valid v3 store. */
+/** Coerce an untrusted blob (e.g. from the DB) into a valid v4 store. */
 export function coerceStore(raw: unknown): StatsStore {
   return migrate(raw);
 }
 
 export function isEmptyStore(store: StatsStore): boolean {
-  return Object.keys(store.history).length === 0 && Object.keys(store.clades).length === 0;
+  return (
+    Object.keys(store.history).length === 0 &&
+    Object.keys(store.clades).length === 0 &&
+    Object.keys(store.kinship).length === 0
+  );
 }
 
 // ---- Cloud sync (only when Supabase configured + signed in) ----
@@ -189,6 +214,19 @@ export function recordDaily(dateKey: string, entry: DailyEntry, groupId: string)
 /** Record a finished free-play game to local storage — practice tally only. */
 export function recordFree(entry: DailyEntry, groupId: string): StatsStore {
   const store = applyFree(loadStore(), entry, groupId);
+  saveStore(store);
+  return store;
+}
+
+/** Apply a finished Kinship daily onto a store IN PLACE, once per date. */
+export function applyKinship(store: StatsStore, dateKey: string, entry: KinshipEntry): StatsStore {
+  if (!store.kinship[dateKey]) store.kinship[dateKey] = { ...entry };
+  return store;
+}
+
+/** Record a Kinship daily result to local storage, once per date. */
+export function recordKinship(dateKey: string, entry: KinshipEntry): StatsStore {
+  const store = applyKinship(loadStore(), dateKey, entry);
   saveStore(store);
   return store;
 }
@@ -326,9 +364,56 @@ function derivePractice(clades: Record<string, CladeFree>): PracticeStats {
   return { played, wins, winPct: pct(wins, played), groups };
 }
 
+/** Kinship (grid) daily stats. Streak is a plain run of consecutive daily wins —
+ *  there's no give-up in Kinship, so no streak-save nuance. */
+function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string): KinshipStats {
+  const dates = Object.keys(kinship);
+  const played = dates.length;
+  const wins = dates.filter((d) => kinship[d].status === "won").length;
+
+  let total = 0;
+  let best = 0;
+  for (const d of dates) {
+    const e = kinship[d];
+    const p = kinshipPoints(e.status === "won", e.tier, e.mistakes);
+    total += p;
+    if (p > best) best = p;
+  }
+
+  let currentStreak = 0;
+  let cursor = kinship[todayKey] ? todayKey : prevDay(todayKey);
+  while (kinship[cursor]?.status === "won") {
+    currentStreak++;
+    cursor = prevDay(cursor);
+  }
+
+  let maxStreak = 0;
+  const wonSet = new Set(dates.filter((d) => kinship[d].status === "won"));
+  for (const d of wonSet) {
+    if (wonSet.has(prevDay(d))) continue;
+    let len = 0;
+    let c: string = d;
+    while (wonSet.has(c)) {
+      len++;
+      c = nextDay(c);
+    }
+    maxStreak = Math.max(maxStreak, len);
+  }
+
+  return {
+    played,
+    wins,
+    winPct: pct(wins, played),
+    currentStreak,
+    maxStreak,
+    points: { total, avg: played ? Math.round(total / played) : 0, best },
+  };
+}
+
 export function derive(store: StatsStore, todayKey: string, groupForDate?: DailyGroupResolver): DerivedStats {
   return {
     daily: deriveDaily(store.history, todayKey, groupForDate),
     practice: derivePractice(store.clades),
+    kinship: deriveKinship(store.kinship, todayKey),
   };
 }

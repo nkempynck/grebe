@@ -138,3 +138,64 @@ export async function recordGame(g: GameRow): Promise<void> {
     /* best-effort — a lost row shouldn't break the game */
   }
 }
+
+// ---- Kinship (grid) leaderboard (see supabase/kinship.sql) ----
+
+/** The caller's standing on the Kinship board. Like Standing, but the population
+ *  "par" is average mistakes among solved boards rather than guesses. */
+export interface GridStanding {
+  total_players: number;
+  my_rank: number | null;
+  my_score: number | null;
+  my_games: number | null;
+  my_wins: number | null;
+  avg_score: number | null;
+  avg_mistakes: number | null;
+}
+
+/** Record one finished Kinship daily via submit_grid_game() (direct INSERT is
+ *  denied by RLS). The server pins `tier` from the date; `won`/`mistakes` are
+ *  client-reported. One row per player per day. Best-effort. */
+export async function recordGridGame(g: { puzzleDate: string; won: boolean; mistakes: number }): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.rpc("submit_grid_game", {
+      p_puzzle_date: g.puzzleDate,
+      p_won: g.won,
+      p_mistakes: g.mistakes,
+    });
+  } catch {
+    /* best-effort */
+  }
+}
+
+/** Ranked Kinship board, filtered by time window (or pinned to `forDate`). */
+export async function fetchGridLeaderboard(
+  period: LeaderboardPeriod = "all",
+  limit = 50,
+  forDate: string | null = null
+): Promise<LeaderboardEntry[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase.rpc("grid_leaderboard", { period, limit_n: limit, for_date: forDate });
+    if (error || !data) return [];
+    return data as LeaderboardEntry[];
+  } catch {
+    return [];
+  }
+}
+
+/** The caller's Kinship standing for a filter. */
+export async function fetchGridStanding(
+  period: LeaderboardPeriod = "all",
+  forDate: string | null = null
+): Promise<GridStanding | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc("grid_leaderboard_standing", { period, for_date: forDate });
+    if (error || !data || !data[0]) return null;
+    return data[0] as GridStanding;
+  } catch {
+    return null;
+  }
+}

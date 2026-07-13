@@ -4,7 +4,7 @@ import { derive, STREAK_SAVE_MIN_GUESSES, type DailyEntry, type StatsStore } fro
 const won = (): DailyEntry => ({ status: "won", guesses: 3, hints: 0, tier: 1 });
 const gaveUp = (guesses: number): DailyEntry => ({ status: "gaveup", guesses, hints: 0, tier: 1 });
 
-const store = (history: Record<string, DailyEntry>): StatsStore => ({ version: 3, history, clades: {} });
+const store = (history: Record<string, DailyEntry>): StatsStore => ({ version: 4, history, clades: {}, kinship: {} });
 
 // A well-fought give-up (>= STREAK_SAVE_MIN_GUESSES) keeps the streak but doesn't
 // add to it; a shorter give-up or a gap breaks it.

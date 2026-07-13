@@ -1,9 +1,25 @@
 import { useState } from "react";
 import type { Tree } from "../core";
 import { dailyNumber } from "../core";
-import { useGridGame } from "../hooks/useGridGame";
+import { useGridGame, type GridComplete } from "../hooks/useGridGame";
 import { resolveDailyRules } from "../data/dailySchedule";
+import { kinshipPoints } from "../data/score";
+import { KinshipLeaderboard } from "./KinshipLeaderboard";
 import type { GridGroup } from "../core";
+
+interface Props {
+  tree: Tree;
+  /** Current Kinship streak, to celebrate on a win (null hides it). */
+  streak?: number | null;
+  /** Fired once when a board is finished — App records the ranked result. */
+  onComplete?: (r: GridComplete) => void;
+  /** Leaderboard name to highlight (null when signed out). */
+  me?: string | null;
+  /** True when a backend is configured — gates the post-game board. */
+  configured?: boolean;
+  /** Bump to refetch the post-game board after the result is submitted. */
+  reloadKey?: number;
+}
 
 /** Group-level → share square. Level 0 is the broadest/most obvious group, level
  *  3 the trickiest — a fixed difficulty scale (yellow → green → blue → purple)
@@ -23,8 +39,8 @@ function GroupBar({ tree, group, dimmed }: { tree: Tree; group: GridGroup; dimme
   );
 }
 
-export function GridGame({ tree }: { tree: Tree }) {
-  const g = useGridGame(tree);
+export function GridGame({ tree, streak, onComplete, me, configured, reloadKey }: Props) {
+  const g = useGridGame(tree, onComplete);
   const [copied, setCopied] = useState(false);
 
   if (!g.board) return <p className="empty">No grid puzzle available today.</p>;
@@ -45,7 +61,7 @@ export function GridGame({ tree }: { tree: Tree }) {
     const rows = g.attempts.map((r) => r.map((l) => LEVEL_SQUARE[l]).join("")).join("\n");
     const verdict =
       g.status === "won"
-        ? `Solved ${g.attempts.length ? `in ${g.attempts.length}` : ""} · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}`
+        ? `Solved · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"} · ${kinshipPoints(true, g.tier, g.mistakes)} pts`
         : `Missed it · ${g.solvedGroups.length}/4 groups`;
     return `${head}\n${pips}\n${rows}\n${verdict}`;
   })();
@@ -143,6 +159,12 @@ export function GridGame({ tree }: { tree: Tree }) {
               ? `Solved with ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}`
               : `Out of guesses — found ${g.solvedGroups.length}/4`}
           </div>
+          <div className="grid-scoreline">
+            🧬 {kinshipPoints(g.status === "won", g.tier, g.mistakes)} pts
+            {g.status === "won" && streak != null && streak > 0 && (
+              <span className="grid-streak"> · 🔥 {streak}-day streak</span>
+            )}
+          </div>
           <div className="share">
             <div className="share-head">🧬 Grebe Kinship <span>· №{dailyNumber(g.date)} · {g.date} ({day})</span></div>
             <div className="grid-share-rows">
@@ -152,6 +174,7 @@ export function GridGame({ tree }: { tree: Tree }) {
             </div>
             <button className="share-btn" onClick={copy}>{copied ? "Copied ✓" : "Copy result"}</button>
           </div>
+          {configured && <KinshipLeaderboard variant="today" me={me ?? null} reloadKey={reloadKey} />}
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gamePoints } from "./score";
+import { gamePoints, kinshipPoints } from "./score";
 
 // GOLDEN scoring values. gamePoints() MUST stay byte-identical to
 // public.game_points in supabase/schema.sql — if you change the formula here,
@@ -35,5 +35,27 @@ describe("gamePoints", () => {
   it("never returns a negative score", () => {
     for (let h = 0; h < 8; h++) expect(gamePoints(true, 7, 1, h)).toBeGreaterThanOrEqual(0);
     for (let g = 1; g < 40; g++) expect(gamePoints(true, 7, g, 0)).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// Kinship (grid) scoring. MUST stay identical to public.grid_game_points in
+// supabase/kinship.sql.
+describe("kinshipPoints", () => {
+  it("is zero for a loss", () => {
+    expect(kinshipPoints(false, 7, 0)).toBe(0);
+    expect(kinshipPoints(false, 1, 3)).toBe(0);
+  });
+
+  it("is the full tier weight for a clean (0-mistake) win", () => {
+    expect(kinshipPoints(true, 1, 0)).toBe(60);
+    expect(kinshipPoints(true, 5, 0)).toBe(140);
+    expect(kinshipPoints(true, 7, 0)).toBe(180);
+  });
+
+  it("scales down 100/75/50/25% by mistakes (tier 7)", () => {
+    expect(kinshipPoints(true, 7, 0)).toBe(180);
+    expect(kinshipPoints(true, 7, 1)).toBe(135);
+    expect(kinshipPoints(true, 7, 2)).toBe(90);
+    expect(kinshipPoints(true, 7, 3)).toBe(45);
   });
 });

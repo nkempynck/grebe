@@ -768,6 +768,9 @@ body {
 .lb-seg:hover { border-color: var(--brass); color: var(--ink); }
 .lb-seg.is-on { border-color: var(--brass); color: var(--ink); background: color-mix(in srgb, var(--brass) 16%, var(--bg)); }
 
+/* Game toggle above the leaderboard (Lineage vs Kinship). */
+.lb-gametabs { display: flex; gap: 6px; margin-bottom: 12px; }
+
 /* Day navigator — step through past dailies. */
 .lb-daynav { display: flex; align-items: center; gap: 10px; }
 .lb-daynav-btn {
@@ -997,7 +1000,9 @@ body {
 .grid-submit:hover:not(:disabled) { background: var(--brass-bright); }
 .grid-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.grid-verdict { font-family: var(--font-display); font-weight: 800; font-size: 22px; margin: 4px 0 14px; }
+.grid-verdict { font-family: var(--font-display); font-weight: 800; font-size: 22px; margin: 4px 0 4px; }
+.grid-scoreline { font-family: var(--font-mono); font-size: 13px; color: var(--vermilion); margin: 0 0 14px; }
+.grid-scoreline .grid-streak { color: var(--brass-bright); }
 .grid-share-rows { font-size: 22px; line-height: 1.35; letter-spacing: 2px; margin: 10px 0 14px; }
 
 /* ---- Home / platform landing ---- */

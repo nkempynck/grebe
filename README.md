@@ -45,8 +45,8 @@ difficulty tier. An easy board draws its four groups from far-apart branches (a 
 beetle, a crab); a hard board draws four sibling clades that all look alike (four kinds of
 perch). Within a board the yellow→purple colour ranks the groups by how confusable they are —
 the two clades sitting closest together on the tree get the hard colours, the "trap" pair.
-The board is deterministic per date. Kinship is currently local-only; a ranked leaderboard is
-planned.
+The board is deterministic per date, and Kinship has its own ranked daily leaderboard (scored
+by difficulty and mistakes).
 
 ## Stack
 
@@ -150,17 +150,27 @@ design; row-level security in the database is what protects writes.
   direct table inserts are denied by RLS. Only daily games are stored server-side.
 - The schema lives in `supabase/schema.sql` (kept out of the repository; run once in the
   Supabase SQL editor). The admin panel includes a live schema self-check.
+- Kinship adds its own table and RPCs in `supabase/kinship.sql` (run once, after `schema.sql`):
+  a `grid_games` table plus server-scored `submit_grid_game()`, `grid_leaderboard()`, and
+  `grid_leaderboard_standing()`. Verify with `select public.grid_schema_check();`.
 
-Kinship stats and leaderboard are not yet wired to the backend (local-only for now).
+Player stats for both games sync through the single `player_stats` blob; only the leaderboards
+use per-game tables.
 
-## Scoring (Lineage)
+## Scoring
 
-A game's points are `weight × efficiency × hint-factor`, zero for a loss. The weight is the
-day's difficulty tier (`40 + 20 × tier`); efficiency decays gently with guess count; the hint
-factor decreases with an escalating penalty per hint. The formula exists in two places that
-must stay identical — `gamePoints` in `src/data/score.ts` and `game_points` in
-`supabase/schema.sql` — and a unit test pins the client side against golden values to catch
-drift.
+Both games share a difficulty weight — the day's tier, `40 + 20 × tier` — so scores are
+comparable across the week.
+
+**Lineage:** `weight × efficiency × hint-factor`, zero for a loss; efficiency decays gently
+with guess count and the hint factor drops with an escalating penalty per hint. Client
+`gamePoints` (`src/data/score.ts`) must stay identical to `game_points` (`supabase/schema.sql`).
+
+**Kinship:** `weight × (1 − mistakes/4)`, zero for a loss — a clean board earns the full weight,
+each mistake shaves a quarter. Client `kinshipPoints` (`src/data/score.ts`) mirrors
+`grid_game_points` (`supabase/kinship.sql`).
+
+Both are pinned by golden-value unit tests to catch client/SQL drift.
 
 ## Limitations
 

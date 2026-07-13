@@ -10,6 +10,14 @@ export const GRID_MAX_MISTAKES = 4;
 
 export type GridStatus = "playing" | "won" | "lost";
 
+/** Fired once, the moment a board is finished (never on a restored one). */
+export interface GridComplete {
+  won: boolean;
+  mistakes: number;
+  tier: number;
+  date: string;
+}
+
 export interface UseGridGame {
   board: GridBoard | null;
   date: string;
@@ -44,9 +52,14 @@ function shuffled<T>(arr: T[]): T[] {
   return a;
 }
 
-export function useGridGame(tree: Tree | null): UseGridGame {
+export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) => void): UseGridGame {
   const date = todayKey();
   const board = useMemo(() => (tree ? gridBoardFor(tree, date) : null), [tree, date]);
+
+  // Latest onComplete, held in a ref so submit() doesn't need it as a dependency
+  // (and so it fires with the current closure, not a stale one).
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   const [order, setOrder] = useState<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -131,7 +144,10 @@ export function useGridGame(tree: Tree | null): UseGridGame {
       const nextSolved = [...solved, solvedIndex];
       setSolved(nextSolved);
       setSelected([]);
-      if (nextSolved.length === GRID_GROUPS) setStatus("won");
+      if (nextSolved.length === GRID_GROUPS) {
+        setStatus("won");
+        onCompleteRef.current?.({ won: true, mistakes, tier: board.tier, date });
+      }
       return;
     }
     const nextMistakes = mistakes + 1;
@@ -139,10 +155,11 @@ export function useGridGame(tree: Tree | null): UseGridGame {
     if (nextMistakes >= GRID_MAX_MISTAKES) {
       setStatus("lost");
       setSelected([]);
+      onCompleteRef.current?.({ won: false, mistakes: nextMistakes, tier: board.tier, date });
     } else {
       flash(oneAway ? "One away…" : "Not a group");
     }
-  }, [board, status, selected, solved, mistakes, levelOf, flash]);
+  }, [board, status, selected, solved, mistakes, levelOf, flash, date]);
 
   return {
     board,
