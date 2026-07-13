@@ -64,7 +64,8 @@ export function AboutPanel() {
             same order), and read a drawn cladogram of where each guess split off. It has a shared
             daily with a leaderboard, plus free play. Directly inspired by{" "}
             <a href="https://metazooa.com" target="_blank" rel="noreferrer">Metazooa</a> and its
-            plant counterpart Metaflora — check them out!
+            plant counterpart Metaflora — check them out! Also thanks to my buddy Jasper for introducing
+            me to Metazooa!
           </p>
         </div>
 
@@ -80,6 +81,7 @@ export function AboutPanel() {
             day, the more the groups look alike (four kinds of perch rather than a frog, a fern and a
             beetle). A daily grid in the spirit of the New York Times'{" "}
             <a href="https://www.nytimes.com/games/connections" target="_blank" rel="noreferrer">Connections</a>.
+            The idea to Grebe-inize this came from my partner, the goat, Maria.
           </p>
         </div>
 
