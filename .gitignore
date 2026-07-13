@@ -6,6 +6,8 @@ dist
 .env
 .env.local
 .env.*.local
+# env template kept out too — the backend config isn't part of the public repo
+.env.example
 
 # compiled config / build metadata (source is the .ts)
 *.tsbuildinfo
