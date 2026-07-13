@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { DerivedStats, GroupScore, GroupWin } from "../data/stats";
 import type { UsePlayer } from "../hooks/usePlayer";
+import { Turnstile, captchaEnabled } from "./Turnstile";
 
 interface Props {
   stats: DerivedStats;
@@ -12,6 +13,16 @@ function SyncBar({ player }: { player: UsePlayer }) {
   const [open, setOpen] = useState(false);
   const [u, setU] = useState("");
   const [p, setP] = useState("");
+  const [token, setToken] = useState<string | null>(null);
+  // Bumped after each attempt to remount the widget for a fresh, single-use token.
+  const [capKey, setCapKey] = useState(0);
+  const blocked = captchaEnabled && !token;
+  const attempt = async (fn: (u: string, p: string, t?: string) => Promise<boolean>) => {
+    if (blocked) return;
+    await fn(u, p, token ?? undefined);
+    setToken(null);
+    setCapKey((k) => k + 1);
+  };
 
   if (!player.configured) {
     return <div className="stats-sync"><span className="stats-sync-note">Saved on this device</span></div>;
@@ -36,9 +47,10 @@ function SyncBar({ player }: { player: UsePlayer }) {
             <input type="text" autoComplete="username" placeholder="username" value={u} onChange={(e) => setU(e.target.value)} />
             <input type="password" autoComplete="current-password" placeholder="password" value={p} onChange={(e) => setP(e.target.value)} />
           </div>
+          <Turnstile key={capKey} onToken={setToken} />
           <div className="stats-sync-actions">
-            <button className="admin-rand" onClick={() => player.signIn(u, p)}>Sign in</button>
-            <button className="admin-rand" onClick={() => player.signUp(u, p)}>Create account</button>
+            <button className="admin-rand" disabled={blocked} onClick={() => attempt(player.signIn)}>Sign in</button>
+            <button className="admin-rand" disabled={blocked} onClick={() => attempt(player.signUp)}>Create account</button>
             <button className="linkbtn" onClick={() => setOpen(false)}>Cancel</button>
           </div>
           {player.error && <p className="admin-authmsg is-err">{player.error}</p>}

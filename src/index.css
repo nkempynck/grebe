@@ -461,6 +461,7 @@ body {
   background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius);
 }
 .admin-login-fields input:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; border-color: var(--brass); }
+.turnstile { margin: 10px 0 2px; }
 .admin-authmsg { margin-top: 10px !important; font-style: italic; color: var(--cold) !important; }
 .admin-authmsg.is-err { color: var(--danger) !important; }
 

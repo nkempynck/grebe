@@ -15,6 +15,7 @@ import {
   type DayPlan,
 } from "../data/dailyPlan";
 import { isSupabaseConfigured, supabase } from "../data/supabase";
+import { Turnstile, captchaEnabled } from "./Turnstile";
 
 function loadLocalDraft(): DailyPlan {
   try {
@@ -123,6 +124,8 @@ export function AdminPanel({ tree }: { tree: Tree }) {
   const [password, setPassword] = useState("");
   const [authMsg, setAuthMsg] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaKey, setCaptchaKey] = useState(0);
 
   useEffect(() => {
     if (!supabase) return;
@@ -136,11 +139,16 @@ export function AdminPanel({ tree }: { tree: Tree }) {
 
   const signIn = async () => {
     if (!supabase || !email.trim() || !password) return;
+    if (captchaEnabled && !captchaToken) { setAuthMsg("Please complete the CAPTCHA."); return; }
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
+      options: captchaToken ? { captchaToken } : undefined,
     });
     setAuthMsg(error ? error.message : null);
+    // Token is single-use — reset the widget whether or not sign-in succeeded.
+    setCaptchaToken(null);
+    setCaptchaKey((k) => k + 1);
     if (!error) setPassword("");
   };
 
@@ -266,7 +274,8 @@ export function AdminPanel({ tree }: { tree: Tree }) {
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && signIn()}
             />
-            <button className="admin-rand" onClick={signIn}>Sign in</button>
+            <Turnstile key={captchaKey} onToken={setCaptchaToken} />
+            <button className="admin-rand" disabled={captchaEnabled && !captchaToken} onClick={signIn}>Sign in</button>
           </div>
           {authMsg && <p className="admin-authmsg is-err">{authMsg}</p>}
         </div>

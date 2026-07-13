@@ -14,8 +14,8 @@ export interface UsePlayer {
   /** The editable public name shown on leaderboards (profiles.display_name). */
   displayName: string | null;
   error: string | null;
-  signIn: (username: string, password: string) => Promise<boolean>;
-  signUp: (username: string, password: string) => Promise<boolean>;
+  signIn: (username: string, password: string, captchaToken?: string) => Promise<boolean>;
+  signUp: (username: string, password: string, captchaToken?: string) => Promise<boolean>;
   signOut: () => void;
   /** Update the public leaderboard name. */
   updateDisplayName: (name: string) => Promise<{ error: string | null }>;
@@ -85,16 +85,24 @@ export function usePlayer(): UsePlayer {
     [session]
   );
 
-  const signIn = useCallback(async (username: string, password: string) => {
+  const signIn = useCallback(async (username: string, password: string, captchaToken?: string) => {
     if (!supabase || !username.trim() || !password) return false;
-    const { error } = await supabase.auth.signInWithPassword({ email: asEmail(username), password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: asEmail(username),
+      password,
+      options: captchaToken ? { captchaToken } : undefined,
+    });
     setError(error?.message ?? null);
     return !error;
   }, []);
 
-  const signUp = useCallback(async (username: string, password: string) => {
+  const signUp = useCallback(async (username: string, password: string, captchaToken?: string) => {
     if (!supabase || !username.trim() || !password) return false;
-    const { error } = await supabase.auth.signUp({ email: asEmail(username), password });
+    const { error } = await supabase.auth.signUp({
+      email: asEmail(username),
+      password,
+      options: captchaToken ? { captchaToken } : undefined,
+    });
     setError(error?.message ?? null);
     return !error;
   }, []);
