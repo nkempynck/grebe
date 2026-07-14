@@ -10,6 +10,8 @@ export interface WikiSummary {
   title: string;
   extract: string;
   thumbnail?: string;
+  /** Full-resolution lead image (for an enlarged view). */
+  original?: string;
   pageUrl: string;
 }
 
@@ -43,6 +45,29 @@ export function wikiUrlFor(node: TaxonNode): string {
   return "https://en.wikipedia.org/wiki/" + encodeURIComponent(wikiTitleFor(node).replace(/ /g, "_"));
 }
 
+export interface WikiImage {
+  /** Small square-ish image for a tile. */
+  thumb: string;
+  /** Larger image for an enlarged view (falls back to the thumb). */
+  full: string;
+}
+
+// Images are shown on many tiles at once, so cache per node id (including misses,
+// as null) to avoid re-fetching the same species across renders.
+const imgCache = new Map<string, WikiImage | null>();
+
+/** Lead image(s) for a node (no prose), cached. Reuses the summary call — the
+ *  images ride along in the same payload — so it's one request per node, once.
+ *  Returns null when there's no article/image. */
+export async function fetchWikiImage(node: TaxonNode): Promise<WikiImage | null> {
+  const hit = imgCache.get(node.id);
+  if (hit !== undefined) return hit;
+  const summary = await fetchWikiSummary(node);
+  const img = summary?.thumbnail ? { thumb: summary.thumbnail, full: summary.original ?? summary.thumbnail } : null;
+  imgCache.set(node.id, img);
+  return img;
+}
+
 /** Fetch a short summary + thumbnail. Tries each candidate title in order and
  *  returns the first with a real extract, keeping a bare (extract-less) hit as a
  *  fallback. Returns null on total failure (offline, no article, disambiguation)
@@ -61,6 +86,7 @@ export async function fetchWikiSummary(node: TaxonNode): Promise<WikiSummary | n
         title: data.title ?? title,
         extract: data.extract ?? "",
         thumbnail: data.thumbnail?.source,
+        original: data.originalimage?.source,
         pageUrl: data.content_urls?.desktop?.page ?? wikiUrlFor(node),
       };
       if (summary.extract) return summary; // a real article — done

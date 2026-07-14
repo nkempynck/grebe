@@ -10,6 +10,8 @@ export interface GridProgress {
   mistakes: number;
   /** Each submitted guess as its four tiles' true group levels (for the share). */
   attempts: number[][];
+  /** Species whose Wikipedia image was revealed (first free, rest cost a mistake). */
+  revealed?: string[];
   status: "playing" | "won" | "lost";
 }
 

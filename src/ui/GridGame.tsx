@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Tree } from "../core";
 import { dailyNumber } from "../core";
 import { useGridGame, type GridComplete } from "../hooks/useGridGame";
 import { resolveDailyRules } from "../data/dailySchedule";
-import { kinshipPoints } from "../data/score";
+import { kinshipPoints, kinshipRevealPenalty, KINSHIP_FREE_REVEALS } from "../data/score";
+import { fetchWikiImage } from "../data/wikipedia";
+import { GameHeader } from "./GameHeader";
 import { KinshipLeaderboard } from "./KinshipLeaderboard";
+import { WikiCard } from "./WikiCard";
 import type { GridGroup } from "../core";
 
 interface Props {
@@ -19,6 +22,8 @@ interface Props {
   configured?: boolean;
   /** Bump to refetch the post-game board after the result is submitted. */
   reloadKey?: number;
+  /** Opens the Kinship section of the About page. */
+  onHowItWorks?: () => void;
 }
 
 /** Group-level → share square. Level 0 is the broadest/most obvious group, level
@@ -26,27 +31,72 @@ interface Props {
  *  matching the colour classes in CSS, like Connections. */
 const LEVEL_SQUARE = ["🟨", "🟩", "🟦", "🟪"];
 
-function GroupBar({ tree, group, dimmed }: { tree: Tree; group: GridGroup; dimmed?: boolean }) {
-  const names = group.memberIds.map((id) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id);
+/** Up to this tier (Gentle / Easy / Medium) every tile shows its picture from the
+ *  start, free. On Tricky and above they stay hidden behind the reveal penalty. */
+const PRESHOW_MAX_TIER = 3;
+
+function GroupBar({ tree, group, dimmed, onPick }: { tree: Tree; group: GridGroup; dimmed?: boolean; onPick?: (id: string) => void }) {
+  const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
   return (
     <div className={`grid-solved lvl-${group.level}${dimmed ? " is-dim" : ""}`}>
       <div className="grid-solved-label">
         {group.label}
         {group.sciLabel && group.sciLabel !== group.label && <span className="grid-solved-sci"> · {group.sciLabel}</span>}
       </div>
-      <div className="grid-solved-members">{names.join(" · ")}</div>
+      <div className="grid-solved-members">
+        {onPick
+          ? group.memberIds.map((id, i) => (
+              <span key={id}>
+                {i > 0 && " · "}
+                <button className="grid-member-link" onClick={() => onPick(id)}>{nameOf(id)}</button>
+              </span>
+            ))
+          : group.memberIds.map(nameOf).join(" · ")}
+      </div>
     </div>
   );
 }
 
-export function GridGame({ tree, streak, onComplete, me, configured, reloadKey }: Props) {
+export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, onHowItWorks }: Props) {
   const g = useGridGame(tree, onComplete);
   const [copied, setCopied] = useState(false);
+  // Picture reveals: fetched thumbnails per species, and which tiles show them.
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [flipped, setFlipped] = useState<Set<string>>(new Set());
+  // Post-game Wikipedia reader.
+  const [wikiId, setWikiId] = useState<string | null>(null);
+
+  // Easy/medium days show every picture from the start (free); harder days hide
+  // them behind the reveal penalty.
+  const preshow = g.tier > 0 && g.tier <= PRESHOW_MAX_TIER;
+  const tiles = g.board?.tiles;
+  useEffect(() => {
+    if (!preshow || !tiles) return;
+    let live = true;
+    for (const id of tiles) {
+      const node = tree.byId.get(id);
+      if (node) fetchWikiImage(node).then((img) => { if (live && img) setThumbs((t) => (t[id] ? t : { ...t, [id]: img.thumb })); });
+    }
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preshow, tiles, tree]);
+
+  // Flip a tile to its picture. Reveal (with its gentle penalty) happens on the
+  // first flip of a species; after that, flipping just toggles the picture.
+  function flip(id: string) {
+    if (!g.revealed.includes(id)) g.reveal(id);
+    if (!thumbs[id]) {
+      const node = tree.byId.get(id);
+      if (node) fetchWikiImage(node).then((img) => { if (img) setThumbs((t) => ({ ...t, [id]: img.thumb })); });
+    }
+    setFlipped((f) => { const n = new Set(f); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
 
   if (!g.board) return <p className="empty">No grid puzzle available today.</p>;
 
   const over = g.status !== "playing";
   const rules = resolveDailyRules(g.date);
+  const wikiNode = wikiId ? tree.byId.get(wikiId) ?? null : null;
   const pips = "●".repeat(g.tier) + "○".repeat(Math.max(0, 7 - g.tier));
   const day = new Date(`${g.date}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
   const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
@@ -78,20 +128,14 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey }
 
   return (
     <div className="grid-game">
-      <div className="grid-head">
-        <span className="grid-diff">
-          <span className="dr-dots" aria-hidden="true">{pips}</span>
-          {rules.dayName} · {rules.difficulty}
-        </span>
-      </div>
-
-      {!over && g.attempts.length === 0 && g.solvedGroups.length === 0 && (
-        <p className="empty">
-          Sixteen species, four hidden groups of four. Each group is a clade —
-          related organisms that belong together. Pick four you think share a group,
-          then guess. {g.mistakesLeft} wrong guesses allowed.
-        </p>
-      )}
+      <GameHeader
+        game="kinship"
+        tier={g.tier}
+        dayName={rules.dayName}
+        difficulty={rules.difficulty}
+        onHowItWorks={onHowItWorks}
+        blurb="Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess. Four wrong guesses allowed."
+      />
 
       {/* Solved groups — plus, after a loss, the ones never found (dimmed). Always
           ordered by difficulty level so the colours read as a scale, like
@@ -102,8 +146,9 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey }
       ]
         .sort((a, b) => a.grp.level - b.grp.level)
         .map(({ grp, dimmed }) => (
-          <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} />
+          <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} onPick={over ? setWikiId : undefined} />
         ))}
+      {over && <p className="grid-peek-note">Tap any species to read about it on Wikipedia.</p>}
 
       {/* The live board. */}
       {!over && (
@@ -111,14 +156,39 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey }
           <div className="grid-board" role="group" aria-label="Species tiles">
             {g.remaining.map((id) => {
               const on = g.selected.includes(id);
+              const showImg = (preshow || flipped.has(id)) && thumbs[id];
+              const flipTitle = g.revealed.includes(id)
+                ? "Hide picture"
+                : g.revealed.length < KINSHIP_FREE_REVEALS
+                ? "See its picture (free)"
+                : "See its picture (a few more cost a little score)";
               return (
                 <button
                   key={id}
-                  className={`grid-tile${on ? " is-sel" : ""}`}
+                  className={`grid-tile${on ? " is-sel" : ""}${showImg ? " is-flipped" : ""}`}
                   aria-pressed={on}
                   onClick={() => g.toggle(id)}
                 >
-                  {nameOf(id)}
+                  {showImg ? (
+                    <>
+                      <img className="grid-tile-img" src={thumbs[id]} alt="" />
+                      <span className="grid-tile-cap">{nameOf(id)}</span>
+                    </>
+                  ) : (
+                    <span className="grid-tile-name">{nameOf(id)}</span>
+                  )}
+                  {!preshow && (
+                    <span
+                      className="grid-tile-flip"
+                      role="button"
+                      tabIndex={0}
+                      title={flipTitle}
+                      onClick={(e) => { e.stopPropagation(); flip(id); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); flip(id); } }}
+                    >
+                      🔍
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -132,6 +202,12 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey }
               ))}
             </span>
           </div>
+
+          <p className="grid-peek-note">
+            {preshow
+              ? "Pictures are shown to help on the easier days."
+              : "Tap the 🔍 on a tile to see its picture. The first three are free; after that, every two more costs a little score."}
+          </p>
 
           {g.feedback && <div className="grid-feedback" role="status">{g.feedback}</div>}
 
@@ -157,10 +233,10 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey }
           <div className="grid-verdict">
             {g.status === "won"
               ? `Solved with ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}`
-              : `Out of guesses — found ${g.solvedGroups.length}/4`}
+              : `Out of guesses. Found ${g.solvedGroups.length}/4`}
           </div>
           <div className="grid-scoreline">
-            🧬 {kinshipPoints(g.status === "won", g.tier, g.mistakes)} pts
+            🧬 {kinshipPoints(g.status === "won", g.tier, Math.min(4, g.mistakes + kinshipRevealPenalty(g.revealed.length)))} pts
             {g.status === "won" && streak != null && streak > 0 && (
               <span className="grid-streak"> · 🔥 {streak}-day streak</span>
             )}
@@ -177,6 +253,8 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey }
           {configured && <KinshipLeaderboard variant="today" me={me ?? null} reloadKey={reloadKey} streak={streak} />}
         </div>
       )}
+
+      {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} />}
     </div>
   );
 }

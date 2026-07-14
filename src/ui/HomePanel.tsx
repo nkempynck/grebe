@@ -1,7 +1,7 @@
 import { dailyNumber, todayKey } from "../core/daily";
 
 interface Props {
-  onPlay: (view: "lineage" | "kinship") => void;
+  onPlay: (view: "lineage" | "kinship" | "branches") => void;
 }
 
 const GAMES = [
@@ -21,6 +21,14 @@ const GAMES = [
       "Sixteen species, four hidden groups of four. Sort each into the clade it belongs to before you run out of guesses.",
     inspired: "Connections",
   },
+  {
+    id: "branches" as const,
+    icon: "🌿",
+    name: "Branches",
+    tagline:
+      "Rebuild a slice of the tree: drag each species onto the branch it belongs to, using the worked examples already in place as your guide.",
+    inspired: null,
+  },
 ];
 
 /** The platform landing: what Grebe is, and a card per game to choose from. */
@@ -36,7 +44,7 @@ export function HomePanel({ onPlay }: Props) {
 
       <div className="home-games">
         {GAMES.map((game) => (
-          <button key={game.id} className={`home-card is-${game.id}`} onClick={() => onPlay(game.id)}>
+          <button key={game.id} className={`home-card is-${game.id}`} data-game={game.id} onClick={() => onPlay(game.id)}>
             <div className="home-card-top">
               <span className="home-card-ico" aria-hidden="true">{game.icon}</span>
               <span className="home-card-daily">Daily №{n}</span>
@@ -44,7 +52,7 @@ export function HomePanel({ onPlay }: Props) {
             <h2 className="home-card-name">{game.name}</h2>
             <p className="home-card-tag">{game.tagline}</p>
             <div className="home-card-foot">
-              <span className="home-card-inspired">inspired by {game.inspired}</span>
+              <span className="home-card-inspired">{game.inspired ? `inspired by ${game.inspired}` : "a Grebe original"}</span>
               <span className="home-card-play">Play →</span>
             </div>
           </button>

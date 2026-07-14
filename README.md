@@ -1,8 +1,10 @@
+<p align="center"><img src="logo.png" alt="Grebe" width="120" /></p>
+
 # Grebe
 
 Grebe is a platform of daily puzzle games played on the **tree of life** — the
 shared-ancestry tree that connects every living thing. Each game is new every day and the
-same for all players. Two games ship today:
+same for all players. Three games ship today:
 
 - **Lineage** — guess the hidden organism; every wrong guess is placed on a shared-ancestry
   tree at the clade it has in common with the answer, so each miss narrows down where the
@@ -10,6 +12,9 @@ same for all players. Two games ship today:
 - **Kinship** — sixteen species, four hidden groups of four, each group a real clade; sort
   them before four mistakes run out. A daily grid in the spirit of the New York Times'
   [Connections](https://www.nytimes.com/games/connections).
+- **Branches** — rebuild a slice of the tree: a labelled skeleton of clades with one
+  worked-example species each, and a tray of species to drag onto the branch they belong to.
+  A Grebe original.
 
 Both run on one bundled taxonomy snapshot (GBIF × Open Tree of Life). An optional Supabase
 backend adds accounts, cross-device sync, and leaderboards; without it the whole thing runs
@@ -47,6 +52,22 @@ perch). Within a board the yellow→purple colour ranks the groups by how confus
 the two clades sitting closest together on the tree get the hard colours, the "trap" pair.
 The board is deterministic per date, and Kinship has its own ranked daily leaderboard (scored
 by difficulty and mistakes).
+
+### Branches
+
+You're given part of the tree: a skeleton of named clades, each with one species already
+placed on it as a worked example, plus a tray of species to slot onto the branch they belong
+to. Drag each species onto its group; get them all right to win, with partial credit for the
+ones you do place correctly.
+
+Difficulty sets the **grain** of the groups by weekday, in lock-step with the other games'
+tiers. Easy days present broad, well-separated clades with an anchor on every branch; hard days
+present tight sibling clades that look alike, with fewer anchors to lean on. The skeleton can be
+read two ways, as a top-down cladogram or a circular fan, sharing the same layout engine as
+Lineage. Tapping a clade or anchor for its Wikipedia is free; looking up a species you still
+have to place is a penalised peek (half a point), and the species-to-place tiles carry a
+Wikipedia thumbnail you can enlarge for free. Branches is an original, not modelled on an
+existing game.
 
 ## Stack
 

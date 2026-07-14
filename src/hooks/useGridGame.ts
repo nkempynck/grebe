@@ -15,6 +15,8 @@ export type GridStatus = "playing" | "won" | "lost";
 export interface GridComplete {
   won: boolean;
   mistakes: number;
+  /** How many species pictures were revealed (drives the gentle score penalty). */
+  reveals: number;
   tier: number;
   date: string;
 }
@@ -36,9 +38,13 @@ export interface UseGridGame {
   feedback: string | null;
   /** Each past guess as its four tiles' true group levels — drives the share. */
   attempts: number[][];
+  /** Species whose picture has been revealed this game (first free, rest a mistake). */
+  revealed: string[];
   /** The group level (0–3) a tile belongs to — for colouring. */
   levelOf: (id: string) => number;
   toggle: (id: string) => void;
+  /** Reveal a tile's Wikipedia picture; the first is free, each later one costs a mistake. */
+  reveal: (id: string) => void;
   submit: () => void;
   deselectAll: () => void;
   shuffle: () => void;
@@ -89,6 +95,7 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
   const [solved, setSolved] = useState<number[]>([]);
   const [mistakes, setMistakes] = useState(0);
   const [attempts, setAttempts] = useState<number[][]>([]);
+  const [revealed, setRevealed] = useState<string[]>([]);
   const [status, setStatus] = useState<GridStatus>("playing");
   const [feedback, setFeedback] = useState<string | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -109,11 +116,13 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
       setSolved(prog.solved);
       setMistakes(prog.mistakes);
       setAttempts(prog.attempts);
+      setRevealed(prog.revealed ?? []);
       setStatus(prog.status);
     } else {
       setSolved([]);
       setMistakes(0);
       setAttempts([]);
+      setRevealed([]);
       setStatus("playing");
     }
     setSelected([]);
@@ -123,8 +132,8 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
   // Persist every change against today's board.
   useEffect(() => {
     if (!board) return;
-    saveGridProgress({ date, solved, mistakes, attempts, status });
-  }, [board, date, solved, mistakes, attempts, status]);
+    saveGridProgress({ date, solved, mistakes, attempts, revealed, status });
+  }, [board, date, solved, mistakes, attempts, revealed, status]);
 
   const solvedTiles = useMemo(() => {
     const s = new Set<string>();
@@ -157,6 +166,17 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
   const deselectAll = useCallback(() => setSelected([]), []);
   const shuffle = useCallback(() => setOrder((o) => shuffled(o)), []);
 
+  // Reveal a tile's picture. Peeking never ends the board; a few are free and
+  // beyond that it costs a little score (see kinshipRevealPenalty). We only track
+  // the count here; the penalty is applied where the score is computed.
+  const reveal = useCallback(
+    (id: string) => {
+      if (!board || status !== "playing" || revealed.includes(id)) return;
+      setRevealed((r) => [...r, id]);
+    },
+    [board, status, revealed]
+  );
+
   const submit = useCallback(() => {
     if (!board || status !== "playing" || selected.length !== GRID_GROUP_SIZE) return;
     const row = selected.map((id) => levelOf(id));
@@ -169,7 +189,7 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
       setSelected([]);
       if (nextSolved.length === GRID_GROUPS) {
         setStatus("won");
-        onCompleteRef.current?.({ won: true, mistakes, tier: board.tier, date });
+        onCompleteRef.current?.({ won: true, mistakes, reveals: revealed.length, tier: board.tier, date });
       }
       return;
     }
@@ -178,11 +198,11 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
     if (nextMistakes >= GRID_MAX_MISTAKES) {
       setStatus("lost");
       setSelected([]);
-      onCompleteRef.current?.({ won: false, mistakes: nextMistakes, tier: board.tier, date });
+      onCompleteRef.current?.({ won: false, mistakes: nextMistakes, reveals: revealed.length, tier: board.tier, date });
     } else {
       flash(oneAway ? "One away…" : "Not a group");
     }
-  }, [board, status, selected, solved, mistakes, levelOf, flash, date]);
+  }, [board, status, selected, solved, mistakes, revealed, levelOf, flash, date]);
 
   return {
     board,
@@ -196,8 +216,10 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
     status,
     feedback,
     attempts,
+    revealed,
     levelOf,
     toggle,
+    reveal,
     submit,
     deselectAll,
     shuffle,

@@ -6,6 +6,7 @@ import { useStats } from "./hooks/useStats";
 import { usePlayer } from "./hooks/usePlayer";
 import { recordGame, fetchPlayerBadges, recordGridGame } from "./data/games";
 import { newDailyWins } from "./data/badges";
+import { kinshipRevealPenalty } from "./data/score";
 import { todayKey, dailyNumber } from "./core/daily";
 import { dailyAnswerFor } from "./data/dailySchedule";
 import { loadStore } from "./data/stats";
@@ -20,11 +21,14 @@ import { AccountPanel } from "./ui/AccountPanel";
 import { AboutPanel } from "./ui/AboutPanel";
 import { AdminPanel } from "./ui/AdminPanel";
 import { GridGame } from "./ui/GridGame";
+import { BranchesGame } from "./ui/BranchesGame";
+import { GameHeader } from "./ui/GameHeader";
 import { HomePanel } from "./ui/HomePanel";
 import { KinshipLeaderboard } from "./ui/KinshipLeaderboard";
 import type { GridComplete } from "./hooks/useGridGame";
 import { RESOLUTION_PRESETS, SCOPE_PRESETS } from "./data/presets";
 import { useTheme } from "./data/theme";
+import logoUrl from "../logo.png";
 
 // The admin route lives behind a build-time env var so the real path is never in
 // the source (only this "admin" dev fallback is). Set VITE_ADMIN_ROUTE to an
@@ -84,17 +88,11 @@ export default function App() {
     primePinnedPuzzles("lineage", [...dates]).then((added) => { if (live && added) setPinEpoch((v) => v + 1); });
     return () => { live = false; };
   }, [tree, stats]);
-  const [view, setView] = useState<"home" | "lineage" | "kinship" | "leaderboard" | "account" | "about">("home");
+  const [view, setView] = useState<"home" | "lineage" | "kinship" | "branches" | "leaderboard" | "account" | "about">("home");
   // A section id for the About page to scroll to — set when a game page's
   // "How this works" link is clicked, cleared when About is opened from the nav.
   const [aboutFocus, setAboutFocus] = useState<string | null>(null);
-  const explainLink = (section: string, name: string) => (
-    <div className="explain-row">
-      <button className="linkbtn explain-link" onClick={() => { setAboutFocus(section); setView("about"); }}>
-        ⓘ How {name} works
-      </button>
-    </div>
-  );
+  const openAbout = (section: string) => { setAboutFocus(section); setView("about"); };
   // Bumped once a finished game's server write resolves, so the post-game board
   // refetches and includes the row just submitted (instead of racing the write).
   const [boardReload, setBoardReload] = useState(0);
@@ -118,9 +116,12 @@ export default function App() {
   // post-game board refetches to include it.
   const recordKinshipResult = useCallback(
     (r: GridComplete) => {
-      recordKinship({ status: r.won ? "won" : "lost", mistakes: r.mistakes, tier: r.tier });
+      // Picture peeks are folded into the mistakes total the score runs on, so the
+      // client and the server (which only sees `mistakes`) stay in agreement.
+      const scoreMistakes = Math.min(4, r.mistakes + kinshipRevealPenalty(r.reveals));
+      recordKinship({ status: r.won ? "won" : "lost", mistakes: scoreMistakes, tier: r.tier });
       if (player.session) {
-        void recordGridGame({ puzzleDate: r.date, won: r.won, mistakes: r.mistakes }).then(() =>
+        void recordGridGame({ puzzleDate: r.date, won: r.won, mistakes: scoreMistakes }).then(() =>
           setKinBoardReload((c) => c + 1)
         );
       }
@@ -207,6 +208,7 @@ export default function App() {
   const eyebrow =
     view === "home" ? "Daily games on the tree of life" :
     view === "kinship" ? `Kinship · №${dailyNumber(today)}` :
+    view === "branches" ? `Branches · №${dailyNumber(today)}` :
     view === "leaderboard" ? "Leaderboard" :
     view === "account" ? "Your account" :
     view === "about" ? "About Grebe" :
@@ -217,12 +219,23 @@ export default function App() {
       ? "Daily puzzles played on the shared-ancestry tree that connects all living things."
       : view === "kinship"
       ? "Sort sixteen species into the four clades they belong to."
+      : view === "branches"
+      ? "Rebuild a slice of the tree — place each species on its correct branch."
       : view === "lineage"
       ? "Guess the organism. Every miss tells you where you branched apart."
       : "Daily puzzles on the tree of life.";
 
   const play = (
     <>
+      <GameHeader
+        game="lineage"
+        tier={daily ? g.daily.tier : undefined}
+        dayName={daily ? g.daily.dayName : undefined}
+        difficulty={daily ? g.daily.difficulty : undefined}
+        meta={daily ? undefined : "Free play"}
+        onHowItWorks={() => openAbout("about-lineage")}
+        blurb="Guess the organism. Every miss tells you where you branched apart."
+      />
       <div className="modeswitch" role="tablist" aria-label="Game mode">
         <button
           role="tab"
@@ -244,19 +257,20 @@ export default function App() {
         </button>
       </div>
 
-      {daily ? (
-        <div className="daily-rules">
-          <span className="dr-diff">
-            <span className="dr-dots" aria-hidden="true">
-              {"●".repeat(g.daily.tier)}{"○".repeat(7 - g.daily.tier)}
-            </span>
-            {g.daily.dayName} · {g.daily.difficulty}
+      {daily && (
+        <p className="lineage-setup">
+          <span className="lineage-setup-line">
+            Tree rooted at <b>{scopeLabel.replace(/\s+only$/i, "")}</b> · a win counts at{" "}
+            <b>{resLabel.toLowerCase()}</b> · assist <b>{g.assist ? "on" : "off"}</b>
           </span>
-          <span className="dr-cfg">
-            {scopeLabel.replace(/\s+only$/i, "")} · {resLabel} · {g.assist ? "assist on" : "no assist"}
+          <span className="lineage-setup-note">
+            Scope is where the tree starts, and a win is how close your guess must land.
+            {g.assist ? " Assist limits your guesses to the best branch you've reached so far." : ""}
           </span>
-        </div>
-      ) : (
+        </p>
+      )}
+
+      {!daily && (
         <SettingsPanel
           config={g.config}
           onScope={g.setScope}
@@ -338,15 +352,18 @@ export default function App() {
         >
           {theme === "dark" ? "☀" : "☾"}
         </button>
-        <div className="eyebrow">{eyebrow}</div>
-        <h1 className="title">Grebe</h1>
-        <div className="subtitle">{subtitle}</div>
+        <div className="masthead-text">
+          <div className="eyebrow">{eyebrow}</div>
+          <h1 className="title">Grebe</h1>
+          <div className="subtitle">{subtitle}</div>
+        </div>
+        <img className="masthead-logo" src={logoUrl} alt="" aria-hidden="true" />
       </header>
 
       <nav className="topnav" role="tablist" aria-label="Sections">
-        {(["home", "lineage", "kinship", "leaderboard", "account", "about"] as const).map((v) => {
+        {(["home", "lineage", "kinship", "branches", "leaderboard", "account", "about"] as const).map((v) => {
           if (v === "account" && !player.configured) return null;
-          const labels = { home: "Home", lineage: "Lineage", kinship: "Kinship", leaderboard: "Leaderboard", account: "Account", about: "About" };
+          const labels = { home: "Home", lineage: "Lineage", kinship: "Kinship", branches: "Branches", leaderboard: "Leaderboard", account: "Account", about: "About" };
           return (
             <button
               key={v}
@@ -374,10 +391,9 @@ export default function App() {
       )}
 
       {view === "home" && <HomePanel onPlay={(v) => setView(v)} />}
-      {view === "lineage" && <>{explainLink("about-lineage", "Lineage")}{play}</>}
+      {view === "lineage" && <div className="gameview" data-game="lineage">{play}</div>}
       {view === "kinship" && (
-        <>
-          {explainLink("about-kinship", "Kinship")}
+        <div className="gameview" data-game="kinship">
           <GridGame
             tree={g.tree}
             streak={stats.kinship.currentStreak}
@@ -385,8 +401,14 @@ export default function App() {
             me={boardName}
             configured={player.configured}
             reloadKey={kinBoardReload}
+            onHowItWorks={() => openAbout("about-kinship")}
           />
-        </>
+        </div>
+      )}
+      {view === "branches" && (
+        <div className="gameview" data-game="branches">
+          <BranchesGame tree={g.tree} onHowItWorks={() => openAbout("about-branches")} />
+        </div>
       )}
       {view === "leaderboard" && (
         <>

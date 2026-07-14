@@ -18,12 +18,13 @@
 //     RLS returns nothing for a date whose day hasn't arrived, so players can't
 //     read ahead. Prefer this over computePuzzle when it resolves non-null.
 
-import type { GridBoard, Tree } from "../core";
+import type { BranchesBoard, GridBoard, Tree } from "../core";
 import { resolveDailyRules, dailyAnswerFor } from "./dailySchedule";
 import { gridBoardFor } from "./gridDaily";
+import { branchesBoardFor } from "./branchesDaily";
 import { supabase } from "./supabase";
 
-export type Game = "lineage" | "kinship";
+export type Game = "lineage" | "kinship" | "branches";
 
 /** A Lineage daily, fully frozen: the answer plus the rules the player faced. */
 export interface LineagePuzzle {
@@ -43,9 +44,23 @@ export interface KinshipPuzzle {
   tiles: string[];
 }
 
+/** A Branches board, frozen by identity (ids only); the drawn skeleton + labels
+ *  are re-derived from the current tree at read time, so a relabelling never
+ *  changes which puzzle a pinned date is. */
+export interface BranchesPuzzle {
+  tier: number;
+  rootId: string;
+  leafIds: string[];
+  anchorIds: string[];
+  slotIds: string[];
+  groupIds: string[];
+  tray: string[];
+}
+
 export interface PuzzleByGame {
   lineage: LineagePuzzle;
   kinship: KinshipPuzzle;
+  branches: BranchesPuzzle;
 }
 
 /** How the DB stores a puzzle: the resolved payload, base64'd so a glance in the
@@ -109,9 +124,23 @@ const kinshipResolver: Resolver<"kinship"> = {
   decode: (raw) => JSON.parse(b64decode(raw.enc)) as KinshipPuzzle,
 };
 
+const branchesResolver: Resolver<"branches"> = {
+  game: "branches",
+  version: 1,
+  compute(tree, date) {
+    const board = branchesBoardFor(tree, date);
+    if (!board) return null;
+    const { tier, rootId, leafIds, anchorIds, slotIds, groupIds, tray } = board;
+    return { tier, rootId, leafIds, anchorIds, slotIds, groupIds, tray };
+  },
+  encode: (p) => ({ enc: b64encode(JSON.stringify(p)) }),
+  decode: (raw) => JSON.parse(b64decode(raw.enc)) as BranchesPuzzle,
+};
+
 const RESOLVERS: { [G in Game]: Resolver<G> } = {
   lineage: lineageResolver,
   kinship: kinshipResolver,
+  branches: branchesResolver,
 };
 
 export const puzzleVersion = (game: Game): number => RESOLVERS[game].version;
@@ -192,6 +221,13 @@ export async function primePinnedPuzzles<G extends Game>(game: G, dates: string[
   } catch {
     return false;
   }
+}
+
+/** Rebuild a full BranchesBoard from a frozen or computed BranchesPuzzle. Ids only, so
+ *  it's a straight re-hydration; the UI derives the skeleton + labels from the
+ *  current tree. */
+export function branchesBoard(date: string, p: BranchesPuzzle): BranchesBoard {
+  return { date, tier: p.tier, rootId: p.rootId, leafIds: p.leafIds, anchorIds: p.anchorIds, slotIds: p.slotIds, groupIds: p.groupIds, tray: p.tray };
 }
 
 /** Rebuild a full GridBoard (with display labels from the current tree) from a

@@ -27,3 +27,25 @@ export function kinshipPoints(won: boolean, tier: number, mistakes: number): num
   const m = Math.min(Math.max(mistakes, 0), 4);
   return Math.max(0, Math.round(tierWeight(tier) * (1 - m / 4)));
 }
+
+/** Free Kinship picture reveals before any score penalty kicks in. */
+export const KINSHIP_FREE_REVEALS = 3;
+
+/** A picture peek is far gentler than a wrong guess: the first few are free, then
+ *  every two further reveals cost one mistake's worth of score (never ending the
+ *  board). Folded into the mistakes total that both the client and the server
+ *  score on, so no separate leaderboard field is needed. */
+export function kinshipRevealPenalty(reveals: number): number {
+  return Math.floor(Math.max(0, reveals - KINSHIP_FREE_REVEALS) / 2);
+}
+
+/** Branches per-game points: partial credit for correctly-placed species, scaled
+ *  by the day's weight. `penalty` is the help charged against the correct count —
+ *  1 per hinted slot, ½ per peeked slot (a peek only hints, and the summary may
+ *  not even name the family). MUST match public.branches_game_points in
+ *  supabase/branches.sql. */
+export function branchesPoints(tier: number, correct: number, total: number, penalty: number): number {
+  if (total <= 0) return 0;
+  const earned = Math.max(0, correct - Math.max(0, penalty));
+  return Math.max(0, Math.round(tierWeight(tier) * (earned / total)));
+}

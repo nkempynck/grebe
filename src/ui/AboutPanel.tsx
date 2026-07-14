@@ -106,8 +106,37 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             <p>
               A board is scored <b>the day's weight × (1 − mistakes⁄4)</b>, and zero for a loss. A clean
               board earns the full weight (<code>40 + 20 × tier</code>); each of your up-to-four mistakes
-              shaves a quarter. It shares the weekday weight with Lineage, so scores are comparable
-              across the two games.
+              shaves a quarter. On the easier days every species' picture is shown for free to help;
+              from Tricky up they hide behind a gentle peek that never ends the board (the first three
+              free, then every two more cost about a mistake's worth of score). It shares the weekday
+              weight with Lineage, so scores are comparable across the games.
+            </p>
+          </details>
+        </div>
+
+        <div className="about-game" id="about-branches">
+          <div className="about-game-hd">
+            <span className="about-game-ico" aria-hidden="true">🌿</span>
+            <b>Branches</b>
+            <span className="about-game-src">a Grebe original</span>
+          </div>
+          <p>
+            Rebuild a slice of the tree. You're handed a labelled skeleton: a few named clades, each
+            with one worked-example species already placed on it, and a tray of species to slot onto
+            the right branch. Drag each onto the group it belongs to. Difficulty sets the <i>grain</i>:
+            easy days group at broad, well-separated clades; harder days pit tight sibling clades that
+            look alike, with fewer worked examples to lean on. Read it as a top-down tree or a circular
+            fan, and tap any clade or anchor for its Wikipedia.
+          </p>
+          <details className="about-score">
+            <summary>How scoring works</summary>
+            <p>
+              You earn <b>the day's weight × (correct − penalties) ⁄ slots</b>. A full placement is one
+              point. A <b>hint</b> that reveals a slot forfeits that whole point. Looking a to-place
+              species up on Wikipedia forfeits <b>half</b>, since the article usually names its family
+              and so is only a soft nudge. Enlarging a species' picture is free. It shares the weekday
+              weight (<code>40 + 20 × tier</code>) with Lineage and Kinship, so scores line up across
+              all three.
             </p>
           </details>
         </div>

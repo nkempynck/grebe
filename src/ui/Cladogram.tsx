@@ -3,6 +3,9 @@ import type { DisplayTreeNode, GuessResult, TaxonNode, Tree } from "../core";
 import { ancestryChain, inducedSubtree, isAncestor, leavesUnder } from "../core";
 import { fetchWikiSummary, wikiUrlFor, type WikiSummary } from "../data/wikipedia";
 import { warmthColor } from "./temperature";
+import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL } from "./cladoLayout";
+
+type CladoView = "tree" | "radial";
 
 interface Props {
   tree: Tree;
@@ -16,12 +19,6 @@ interface Props {
 }
 
 const TARGET = "__target__";
-
-// Top-down layout constants (px). Nodes are just labelled points — no boxes.
-const GAPY = 62; // vertical distance between clade tiers
-const GAPX = 172; // horizontal distance between sibling tips
-const PADX = 26;
-const PADY = 30;
 
 type Kind = "clade" | "guess" | "answer" | "target" | "collapsed";
 
@@ -53,9 +50,10 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
       return next;
     });
 
+  const [mode, setMode] = useState<CladoView>("tree");
   const model = useMemo(
-    () => buildModel(tree, scopeRootId, results, answerId, hintIds, revealed, expanded),
-    [tree, scopeRootId, results, answerId, hintIds, revealed, expanded]
+    () => buildModel(tree, scopeRootId, results, answerId, hintIds, revealed, expanded, mode),
+    [tree, scopeRootId, results, answerId, hintIds, revealed, expanded, mode]
   );
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -82,11 +80,16 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
     <figure className="clado">
       <figcaption className="clado-cap">
         {revealed
-          ? "The answer's lineage, and where each guess branched off it."
+          ? "The answer's place on the tree of life. Each guess sits where it splits away from the answer's branch."
           : closestName
           ? <>Closest shared branch so far: <b>{closestName}</b>. Every guess hangs where it splits from the hidden species.</>
           : "Each guess hangs at the clade it shares with the hidden species. Guess to grow the tree downward."}
       </figcaption>
+
+      <div className="branches-viewtoggle" role="tablist" aria-label="Tree view">
+        <button role="tab" aria-selected={mode === "tree"} className={`branches-viewseg${mode === "tree" ? " is-on" : ""}`} onClick={() => setMode("tree")}>Tree</button>
+        <button role="tab" aria-selected={mode === "radial"} className={`branches-viewseg${mode === "radial" ? " is-on" : ""}`} onClick={() => setMode("radial")}>Radial</button>
+      </div>
 
       <div className="clado-stage" ref={stageRef}>
         <div className="clado-canvas" style={{ width, height }}>
@@ -240,7 +243,8 @@ function buildModel(
   answerId: string,
   hintIds: string[],
   revealed: boolean,
-  expanded: Set<string>
+  expanded: Set<string>,
+  mode: CladoView
 ): Model | null {
   if (results.length === 0 && hintIds.length === 0 && !revealed) return null;
 
@@ -377,50 +381,29 @@ function buildModel(
   };
   collapse(root);
 
-  // ---- tidy top-down layout: leaves get columns, parents centre over them ----
-  const xById = new Map<string, number>();
-  let leafCol = 0;
-  let maxDepth = 0;
+  // Branch colour + weight, keyed on the CHILD node's role (shared by both views).
+  const linkColor = (kind: Kind, cr?: GuessResult) =>
+    kind === "answer" ? "var(--vermilion)" : kind === "target" ? "var(--ink-faint)"
+    : cr ? warmthColor(cr.warmth, cr.isWin) : "var(--clado-line)";
 
-  const measure = (n: DNode, depth: number): number => {
-    maxDepth = Math.max(maxDepth, depth);
-    let x: number;
-    if (n.children.length === 0) {
-      x = PADX + leafCol * GAPX;
-      leafCol++;
-    } else {
-      const xs = n.children.map((c) => measure(c, depth + 1));
-      x = (Math.min(...xs) + Math.max(...xs)) / 2;
-    }
-    xById.set(n.id, x);
-    return x;
-  };
-  measure(root, 0);
+  // ---- lay the collapsed tree out via the shared engine, then colour it here ----
+  // Radial rotates the hidden species (or, on reveal, the answer) to the bottom.
+  const dById = new Map<string, DNode>();
+  (function index(n: DNode) { dById.set(n.id, n); n.children.forEach(index); })(root);
+  const geo =
+    mode === "radial"
+      ? radialLayout(root, { ...CLADO_RADIAL, focusId: revealed ? answerId : dById.has(TARGET) ? TARGET : null })
+      : treeLayout(root, CLADO_TREE);
 
-  const nodes: PNode[] = [];
-  const links: Model["links"] = [];
+  const nodes: PNode[] = geo.nodes.map((gn) => {
+    const d = dById.get(gn.id)!;
+    const r = byGuess.get(gn.id);
+    return { ...d, x: gn.x, y: gn.y, isLeaf: gn.isLeaf, warmth: r?.warmth, isWin: r?.isWin };
+  });
+  const links: Model["links"] = geo.links.map((l) => {
+    const c = dById.get(l.childId)!;
+    return { d: l.d, color: linkColor(c.kind, byGuess.get(c.id)), strong: c.kind === "guess" || c.kind === "answer" };
+  });
 
-  const place = (n: DNode, depth: number) => {
-    const x = xById.get(n.id)!;
-    const y = PADY + depth * GAPY;
-    const r = byGuess.get(n.id);
-    nodes.push({ ...n, x, y, isLeaf: n.children.length === 0, warmth: r?.warmth, isWin: r?.isWin });
-    for (const c of n.children) {
-      const cx = xById.get(c.id)!;
-      const cy = PADY + (depth + 1) * GAPY;
-      const midY = y + (cy - y) / 2;
-      const strong = c.kind === "guess" || c.kind === "answer";
-      const cr = byGuess.get(c.id);
-      const color =
-        c.kind === "answer" ? "var(--vermilion)" : c.kind === "target" ? "var(--ink-faint)"
-        : cr ? warmthColor(cr.warmth, cr.isWin) : "var(--clado-line)";
-      links.push({ d: `M ${x} ${y} L ${x} ${midY} L ${cx} ${midY} L ${cx} ${cy}`, color, strong });
-      place(c, depth + 1);
-    }
-  };
-  place(root, 0);
-
-  const width = PADX * 2 + Math.max(1, leafCol) * GAPX;
-  const height = PADY * 2 + maxDepth * GAPY + 20;
-  return { nodes, links, width, height, closestId, closestName };
+  return { nodes, links, width: geo.width, height: geo.height, closestId, closestName };
 }
