@@ -13,6 +13,7 @@
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { COMMON_NAME_OVERRIDES } from "./common-name-overrides.mjs";
 
 const GBIF = "https://api.gbif.org/v1";
 const OTL = "https://api.opentreeoflife.org/v3";
@@ -520,6 +521,15 @@ async function main() {
     else { seen.add(s.speciesKey); specs.push(s); specByKey.set(key, s); added++; }
   }
   console.log(`   +${added} new, ${renamed} renamed to their curated common name`);
+
+  // Curated common-name corrections, by scientific name — fixes GBIF vernacular
+  // collisions/errors (two species sharing an English name, or a plain-wrong one).
+  let fixed = 0;
+  for (const s of specs) {
+    const better = COMMON_NAME_OVERRIDES[s.canonicalName];
+    if (better && s.common !== better) { s.common = better; fixed++; }
+  }
+  console.log(`   ${fixed} common names corrected from the override map`);
 
   console.log("→ [OTL] matching names → OTT ids…");
   const nameToOtt = await tnrsMatch(specs.map((s) => s.canonicalName));
