@@ -58,4 +58,11 @@ export const COMMON_NAME_OVERRIDES = {
   "Macrocheles merdarius": "Dung mite",
   "Oppiella nova": "Oribatid mite",
   "Atropacarus striculus": "Armoured mite",
+
+  // "Species code: Xx" — GBIF junk vernaculars on five seagrasses
+  "Halophila ovalis": "Paddle weed",
+  "Enhalus acoroides": "Tape seagrass",
+  "Halodule uninervis": "Narrowleaf seagrass",
+  "Cymodocea rotundata": "Round seagrass",
+  "Syringodium isoetifolium": "Noodle seagrass",
 };
