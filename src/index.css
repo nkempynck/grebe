@@ -1226,6 +1226,28 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .grid-solved-sci { font-weight: 600; font-style: italic; opacity: 0.75; font-size: 13px; }
 .grid-solved-members { font-size: 13px; margin-top: 2px; }
 
+/* Post-game phylogeny of the 16 species, coloured by group (reuses --gN). */
+.kinship-tree { margin: 20px 0 6px; }
+.kinship-tree-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.kinship-tree-ttl { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); }
+.kinship-tree-head .branches-viewtoggle { margin: 0; }
+.kinship-tree-stage { overflow-x: auto; padding: 4px 0 2px; }
+.kinship-tree .clado-link { stroke: var(--clado-line); }
+.kin-node { position: absolute; }
+.kin-node.is-leaf { transform: translateX(-50%); }
+.kin-node.is-radial { transform: translate(-50%, -50%); }
+.kin-leaf {
+  display: inline-block; max-width: 118px; padding: 3px 8px; cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.14); border-radius: 8px;
+  font-family: var(--font-body); font-size: 12px; font-weight: 600; line-height: 1.15;
+  color: #17150f; text-align: center;
+}
+.kin-leaf.lvl-0 { background: var(--g0); }
+.kin-leaf.lvl-1 { background: var(--g1); }
+.kin-leaf.lvl-2 { background: var(--g2); }
+.kin-leaf.lvl-3 { background: var(--g3); }
+.kin-leaf:hover { border-color: rgba(0, 0, 0, 0.4); }
+
 .grid-mistakes { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0 14px; }
 .grid-mistakes-lbl {
   font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;

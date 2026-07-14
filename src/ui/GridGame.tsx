@@ -8,6 +8,7 @@ import { fetchWikiImage } from "../data/wikipedia";
 import { GameHeader } from "./GameHeader";
 import { WikiCard } from "./WikiCard";
 import { Leaderboard } from "./Leaderboard";
+import { KinshipTree } from "./KinshipTree";
 import { PlaytestBar } from "./PlaytestBar";
 import { useDev } from "../data/devMode";
 import type { GridGroup } from "../core";
@@ -259,6 +260,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
             </div>
             <button className="share-btn" onClick={copy}>{copied ? "Copied ✓" : "Copy result"}</button>
           </div>
+          <KinshipTree tree={tree} board={g.board} levelOf={g.levelOf} onPick={setWikiId} />
           {g.locked && <p className="daily-lock">✓ You’ve played today’s Kinship. A new board opens at midnight.</p>}
           {configured && (
             <Leaderboard

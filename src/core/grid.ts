@@ -332,6 +332,16 @@ export function generateGridBoard(tree: Tree, dateKey: string, tier: number): Gr
   }
 }
 
+/** A single board from an ARBITRARY seed string + tier, with no anti-repeat
+ *  replay. For playtest / reshuffle, where the "seed" is not a real date and so
+ *  must NOT be fed to generateGridBoard (whose epoch replay only terminates on an
+ *  exact date match — a non-date seed would loop forever). Deterministic on
+ *  (seed, tier); the seed is used purely to drive the RNG. */
+export function gridBoardForSeed(tree: Tree, seed: string, tier: number): GridBoard | null {
+  const d = getDiscovered(tree);
+  return d ? boardForDay(tree, d, seed, tier, () => false) : null;
+}
+
 /** Which solution group a set of four selected tiles forms, plus a Connections
  *  "one away" hint (exactly three share a single group). */
 export function checkGridSelection(

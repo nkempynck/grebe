@@ -281,6 +281,15 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
   }
 }
 
+/** A single board from an ARBITRARY seed string + tier, with no anti-repeat
+ *  replay — the Branches counterpart to gridBoardForSeed. For playtest / reshuffle
+ *  only (a non-date seed must never reach generateBranchesBoard's epoch replay,
+ *  which would loop forever). Deterministic on (seed, tier). */
+export function branchesBoardForSeed(tree: Tree, seed: string, tier: number): BranchesBoard | null {
+  if (getContainers(tree, MAX_GROUP_LEAVES).length === 0) return null;
+  return boardForDay(tree, seed, tier, () => false);
+}
+
 /** Score a set of placements (slotId → the species id the player dropped there).
  *  Correct when the placed species equals the slot's own leaf id. */
 export function scoreBranches(
