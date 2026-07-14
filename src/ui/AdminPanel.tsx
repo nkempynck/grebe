@@ -91,12 +91,19 @@ interface FileCheck {
   error: string | null;
 }
 
-interface Check { label: string; ok: boolean; detail?: string; }
+// `spoiler` holds a detail that would give away today's puzzle (e.g. the Lineage
+// answer); it stays hidden behind a "reveal" click so opening the admin page
+// doesn't spoil the daily.
+interface Check { label: string; ok: boolean; detail?: string; spoiler?: string; }
 
-function StatusRow({ label, ok, detail }: Check) {
+function StatusRow({ label, ok, detail, spoiler, revealed, onReveal }: Check & { revealed?: boolean; onReveal?: () => void }) {
   return (
     <li className={ok ? "is-ok" : "is-bad"}>
-      {ok ? "✓" : "✗"} <b>{label}</b>{detail && <span className="sys-detail"> — {detail}</span>}
+      {ok ? "✓" : "✗"} <b>{label}</b>
+      {detail && <span className="sys-detail"> — {detail}</span>}
+      {spoiler && ok && (revealed
+        ? <span className="sys-detail"> — {spoiler}</span>
+        : <> — <button className="linkbtn" onClick={onReveal}>reveal</button></>)}
     </li>
   );
 }
@@ -107,6 +114,8 @@ function SystemHealth({ tree }: { tree: Tree }) {
   const live = isSupabaseConfigured;
   const [schema, setSchema] = useState<FileCheck[] | null>(null);
   const [loading, setLoading] = useState(live);
+  // Today's answer stays hidden until clicked, so the dashboard doesn't spoil it.
+  const [reveal, setReveal] = useState(false);
 
   const runSchema = useCallback(async () => {
     if (!supabase) { setLoading(false); return; }
@@ -136,7 +145,7 @@ function SystemHealth({ tree }: { tree: Tree }) {
     const grid = gridBoardFor(tree, today);
     const br = branchesBoardFor(tree, today);
     return [
-      { label: "Lineage answer resolves", ok: !!node, detail: node ? displayName(node) : "no answer" },
+      { label: "Lineage answer resolves", ok: !!node, detail: node ? undefined : "no answer", spoiler: node ? displayName(node) : undefined },
       { label: "Kinship board builds", ok: !!grid && grid.groups.length === 4, detail: grid ? `${grid.groups.length} groups · ${grid.tiles.length} tiles` : "null" },
       { label: "Branches board builds", ok: !!br && br.slotIds.length >= 4, detail: br ? `${br.slotIds.length} slots` : "null" },
     ];
@@ -164,7 +173,7 @@ function SystemHealth({ tree }: { tree: Tree }) {
         </div>
         <div className="sys-group">
           <div className="sys-group-ttl">Game engines · today</div>
-          <ul className="admin-schema-list">{engines.map((c) => <StatusRow key={c.label} {...c} />)}</ul>
+          <ul className="admin-schema-list">{engines.map((c) => <StatusRow key={c.label} {...c} revealed={reveal} onReveal={() => setReveal(true)} />)}</ul>
         </div>
         <div className="sys-group">
           <div className="sys-group-ttl">Backend schema</div>
@@ -322,6 +331,9 @@ export function AdminPanel({ tree }: { tree: Tree }) {
   const [date, setDate] = useState(todayKey());
   const [q, setQ] = useState("");
   const [copied, setCopied] = useState(false);
+  // The scheduled species is hidden until clicked, so opening the page (which
+  // defaults to today) doesn't spoil the daily. Re-hides when the date changes.
+  const [showAnswer, setShowAnswer] = useState(false);
 
   // When live, seed the editor from the remote plan (reading is public).
   useEffect(() => {
@@ -482,7 +494,7 @@ export function AdminPanel({ tree }: { tree: Tree }) {
           id="admin-date"
           type="date"
           value={date}
-          onChange={(e) => e.target.value && setDate(e.target.value)}
+          onChange={(e) => { if (e.target.value) { setDate(e.target.value); setShowAnswer(false); } }}
         />
         <span className="admin-daytag">
           #{dailyNumber(date)} · {auto.dayName} · tier {auto.tier} {merged.overridden && <b>· overridden</b>}
@@ -492,7 +504,11 @@ export function AdminPanel({ tree }: { tree: Tree }) {
       <div className="admin-preview">
         <div className="admin-preview-lab">This day plays</div>
         <div className="admin-preview-answer">
-          {answerNode ? displayName(answerNode) : "—"}
+          {answerNode
+            ? (showAnswer
+                ? displayName(answerNode)
+                : <button className="linkbtn" onClick={() => setShowAnswer(true)}>reveal species</button>)
+            : "—"}
           {pinned ? <span className="tag">pinned</span> : <span className="tag auto">auto-pick</span>}
         </div>
         <div className="admin-preview-cfg">
