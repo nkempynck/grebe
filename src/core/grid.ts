@@ -89,6 +89,86 @@ function pickN<T>(arr: T[], n: number, rng: () => number): T[] {
   return shuffle([...arr], rng).slice(0, n);
 }
 
+// Words that don't identify a group on their own — size / colour / locality
+// modifiers and articles. Sharing one of these isn't a giveaway, so they don't
+// count toward the "too many members share a word" limit.
+const NAME_STOPWORDS = new Set([
+  "the", "of", "and", "common", "northern", "southern", "eastern", "western",
+  "american", "european", "eurasian", "african", "asian", "australian", "oriental",
+  "great", "greater", "lesser", "giant", "dwarf", "pygmy", "little", "large", "small",
+  "red", "black", "white", "blue", "green", "yellow", "brown", "grey", "gray", "golden",
+  "spotted", "striped", "banded", "crested",
+]);
+
+/** Distinctive words in a species' common name (lower-cased, modifiers dropped). */
+function nameWords(tree: Tree, id: string): string[] {
+  const name = tree.byId.get(id)?.common ?? "";
+  return name.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !NAME_STOPWORDS.has(w));
+}
+
+/** Pick `n` distinct members while avoiding a name giveaway — no distinctive word
+ *  (e.g. "bear", "heron") may be shared by more than two of them. Greedy over a
+ *  seeded shuffle; if the constraint can't be met (a clade whose members really do
+ *  all share a word), it fills the shortfall unconstrained so a board is always
+ *  produced. Deterministic: consumes the RNG exactly like pickN (one shuffle). */
+function pickMembers(tree: Tree, pool: string[], n: number, rng: () => number): string[] {
+  const order = shuffle([...pool], rng);
+  const chosen: string[] = [];
+  const wordCount = new Map<string, number>();
+  for (const id of order) {
+    if (chosen.length >= n) break;
+    const words = nameWords(tree, id);
+    if (words.some((w) => (wordCount.get(w) ?? 0) >= 2)) continue;
+    chosen.push(id);
+    for (const w of words) wordCount.set(w, (wordCount.get(w) ?? 0) + 1);
+  }
+  if (chosen.length < n) {
+    const have = new Set(chosen);
+    for (const id of order) {
+      if (chosen.length >= n) break;
+      if (!have.has(id)) chosen.push(id);
+    }
+  }
+  return chosen.slice(0, n);
+}
+
+/** The species a group draws from: named leaves when there are enough (nicer
+ *  tiles), else all leaves. Shared by member picking and giveaway feasibility. */
+function themePool(tree: Tree, leaves: string[]): string[] {
+  const named = leaves.filter((id) => tree.byId.get(id)?.common);
+  return named.length >= GRID_GROUP_SIZE ? named : leaves;
+}
+
+/** How many of a board's groups give themselves away by name — a distinctive word
+ *  shared by more than two of the four members (four "…bear"s, three "…heron"s). */
+function giveawayCount(tree: Tree, board: GridBoard): number {
+  let n = 0;
+  for (const g of board.groups) {
+    const c = new Map<string, number>();
+    let bad = false;
+    for (const id of g.memberIds) {
+      for (const w of nameWords(tree, id)) {
+        const v = (c.get(w) ?? 0) + 1;
+        c.set(w, v);
+        if (v > 2) bad = true;
+      }
+    }
+    if (bad) n++;
+  }
+  return n;
+}
+
+/** Giveaway groups tolerated at a tier: Sat (6) none; Thu/Fri (4–5) two; easy days
+ *  (1–3) no limit (recognisable names help). Sun (7) also has no limit because it's
+ *  played in picture mode with names hidden, so a name giveaway can't matter — that
+ *  frees its re-roll budget for the mammal-free guard instead. */
+function maxGiveaways(tier: number): number {
+  if (tier >= 7) return GRID_GROUPS;
+  if (tier === 6) return 0;
+  if (tier >= 4) return 2;
+  return GRID_GROUPS;
+}
+
 // ---- theme discovery ----
 
 interface Theme {
@@ -161,7 +241,10 @@ function containers(tree: Tree, themes: Map<string, Theme>): Container[] {
 }
 
 /** Seeded pick of four themes, preferring ones with common names so the revealed
- *  group labels read nicely; fills from unnamed themes when named run short. */
+ *  group labels read nicely; fills from unnamed themes when named run short. Kept
+ *  varied (not filtered by giveaway-freeness) so the anti-repeat layer has enough
+ *  distinct group-sets to avoid repeats — the giveaway guard is applied at the
+ *  board level in boardForDay instead. */
 function pickThemes(list: Theme[], rng: () => number): Theme[] {
   const shuffled = shuffle([...list], rng);
   const named = shuffled.filter((t) => t.named);
@@ -177,9 +260,23 @@ const label = (tree: Tree, id: string) => {
 interface Discovered {
   /** Candidate containers nearest the target depth for each tier (1…7). */
   windowByTier: Map<number, Container[]>;
+  /** Every node id in the Mammalia subtree — excluded as a group on the hardest
+   *  days (mammals are too recognisable for brutal). Empty if the tree has none. */
+  mammalIds: Set<string>;
 }
 
 const TIER_WINDOW = 8; // containers considered per tier before the seeded pick
+
+/** All node ids in a subtree (the clade rooted at `rootId`, inclusive). */
+function subtreeIds(tree: Tree, rootId: string): Set<string> {
+  const s = new Set<string>();
+  const walk = (id: string) => {
+    s.add(id);
+    for (const c of tree.childrenOf.get(id) ?? []) walk(c);
+  };
+  walk(rootId);
+  return s;
+}
 
 /** Expensive, tree-only discovery (theme + container enumeration), plus the
  *  per-tier container windows. Cached per tree so the epoch replay is cheap. */
@@ -201,7 +298,10 @@ function discover(tree: Tree): Discovered | null {
     );
     windowByTier.set(tier, byCloseness.slice(0, Math.min(TIER_WINDOW, byCloseness.length)));
   }
-  return { windowByTier };
+
+  const mammalRoot = [...tree.byId.values()].find((n) => n.sciName === "Mammalia")?.id;
+  const mammalIds = mammalRoot ? subtreeIds(tree, mammalRoot) : new Set<string>();
+  return { windowByTier, mammalIds };
 }
 
 const discoverCache = new WeakMap<Tree, Discovered | null>();
@@ -230,13 +330,15 @@ function selectBoard(tree: Tree, d: Discovered, dateKey: string, tier: number, a
   const window = d.windowByTier.get(tier) ?? d.windowByTier.get(1)!;
   const container = pickN(window, 1, rng)[0];
 
-  // Four pairwise-disjoint themes, each sampled to four members. Prefer members
-  // with common names so tiles are recognisable.
+  // Four pairwise-disjoint themes, each sampled to four members. From Thursday on
+  // (tier ≥ 4) members are picked to avoid a name giveaway within a group; the
+  // board-level budget in boardForDay then decides how many such groups a day may
+  // still contain. Easy/medium days keep the plain pick — recognisable names help.
   const chosen = pickThemes(container.themes, rng);
   const groups: GridGroup[] = chosen.map((t) => {
-    const named = t.leaves.filter((id) => tree.byId.get(id)?.common);
-    const pool = named.length >= GRID_GROUP_SIZE ? named : t.leaves;
-    const memberIds = pickN(pool, GRID_GROUP_SIZE, rng);
+    const pool = themePool(tree, t.leaves);
+    const memberIds =
+      tier >= 4 ? pickMembers(tree, pool, GRID_GROUP_SIZE, rng) : pickN(pool, GRID_GROUP_SIZE, rng);
     return {
       cladeId: t.cladeId,
       label: label(tree, t.cladeId),
@@ -281,15 +383,25 @@ const groupSig = (b: GridBoard) => b.groups.map((g) => g.cladeId).sort().join(",
  *  distinct category-sets exist, so a larger window would force repeats inside
  *  it (simulated: clean at 90, breaks by 120). */
 const GRID_ANTI_REPEAT_WINDOW = 90;
-const GRID_ATTEMPTS = 24;
+const GRID_ATTEMPTS = 48;
 
-/** One day's board: the first re-roll whose group-set isn't blocked by `avoid`. */
+/** One day's board. Re-rolls looking for a board that is unused by `avoid`, within
+ *  the tier's name-giveaway budget, and (on Sat/Sun) free of mammal groups. If no
+ *  attempt satisfies the extra guards, it falls back to the first merely-fresh
+ *  board (anti-repeat wins over the guards), and only to attempt 0 if every attempt
+ *  was blocked. */
 function boardForDay(tree: Tree, d: Discovered, dateKey: string, tier: number, avoid: (s: string) => boolean): GridBoard {
-  let board = selectBoard(tree, d, dateKey, tier, 0);
-  for (let attempt = 1; attempt < GRID_ATTEMPTS && avoid(groupSig(board)); attempt++) {
-    board = selectBoard(tree, d, dateKey, tier, attempt);
+  const budget = maxGiveaways(tier);
+  const noMammals = tier >= 6; // Sat/Sun: mammals are too recognisable for brutal
+  const hasMammal = (b: GridBoard) => b.groups.some((g) => d.mammalIds.has(g.cladeId));
+  let fresh: GridBoard | null = null;
+  for (let attempt = 0; attempt < GRID_ATTEMPTS; attempt++) {
+    const board = selectBoard(tree, d, dateKey, tier, attempt);
+    if (avoid(groupSig(board))) continue;
+    if (giveawayCount(tree, board) <= budget && (!noMammals || !hasMammal(board))) return board;
+    if (fresh === null) fresh = board;
   }
-  return board;
+  return fresh ?? selectBoard(tree, d, dateKey, tier, 0);
 }
 
 /**

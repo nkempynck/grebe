@@ -37,6 +37,17 @@ export function KinshipTree({ tree, board, levelOf, onPick }: Props) {
 
   if (!skeleton || !layout) return null;
 
+  // Always label the first common ancestor (the skeleton's root). If that node is
+  // an unnamed split, walk up to the nearest named clade so it still gets a label.
+  const rootId = skeleton.id;
+  const namedAncestorOf = (id: string): string | null => {
+    for (let cur: string | null = id; cur; cur = tree.byId.get(cur)?.parentId ?? null) {
+      if (tree.byId.get(cur)?.sciName) return cur;
+    }
+    return null;
+  };
+  const rootAnnoId = namedAncestorOf(rootId);
+
   return (
     <div className="kinship-tree">
       <div className="kinship-tree-head">
@@ -73,6 +84,18 @@ export function KinshipTree({ tree, board, levelOf, onPick }: Props) {
             // split) get a label; unnamed splits stay bare junctions.
             const node = tree.byId.get(n.id);
             if (!node?.sciName) {
+              // The root always gets a label (nearest named ancestor); other
+              // unnamed splits stay bare junction dots.
+              if (n.id === rootId && rootAnnoId) {
+                const anc = tree.byId.get(rootAnnoId);
+                return (
+                  <button key={n.id} type="button" className="clado-pt is-clade is-ancestor" style={{ left: n.x, top: n.y }} onClick={() => onPick(rootAnnoId)}>
+                    <span className="pt-dot" />
+                    <span className="pt-name">{nameOf(tree, rootAnnoId)}</span>
+                    <span className="pt-rank">{anc?.rank}</span>
+                  </button>
+                );
+              }
               return (
                 <div key={n.id} className="clado-pt is-junction" style={{ left: n.x, top: n.y }}>
                   <span className="pt-dot" />

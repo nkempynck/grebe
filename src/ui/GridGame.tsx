@@ -70,24 +70,35 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
   const [copied, setCopied] = useState(false);
   // Picture reveals: fetched thumbnails per species, and which tiles show them.
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  // Species with no Wikipedia image (fetch resolved empty) — in picture mode their
+  // name shows as a fallback rather than flashing every name before images load.
+  const [noImg, setNoImg] = useState<Set<string>>(new Set());
   const [flipped, setFlipped] = useState<Set<string>>(new Set());
   // Post-game Wikipedia reader.
   const [wikiId, setWikiId] = useState<string | null>(null);
 
   // Easy/medium days show every picture from the start (free); harder days hide
-  // them behind the reveal penalty.
+  // them behind the reveal penalty. Sunday (tier 7) inverts it: pictures are the
+  // tile, and the NAME is the hidden thing you reveal (first three free, then the
+  // same gentle penalty) — recognise the organism by sight, then sort by clade.
   const preshow = g.tier > 0 && g.tier <= PRESHOW_MAX_TIER;
+  const pictureMode = g.tier >= 7;
   const tiles = g.board?.tiles;
   useEffect(() => {
-    if (!preshow || !tiles) return;
+    if (!(preshow || pictureMode) || !tiles) return;
     let live = true;
     for (const id of tiles) {
       const node = tree.byId.get(id);
-      if (node) fetchWikiImage(node).then((img) => { if (live && img) setThumbs((t) => (t[id] ? t : { ...t, [id]: img.thumb })); });
+      if (!node) continue;
+      fetchWikiImage(node).then((img) => {
+        if (!live) return;
+        if (img) setThumbs((t) => (t[id] ? t : { ...t, [id]: img.thumb }));
+        else setNoImg((s) => (s.has(id) ? s : new Set(s).add(id)));
+      });
     }
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preshow, tiles, tree]);
+  }, [preshow, pictureMode, tiles, tree]);
 
   // Flip a tile to its picture. Reveal (with its gentle penalty) happens on the
   // first flip of a species; after that, flipping just toggles the picture.
@@ -166,28 +177,37 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
           <div className="grid-board" role="group" aria-label="Species tiles">
             {g.remaining.map((id) => {
               const on = g.selected.includes(id);
-              const showImg = (preshow || flipped.has(id)) && thumbs[id];
+              const hasImg = !!thumbs[id];
+              // Picture mode: the image is the tile, the name is revealed. Normal:
+              // the name is the tile, the image is revealed. Easy days show both.
+              const imgShown = pictureMode ? hasImg : (preshow || flipped.has(id)) && hasImg;
+              // In picture mode the name shows only once revealed or once we know
+              // the species has no image — never in the gap while images load.
+              const nameShown = pictureMode ? flipped.has(id) || noImg.has(id) : true;
+              // A reveal control exists on the harder days: it flips the hidden
+              // half (picture normally, name in picture mode). None on easy days,
+              // and none in picture mode for an image-less tile (its name is shown).
+              const canReveal = pictureMode ? hasImg : !preshow;
+              const noun = pictureMode ? "name" : "picture";
               const flipTitle = g.revealed.includes(id)
-                ? "Hide picture"
+                ? `Hide ${noun}`
                 : g.revealed.length < KINSHIP_FREE_REVEALS
-                ? "See its picture (free)"
-                : "See its picture (a few more cost a little score)";
+                ? `Reveal its ${noun} (free)`
+                : `Reveal its ${noun} (a few more cost a little score)`;
               return (
                 <button
                   key={id}
-                  className={`grid-tile${on ? " is-sel" : ""}${showImg ? " is-flipped" : ""}`}
+                  className={`grid-tile${on ? " is-sel" : ""}${imgShown ? " is-flipped" : ""}`}
                   aria-pressed={on}
                   onClick={() => g.toggle(id)}
                 >
-                  {showImg ? (
-                    <>
-                      <img className="grid-tile-img" src={thumbs[id]} alt="" />
-                      <span className="grid-tile-cap">{nameOf(id)}</span>
-                    </>
+                  {imgShown && <img className="grid-tile-img" src={thumbs[id]} alt="" />}
+                  {nameShown ? (
+                    <span className={imgShown ? "grid-tile-cap" : "grid-tile-name"}>{nameOf(id)}</span>
                   ) : (
-                    <span className="grid-tile-name">{nameOf(id)}</span>
+                    imgShown && <span className="grid-tile-cap is-hidden">· · ·</span>
                   )}
-                  {!preshow && (
+                  {canReveal && (
                     <span
                       className="grid-tile-flip"
                       role="button"
@@ -196,7 +216,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
                       onClick={(e) => { e.stopPropagation(); flip(id); }}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); flip(id); } }}
                     >
-                      🔍
+                      {pictureMode ? "🔤" : "🔍"}
                     </span>
                   )}
                 </button>
@@ -216,6 +236,8 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
           <p className="grid-peek-note">
             {preshow
               ? "Pictures are shown to help on the easier days."
+              : pictureMode
+              ? "Pictures only today — no names. Tap 🔤 on a tile to reveal its name; the first three are free, then every two more costs a little score."
               : "Tap the 🔍 on a tile to see its picture. The first three are free; after that, every two more costs a little score."}
           </p>
 
