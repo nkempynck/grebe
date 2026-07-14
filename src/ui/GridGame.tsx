@@ -6,8 +6,10 @@ import { resolveDailyRules } from "../data/dailySchedule";
 import { kinshipPoints, kinshipRevealPenalty, KINSHIP_FREE_REVEALS } from "../data/score";
 import { fetchWikiImage } from "../data/wikipedia";
 import { GameHeader } from "./GameHeader";
-import { KinshipLeaderboard } from "./KinshipLeaderboard";
 import { WikiCard } from "./WikiCard";
+import { Leaderboard } from "./Leaderboard";
+import { PlaytestBar } from "./PlaytestBar";
+import { useDev } from "../data/devMode";
 import type { GridGroup } from "../core";
 
 interface Props {
@@ -24,6 +26,9 @@ interface Props {
   reloadKey?: number;
   /** Opens the Kinship section of the About page. */
   onHowItWorks?: () => void;
+  /** Renders inside the Admin test bench: difficulty/reshuffle/autosolve controls,
+   *  no daily lock, nothing recorded. Off for the normal site. */
+  sandbox?: boolean;
 }
 
 /** Group-level → share square. Level 0 is the broadest/most obvious group, level
@@ -57,8 +62,10 @@ function GroupBar({ tree, group, dimmed, onPick }: { tree: Tree; group: GridGrou
   );
 }
 
-export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, onHowItWorks }: Props) {
-  const g = useGridGame(tree, onComplete);
+export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, onHowItWorks, sandbox }: Props) {
+  const devSettings = useDev();
+  const dev = sandbox ? { tier: devSettings.tier, nonce: devSettings.nonce } : null;
+  const g = useGridGame(tree, onComplete, dev);
   const [copied, setCopied] = useState(false);
   // Picture reveals: fetched thumbnails per species, and which tiles show them.
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
@@ -136,6 +143,8 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
         onHowItWorks={onHowItWorks}
         blurb="Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess. Four wrong guesses allowed."
       />
+
+      {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
 
       {/* Solved groups — plus, after a loss, the ones never found (dimmed). Always
           ordered by difficulty level so the colours read as a scale, like
@@ -250,7 +259,13 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
             </div>
             <button className="share-btn" onClick={copy}>{copied ? "Copied ✓" : "Copy result"}</button>
           </div>
-          {configured && <KinshipLeaderboard variant="today" me={me ?? null} reloadKey={reloadKey} streak={streak} />}
+          {g.locked && <p className="daily-lock">✓ You’ve played today’s Kinship. A new board opens at midnight.</p>}
+          {configured && (
+            <Leaderboard
+              game="kinship" label="Kinship" variant="today" me={me ?? null} reloadKey={reloadKey} streak={streak}
+              note="Score rewards harder days and fewer mistakes. A clean board earns the full weight."
+            />
+          )}
         </div>
       )}
 

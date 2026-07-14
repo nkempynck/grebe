@@ -10,8 +10,21 @@ import { SYNONYMS } from "./synonyms";
  * (src/data/taxonomy.json) produced by `npm run build:taxonomy`, which pulls a
  * balanced, occurrence-weighted slice of the GBIF backbone. The app itself never
  * hits the network — regenerate the JSON to refresh the data.
+ *
+ * The built tree is cached (one promise), so every caller shares the SAME tree
+ * and node object references. That matters when more than one `useGame` is live
+ * (e.g. the admin test bench alongside the main game): guesses from one must be
+ * renderable by components reading the other's tree, which only holds if the node
+ * references are identical.
  */
-export async function loadTree(): Promise<Tree> {
+let cached: Promise<Tree> | null = null;
+
+export function loadTree(): Promise<Tree> {
+  if (!cached) cached = build();
+  return cached;
+}
+
+async function build(): Promise<Tree> {
   // Give the major clades friendly common names so they can be guessed as groups
   // ("snakes", "cats") and read nicely. Species and already-named nodes untouched.
   const nodes = (taxonomy.nodes as TaxonNode[]).map((n) =>

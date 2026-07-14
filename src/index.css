@@ -525,8 +525,74 @@ body {
 }
 .admin-schema-list li.is-ok { color: var(--ink-faint); }
 .admin-schema-list li.is-bad { color: var(--danger); font-weight: 700; }
+.admin-schema-list li.is-muted { color: var(--ink-faint); font-style: italic; }
 .admin-schema-hint { margin: 10px 0 0; color: var(--ink-soft); line-height: 1.5; }
 .admin-schema-hint code { color: var(--brass-bright); }
+
+/* System-health dashboard: grouped runtime / engine / schema checks. */
+.sys-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px 22px; margin-top: 12px; }
+.sys-group-ttl {
+  font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-soft); margin-bottom: 4px;
+}
+.sys-group .admin-schema-list { grid-template-columns: 1fr; margin-top: 0; }
+.sys-detail { color: var(--ink-faint); font-weight: 400; }
+
+/* Admin test bench: the games rendered for playtesting. */
+.admin-testbench {
+  margin-bottom: 20px; padding: 16px; border-radius: var(--radius);
+  border: 1px dashed var(--line); background: var(--bg-2);
+}
+.admin-testbench-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.admin-testbench-ttl { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--ink); }
+.admin-testbench-hint { margin: 4px 0 0; max-width: 62ch; color: var(--ink-soft); line-height: 1.5; font-size: 13px; }
+.admin-testbench-tabs { display: flex; gap: 6px; margin: 14px 0; }
+.admin-testbench-stage {
+  padding: 14px; border-radius: var(--radius);
+  background: var(--bg); border: 1px solid var(--line);
+}
+
+/* Inline playtest toolbar shown above a sandbox game. */
+.playtest {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  margin: 0 0 14px; padding: 8px 12px; border-radius: var(--radius);
+  background: var(--bg-2); border: 1px dashed var(--game, var(--brass));
+  font-family: var(--font-mono); font-size: 12px;
+}
+.playtest-tag {
+  font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  font-weight: 700; color: var(--game, var(--brass));
+}
+.playtest-field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-soft); }
+.playtest-field select {
+  font-family: var(--font-mono); font-size: 12px; padding: 4px 8px;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+}
+.playtest-btn {
+  font-family: var(--font-mono); font-size: 12px; padding: 5px 10px; cursor: pointer;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+}
+.playtest-btn:hover { border-color: var(--game, var(--brass)); }
+.playtest-note { margin-left: auto; color: var(--ink-faint); font-style: italic; }
+
+/* Error-boundary fallback (keeps a crash contained instead of blanking the page). */
+.errbound {
+  margin: 12px 0; padding: 14px 16px; border-radius: var(--radius);
+  border: 1px solid rgba(224, 87, 78, 0.5); background: var(--bg-2);
+}
+.errbound-ttl { font-family: var(--font-mono); font-weight: 700; color: var(--danger); font-size: 13px; }
+.errbound-msg {
+  margin: 8px 0; padding: 8px 10px; border-radius: 6px; overflow-x: auto;
+  background: var(--bg); border: 1px solid var(--line);
+  font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); white-space: pre-wrap;
+}
+
+/* "Played today" lock line shown under a finished daily. */
+.daily-lock {
+  margin: 12px 0 0; padding: 8px 12px; border-radius: var(--radius);
+  background: var(--bg-2); border: 1px solid var(--line);
+  font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); text-align: center;
+}
 
 .admin-login {
   margin: 8px 0 24px; padding: 20px 22px;
@@ -664,6 +730,18 @@ body {
 .acct-err { font-family: var(--font-mono); font-size: 11px; color: var(--danger); margin-top: 5px; }
 .acct-standing-val { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--brass-bright); }
 .acct-standing-val.is-muted { color: var(--ink-faint); font-weight: 400; font-style: italic; }
+
+/* Per-game all-time standing, shown at the top of each game's badges panel. */
+.badges-standing {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin: 2px 0 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--line);
+}
+.badges-standing-lbl {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-soft);
+}
+.badges-standing-val { font-family: var(--font-mono); font-size: 14px; font-weight: 600; color: var(--brass-bright); }
+.badges-standing-val.is-muted { color: var(--ink-faint); font-weight: 400; font-style: italic; }
 
 /* ---- Local stats panel ---- */
 .stats {

@@ -59,7 +59,7 @@ function SyncBar({ player }: { player: UsePlayer }) {
 
           {mode === "register" ? (
             <>
-              <p>Carry your stats to other devices. <b>No email</b> — just a creature name and a password.</p>
+              <p>Carry your stats to other devices. Just a creature name and a password — nothing else.</p>
               <div className="admin-login-fields">
                 <div className="sync-handle">
                   <input type="text" value={regName} readOnly aria-label="Your creature name (assigned)" />
@@ -68,7 +68,7 @@ function SyncBar({ player }: { player: UsePlayer }) {
                 <input type="password" autoComplete="new-password" placeholder="password" value={p} onChange={(e) => setP(e.target.value)} />
               </div>
               <p className="stats-sync-note">You'll be <b>{regName}</b> — rename yourself anytime in Account. Note it to log in elsewhere.</p>
-              <p className="stats-sync-warn">No email means a forgotten password can't be recovered — pick one you'll remember.</p>
+              <p className="stats-sync-warn">There's no password recovery, so pick one you'll remember.</p>
               <Turnstile key={capKey} onToken={setToken} />
               <div className="stats-sync-actions">
                 <button className="admin-rand" disabled={blocked} onClick={doRegister}>Create account</button>
@@ -77,7 +77,7 @@ function SyncBar({ player }: { player: UsePlayer }) {
             </>
           ) : (
             <>
-              <p>Log in with the name and password you created. <b>Don't use your email.</b></p>
+              <p>Log in with the name and password you created.</p>
               <div className="admin-login-fields">
                 <input type="text" autoComplete="username" placeholder="your creature name" value={u} onChange={(e) => setU(e.target.value)} />
                 <input type="password" autoComplete="current-password" placeholder="password" value={p} onChange={(e) => setP(e.target.value)} />

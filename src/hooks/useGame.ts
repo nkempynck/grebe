@@ -61,10 +61,12 @@ export interface UseGame {
 
 const DEFAULT_CONFIG: GameConfig = { scopeRootId: DEFAULT_SCOPE_ID, winWithin: 0 };
 
-/** @param userId  signed-in player's id (enables cross-device daily restore). */
-export function useGame(userId: string | null): UseGame {
+/** @param userId  signed-in player's id (enables cross-device daily restore).
+ *  @param initialMode  starting mode; pass "free" for a sandbox instance (e.g. the
+ *    admin test bench) so it never touches — or persists to — the real daily. */
+export function useGame(userId: string | null, initialMode: GameMode = "daily"): UseGame {
   const [tree, setTree] = useState<Tree | null>(null);
-  const [mode, setModeState] = useState<GameMode>("daily");
+  const [mode, setModeState] = useState<GameMode>(initialMode);
   // Free-play settings, only in effect while mode === "free".
   const [freeConfig, setFreeConfig] = useState<GameConfig>(DEFAULT_CONFIG);
   const [freeAssist, setFreeAssist] = useState(false);

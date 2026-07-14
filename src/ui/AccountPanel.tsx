@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DerivedStats } from "../data/stats";
 import type { UsePlayer } from "../hooks/usePlayer";
-import { fetchStanding, type Standing } from "../data/games";
 import { StatsPanel } from "./StatsPanel";
 import { BadgesPanel } from "./BadgesPanel";
 
@@ -10,23 +9,17 @@ interface Props {
   player: UsePlayer;
 }
 
-/** Editable public name + all-time standing, shown above the stats. */
+/** Editable public leaderboard name. Each game's all-time standing lives in that
+ *  game's panel below (see BadgesPanel), so no single game is singled out here. */
 function Profile({ player }: { player: UsePlayer }) {
   const [name, setName] = useState("");
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [standing, setStanding] = useState<Standing | null>(null);
 
   useEffect(() => {
     setName(player.displayName ?? "");
   }, [player.displayName]);
-
-  useEffect(() => {
-    let live = true;
-    fetchStanding("all", null).then((s) => live && setStanding(s));
-    return () => { live = false; };
-  }, []);
 
   const save = async () => {
     const { error } = await player.updateDisplayName(name);
@@ -59,17 +52,6 @@ function Profile({ player }: { player: UsePlayer }) {
           {err && <div className="acct-err">{err}</div>}
         </div>
       </div>
-
-      <div className="acct-standing">
-        <div className="acct-label">All-time standing</div>
-        {standing && standing.my_rank != null ? (
-          <div className="acct-standing-val">
-            #{standing.my_rank} of {standing.total_players} · {standing.my_score} pts
-          </div>
-        ) : (
-          <div className="acct-standing-val is-muted">No ranked daily games yet.</div>
-        )}
-      </div>
     </div>
   );
 }
@@ -81,6 +63,7 @@ export function AccountPanel({ stats, player }: Props) {
       <StatsPanel stats={stats} player={player} />
       <BadgesPanel stats={stats} player={player} game="lineage" />
       <BadgesPanel stats={stats} player={player} game="kinship" />
+      <BadgesPanel stats={stats} player={player} game="branches" />
     </>
   );
 }

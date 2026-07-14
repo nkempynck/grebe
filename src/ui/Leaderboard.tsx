@@ -1,22 +1,30 @@
 import { useEffect, useState } from "react";
 import {
-  fetchGridLeaderboard,
-  fetchGridStanding,
+  fetchGameLeaderboard,
+  fetchGameStanding,
+  gameParLabel,
+  type GameId,
+  type GameStanding,
   type LeaderboardEntry,
   type LeaderboardPeriod,
-  type GridStanding,
 } from "../data/games";
 import { todayKey, dailyNumber, DAILY_EPOCH } from "../core/daily";
 
 interface Props {
+  /** Which game's board to show. */
+  game: GameId;
+  /** Display name of the game (for headings/empty state). */
+  label: string;
   /** Signed-in player's display name, to highlight their own row. */
   me: string | null;
   /** "today" = the fixed daily board (no controls); "config" = filterable. */
   variant: "today" | "config";
   /** Bump to force a refetch (e.g. after a just-finished game is submitted). */
   reloadKey?: number;
-  /** The viewer's current Kinship streak, shown in the footer (their own only). */
+  /** The viewer's current streak for this game, shown in the footer. */
   streak?: number | null;
+  /** One-line explanation of how the score works. */
+  note?: string;
   onClose?: () => void;
 }
 
@@ -36,20 +44,20 @@ function stepDate(key: string, delta: number): string {
 /** Podium medals for ranks 1–3; plain numbers below. */
 const MEDALS = ["🥇", "🥈", "🥉"];
 
-/** Kinship (grid) ranked board. Same shape as the Lineage board, but there's no
- *  clade-group filter (groups are per-board, not persistent categories) and the
- *  population "par" is average mistakes rather than guesses. */
-export function KinshipLeaderboard({ me, variant, reloadKey = 0, streak, onClose }: Props) {
+/** One ranked daily board, shared by every game that has no persistent group
+ *  filter (Kinship, Branches — and any future game). Lineage keeps its own richer
+ *  panel because it filters by clade group. Reads through the game-parameterised
+ *  fetchers in data/games.ts, so a new game is one registry entry away. */
+export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, note, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [dayDate, setDayDate] = useState<string>(() => todayKey());
   const [rows, setRows] = useState<LeaderboardEntry[] | null>(null);
   const [total, setTotal] = useState(0);
-  const [standing, setStanding] = useState<GridStanding | null>(null);
+  const [standing, setStanding] = useState<GameStanding | null>(null);
 
   const today = todayKey();
   const browsingDay = !isToday && period === "day";
-  // Single-day board: per-row wins/games is always 1/1 — drop it, show streak.
   const oneDay = isToday || browsingDay;
   const forDate = isToday ? today : browsingDay ? dayDate : null;
 
@@ -57,8 +65,8 @@ export function KinshipLeaderboard({ me, variant, reloadKey = 0, streak, onClose
     let live = true;
     setRows(null);
     Promise.all([
-      fetchGridLeaderboard(period, 10, forDate),
-      fetchGridStanding(period, forDate),
+      fetchGameLeaderboard(game, period, { limit: 10, forDate }),
+      fetchGameStanding(game, period, { forDate }),
     ]).then(([r, s]) => {
       if (!live) return;
       setRows(r);
@@ -66,17 +74,17 @@ export function KinshipLeaderboard({ me, variant, reloadKey = 0, streak, onClose
       setTotal(s?.total_players ?? r.length);
     });
     return () => { live = false; };
-  }, [period, reloadKey, forDate]);
+  }, [game, period, reloadKey, forDate]);
 
   return (
     <div className="lb">
       {onClose && <button className="stats-close" onClick={onClose} aria-label="Close leaderboard">×</button>}
       <div className="stats-sub">
         {isToday
-          ? "Today’s Kinship board"
+          ? `Today’s ${label} board`
           : browsingDay
-            ? `Kinship №${dailyNumber(dayDate)}`
-            : "Kinship rankings"}
+            ? `${label} №${dailyNumber(dayDate)}`
+            : `${label} rankings`}
       </div>
 
       {!isToday && (
@@ -111,7 +119,7 @@ export function KinshipLeaderboard({ me, variant, reloadKey = 0, streak, onClose
       {rows === null ? (
         <p className="stats-empty">Loading…</p>
       ) : rows.length === 0 ? (
-        <p className="stats-empty">No ranked Kinship games {isToday ? "today" : browsingDay ? "on this day" : "here yet"}. Play a signed-in daily to appear.</p>
+        <p className="stats-empty">No ranked {label} games {isToday ? "today" : browsingDay ? "on this day" : "here yet"}. Play a signed-in daily to appear.</p>
       ) : (
         <>
           <div className={`lb-rows${oneDay ? " is-slim" : ""}`}>
@@ -138,7 +146,7 @@ export function KinshipLeaderboard({ me, variant, reloadKey = 0, streak, onClose
             <span>
               {total} player{total === 1 ? "" : "s"}
               {standing?.avg_score != null && <> · avg {standing.avg_score} pts</>}
-              {standing?.avg_mistakes != null && <> · ⌀{standing.avg_mistakes} mistakes</>}
+              {standing?.par != null && <> · ⌀{standing.par} {gameParLabel(game)}</>}
             </span>
             {me && standing && (
               standing.my_rank != null ? (
@@ -154,7 +162,7 @@ export function KinshipLeaderboard({ me, variant, reloadKey = 0, streak, onClose
         </>
       )}
 
-      <p className="lb-note">Score rewards harder days and fewer mistakes. A clean board earns the full weight.</p>
+      {note && <p className="lb-note">{note}</p>}
     </div>
   );
 }

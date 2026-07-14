@@ -31,3 +31,12 @@ export function saveBranchesProgress(p: BranchesProgress): void {
     /* ignore */
   }
 }
+
+/** Forget today's saved Branches attempt (admin playtest reset). */
+export function clearBranchesProgress(): void {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
+}

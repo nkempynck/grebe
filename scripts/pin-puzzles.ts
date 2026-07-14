@@ -25,7 +25,7 @@ import taxonomy from "../src/data/taxonomy.json";
 import { buildTree, DAILY_EPOCH } from "../src/core";
 import { computePuzzle, encodePuzzle, puzzleVersion, type Game } from "../src/data/pinnedPuzzles";
 
-const GAMES: Game[] = ["lineage", "kinship"];
+const GAMES: Game[] = ["lineage", "kinship", "branches"];
 const CHUNK = 500;
 
 function arg(name: string, fallback?: string): string | undefined {

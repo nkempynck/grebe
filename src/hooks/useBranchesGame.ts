@@ -20,10 +20,20 @@ export interface BranchesComplete {
   date: string;
 }
 
+/** Admin playtest override: force a difficulty tier and reshuffle via `nonce`.
+ *  A playtest board is ephemeral — no pin, no saved progress, no recorded result. */
+export interface BranchesDevOpts {
+  tier: number;
+  nonce: number;
+}
+
 export interface UseBranchesGame {
   board: BranchesBoard | null;
   date: string;
   tier: number;
+  /** True once today's real board is submitted (restored or just now) and no
+   *  playtest override is active — the daily is locked until tomorrow. */
+  locked: boolean;
   /** slotId → the species id placed there (only filled slots present). */
   placements: Record<string, string>;
   /** Slot ids revealed via a hint (locked, count against the score). */
@@ -52,6 +62,8 @@ export interface UseBranchesGame {
   peek: (speciesId: string) => void;
   submit: () => void;
   canSubmit: boolean;
+  /** Test bench: place every species correctly and finish (never recorded). */
+  solve: () => void;
 }
 
 /** Tally correct slots, split by help used: a hint forfeits the whole point, a
@@ -73,15 +85,26 @@ function boardSig(b: BranchesBoard | null): string {
   return b ? JSON.stringify({ t: b.tier, r: b.rootId, s: b.slotIds, a: b.anchorIds, ry: b.tray }) : "";
 }
 
-export function useBranchesGame(tree: Tree | null, onComplete?: (r: BranchesComplete) => void): UseBranchesGame {
+export function useBranchesGame(
+  tree: Tree | null,
+  onComplete?: (r: BranchesComplete) => void,
+  dev?: BranchesDevOpts | null
+): UseBranchesGame {
   const date = todayKey();
-  const computed = useMemo(() => (tree ? branchesBoardFor(tree, date) : null), [tree, date]);
+  const devActive = !!dev;
+  const devOpts = dev ? { tier: dev.tier, seed: dev.nonce > 0 ? `n${dev.nonce}` : "" } : undefined;
+  const computed = useMemo(
+    () => (tree ? branchesBoardFor(tree, date, devOpts) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tree, date, devActive, dev?.tier, dev?.nonce]
+  );
   const [pinned, setPinned] = useState<BranchesBoard | null>(null);
   const board = pinned ?? computed;
 
-  // A frozen pin takes over only if it differs from the freshly computed board.
+  // A frozen pin takes over only if it differs from the freshly computed board —
+  // and never under a playtest override (that board is generated fresh).
   useEffect(() => {
-    if (!tree) { setPinned(null); return; }
+    if (!tree || devActive) { setPinned(null); return; }
     let live = true;
     fetchPinnedPuzzle("branches", date).then((p) => {
       if (!live) return;
@@ -89,7 +112,7 @@ export function useBranchesGame(tree: Tree | null, onComplete?: (r: BranchesComp
       setPinned(frozen && boardSig(frozen) !== boardSig(computed) ? frozen : null);
     });
     return () => { live = false; };
-  }, [tree, date, computed]);
+  }, [tree, date, computed, devActive]);
 
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -101,10 +124,11 @@ export function useBranchesGame(tree: Tree | null, onComplete?: (r: BranchesComp
   const [status, setStatus] = useState<BranchesStatus>("playing");
   const [result, setResult] = useState<{ correct: number; total: number; hinted: number; peeked: number } | null>(null);
 
-  // (Re)initialise when the board changes, restoring a same-day attempt.
+  // (Re)initialise when the board changes, restoring a same-day attempt. A
+  // playtest board is always fresh — it ignores (and never writes) saved progress.
   useEffect(() => {
     if (!board) return;
-    const prog = loadBranchesProgress();
+    const prog = devActive ? null : loadBranchesProgress();
     if (prog && prog.date === date) {
       setPlacements(prog.placements ?? {});
       setHints(prog.hints ?? []);
@@ -121,13 +145,13 @@ export function useBranchesGame(tree: Tree | null, onComplete?: (r: BranchesComp
       setResult(null);
     }
     setHeld(null);
-  }, [board, date]);
+  }, [board, date, devActive]);
 
-  // Persist every change against today's board.
+  // Persist every change against today's board — but never a playtest board.
   useEffect(() => {
-    if (!board) return;
+    if (!board || devActive) return;
     saveBranchesProgress({ date, placements, hints, peeked, status });
-  }, [board, date, placements, hints, peeked, status]);
+  }, [board, date, devActive, placements, hints, peeked, status]);
 
   // Tray = board species not yet placed anywhere.
   const tray = useMemo(() => {
@@ -217,6 +241,20 @@ export function useBranchesGame(tree: Tree | null, onComplete?: (r: BranchesComp
     [status, board]
   );
 
+  // Test bench only: place every species on its correct slot and finish. onComplete
+  // never fires from here, and a playtest board isn't recorded anyway.
+  const solve = useCallback(() => {
+    if (!board) return;
+    const correct: Record<string, string> = {};
+    for (const s of board.slotIds) correct[s] = s;
+    setPlacements(correct);
+    setHints([]);
+    setPeeked([]);
+    setHeld(null);
+    setStatus("done");
+    setResult(tally(board, correct, [], []));
+  }, [board]);
+
   const canSubmit = Boolean(board) && status === "playing" && tray.length === 0;
 
   const submit = useCallback(() => {
@@ -224,21 +262,25 @@ export function useBranchesGame(tree: Tree | null, onComplete?: (r: BranchesComp
     const t = tally(board, placements, hints, peeked);
     setStatus("done");
     setResult(t);
-    onCompleteRef.current?.({
-      correct: t.correct,
-      total: t.total,
-      hinted: t.hinted,
-      peeked: t.peeked,
-      won: t.correct === t.total,
-      tier: board.tier,
-      date,
-    });
-  }, [board, status, placements, hints, peeked, date]);
+    // A playtest board is never recorded (it would corrupt real standings).
+    if (!devActive) {
+      onCompleteRef.current?.({
+        correct: t.correct,
+        total: t.total,
+        hinted: t.hinted,
+        peeked: t.peeked,
+        won: t.correct === t.total,
+        tier: board.tier,
+        date,
+      });
+    }
+  }, [board, status, placements, hints, peeked, date, devActive]);
 
   return {
     board,
     date,
     tier: board?.tier ?? 0,
+    locked: !devActive && status === "done",
     placements,
     hints,
     tray,
@@ -254,5 +296,6 @@ export function useBranchesGame(tree: Tree | null, onComplete?: (r: BranchesComp
     peek,
     submit,
     canSubmit,
+    solve,
   };
 }

@@ -31,3 +31,12 @@ export function saveDailyProgress(p: DailyProgress): void {
     /* ignore */
   }
 }
+
+/** Forget this device's saved Lineage daily attempt (admin playtest reset). */
+export function clearDailyProgress(): void {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
+}

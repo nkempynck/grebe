@@ -7,7 +7,7 @@
  *  No accounts, no network — all from localStorage (optionally synced). */
 
 import { CLADE_GROUPS, cladeGroup, OTHER_GROUP } from "./clades";
-import { gamePoints, kinshipPoints } from "./score";
+import { gamePoints, kinshipPoints, branchesPoints } from "./score";
 import { supabase } from "./supabase";
 
 export interface DailyEntry {
@@ -27,6 +27,17 @@ export interface KinshipEntry {
   tier: number;
 }
 
+/** One finished Branches daily. Partial credit for correct placements; a hint
+ *  forfeits a whole one, a peek half. `won` = every slot correct. Added v5. */
+export interface BranchesEntry {
+  won: boolean;
+  correct: number;
+  total: number;
+  hinted: number;
+  peeked: number;
+  tier: number;
+}
+
 /** Free-play tally per clade group (practice is unranked → no points). */
 interface CladeFree {
   played: number;
@@ -34,13 +45,15 @@ interface CladeFree {
 }
 
 export interface StatsStore {
-  version: 4;
+  version: 5;
   /** date (YYYY-MM-DD) -> the Lineage daily result (drives ALL daily stats). */
   history: Record<string, DailyEntry>;
   /** group id -> free-play tally (drives ALL practice stats). */
   clades: Record<string, CladeFree>;
   /** date (YYYY-MM-DD) -> the Kinship daily result (drives ALL Kinship stats). */
   kinship: Record<string, KinshipEntry>;
+  /** date (YYYY-MM-DD) -> the Branches daily result (drives ALL Branches stats). */
+  branches: Record<string, BranchesEntry>;
 }
 
 /** Per-clade DAILY performance — score-based. */
@@ -111,33 +124,53 @@ export interface KinshipStats {
   points: { total: number; avg: number; best: number };
 }
 
+/** Branches daily performance — ranked, score-based. Streak is a plain run of
+ *  consecutive full-correct days (no give-up in Branches). */
+export interface BranchesStats {
+  played: number;
+  wins: number;
+  /** Full boards done with no hint and no peek — drives the ✨ flawless badge. */
+  flawless: number;
+  winPct: number;
+  currentStreak: number;
+  maxStreak: number;
+  playedDates: string[];
+  solvedDates: string[];
+  flawlessDates: string[];
+  bestStreakEnd: string | null;
+  points: { total: number; avg: number; best: number };
+}
+
 export interface DerivedStats {
   daily: DailyStats;
   practice: PracticeStats;
   kinship: KinshipStats;
+  branches: BranchesStats;
 }
 
 const KEY = "cladensis.stats.v1"; // key kept stable; payload is versioned inside
 
-const emptyStore = (): StatsStore => ({ version: 4, history: {}, clades: {}, kinship: {} });
+const emptyStore = (): StatsStore => ({ version: 5, history: {}, clades: {}, kinship: {}, branches: {} });
 
-/** Accept a raw payload (localStorage or DB) and coerce to a valid v4 store.
- *  Lineage history carries over from any prior version; v1/v2 clade tallies had
- *  an incompatible, daily+free-mixed shape so they reset; the Kinship history
- *  arrived in v4, so older stores just start it empty. */
+/** Accept a raw payload (localStorage or DB) and coerce to a valid store. Lineage
+ *  history carries over from any prior version; v1/v2 clade tallies had an
+ *  incompatible, daily+free-mixed shape so they reset; the Kinship history arrived
+ *  in v4 and Branches in v5, so older stores just start those empty. */
 function migrate(parsed: unknown): StatsStore {
   const s = parsed as {
     version?: number;
     history?: Record<string, DailyEntry>;
     clades?: Record<string, CladeFree>;
     kinship?: Record<string, KinshipEntry>;
+    branches?: Record<string, BranchesEntry>;
   } | null;
   if (!s || typeof s !== "object") return emptyStore();
-  const v = s.version;
-  const history = (v === 1 || v === 2 || v === 3 || v === 4) && s.history ? s.history : {};
-  const clades = (v === 3 || v === 4) && s.clades ? s.clades : {};
-  const kinship = v === 4 && s.kinship ? s.kinship : {};
-  return { version: 4, history, clades, kinship };
+  const v = s.version ?? 0;
+  const history = v >= 1 && s.history ? s.history : {};
+  const clades = v >= 3 && s.clades ? s.clades : {};
+  const kinship = v >= 4 && s.kinship ? s.kinship : {};
+  const branches = v >= 5 && s.branches ? s.branches : {};
+  return { version: 5, history, clades, kinship, branches };
 }
 
 export function loadStore(): StatsStore {
@@ -176,7 +209,8 @@ export function isEmptyStore(store: StatsStore): boolean {
   return (
     Object.keys(store.history).length === 0 &&
     Object.keys(store.clades).length === 0 &&
-    Object.keys(store.kinship).length === 0
+    Object.keys(store.kinship).length === 0 &&
+    Object.keys(store.branches).length === 0
   );
 }
 
@@ -249,6 +283,19 @@ export function applyKinship(store: StatsStore, dateKey: string, entry: KinshipE
 /** Record a Kinship daily result to local storage, once per date. */
 export function recordKinship(dateKey: string, entry: KinshipEntry): StatsStore {
   const store = applyKinship(loadStore(), dateKey, entry);
+  saveStore(store);
+  return store;
+}
+
+/** Apply a finished Branches daily onto a store IN PLACE, once per date. */
+export function applyBranches(store: StatsStore, dateKey: string, entry: BranchesEntry): StatsStore {
+  if (!store.branches[dateKey]) store.branches[dateKey] = { ...entry };
+  return store;
+}
+
+/** Record a Branches daily result to local storage, once per date. */
+export function recordBranches(dateKey: string, entry: BranchesEntry): StatsStore {
+  const store = applyBranches(loadStore(), dateKey, entry);
   saveStore(store);
   return store;
 }
@@ -446,10 +493,70 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
   };
 }
 
-export function derive(store: StatsStore, todayKey: string, groupForDate?: DailyGroupResolver): DerivedStats {
+/** Branches daily stats. Like Kinship: a plain run of consecutive full-correct
+ *  wins (there's no give-up in Branches). "flawless" = won with no hint or peek. */
+function deriveBranches(branches: Record<string, BranchesEntry>, todayKey: string): BranchesStats {
+  const dates = Object.keys(branches);
+  const played = dates.length;
+  const isWin = (d: string) => branches[d].won;
+  const isFlawless = (d: string) => branches[d].won && branches[d].hinted === 0 && branches[d].peeked === 0;
+  const wins = dates.filter(isWin).length;
+  const flawless = dates.filter(isFlawless).length;
+
+  let total = 0;
+  let best = 0;
+  for (const d of dates) {
+    const e = branches[d];
+    const p = branchesPoints(e.tier, e.correct, e.total, e.hinted + 0.5 * e.peeked);
+    total += p;
+    if (p > best) best = p;
+  }
+
+  let currentStreak = 0;
+  let cursor = branches[todayKey] ? todayKey : prevDay(todayKey);
+  while (branches[cursor]?.won) {
+    currentStreak++;
+    cursor = prevDay(cursor);
+  }
+
+  let maxStreak = 0;
+  let bestStreakEnd: string | null = null;
+  const wonSet = new Set(dates.filter(isWin));
+  for (const d of wonSet) {
+    if (wonSet.has(prevDay(d))) continue;
+    let len = 0;
+    let end: string | null = null;
+    let c: string = d;
+    while (wonSet.has(c)) {
+      len++;
+      end = c;
+      c = nextDay(c);
+    }
+    if (len > maxStreak) { maxStreak = len; bestStreakEnd = end; }
+  }
+
   return {
-    daily: deriveDaily(store.history, todayKey, groupForDate),
-    practice: derivePractice(store.clades),
-    kinship: deriveKinship(store.kinship, todayKey),
+    played,
+    wins,
+    flawless,
+    winPct: pct(wins, played),
+    currentStreak,
+    maxStreak,
+    playedDates: [...dates].sort(),
+    solvedDates: dates.filter(isWin).sort(),
+    flawlessDates: dates.filter(isFlawless).sort(),
+    bestStreakEnd,
+    points: { total, avg: played ? Math.round(total / played) : 0, best },
+  };
+}
+
+export function derive(store: StatsStore, todayKey: string, groupForDate?: DailyGroupResolver): DerivedStats {
+  // Tolerate partial stores (older shapes / hand-built test fixtures): a missing
+  // section just derives as empty.
+  return {
+    daily: deriveDaily(store.history ?? {}, todayKey, groupForDate),
+    practice: derivePractice(store.clades ?? {}),
+    kinship: deriveKinship(store.kinship ?? {}, todayKey),
+    branches: deriveBranches(store.branches ?? {}, todayKey),
   };
 }

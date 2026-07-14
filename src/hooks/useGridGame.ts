@@ -21,10 +21,21 @@ export interface GridComplete {
   date: string;
 }
 
+/** Admin playtest override: force a difficulty tier and reshuffle via `nonce`.
+ *  When present, the board is ephemeral — no pin, no saved progress, no result
+ *  recorded — so testing never touches the real daily or the leaderboard. */
+export interface GridDevOpts {
+  tier: number;
+  nonce: number;
+}
+
 export interface UseGridGame {
   board: GridBoard | null;
   date: string;
   tier: number;
+  /** True once today's real board is finished (restored or just now) and no
+   *  playtest override is active — the daily is locked until tomorrow. */
+  locked: boolean;
   /** Tile ids currently selected (max four). */
   selected: string[];
   /** Remaining (unsolved) tile ids, in display order. */
@@ -48,6 +59,8 @@ export interface UseGridGame {
   submit: () => void;
   deselectAll: () => void;
   shuffle: () => void;
+  /** Test bench: jump straight to a solved board (never recorded). */
+  solve: () => void;
 }
 
 function shuffled<T>(arr: T[]): T[] {
@@ -65,17 +78,29 @@ function boardSig(b: GridBoard | null): string {
   return b ? JSON.stringify({ t: b.tier, g: b.groups.map((g) => [g.cladeId, g.memberIds, g.level]), tl: b.tiles }) : "";
 }
 
-export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) => void): UseGridGame {
+export function useGridGame(
+  tree: Tree | null,
+  onComplete?: (r: GridComplete) => void,
+  dev?: GridDevOpts | null
+): UseGridGame {
   const date = todayKey();
+  const devActive = !!dev;
   // The board defaults to the deterministic generator (instant, offline). If a
   // frozen pin exists for today AND differs (i.e. the generator changed since it
   // was pinned), the pinned board takes over — the pin is the authoritative record.
-  const computed = useMemo(() => (tree ? gridBoardFor(tree, date) : null), [tree, date]);
+  // Under a playtest override the board is generated fresh from the override seed
+  // instead (no pin, no saved progress).
+  const devOpts = dev ? { tier: dev.tier, seed: dev.nonce > 0 ? `n${dev.nonce}` : "" } : undefined;
+  const computed = useMemo(
+    () => (tree ? gridBoardFor(tree, date, devOpts) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tree, date, devActive, dev?.tier, dev?.nonce]
+  );
   const [pinned, setPinned] = useState<GridBoard | null>(null);
   const board = pinned ?? computed;
 
   useEffect(() => {
-    if (!tree) { setPinned(null); return; }
+    if (!tree || devActive) { setPinned(null); return; }
     let live = true;
     fetchPinnedPuzzle("kinship", date).then((p) => {
       if (!live) return;
@@ -83,7 +108,7 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
       setPinned(frozen && boardSig(frozen) !== boardSig(computed) ? frozen : null);
     });
     return () => { live = false; };
-  }, [tree, date, computed]);
+  }, [tree, date, computed, devActive]);
 
   // Latest onComplete, held in a ref so submit() doesn't need it as a dependency
   // (and so it fires with the current closure, not a stale one).
@@ -108,10 +133,11 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
   }, [board]);
   const levelOf = useCallback((id: string) => levelById.get(id) ?? 0, [levelById]);
 
-  // (Re)initialise when the board changes, restoring a same-day attempt.
+  // (Re)initialise when the board changes, restoring a same-day attempt. A
+  // playtest board is always fresh — it ignores (and never writes) saved progress.
   useEffect(() => {
     if (!board) return;
-    const prog = loadGridProgress();
+    const prog = devActive ? null : loadGridProgress();
     if (prog && prog.date === date) {
       setSolved(prog.solved);
       setMistakes(prog.mistakes);
@@ -127,13 +153,13 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
     }
     setSelected([]);
     setOrder(board.tiles);
-  }, [board, date]);
+  }, [board, date, devActive]);
 
-  // Persist every change against today's board.
+  // Persist every change against today's board — but never a playtest board.
   useEffect(() => {
-    if (!board) return;
+    if (!board || devActive) return;
     saveGridProgress({ date, solved, mistakes, attempts, revealed, status });
-  }, [board, date, solved, mistakes, attempts, revealed, status]);
+  }, [board, date, devActive, solved, mistakes, attempts, revealed, status]);
 
   const solvedTiles = useMemo(() => {
     const s = new Set<string>();
@@ -166,6 +192,15 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
   const deselectAll = useCallback(() => setSelected([]), []);
   const shuffle = useCallback(() => setOrder((o) => shuffled(o)), []);
 
+  // Test bench only: mark every group solved and win. onComplete never fires from
+  // here, and a playtest board isn't recorded anyway.
+  const solve = useCallback(() => {
+    if (!board) return;
+    setSolved(board.groups.map((_, i) => i));
+    setSelected([]);
+    setStatus("won");
+  }, [board]);
+
   // Reveal a tile's picture. Peeking never ends the board; a few are free and
   // beyond that it costs a little score (see kinshipRevealPenalty). We only track
   // the count here; the penalty is applied where the score is computed.
@@ -189,7 +224,8 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
       setSelected([]);
       if (nextSolved.length === GRID_GROUPS) {
         setStatus("won");
-        onCompleteRef.current?.({ won: true, mistakes, reveals: revealed.length, tier: board.tier, date });
+        // A playtest board is never recorded (it would corrupt real standings).
+        if (!devActive) onCompleteRef.current?.({ won: true, mistakes, reveals: revealed.length, tier: board.tier, date });
       }
       return;
     }
@@ -198,16 +234,17 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
     if (nextMistakes >= GRID_MAX_MISTAKES) {
       setStatus("lost");
       setSelected([]);
-      onCompleteRef.current?.({ won: false, mistakes: nextMistakes, reveals: revealed.length, tier: board.tier, date });
+      if (!devActive) onCompleteRef.current?.({ won: false, mistakes: nextMistakes, reveals: revealed.length, tier: board.tier, date });
     } else {
       flash(oneAway ? "One away…" : "Not a group");
     }
-  }, [board, status, selected, solved, mistakes, revealed, levelOf, flash, date]);
+  }, [board, status, selected, solved, mistakes, revealed, levelOf, flash, date, devActive]);
 
   return {
     board,
     date,
     tier: board?.tier ?? 0,
+    locked: !devActive && status !== "playing",
     selected,
     remaining,
     solvedGroups,
@@ -223,5 +260,6 @@ export function useGridGame(tree: Tree | null, onComplete?: (r: GridComplete) =>
     submit,
     deselectAll,
     shuffle,
+    solve,
   };
 }

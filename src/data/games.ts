@@ -139,19 +139,9 @@ export async function recordGame(g: GameRow): Promise<void> {
   }
 }
 
-// ---- Kinship (grid) leaderboard (see supabase/kinship.sql) ----
-
-/** The caller's standing on the Kinship board. Like Standing, but the population
- *  "par" is average mistakes among solved boards rather than guesses. */
-export interface GridStanding {
-  total_players: number;
-  my_rank: number | null;
-  my_score: number | null;
-  my_games: number | null;
-  my_wins: number | null;
-  avg_score: number | null;
-  avg_mistakes: number | null;
-}
+// ---- Kinship (grid) recording (see supabase/kinship.sql) ----
+// Leaderboard/standing/badges now go through the shared game-parameterised
+// fetchers below (fetchGameLeaderboard etc.).
 
 /** Record one finished Kinship daily via submit_grid_game() (direct INSERT is
  *  denied by RLS). The server pins `tier` from the date; `won`/`mistakes` are
@@ -169,28 +159,70 @@ export async function recordGridGame(g: { puzzleDate: string; won: boolean; mist
   }
 }
 
-/** The caller's live Kinship competitive badges (day/week/month champions +
- *  all-time percentile), same shape as player_badges(). See supabase/badges.sql. */
-export async function fetchGridPlayerBadges(): Promise<import("./badges").PlayerBadges | null> {
-  if (!supabase) return null;
+// ---- Branches (see supabase/branches.sql) ----
+
+/** Record one finished Branches daily via submit_branches_game() (direct INSERT
+ *  is denied by RLS). The server pins `tier` from the date; the placement counts
+ *  are client-reported. One row per player per day. Best-effort. */
+export async function recordBranchesGame(g: {
+  puzzleDate: string; won: boolean; correct: number; total: number; hinted: number; peeked: number;
+}): Promise<void> {
+  if (!supabase) return;
   try {
-    const { data, error } = await supabase.rpc("grid_player_badges");
-    if (error || !data) return null;
-    return data as import("./badges").PlayerBadges;
+    await supabase.rpc("submit_branches_game", {
+      p_puzzle_date: g.puzzleDate,
+      p_won: g.won,
+      p_correct: g.correct,
+      p_total: g.total,
+      p_hinted: g.hinted,
+      p_peeked: g.peeked,
+    });
   } catch {
-    return null;
+    /* best-effort */
   }
 }
 
-/** Ranked Kinship board, filtered by time window (or pinned to `forDate`). */
-export async function fetchGridLeaderboard(
+// ---- Shared, game-parameterised leaderboard/standing/badges ----
+// Each game has the same RPC shape (see the per-game *.sql files); this registry
+// maps a game to its function names so the UI can share one leaderboard component.
+// Lineage additionally filters by clade group; the others don't.
+
+export type GameId = "lineage" | "kinship" | "branches";
+
+/** A player's standing, normalised across games: the game-specific "par" (avg
+ *  guesses / mistakes / correct) is surfaced as a single `par` field + label. */
+export interface GameStanding {
+  total_players: number;
+  my_rank: number | null;
+  my_score: number | null;
+  my_games: number | null;
+  my_wins: number | null;
+  avg_score: number | null;
+  par: number | null;
+}
+
+interface GameLbConfig { lb: string; standing: string; badges: string; parKey: string; parLabel: string; groups: boolean; }
+const GAME_LB: Record<GameId, GameLbConfig> = {
+  lineage:  { lb: "leaderboard",          standing: "leaderboard_standing",          badges: "player_badges",          parKey: "avg_guesses",  parLabel: "guesses",  groups: true },
+  kinship:  { lb: "grid_leaderboard",     standing: "grid_leaderboard_standing",     badges: "grid_player_badges",     parKey: "avg_mistakes", parLabel: "mistakes", groups: false },
+  branches: { lb: "branches_leaderboard", standing: "branches_leaderboard_standing", badges: "branches_player_badges", parKey: "avg_correct",  parLabel: "correct",  groups: false },
+};
+
+/** The noun for a game's population "par" line (e.g. "mistakes"). */
+export function gameParLabel(game: GameId): string { return GAME_LB[game].parLabel; }
+
+/** Ranked board for any game, filtered by window (or pinned to `forDate`). */
+export async function fetchGameLeaderboard(
+  game: GameId,
   period: LeaderboardPeriod = "all",
-  limit = 50,
-  forDate: string | null = null
+  opts: { limit?: number; forDate?: string | null; groupKey?: string | null } = {}
 ): Promise<LeaderboardEntry[]> {
   if (!supabase) return [];
+  const c = GAME_LB[game];
+  const params: Record<string, unknown> = { period, limit_n: opts.limit ?? 50, for_date: opts.forDate ?? null };
+  if (c.groups) params.group_key = opts.groupKey ?? null;
   try {
-    const { data, error } = await supabase.rpc("grid_leaderboard", { period, limit_n: limit, for_date: forDate });
+    const { data, error } = await supabase.rpc(c.lb, params);
     if (error || !data) return [];
     return data as LeaderboardEntry[];
   } catch {
@@ -198,16 +230,41 @@ export async function fetchGridLeaderboard(
   }
 }
 
-/** The caller's Kinship standing for a filter. */
-export async function fetchGridStanding(
+/** The caller's standing for any game, with the game's par normalised to `par`. */
+export async function fetchGameStanding(
+  game: GameId,
   period: LeaderboardPeriod = "all",
-  forDate: string | null = null
-): Promise<GridStanding | null> {
+  opts: { forDate?: string | null; groupKey?: string | null } = {}
+): Promise<GameStanding | null> {
+  if (!supabase) return null;
+  const c = GAME_LB[game];
+  const params: Record<string, unknown> = { period, for_date: opts.forDate ?? null };
+  if (c.groups) params.group_key = opts.groupKey ?? null;
+  try {
+    const { data, error } = await supabase.rpc(c.standing, params);
+    if (error || !data || !data[0]) return null;
+    const row = data[0] as Record<string, number | null>;
+    return {
+      total_players: Number(row.total_players ?? 0),
+      my_rank: row.my_rank ?? null,
+      my_score: row.my_score ?? null,
+      my_games: row.my_games ?? null,
+      my_wins: row.my_wins ?? null,
+      avg_score: row.avg_score ?? null,
+      par: (row[c.parKey] as number | null) ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** The caller's competitive badge inputs for any game. */
+export async function fetchGameBadges(game: GameId): Promise<import("./badges").PlayerBadges | null> {
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase.rpc("grid_leaderboard_standing", { period, for_date: forDate });
-    if (error || !data || !data[0]) return null;
-    return data[0] as GridStanding;
+    const { data, error } = await supabase.rpc(GAME_LB[game].badges);
+    if (error || !data) return null;
+    return data as import("./badges").PlayerBadges;
   } catch {
     return null;
   }

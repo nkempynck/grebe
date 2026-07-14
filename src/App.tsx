@@ -4,7 +4,7 @@ import { informedPar } from "./core";
 import { groupOf } from "./data/clades";
 import { useStats } from "./hooks/useStats";
 import { usePlayer } from "./hooks/usePlayer";
-import { recordGame, fetchPlayerBadges, recordGridGame } from "./data/games";
+import { recordGame, fetchPlayerBadges, recordGridGame, recordBranchesGame } from "./data/games";
 import { newDailyWins } from "./data/badges";
 import { kinshipRevealPenalty } from "./data/score";
 import { todayKey, dailyNumber } from "./core/daily";
@@ -24,8 +24,10 @@ import { GridGame } from "./ui/GridGame";
 import { BranchesGame } from "./ui/BranchesGame";
 import { GameHeader } from "./ui/GameHeader";
 import { HomePanel } from "./ui/HomePanel";
-import { KinshipLeaderboard } from "./ui/KinshipLeaderboard";
+import { Leaderboard } from "./ui/Leaderboard";
+import { ErrorBoundary } from "./ui/ErrorBoundary";
 import type { GridComplete } from "./hooks/useGridGame";
+import type { BranchesComplete } from "./hooks/useBranchesGame";
 import { RESOLUTION_PRESETS, SCOPE_PRESETS } from "./data/presets";
 import { useTheme } from "./data/theme";
 import logoUrl from "../logo.png";
@@ -36,6 +38,11 @@ import logoUrl from "../logo.png";
 // protection is is_admin() + the admin password; the value is still present in
 // the compiled bundle, just not in git.
 const ADMIN_HASH = `#${import.meta.env.VITE_ADMIN_ROUTE ?? "admin"}`;
+// The real protection is is_admin() + the admin password; the route is just
+// obscurity. So in DEV builds we also honour plain "#admin" — a rotated or
+// mistyped VITE_ADMIN_ROUTE can't lock you out of local testing. Production
+// builds match ONLY the configured route.
+const isAdminHash = (h: string) => h === ADMIN_HASH || (import.meta.env.DEV && h === "#admin");
 
 export default function App() {
   const player = usePlayer();
@@ -75,7 +82,7 @@ export default function App() {
     },
     [tree, answerIdFor]
   );
-  const { stats, record, recordKinship } = useStats(userId, dailyGroupOf);
+  const { stats, record, recordKinship, recordBranches } = useStats(userId, dailyGroupOf);
 
   // Prime the frozen pins for the past dates these lookups touch — the player's
   // local Lineage history, plus a recent window for the admin leaderboard preview.
@@ -98,8 +105,10 @@ export default function App() {
   const [boardReload, setBoardReload] = useState(0);
   // Same idea for the Kinship board after a grid result is submitted.
   const [kinBoardReload, setKinBoardReload] = useState(0);
+  // Same idea for the Branches board after a result is submitted.
+  const [branchBoardReload, setBranchBoardReload] = useState(0);
   // Which game's rankings the Leaderboard tab is showing.
-  const [lbGame, setLbGame] = useState<"lineage" | "kinship">("lineage");
+  const [lbGame, setLbGame] = useState<"lineage" | "kinship" | "branches">("lineage");
   // Daily-winner celebration: on sign-in, fetch the player's recent winning days
   // and surface any not yet shown on this device (see newDailyWins for baseline).
   const [winNudge, setWinNudge] = useState<string[]>([]);
@@ -127,6 +136,20 @@ export default function App() {
       }
     },
     [recordKinship, player.session]
+  );
+
+  // Record a finished Branches board: local stat + streak always; a signed-in
+  // player also gets a durable leaderboard row, then the post-game board refetches.
+  const recordBranchesResult = useCallback(
+    (r: BranchesComplete) => {
+      recordBranches({ won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, tier: r.tier });
+      if (player.session) {
+        void recordBranchesGame({
+          puzzleDate: r.date, won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked,
+        }).then(() => setBranchBoardReload((c) => c + 1));
+      }
+    },
+    [recordBranches, player.session]
   );
 
   const daily = g.mode === "daily";
@@ -197,7 +220,7 @@ export default function App() {
     return <div className="wrap"><p className="empty">Growing the tree of life…</p></div>;
   }
 
-  if (hash === ADMIN_HASH) return <AdminPanel tree={g.tree} />;
+  if (isAdminHash(hash)) return <ErrorBoundary label="Curator page"><AdminPanel tree={g.tree} /></ErrorBoundary>;
 
   const answer = g.tree.byId.get(g.answerId)!;
   const today = new Date().toISOString().slice(0, 10);
@@ -407,7 +430,15 @@ export default function App() {
       )}
       {view === "branches" && (
         <div className="gameview" data-game="branches">
-          <BranchesGame tree={g.tree} onHowItWorks={() => openAbout("about-branches")} />
+          <BranchesGame
+            tree={g.tree}
+            onComplete={recordBranchesResult}
+            onHowItWorks={() => openAbout("about-branches")}
+            me={boardName}
+            configured={player.configured}
+            reloadKey={branchBoardReload}
+            streak={stats.branches.currentStreak}
+          />
         </div>
       )}
       {view === "leaderboard" && (
@@ -415,16 +446,22 @@ export default function App() {
           <div className="lb-gametabs" role="tablist" aria-label="Leaderboard game">
             <button role="tab" aria-selected={lbGame === "lineage"} className={`lb-seg${lbGame === "lineage" ? " is-on" : ""}`} onClick={() => setLbGame("lineage")}>🧬 Lineage</button>
             <button role="tab" aria-selected={lbGame === "kinship"} className={`lb-seg${lbGame === "kinship" ? " is-on" : ""}`} onClick={() => setLbGame("kinship")}>🧩 Kinship</button>
+            <button role="tab" aria-selected={lbGame === "branches"} className={`lb-seg${lbGame === "branches" ? " is-on" : ""}`} onClick={() => setLbGame("branches")}>🌿 Branches</button>
           </div>
           {lbGame === "lineage" ? (
             <>
               <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} streak={stats.daily.currentStreak} />
               <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} />
             </>
+          ) : lbGame === "kinship" ? (
+            <>
+              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="today" streak={stats.kinship.currentStreak} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
+              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="config" streak={stats.kinship.currentStreak} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
+            </>
           ) : (
             <>
-              <KinshipLeaderboard me={boardName} variant="today" streak={stats.kinship.currentStreak} />
-              <KinshipLeaderboard me={boardName} variant="config" streak={stats.kinship.currentStreak} />
+              <Leaderboard game="branches" label="Branches" me={boardName} variant="today" streak={stats.branches.currentStreak} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
+              <Leaderboard game="branches" label="Branches" me={boardName} variant="config" streak={stats.branches.currentStreak} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
             </>
           )}
         </>

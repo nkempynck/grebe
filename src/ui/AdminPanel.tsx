@@ -4,7 +4,21 @@ import type { Tree } from "../core";
 import { dailyAnswerId, displayName, leavesUnder, randomAnswerId } from "../core";
 import { todayKey, dailyNumber } from "../core/daily";
 import { RESOLUTION_PRESETS, SCOPE_PRESETS } from "../data/presets";
-import { dailyRules, resolveDailyRules } from "../data/dailySchedule";
+import { dailyRules, resolveDailyRules, dailyAnswerFor } from "../data/dailySchedule";
+import { gridBoardFor } from "../data/gridDaily";
+import { branchesBoardFor } from "../data/branchesDaily";
+import { clearDailyProgress } from "../data/dailyProgress";
+import { clearGridProgress } from "../data/gridProgress";
+import { clearBranchesProgress } from "../data/branchesProgress";
+import { GridGame } from "./GridGame";
+import { BranchesGame } from "./BranchesGame";
+import { ErrorBoundary } from "./ErrorBoundary";
+import { useGame } from "../hooks/useGame";
+import { asEmail, fromEmail } from "../hooks/usePlayer";
+import { SettingsPanel } from "./SettingsPanel";
+import { GuessInput } from "./GuessInput";
+import { Cladogram } from "./Cladogram";
+import { ResultCard } from "./ResultCard";
 import {
   DAILY_PLAN,
   DRAFT_KEY,
@@ -58,12 +72,13 @@ const scopeLabel = (id: string) =>
   (SCOPE_PRESETS.find((s) => s.id === id)?.label ?? id).replace(/\s+only$/i, "");
 const resLabel = (n: number) => RESOLUTION_PRESETS.find((r) => r.winWithin === n)?.label ?? `±${n}`;
 
-// Each backend SQL file exposes a *_schema_check() RPC; the panel calls all of
+// Each backend SQL file exposes a *_schema_check() RPC; the dashboard calls all of
 // them so one glance confirms every file applied. A missing RPC = that file was
 // never run.
 const SCHEMA_CHECKS = [
   { rpc: "schema_check", label: "Core", file: "schema.sql" },
   { rpc: "grid_schema_check", label: "Kinship", file: "kinship.sql" },
+  { rpc: "branches_schema_check", label: "Branches", file: "branches.sql" },
   { rpc: "puzzles_schema_check", label: "Puzzles", file: "puzzles.sql" },
   { rpc: "names_schema_check", label: "Names", file: "names.sql" },
   { rpc: "badges_schema_check", label: "Badges", file: "badges.sql" },
@@ -76,14 +91,25 @@ interface FileCheck {
   error: string | null;
 }
 
-/** Live "is the schema up to date?" panel — calls every backend file's
- *  *_schema_check() RPC and flags any file that's missing or incomplete. */
-function SchemaCheck() {
-  const [results, setResults] = useState<FileCheck[] | null>(null);
-  const [loading, setLoading] = useState(true);
+interface Check { label: string; ok: boolean; detail?: string; }
 
-  const run = useCallback(async () => {
-    if (!supabase) return;
+function StatusRow({ label, ok, detail }: Check) {
+  return (
+    <li className={ok ? "is-ok" : "is-bad"}>
+      {ok ? "✓" : "✗"} <b>{label}</b>{detail && <span className="sys-detail"> — {detail}</span>}
+    </li>
+  );
+}
+
+/** One-glance "is everything OK?" dashboard: runtime config, the three game
+ *  engines building today's board locally, and every backend schema file. */
+function SystemHealth({ tree }: { tree: Tree }) {
+  const live = isSupabaseConfigured;
+  const [schema, setSchema] = useState<FileCheck[] | null>(null);
+  const [loading, setLoading] = useState(live);
+
+  const runSchema = useCallback(async () => {
+    if (!supabase) { setLoading(false); return; }
     const sb = supabase; // capture the non-null client for the async closures below
     setLoading(true);
     const out = await Promise.all(
@@ -93,40 +119,153 @@ function SchemaCheck() {
         return { label: c.label, file: c.file, rows: Object.entries(data as Record<string, boolean>), error: null };
       })
     );
-    setResults(out);
+    setSchema(out);
     setLoading(false);
   }, []);
-  useEffect(() => { void run(); }, [run]);
+  useEffect(() => { if (live) void runSchema(); }, [runSchema, live]);
 
-  const failing = results?.filter((r) => r.rows === null || r.rows.some(([, ok]) => !ok)) ?? [];
-  const allOk = results !== null && failing.length === 0;
+  const today = todayKey();
+  // Runtime + engine checks, recomputed locally from the loaded tree (no network).
+  const runtime: Check[] = [
+    { label: "Backend configured", ok: live, detail: live ? "Supabase connected" : "local-only build" },
+    { label: "Taxonomy loaded", ok: tree.byId.size > 0, detail: `${tree.byId.size} nodes` },
+  ];
+  const engines = useMemo<Check[]>(() => {
+    const ans = dailyAnswerFor(tree, today);
+    const node = ans ? tree.byId.get(ans) : null;
+    const grid = gridBoardFor(tree, today);
+    const br = branchesBoardFor(tree, today);
+    return [
+      { label: "Lineage answer resolves", ok: !!node, detail: node ? displayName(node) : "no answer" },
+      { label: "Kinship board builds", ok: !!grid && grid.groups.length === 4, detail: grid ? `${grid.groups.length} groups · ${grid.tiles.length} tiles` : "null" },
+      { label: "Branches board builds", ok: !!br && br.slotIds.length >= 4, detail: br ? `${br.slotIds.length} slots` : "null" },
+    ];
+  }, [tree, today]);
+
+  const schemaBad = (schema ?? []).filter((r) => r.rows === null || r.rows.some(([, ok]) => !ok));
+  // A missing backend on a local-only build isn't a failure to flag.
+  const runtimeBad = [...runtime, ...engines].filter((c) => !c.ok && (c.label !== "Backend configured" || live));
+  const allOk = !loading && runtimeBad.length === 0 && (!live || schemaBad.length === 0);
+  const issues = runtimeBad.length + (live ? schemaBad.length : 0);
 
   return (
-    <div className={`admin-schema${allOk ? " is-ok" : results ? " is-bad" : ""}`}>
+    <div className={`admin-schema${allOk ? " is-ok" : loading ? "" : " is-bad"}`}>
       <div className="admin-schema-head">
         <span className="admin-schema-ttl">
-          {loading ? "Checking schema…"
-            : allOk ? "✓ All schema files up to date"
-            : `⚠ ${failing.length} schema file${failing.length === 1 ? "" : "s"} need attention`}
+          {loading ? "Running checks…" : allOk ? "✓ All systems go" : `⚠ ${issues} check${issues === 1 ? "" : "s"} need attention`}
         </span>
-        <button className="linkbtn" onClick={() => void run()} disabled={loading}>Re-check</button>
+        {live && <button className="linkbtn" onClick={() => void runSchema()} disabled={loading}>Re-check</button>}
       </div>
-      {results && !allOk && (
-        <>
+
+      <div className="sys-groups">
+        <div className="sys-group">
+          <div className="sys-group-ttl">Runtime</div>
+          <ul className="admin-schema-list">{runtime.map((c) => <StatusRow key={c.label} {...c} />)}</ul>
+        </div>
+        <div className="sys-group">
+          <div className="sys-group-ttl">Game engines · today</div>
+          <ul className="admin-schema-list">{engines.map((c) => <StatusRow key={c.label} {...c} />)}</ul>
+        </div>
+        <div className="sys-group">
+          <div className="sys-group-ttl">Backend schema</div>
           <ul className="admin-schema-list">
-            {results.map((r) => {
-              if (r.rows === null) {
-                return <li key={r.file} className="is-bad">✗ <b>{r.label}</b> — <code>{r.file}</code> not applied ({r.error})</li>;
-              }
-              const bad = r.rows.filter(([, ok]) => !ok).map(([k]) => k);
-              return bad.length === 0
-                ? <li key={r.file} className="is-ok">✓ <b>{r.label}</b> <code>{r.file}</code></li>
-                : <li key={r.file} className="is-bad">✗ <b>{r.label}</b> — missing: {bad.join(", ")}</li>;
-            })}
+            {!live ? (
+              <li className="is-muted">Local-only build — no backend to check.</li>
+            ) : schema === null ? (
+              <li className="is-muted">Checking…</li>
+            ) : (
+              schema.map((r) => {
+                if (r.rows === null) return <li key={r.file} className="is-bad">✗ <b>{r.label}</b> — <code>{r.file}</code> not applied ({r.error})</li>;
+                const bad = r.rows.filter(([, ok]) => !ok).map(([k]) => k);
+                return bad.length === 0
+                  ? <li key={r.file} className="is-ok">✓ <b>{r.label}</b> <code>{r.file}</code></li>
+                  : <li key={r.file} className="is-bad">✗ <b>{r.label}</b> — missing: {bad.join(", ")}</li>;
+              })
+            )}
           </ul>
-          <p className="admin-schema-hint">Run the flagged file(s) in the Supabase SQL editor (safe to re-run), then re-check.</p>
-        </>
+        </div>
+      </div>
+      {live && schemaBad.length > 0 && (
+        <p className="admin-schema-hint">Run the flagged file(s) in the Supabase SQL editor (safe to re-run), then re-check.</p>
       )}
+    </div>
+  );
+}
+
+/** Lineage sandbox: a free-play instance (never the real daily, never persisted)
+ *  with the scope/resolution/assist levers, reroll, and autosolve. */
+function LineageBench({ tree }: { tree: Tree }) {
+  // "free" from the start so this instance never reads or writes daily progress.
+  const g = useGame(null, "free");
+  const over = g.status !== "playing";
+  const answer = g.answerId ? tree.byId.get(g.answerId) : null;
+  if (!g.answerId || !answer) return <p className="empty">Drawing a specimen…</p>;
+  return (
+    <>
+      <div className="playtest" role="region" aria-label="Playtest controls">
+        <span className="playtest-tag">Test bench</span>
+        <button className="playtest-btn" onClick={g.newRandom}>🎲 New specimen</button>
+        <button className="playtest-btn" onClick={() => g.submit(answer.sciName)} disabled={over}>✓ Autosolve</button>
+        <button className="playtest-btn" onClick={g.giveUp} disabled={over}>Reveal answer</button>
+        <span className="playtest-note">Not recorded</span>
+      </div>
+      <SettingsPanel config={g.config} onScope={g.setScope} onWinWithin={g.setWinWithin} assist={g.assist} onAssist={g.setAssist} />
+      {g.guesses.length === 0 && g.hintIds.length === 0 && !over ? (
+        <p className="empty">Guess a species, or a group like <em>owls</em> to scout. Autosolve jumps to the win.</p>
+      ) : (
+        <Cladogram tree={tree} scopeRootId={g.config.scopeRootId} results={g.guesses} answerId={g.answerId} hintIds={g.hintIds} revealed={over} />
+      )}
+      {over && <ResultCard tree={tree} answer={answer} won={g.status === "won"} guessCount={g.guesses.length} streak={null} par={null} />}
+      <div className="playbar">
+        <GuessInput tree={tree} config={g.config} disabled={over} onSubmit={g.submit} focusCladeId={g.assist ? g.focusCladeId : null} guesses={g.guesses} />
+        <div className="errline">{g.error}</div>
+        <div className="subactions">
+          {!over && <button className="linkbtn" onClick={g.revealHint} disabled={!g.canHint}>Hint: reveal next branch</button>}
+          {!over && <button className="linkbtn" onClick={g.newRandom}>New random specimen</button>}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Play the daily games right here for testing: force a difficulty, deal fresh
+ *  boards, autosolve. Nothing played here is recorded to stats or the leaderboard,
+ *  so the real dailies and standings stay untouched. */
+function TestBench({ tree }: { tree: Tree }) {
+  const [game, setGame] = useState<"lineage" | "kinship" | "branches">("kinship");
+  const [cleared, setCleared] = useState(false);
+  const resetToday = () => {
+    clearDailyProgress();
+    clearGridProgress();
+    clearBranchesProgress();
+    setCleared(true);
+    setTimeout(() => setCleared(false), 2200);
+  };
+  return (
+    <div className="admin-testbench">
+      <div className="admin-testbench-head">
+        <div>
+          <div className="admin-testbench-ttl">Test bench</div>
+          <p className="admin-testbench-hint">
+            Play any game here as much as you want: set difficulty (or scope / resolution /
+            assist for Lineage), deal fresh boards, or autosolve to jump to the end state.
+            Nothing here is recorded.
+          </p>
+        </div>
+        <button className="linkbtn" onClick={resetToday}>
+          {cleared ? "cleared ✓ — reload the site" : "Reset today’s saved progress"}
+        </button>
+      </div>
+      <div className="admin-testbench-tabs" role="tablist" aria-label="Test which game">
+        <button role="tab" aria-selected={game === "lineage"} className={`lb-seg${game === "lineage" ? " is-on" : ""}`} onClick={() => setGame("lineage")}>🧬 Lineage</button>
+        <button role="tab" aria-selected={game === "kinship"} className={`lb-seg${game === "kinship" ? " is-on" : ""}`} onClick={() => setGame("kinship")}>🧩 Kinship</button>
+        <button role="tab" aria-selected={game === "branches"} className={`lb-seg${game === "branches" ? " is-on" : ""}`} onClick={() => setGame("branches")}>🌿 Branches</button>
+      </div>
+      <ErrorBoundary key={game} label={`${game} test bench`}>
+        <div className="gameview admin-testbench-stage" data-game={game}>
+          {game === "lineage" ? <LineageBench tree={tree} /> : game === "kinship" ? <GridGame tree={tree} sandbox /> : <BranchesGame tree={tree} sandbox />}
+        </div>
+      </ErrorBoundary>
     </div>
   );
 }
@@ -137,7 +276,7 @@ export function AdminPanel({ tree }: { tree: Tree }) {
   // ---- Auth (only relevant when Supabase is configured) ----
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!live);
-  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [authMsg, setAuthMsg] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
@@ -146,19 +285,28 @@ export function AdminPanel({ tree }: { tree: Tree }) {
 
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setAuthReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
+    // Never hang on "Checking sign-in…": resolve authReady whether getSession
+    // succeeds, fails, or stalls (timeout), then fall through to the login form
+    // or the panel. onAuthStateChange also flips it (fires an INITIAL_SESSION).
+    let settled = false;
+    const ready = () => { if (!settled) { settled = true; setAuthReady(true); } };
+    supabase.auth
+      .getSession()
+      .then(({ data }) => setSession(data.session))
+      .catch(() => {})
+      .finally(ready);
+    const t = setTimeout(ready, 3000);
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { setSession(s); ready(); });
+    return () => { clearTimeout(t); sub.subscription.unsubscribe(); };
   }, []);
 
   const signIn = async () => {
-    if (!supabase || !email.trim() || !password) return;
+    if (!supabase || !name.trim() || !password) return;
     if (captchaEnabled && !captchaToken) { setAuthMsg("Please complete the CAPTCHA."); return; }
+    // Same name→identifier mapping as player sign-in, so the curator logs in with
+    // a plain name (no email anywhere).
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: asEmail(name),
       password,
       options: captchaToken ? { captchaToken } : undefined,
     });
@@ -273,14 +421,14 @@ export function AdminPanel({ tree }: { tree: Tree }) {
         {Header}
         <div className="admin-login">
           <div className="admin-login-lab">Sign in to edit puzzles</div>
-          <p>Only you can change the live daily. Enter your admin username and password.</p>
+          <p>Only you can change the live daily. Enter your admin name and password.</p>
           <div className="admin-login-fields">
             <input
               type="text"
               autoComplete="username"
-              placeholder="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && signIn()}
             />
             <input
@@ -314,7 +462,7 @@ export function AdminPanel({ tree }: { tree: Tree }) {
             <span>Changes publish instantly for everyone.</span>
             {session && (
               <button className="linkbtn" onClick={() => supabase?.auth.signOut()}>
-                Sign out ({session.user.email})
+                Sign out ({fromEmail(session.user.email)})
               </button>
             )}
           </>
@@ -324,7 +472,9 @@ export function AdminPanel({ tree }: { tree: Tree }) {
         {saveErr && <span className="admin-saveerr">Save failed: {saveErr}</span>}
       </div>
 
-      {live && session && <SchemaCheck />}
+      <ErrorBoundary label="System health"><SystemHealth tree={tree} /></ErrorBoundary>
+
+      <ErrorBoundary label="Test bench"><TestBench tree={tree} /></ErrorBoundary>
 
       <div className="admin-datebar">
         <label htmlFor="admin-date">Date</label>

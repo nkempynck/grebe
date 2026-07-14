@@ -4,6 +4,7 @@ import {
   applyDaily,
   applyFree,
   applyKinship,
+  applyBranches,
   derive,
   fetchCloudStats,
   loadStore,
@@ -11,11 +12,13 @@ import {
   recordDaily,
   recordFree,
   recordKinship as recordKinshipLocal,
+  recordBranches as recordBranchesLocal,
   saveStore,
   clearStore,
   isEmptyStore,
   type DailyEntry,
   type KinshipEntry,
+  type BranchesEntry,
   type DailyGroupResolver,
   type DerivedStats,
 } from "../data/stats";
@@ -23,7 +26,8 @@ import {
 // A record made while the cloud pull was still in flight, replayed once it lands.
 type PendingRecord =
   | { kind: "daily" | "free"; groupId: string; entry: DailyEntry; date: string }
-  | { kind: "kinship"; entry: KinshipEntry; date: string };
+  | { kind: "kinship"; entry: KinshipEntry; date: string }
+  | { kind: "branches"; entry: BranchesEntry; date: string };
 
 export interface UseStats {
   stats: DerivedStats;
@@ -32,6 +36,8 @@ export interface UseStats {
   record: (mode: "daily" | "free", groupId: string, entry: DailyEntry) => void;
   /** Record a finished Kinship daily (ranked, once per date). */
   recordKinship: (entry: KinshipEntry) => void;
+  /** Record a finished Branches daily (ranked, once per date). */
+  recordBranches: (entry: BranchesEntry) => void;
 }
 
 /** @param userId  signed-in player's id, or null for local-only.
@@ -78,6 +84,7 @@ export function useStats(userId: string | null, groupForDate?: DailyGroupResolve
         base = cloud;
         for (const p of pending.current) {
           if (p.kind === "kinship") base = applyKinship(base, p.date, p.entry);
+          else if (p.kind === "branches") base = applyBranches(base, p.date, p.entry);
           else if (p.kind === "daily") base = applyDaily(base, p.date, p.entry, p.groupId);
           else base = applyFree(base, p.entry, p.groupId);
         }
@@ -106,7 +113,7 @@ export function useStats(userId: string | null, groupForDate?: DailyGroupResolve
     (mode: "daily" | "free", groupId: string, entry: DailyEntry) => {
       // Always persist + reflect locally for immediate UI.
       const next = mode === "daily" ? recordDaily(today, entry, groupId) : recordFree(entry, groupId);
-      const cloned = { ...next, history: { ...next.history }, clades: { ...next.clades }, kinship: { ...next.kinship } };
+      const cloned = { ...next, history: { ...next.history }, clades: { ...next.clades }, kinship: { ...next.kinship }, branches: { ...next.branches } };
       setStore(cloned);
       if (!userId) return;
       if (!synced.current) {
@@ -123,7 +130,7 @@ export function useStats(userId: string | null, groupForDate?: DailyGroupResolve
   const recordKinship = useCallback(
     (entry: KinshipEntry) => {
       const next = recordKinshipLocal(today, entry);
-      const cloned = { ...next, history: { ...next.history }, clades: { ...next.clades }, kinship: { ...next.kinship } };
+      const cloned = { ...next, history: { ...next.history }, clades: { ...next.clades }, kinship: { ...next.kinship }, branches: { ...next.branches } };
       setStore(cloned);
       if (!userId) return;
       if (!synced.current) {
@@ -135,5 +142,20 @@ export function useStats(userId: string | null, groupForDate?: DailyGroupResolve
     [today, userId]
   );
 
-  return { stats, syncing, record, recordKinship };
+  const recordBranches = useCallback(
+    (entry: BranchesEntry) => {
+      const next = recordBranchesLocal(today, entry);
+      const cloned = { ...next, history: { ...next.history }, clades: { ...next.clades }, kinship: { ...next.kinship }, branches: { ...next.branches } };
+      setStore(cloned);
+      if (!userId) return;
+      if (!synced.current) {
+        pending.current.push({ kind: "branches", entry, date: today });
+        return;
+      }
+      void pushCloudStats(cloned);
+    },
+    [today, userId]
+  );
+
+  return { stats, syncing, record, recordKinship, recordBranches };
 }

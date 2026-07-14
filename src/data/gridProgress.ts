@@ -34,3 +34,12 @@ export function saveGridProgress(p: GridProgress): void {
     /* ignore */
   }
 }
+
+/** Forget today's saved Kinship attempt (admin playtest reset). */
+export function clearGridProgress(): void {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
+}

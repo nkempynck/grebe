@@ -21,18 +21,24 @@ export interface UsePlayer {
   updateDisplayName: (name: string) => Promise<{ error: string | null }>;
 }
 
-const PLAYER_DOMAIN = "@cladensis.player";
+// An account is just a NAME. Supabase Auth still needs an identifier in email
+// shape, so we map the name to `<name>@cladensis.local` behind the scenes — this
+// is never a real address, is never shown, and no email is ever collected. This
+// domain matches the admin allowlist (public.admins) and the existing accounts,
+// so a plain name signs in everywhere and is_admin() keeps working.
+const PLAYER_DOMAIN = "@cladensis.local";
 
-/** Map a username to the email-format string Supabase Auth needs — and pointedly
- *  NOT a real email. We strip anything from '@' onward and keep only handle-safe
- *  characters, so even if someone pastes an address, only the local part before
- *  the '@' is used against our internal domain. Players never store an email. */
-const asEmail = (u: string) => {
-  const v = u.trim().toLowerCase().split("@")[0].replace(/[^a-z0-9_.-]/g, "");
+/** Name → the internal identifier Supabase Auth needs. Keeps only name-safe
+ *  characters and appends our fixed internal domain. Exported so the curator
+ *  sign-in maps names the same way as player sign-in. */
+export const asEmail = (name: string) => {
+  const v = name.trim().toLowerCase().split("@")[0].replace(/[^a-z0-9_.-]/g, "");
   return `${v || "player"}${PLAYER_DOMAIN}`;
 };
-const fromEmail = (e: string | undefined) =>
-  e ? e.replace(new RegExp(`${PLAYER_DOMAIN}$`), "") : null;
+
+/** Identifier → the display name: strip whatever internal domain it carries, so a
+ *  name always shows cleanly regardless of which domain the account was made on. */
+export const fromEmail = (e: string | undefined) => (e ? e.split("@")[0] : null);
 
 export function usePlayer(): UsePlayer {
   const [session, setSession] = useState<Session | null>(null);

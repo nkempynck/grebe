@@ -239,9 +239,9 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
           about your games leaves your device.
         </li>
         <li>
-          <b>Accounts are optional.</b> If you create one, it's a username and password only, no
-          email. Your stats and finished games then sync so they carry across devices and can appear
-          on the leaderboard. (No email means a forgotten password can't be recovered.)
+          <b>Accounts are optional.</b> If you create one, it's just a name and a password. Your
+          stats and finished games then sync so they carry across devices and can appear on the
+          leaderboard. (There's no password recovery, so pick one you'll remember.)
         </li>
         <li>
           <b>What others can see.</b> Only your leaderboard display name and your aggregate scores.

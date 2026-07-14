@@ -1,45 +1,62 @@
 import { useEffect, useState } from "react";
 import type { DerivedStats } from "../data/stats";
 import type { UsePlayer } from "../hooks/usePlayer";
-import { fetchPlayerBadges, fetchGridPlayerBadges } from "../data/games";
-import { competitiveBadges, lineageBadges, kinshipBadges, nextPlayMilestone, type Badge, type PlayerBadges } from "../data/badges";
+import { fetchGameBadges, fetchGameStanding, type GameId, type GameStanding } from "../data/games";
+import { competitiveBadges, lineageBadges, kinshipBadges, branchesBadges, nextPlayMilestone, type Badge, type PlayerBadges } from "../data/badges";
 
 interface Props {
   stats: DerivedStats;
   player: UsePlayer;
   /** Which game's badges to show — each game gets its own panel. */
-  game: "lineage" | "kinship";
+  game: GameId;
 }
 
+const LABEL: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches" };
+const NOUN: Record<GameId, string> = { lineage: "puzzle", kinship: "board", branches: "board" };
+
 export function BadgesPanel({ stats, player, game }: Props) {
-  const isLineage = game === "lineage";
   const [server, setServer] = useState<PlayerBadges | null>(null);
+  // This game's all-time competitive standing (rank + score), shown per game so
+  // each panel carries its own — the profile header no longer singles out Lineage.
+  const [standing, setStanding] = useState<GameStanding | null>(null);
   // The champion badge whose winning dates are expanded (click to toggle).
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!player.session) { setServer(null); return; }
+    if (!player.session) { setServer(null); setStanding(null); return; }
     let live = true;
-    const fetch = isLineage ? fetchPlayerBadges() : fetchGridPlayerBadges();
-    fetch.then((b) => { if (live) setServer(b); });
+    fetchGameBadges(game).then((b) => { if (live) setServer(b); });
+    fetchGameStanding(game, "all").then((s) => { if (live) setStanding(s); });
     return () => { live = false; };
-  }, [isLineage, player.session]);
+  }, [game, player.session]);
 
-  const local = isLineage ? lineageBadges(stats) : kinshipBadges(stats);
+  // Local (streak/play/flawless) milestones per game, plus the server-side
+  // competitive badges shared by all games.
+  const local = game === "lineage" ? lineageBadges(stats) : game === "kinship" ? kinshipBadges(stats) : branchesBadges(stats);
   const badges: Badge[] = [...competitiveBadges(server), ...local];
-  const played = isLineage ? stats.daily.played : stats.kinship.played;
-  const nextUp = nextPlayMilestone(played, isLineage ? "puzzle" : "board");
-  const noun = isLineage ? "puzzle" : "board";
+  const noun = NOUN[game];
+  const played = game === "lineage" ? stats.daily.played : game === "kinship" ? stats.kinship.played : stats.branches.played;
+  const nextUp = nextPlayMilestone(played, noun);
   const open = badges.find((b) => b.id === openId && b.occurrences?.length);
 
   return (
     <div className="stats badges">
-      <div className="stats-sub">{isLineage ? "Lineage badges" : "Kinship badges"}</div>
+      <div className="stats-sub">{LABEL[game]} badges</div>
+      {player.session && (
+        <div className="badges-standing">
+          <span className="badges-standing-lbl">All-time standing</span>
+          {standing && standing.my_rank != null ? (
+            <span className="badges-standing-val">
+              #{standing.my_rank} of {standing.total_players} · {standing.my_score} pts
+            </span>
+          ) : (
+            <span className="badges-standing-val is-muted">No ranked {NOUN[game]}s yet.</span>
+          )}
+        </div>
+      )}
       {badges.length === 0 ? (
         <p className="stats-empty">
-          {isLineage
-            ? "No badges yet. Complete puzzles, build a streak, and climb the leaderboard to earn them."
-            : "No badges yet. Solve boards, go flawless, and top the board to earn them."}
+          No badges yet. Play signed-in dailies, top the board, and go flawless to earn them.
         </p>
       ) : (
         <div className="badge-grid">

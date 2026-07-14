@@ -8,6 +8,9 @@ import { branchesPoints } from "../data/score";
 import { fetchWikiImage, type WikiImage } from "../data/wikipedia";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } from "./cladoLayout";
 import { WikiCard } from "./WikiCard";
+import { Leaderboard } from "./Leaderboard";
+import { PlaytestBar } from "./PlaytestBar";
+import { useDev } from "../data/devMode";
 
 interface Props {
   tree: Tree;
@@ -15,6 +18,17 @@ interface Props {
   onComplete?: (r: BranchesComplete) => void;
   /** Opens the Branches section of the About page. */
   onHowItWorks?: () => void;
+  /** Leaderboard name to highlight (null when signed out). */
+  me?: string | null;
+  /** True when a backend is configured — gates the post-game board. */
+  configured?: boolean;
+  /** Bump to refetch the post-game board after the result is submitted. */
+  reloadKey?: number;
+  /** The viewer's current Branches streak, shown in the board footer. */
+  streak?: number | null;
+  /** Renders inside the Admin test bench: difficulty/reshuffle/autosolve controls,
+   *  no daily lock, nothing recorded. Off for the normal site. */
+  sandbox?: boolean;
 }
 
 const nameOf = (tree: Tree, id: string) =>
@@ -70,8 +84,10 @@ const readDrag = (e: React.DragEvent): DragData | null => {
   }
 };
 
-export function BranchesGame({ tree, onComplete, onHowItWorks }: Props) {
-  const g = useBranchesGame(tree, onComplete);
+export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, reloadKey, streak, sandbox }: Props) {
+  const devSettings = useDev();
+  const dev = sandbox ? { tier: devSettings.tier, nonce: devSettings.nonce } : null;
+  const g = useBranchesGame(tree, onComplete, dev);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [trayOver, setTrayOver] = useState(false);
   const [wikiId, setWikiId] = useState<string | null>(null);
@@ -186,6 +202,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks }: Props) {
           <button role="tab" aria-selected={radial} className={`branches-viewseg${radial ? " is-on" : ""}`} onClick={() => setMode("radial")}>Radial</button>
         </div>
       </GameHeader>
+
+      {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
 
       <div className="branches-stage">
         <div className="clado-canvas" style={{ width: layout.width, height: layout.height }}>
@@ -312,7 +330,15 @@ export function BranchesGame({ tree, onComplete, onHowItWorks }: Props) {
           {g.result.correct < g.result.total && (
             <p className="branches-result-note">Each miss shows its correct species.</p>
           )}
+          {g.locked && <p className="daily-lock">✓ You’ve played today’s Branches. A new board opens at midnight.</p>}
         </div>
+      )}
+
+      {over && configured && (
+        <Leaderboard
+          game="branches" label="Branches" variant="today" me={me ?? null} reloadKey={reloadKey} streak={streak}
+          note="Score rewards harder days and correct placements. Hints and peeks trim it."
+        />
       )}
 
       {peekNode && (

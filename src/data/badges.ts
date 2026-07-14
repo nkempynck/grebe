@@ -220,6 +220,12 @@ export function kinshipBadges(stats: DerivedStats): Badge[] {
   return milestoneBadges({ ns: "kin", noun: "board", playedDates: k.playedDates, solvedDates: k.solvedDates, maxStreak: k.maxStreak, bestStreakEnd: k.bestStreakEnd, flawlessDates: k.flawlessDates });
 }
 
+/** Branches milestones, including flawless (no hint, no peek) full rebuilds. */
+export function branchesBadges(stats: DerivedStats): Badge[] {
+  const b = stats.branches;
+  return milestoneBadges({ ns: "brn", noun: "board", playedDates: b.playedDates, solvedDates: b.solvedDates, maxStreak: b.maxStreak, bestStreakEnd: b.bestStreakEnd, flawlessDates: b.flawlessDates });
+}
+
 /** Competitive badges from the server standing — day/week/month champions (with
  *  the winning periods to click through) + all-time percentile. Game-agnostic:
  *  pass either player_badges() (Lineage) or grid_player_badges() (Kinship).
