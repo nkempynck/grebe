@@ -150,6 +150,15 @@ export function useBranchesGame(
   // Persist every change against today's board — but never a playtest board.
   useEffect(() => {
     if (!board || devActive) return;
+    // Guard the mount window: this effect can fire once with the pre-restore
+    // "playing" state (before the restore effect above rehydrates it). Writing
+    // that would clobber a day already finished in storage and silently unlock
+    // it. So never downgrade today's finished result back to "playing". A real
+    // new day (different date) still writes normally.
+    if (status === "playing") {
+      const saved = loadBranchesProgress();
+      if (saved && saved.date === date && saved.status === "done") return;
+    }
     saveBranchesProgress({ date, placements, hints, peeked, status });
   }, [board, date, devActive, placements, hints, peeked, status]);
 

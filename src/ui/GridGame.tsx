@@ -285,7 +285,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
           </div>
           <LeaderboardNudge show={!!configured && !me} />
           <KinshipTree tree={tree} board={g.board} levelOf={g.levelOf} onPick={setWikiId} />
-          {g.locked && <p className="daily-lock">✓ You’ve played today’s Kinship. A new board opens at midnight.</p>}
+          {g.locked && <p className="daily-lock">✓ You’ve played today’s Kinship. Come back tomorrow for a new board.</p>}
           {configured && (
             <Leaderboard
               game="kinship" label="Kinship" variant="today" me={me ?? null} reloadKey={reloadKey} streak={streak}

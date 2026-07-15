@@ -331,7 +331,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
           {g.result.correct < g.result.total && (
             <p className="branches-result-note">Each miss shows its correct species.</p>
           )}
-          {g.locked && <p className="daily-lock">✓ You’ve played today’s Branches. A new board opens at midnight.</p>}
+          {g.locked && <p className="daily-lock">✓ You’ve played today’s Branches. Come back tomorrow for a new board.</p>}
         </div>
       )}
 

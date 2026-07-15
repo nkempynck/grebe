@@ -334,6 +334,7 @@ export default function App() {
             tier={daily ? g.daily.tier : null}
             streak={daily ? stats.daily.currentStreak : null}
           />
+          {daily && <p className="daily-lock">✓ You’ve played today’s Lineage. Come back tomorrow for a new puzzle.</p>}
           {/* Show where you landed among everyone right after a daily. */}
           {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} reloadKey={boardReload} streak={stats.daily.currentStreak} />}
           {daily && <LeaderboardNudge show={player.configured && !player.session} />}

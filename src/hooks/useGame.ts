@@ -219,6 +219,12 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
   // Persist the daily attempt on every change so a reload restores it.
   useEffect(() => {
     if (mode !== "daily" || !tree || !answerId) return;
+    // Guard the mount window: don't let a pre-restore "playing" render clobber a
+    // day already finished in storage (which would silently unlock it).
+    if (status === "playing") {
+      const saved = loadDailyProgress();
+      if (saved && saved.date === today && saved.answerId === answerId && saved.status !== "playing") return;
+    }
     saveDailyProgress({
       date: today,
       answerId,
