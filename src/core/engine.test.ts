@@ -19,8 +19,11 @@ const ANIMALS = scopeByLabel(/animals/i);
 
 describe("dailyNumber", () => {
   it("counts days from the epoch, 1-based", () => {
+    // Epoch-relative so this survives changing DAILY_EPOCH at launch.
+    const dayAfterEpoch = new Date(`${DAILY_EPOCH}T00:00:00Z`);
+    dayAfterEpoch.setUTCDate(dayAfterEpoch.getUTCDate() + 1);
     expect(dailyNumber(DAILY_EPOCH)).toBe(1);
-    expect(dailyNumber("2026-07-10")).toBe(2);
+    expect(dailyNumber(dayAfterEpoch.toISOString().slice(0, 10))).toBe(2);
   });
 });
 

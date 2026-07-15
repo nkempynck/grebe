@@ -37,7 +37,7 @@ export function todayKey(d = new Date()): string {
 
 /** Day #1 of the daily series. Set this to the public launch date — it only
  *  shifts the displayed puzzle number, never which puzzle a date resolves to. */
-export const DAILY_EPOCH = "2026-07-09";
+export const DAILY_EPOCH = "2026-07-20";
 
 /** The daily's sequence number (#1, #2, …) for a date — days since DAILY_EPOCH,
  *  1-based, computed in UTC so it flips at the same instant everywhere. */
