@@ -13,12 +13,17 @@ export interface UsePlayer {
   isAdmin: boolean;
   /** The editable public name shown on leaderboards (profiles.display_name). */
   displayName: string | null;
+  /** Whether this account appears on the public leaderboards (profiles.show_on_leaderboard).
+   *  Defaults true; a player can opt out from the Account tab. */
+  showOnLeaderboard: boolean;
   error: string | null;
   signIn: (username: string, password: string, captchaToken?: string) => Promise<boolean>;
   signUp: (username: string, password: string, captchaToken?: string) => Promise<boolean>;
   signOut: () => void;
   /** Update the public leaderboard name. */
   updateDisplayName: (name: string) => Promise<{ error: string | null }>;
+  /** Opt in/out of appearing on the public leaderboards. */
+  setShowOnLeaderboard: (on: boolean) => Promise<{ error: string | null }>;
 }
 
 // An account is just a NAME. Supabase Auth still needs an identifier in email
@@ -43,6 +48,7 @@ export const fromEmail = (e: string | undefined) => (e ? e.split("@")[0] : null)
 export function usePlayer(): UsePlayer {
   const [session, setSession] = useState<Session | null>(null);
   const [displayName, setDisplayNameState] = useState<string | null>(null);
+  const [showOnLeaderboard, setShowOnLbState] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,16 +59,21 @@ export function usePlayer(): UsePlayer {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Track the player's public display name from their profile row.
+  // Track the player's public profile: display name + leaderboard opt-in.
   useEffect(() => {
-    if (!supabase || !session) { setDisplayNameState(null); return; }
+    if (!supabase || !session) { setDisplayNameState(null); setShowOnLbState(true); return; }
     let live = true;
     supabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, show_on_leaderboard")
       .eq("id", session.user.id)
       .maybeSingle()
-      .then(({ data }) => { if (live) setDisplayNameState(data?.display_name ?? null); });
+      .then(({ data }) => {
+        if (!live) return;
+        setDisplayNameState(data?.display_name ?? null);
+        // Default to visible when the column is absent (older DB) or unset.
+        setShowOnLbState((data as { show_on_leaderboard?: boolean } | null)?.show_on_leaderboard ?? true);
+      });
     return () => { live = false; };
   }, [session]);
 
@@ -91,6 +102,20 @@ export function usePlayer(): UsePlayer {
       return { error: null };
     },
     [session]
+  );
+
+  // Opt in/out of the public leaderboards. Goes through the set_leaderboard_opt()
+  // RPC (direct profiles writes are locked by RLS, same as the name setter).
+  const setShowOnLeaderboard = useCallback(
+    async (on: boolean) => {
+      if (!supabase || !session) return { error: "not signed in" };
+      const prev = showOnLeaderboard;
+      setShowOnLbState(on); // optimistic
+      const { error } = await supabase.rpc("set_leaderboard_opt", { p_on: on });
+      if (error) { setShowOnLbState(prev); return { error: error.message }; }
+      return { error: null };
+    },
+    [session, showOnLeaderboard]
   );
 
   const signIn = useCallback(async (username: string, password: string, captchaToken?: string) => {
@@ -142,10 +167,12 @@ export function usePlayer(): UsePlayer {
     username: fromEmail(session?.user.email),
     isAdmin,
     displayName,
+    showOnLeaderboard,
     error,
     signIn,
     signUp,
     signOut,
     updateDisplayName,
+    setShowOnLeaderboard,
   };
 }

@@ -110,7 +110,11 @@ const lineageResolver: Resolver<"lineage"> = {
 
 const kinshipResolver: Resolver<"kinship"> = {
   game: "kinship",
-  version: 1,
+  // v2: harder brutal days — no-giveaway groups (Thu–Sat), no mammals (Sat–Sun),
+  // Sunday picture-mode. Board identity changed for those weekdays, so pins written
+  // by v1 differ from what v2 generates. Un-played future dates should be re-pinned
+  // (npm run pin -- --force --from <today>); past/played pins stay authoritative.
+  version: 2,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;

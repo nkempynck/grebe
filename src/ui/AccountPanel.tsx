@@ -31,6 +31,12 @@ function Profile({ player }: { player: UsePlayer }) {
     }
   };
 
+  const toggleVisible = async () => {
+    setErr(null);
+    const { error } = await player.setShowOnLeaderboard(!player.showOnLeaderboard);
+    if (error) setErr(error);
+  };
+
   return (
     <div className="acct">
       <div className="acct-row">
@@ -51,6 +57,25 @@ function Profile({ player }: { player: UsePlayer }) {
           )}
           {err && <div className="acct-err">{err}</div>}
         </div>
+      </div>
+      <div className="acct-row acct-toggle-row">
+        <div>
+          <div className="acct-label">Show me on the leaderboard</div>
+          <div className="acct-sub">
+            {player.showOnLeaderboard
+              ? "Your name and scores appear on the public boards."
+              : "You’re hidden from the public boards. Your stats still count for you."}
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={player.showOnLeaderboard}
+          className={`acct-switch${player.showOnLeaderboard ? " is-on" : ""}`}
+          onClick={toggleVisible}
+        >
+          <span className="acct-switch-knob" />
+        </button>
       </div>
     </div>
   );

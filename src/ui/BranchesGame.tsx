@@ -9,6 +9,7 @@ import { fetchWikiImage, type WikiImage } from "../data/wikipedia";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } from "./cladoLayout";
 import { WikiCard } from "./WikiCard";
 import { Leaderboard } from "./Leaderboard";
+import { LeaderboardNudge } from "./LeaderboardNudge";
 import { PlaytestBar } from "./PlaytestBar";
 import { useDev } from "../data/devMode";
 
@@ -333,6 +334,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
           {g.locked && <p className="daily-lock">✓ You’ve played today’s Branches. A new board opens at midnight.</p>}
         </div>
       )}
+
+      {over && <LeaderboardNudge show={!!configured && !me} />}
 
       {over && configured && (
         <Leaderboard

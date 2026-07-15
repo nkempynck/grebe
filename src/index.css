@@ -731,6 +731,32 @@ body {
 .acct-standing-val { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--brass-bright); }
 .acct-standing-val.is-muted { color: var(--ink-faint); font-weight: 400; font-style: italic; }
 
+/* Leaderboard opt-in toggle — full-width row with the switch on the right. */
+.acct-toggle-row {
+  flex-basis: 100%; display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; padding-top: 16px; border-top: 1px solid var(--line);
+}
+.acct-sub { font-family: var(--font-body); font-size: 12.5px; color: var(--ink-soft); max-width: 44ch; }
+.acct-switch {
+  flex: none; width: 44px; height: 26px; padding: 0; border-radius: 999px;
+  background: var(--bg); border: 1px solid var(--line); cursor: pointer;
+  position: relative; transition: background 0.15s, border-color 0.15s;
+}
+.acct-switch.is-on { background: var(--brass); border-color: var(--brass); }
+.acct-switch-knob {
+  position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--ink-soft); transition: transform 0.15s, background 0.15s;
+}
+.acct-switch.is-on .acct-switch-knob { transform: translateX(18px); background: #fff; }
+.acct-switch:focus-visible { outline: 2px solid var(--brass-bright); outline-offset: 2px; }
+
+/* Signed-out footer under the post-game share block (shared across games). */
+.lb-nudge {
+  margin: 12px 0 0; padding: 9px 13px; border-radius: var(--radius);
+  background: var(--bg-2); border: 1px solid var(--line);
+  font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); text-align: center;
+}
+
 /* Per-game all-time standing, shown at the top of each game's badges panel. */
 .badges-standing {
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;

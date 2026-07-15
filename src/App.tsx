@@ -16,6 +16,7 @@ import { GuessInput } from "./ui/GuessInput";
 import { ResultCard } from "./ui/ResultCard";
 import { Cladogram } from "./ui/Cladogram";
 import { ShareCard } from "./ui/ShareCard";
+import { LeaderboardNudge } from "./ui/LeaderboardNudge";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import { AccountPanel } from "./ui/AccountPanel";
 import { AboutPanel } from "./ui/AboutPanel";
@@ -335,6 +336,7 @@ export default function App() {
           />
           {/* Show where you landed among everyone right after a daily. */}
           {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} reloadKey={boardReload} streak={stats.daily.currentStreak} />}
+          {daily && <LeaderboardNudge show={player.configured && !player.session} />}
         </>
       )}
 
