@@ -9,10 +9,10 @@ function jump(id: string) {
 
 const SECTIONS = [
   { id: "about-platform", label: "What Grebe is" },
+  { id: "about-name", label: "The name" },
   { id: "about-games", label: "The games" },
   { id: "about-data", label: "Data sources" },
   { id: "about-build", label: "How it's built" },
-  { id: "about-name", label: "The name" },
   { id: "about-privacy", label: "Privacy" },
 ];
 
@@ -56,6 +56,16 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         helps people learn more about the diversity of life on Earth.
       </p>
 
+      {/* ---------- The name ---------- */}
+      <h3 id="about-name" className="about-h">The name</h3>
+      <p className="about-p">
+        Grebes are a family of diving waterbirds (<i>Podicipedidae</i>) found on lakes and ponds
+        worldwide. Striking to watch, easy to overlook, and not closely related to the ducks and
+        loons they superficially resemble. They also have very interesting courtship displays, <a href="https://www.youtube.com/watch?v=98ceB5SPRXI " target="_blank" rel="noreferrer">check that out for sure</a>.
+
+        I chose the name Grebe because the Great Crested Grebe was one of the first birds in my birding journey that I observed and photographed quite closely.
+        The logo is a drawing of a picture of our Grebe I took the day I bought my first birding camera!
+      </p>
       {/* ---------- The games ---------- */}
       <h3 id="about-games" className="about-h">The games</h3>
       <div className="about-games">
@@ -211,16 +221,6 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         Coding was done by Claude Opus 4.8. Software engineering and page design were done by me and Claude. Game design and
         feature design were done by me (and inspiration from the existing games mentioned before obviously),
         with help from my partner.
-      </p>
-
-      {/* ---------- The name ---------- */}
-      <h3 id="about-name" className="about-h">The name</h3>
-      <p className="about-p">
-        Grebes are a family of diving waterbirds (<i>Podicipedidae</i>) found on lakes and ponds
-        worldwide. Striking to watch, easy to overlook, and not closely related to the ducks and
-        loons they superficially resemble. They also have very interesting courtship displays, <a href="https://www.youtube.com/watch?v=98ceB5SPRXI " target="_blank" rel="noreferrer">check that out for sure</a>.
-
-        I chose the name Grebe because the Great Crested Grebe was one of the first birds in my birding journey that I observed and photographed quite closely.
       </p>
 
       {/* ---------- Privacy ---------- */}
