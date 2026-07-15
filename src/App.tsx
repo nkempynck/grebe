@@ -386,6 +386,11 @@ export default function App() {
         <img className="masthead-logo" src={logoUrl} alt="" aria-hidden="true" />
       </header>
 
+      <div className="beta-banner" role="note">
+        <span className="beta-tag">Beta</span>
+        <span>In testing. Scores and leaderboards may reset before the full launch.</span>
+      </div>
+
       <nav className="topnav" role="tablist" aria-label="Sections">
         {(["home", "lineage", "kinship", "branches", "leaderboard", "account", "about"] as const).map((v) => {
           if (v === "account" && !player.configured) return null;

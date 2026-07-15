@@ -126,6 +126,19 @@ body {
   padding-right: 46px;
 }
 .masthead-text { flex: 1 1 auto; min-width: 0; }
+/* Beta notice under the masthead: scores/boards may reset during testing. */
+.beta-banner {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 9px;
+  margin: 0 0 16px; padding: 7px 11px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--bg-3);
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.35; color: var(--ink-soft);
+}
+.beta-tag {
+  flex: none; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  font-size: 10px; padding: 2px 7px; border-radius: 100px;
+  background: var(--brass); color: var(--bg);
+}
 .masthead::after {
   content: "";
   position: absolute; left: 0; bottom: -1px; width: 84px; height: 2px;
@@ -163,7 +176,7 @@ body {
 }
 
 /* ---- Top-level tabs: Play · Leaderboard · Account ---- */
-.topnav { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.topnav { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
 .topnav-tab {
   font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
   padding: 7px 12px; background: none; border: none; cursor: pointer;
@@ -1002,7 +1015,7 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .lb-seg.is-on { border-color: var(--brass); color: var(--ink); background: color-mix(in srgb, var(--brass) 16%, var(--bg)); }
 
 /* Game toggle above the leaderboard (Lineage vs Kinship). */
-.lb-gametabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.lb-gametabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 
 /* Day navigator — step through past dailies. */
 .lb-daynav { display: flex; align-items: center; gap: 10px; }
