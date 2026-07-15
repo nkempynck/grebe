@@ -16,9 +16,8 @@ same for all players. Three games ship today:
   worked-example species each, and a tray of species to drag onto the branch they belong to.
   A Grebe original.
 
-Both run on one bundled taxonomy snapshot (GBIF × Open Tree of Life). An optional Supabase
-backend adds accounts, cross-device sync, and leaderboards; without it the whole thing runs
-in the browser.
+All three run on one bundled taxonomy snapshot (GBIF × Open Tree of Life). Grebe is local-first:
+everything runs in the browser, and an optional account adds cross-device sync and leaderboards.
 
 ## Games
 
@@ -72,8 +71,7 @@ existing game.
 ## Stack
 
 React 18 + TypeScript, built with Vite. Three runtime dependencies (`react`, `react-dom`,
-`@supabase/supabase-js`). The backend is optional; without it the games run entirely in the
-browser.
+`@supabase/supabase-js`). The optional account layer aside, the games run entirely in the browser.
 
 ## Running
 
@@ -85,9 +83,9 @@ npm run typecheck  # types only
 npm test           # vitest unit tests
 ```
 
-Node 18+. With no backend configured the app needs no server of its own — the taxonomy and
-fonts are bundled and every daily is computed client-side, so you can play with no network.
-(It still fetches a Wikipedia blurb when a round ends.)
+Node 18+. The app needs no server of its own: the taxonomy and fonts are bundled and every
+daily is computed client-side, so you can play with no network. (It still fetches a Wikipedia
+blurb when a round ends.)
 
 ## Architecture
 
@@ -103,6 +101,7 @@ src/
     daily.ts         deterministic daily pick (seeded by date + scope) + puzzle number
     solver.ts        informed "par" solver for Lineage
     grid.ts          Kinship board generator (pure, deterministic per date + tier)
+    branches.ts      Branches board generator (pure, deterministic per date + tier)
     resolve.ts       typed name -> node
     index.ts         public barrel — UI imports from "../core" only
   data/
@@ -112,17 +111,20 @@ src/
     dailySchedule.ts weekday difficulty ramp + per-day seeded recipe pool (Lineage)
     clades.ts        clade groupings for per-group stats/leaderboards
     cladeNames.ts    friendly common names for clades (group guesses + Kinship labels)
-    score.ts         difficulty-weighted points (mirrors the SQL scoring)
+    score.ts         difficulty-weighted points per game
     stats.ts         local stats model (streaks, points, per-clade tallies)
     gridDaily.ts     today's Kinship board (tier from the weekday ramp)
     gridProgress.ts  per-day Kinship attempt persistence
-    games.ts         Supabase RPCs: submit_game, leaderboard, standing, player_badges
+    branchesDaily.ts    today's Branches board (tier from the weekday ramp)
+    branchesProgress.ts per-day Branches attempt persistence
+    games.ts         optional account + leaderboard calls
     wikipedia.ts     Wikipedia summary + article links for the reveal card
   hooks/
-    useGame.ts       couples the Lineage engine to React state
-    useGridGame.ts   couples the Kinship board to React state
-    useStats.ts      local + cloud stats sync
-    usePlayer.ts     auth session, display name, admin flag
+    useGame.ts         couples the Lineage engine to React state
+    useGridGame.ts     couples the Kinship board to React state
+    useBranchesGame.ts couples the Branches board to React state
+    useStats.ts      local stats, synced when signed in
+    usePlayer.ts     account session and display name
   ui/                presentational components (HomePanel, GridGame, Cladogram, …)
 ```
 
@@ -136,15 +138,15 @@ puzzle without a server round-trip:
 
 - The **weekday** sets a difficulty tier (Monday gentlest, Sunday hardest). The tier is also
   the leaderboard's point weight, so it is fixed to the weekday. Kinship reuses this tier for
-  its board's group-separation, so both games get harder across the week together.
+  its board's group-separation and Branches reuses it for its group grain, so all three games
+  get harder across the week together.
 - A **per-day seed** draws the specifics (Lineage's scope + resolution + assist; Kinship's
   container and groups) from that day's options, so each puzzle is unpredictable but
   reproducible from the date.
 - `daily.ts` selects Lineage's answer by hashing `date + scope` into the scope's leaves.
 
 Because this is seeded rather than truly random, each puzzle is a pure function of the date and
-is fully reproducible (and, with the source public, computable in advance). A curator can
-override any Lineage day through the admin panel (`#admin`).
+is fully reproducible (and, with the source public, computable in advance).
 
 ## Taxonomy
 
@@ -155,44 +157,24 @@ override any Lineage day through the admin panel (`#admin`).
 - **[Open Tree of Life](https://tree.opentreeoflife.org)** — the induced topology used for the
   shared-ancestry hints (branching structure, named clades, ranks).
 
-The snapshot holds roughly 1,700 recognisable species across about 5,000 nodes. The underlying
+The snapshot holds roughly 2,700 recognisable species across about 7,300 nodes. The underlying
 dumps contain over a million species, most of them obscure; curating down to organisms people
 can recognise is the bulk of the content work. Regenerating the JSON is the only step that
 touches the network.
 
-## Backend (optional)
-
-With no Supabase environment variables set, the app is fully local (bundled daily plan plus
-`localStorage`). Setting `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (see `.env.example`)
-enables accounts, cross-device sync, and the Lineage leaderboard. The anon key is public by
-design; row-level security in the database is what protects writes.
-
-- **Scores are computed server-side.** Clients call the `submit_game()` RPC, which pins the
-  difficulty tier from the date and derives guess/hint counts from the submitted id arrays;
-  direct table inserts are denied by RLS. Only daily games are stored server-side.
-- The schema lives in `supabase/schema.sql` (kept out of the repository; run once in the
-  Supabase SQL editor). The admin panel includes a live schema self-check.
-- Kinship adds its own table and RPCs in `supabase/kinship.sql` (run once, after `schema.sql`):
-  a `grid_games` table plus server-scored `submit_grid_game()`, `grid_leaderboard()`, and
-  `grid_leaderboard_standing()`. Verify with `select public.grid_schema_check();`.
-
-Player stats for both games sync through the single `player_stats` blob; only the leaderboards
-use per-game tables.
-
 ## Scoring
 
-Both games share a difficulty weight — the day's tier, `40 + 20 × tier` — so scores are
+All three games share a difficulty weight, the day's tier (`40 + 20 × tier`), so scores are
 comparable across the week.
 
-**Lineage:** `weight × efficiency × hint-factor`, zero for a loss; efficiency decays gently
-with guess count and the hint factor drops with an escalating penalty per hint. Client
-`gamePoints` (`src/data/score.ts`) must stay identical to `game_points` (`supabase/schema.sql`).
+**Lineage:** `weight × efficiency × hint-factor`, zero for a loss. Efficiency decays gently
+with guess count and the hint factor drops with an escalating penalty per hint.
 
-**Kinship:** `weight × (1 − mistakes/4)`, zero for a loss — a clean board earns the full weight,
-each mistake shaves a quarter. Client `kinshipPoints` (`src/data/score.ts`) mirrors
-`grid_game_points` (`supabase/kinship.sql`).
+**Kinship:** `weight × (1 − mistakes/4)`, zero for a loss. A clean board earns the full weight
+and each mistake shaves a quarter.
 
-Both are pinned by golden-value unit tests to catch client/SQL drift.
+**Branches:** `weight × (correct − penalties) / slots`, zero for a blank board. A revealed slot
+forfeits its whole point, and looking up a species you still have to place forfeits half.
 
 ## Limitations
 
@@ -204,16 +186,13 @@ Both are pinned by golden-value unit tests to catch client/SQL drift.
 - **Folk categories are not clades.** "Fish", "reptiles", and "bugs" are not monophyletic;
   where a scope follows folk intuition rather than strict cladistics that is a deliberate
   simplification.
-- **Leaderboard integrity is casual.** `won` cannot be verified server-side (the tree is
-  client-only), so the board is effectively self-reported, capped at one daily per player per
-  day.
 - **Kinship difficulty tracks tree-clustering**, which is a proxy for perceived hardness rather
   than a measure of it — a mid-week board can land on an unusually tricky group.
 - **Accounts have no email**, so a forgotten password cannot be recovered.
 
 ## Testing
 
-`npm test` runs the Vitest suite: a scoring golden-table (guarding client/SQL parity), daily
+`npm test` runs the Vitest suite: a scoring golden-table, daily
 determinism, the Lineage win-rank ladder and solver-par bounds, streak logic, and the Kinship
 board generator (structure, determinism, difficulty ordering, one-away detection).
 

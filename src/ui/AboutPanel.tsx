@@ -187,30 +187,26 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
 
       {/* ---------- How it's built ---------- */}
       <h3 id="about-build" className="about-h">How it's built</h3>
+      <p className="about-p">
+        Those two sources are combined into the snapshot in a few steps:
+      </p>
       <ol className="about-build">
         <li>
-          <b>Select species.</b> GBIF is queried per group (mammals, birds, insects, plants…)
-          with a target count per group, filled from the most-recorded species that have a clean
-          English common name. A short curated list of extras — humans and lab model organisms, popular species —
-          is added on top.
+          <b>Pick the species.</b> Start from the best-recorded species in each group (mammals,
+          birds, insects, plants, and so on) that have a clear English name, then add a short
+          curated list of familiar extras like humans, lab model organisms, and well-known animals.
         </li>
         <li>
-          <b>Resolve to the tree.</b> Each name is matched to its Open Tree identifier, and the
-          induced subtree over those identifiers is fetched; the minimal slice of the global
-          tree that connects them.
+          <b>Connect them on the tree.</b> Look up how those species are related and keep the slice
+          of the tree of life that links them together.
         </li>
         <li>
-          <b>Flatten &amp; label.</b> Single-child links are collapsed; named clades and the
-          remaining branch points are kept (unnamed ones render as bare junctions); taxonomic
-          ranks are attached and checked against each clade's own identifier.
-        </li>
-        <li>
-          <b>Write the snapshot.</b> The result is written to a single JSON file. The network is
-          used only during this build step: run <code>npm run build:taxonomy</code> to refresh it.
+          <b>Save a snapshot.</b> The result is baked into a single file bundled with the app, so
+          everyday play needs no network.
         </li>
       </ol>
       <p className="about-p">
-        The full source (the engine, the data build, and this page) is on{" "}
+        The full source, with all the technical detail, is on{" "}
         <a href="https://github.com/nkempynck/grebe" target="_blank" rel="noreferrer">GitHub</a>.
         Coding was done by Claude Opus 4.8. Software engineering and page design were done by me and Claude. Game design and
         feature design were done by me (and inspiration from the existing games mentioned before obviously),

@@ -24,11 +24,12 @@ export function buildTree(nodes: TaxonNode[]): Tree {
   }
   if (!rootId) throw new Error("Tree has no root (a node with parentId === null)");
 
-  // BFS to record depth from root.
+  // BFS to record depth from root. Uses a head cursor rather than queue.shift(),
+  // which is O(n) per call and would make this O(n^2) over the whole tree.
   const depthOf = new Map<string, number>();
   const queue: Array<[string, number]> = [[rootId, 0]];
-  while (queue.length) {
-    const [id, d] = queue.shift()!;
+  for (let head = 0; head < queue.length; head++) {
+    const [id, d] = queue[head];
     depthOf.set(id, d);
     for (const c of childrenOf.get(id) ?? []) queue.push([c, d + 1]);
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gamePoints, kinshipPoints } from "./score";
+import { gamePoints, kinshipPoints, branchesPoints } from "./score";
 
 // GOLDEN scoring values. gamePoints() MUST stay byte-identical to
 // public.game_points in supabase/schema.sql — if you change the formula here,
@@ -57,5 +57,35 @@ describe("kinshipPoints", () => {
     expect(kinshipPoints(true, 7, 1)).toBe(135);
     expect(kinshipPoints(true, 7, 2)).toBe(90);
     expect(kinshipPoints(true, 7, 3)).toBe(45);
+  });
+});
+
+// branchesPoints() MUST stay byte-identical to public.branches_game_points in
+// supabase/branches.sql: weight * max(0, correct - penalty) / total, rounded,
+// floored at 0, where the client folds the SQL's (hinted + 0.5*peeked) into the
+// single `penalty` argument at the call sites (BranchesGame.tsx, stats.ts).
+describe("branchesPoints", () => {
+  it("is zero for a blank/empty board (total <= 0)", () => {
+    expect(branchesPoints(7, 0, 0, 0)).toBe(0);
+    expect(branchesPoints(1, 0, 0, 0)).toBe(0);
+  });
+
+  it("is the full tier weight for a perfect, penalty-free board", () => {
+    expect(branchesPoints(1, 8, 8, 0)).toBe(60);
+    expect(branchesPoints(7, 10, 10, 0)).toBe(180);
+  });
+
+  it("scales by the fraction placed correctly", () => {
+    expect(branchesPoints(5, 3, 6, 0)).toBe(70); // 140 * 3/6
+    expect(branchesPoints(5, 1, 3, 0)).toBe(47); // 140 * 1/3 = 46.67 -> 47
+  });
+
+  it("docks a full point per hint and half per species peek", () => {
+    expect(branchesPoints(5, 6, 6, 1)).toBe(117);   // 140 * 5/6  = 116.67 -> 117
+    expect(branchesPoints(5, 6, 6, 0.5)).toBe(128);  // 140 * 5.5/6 = 128.33 -> 128
+  });
+
+  it("floors at zero when penalties exceed correct placements", () => {
+    expect(branchesPoints(3, 2, 4, 3)).toBe(0);
   });
 });

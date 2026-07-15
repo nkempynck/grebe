@@ -27,10 +27,11 @@ export interface UsePlayer {
 }
 
 // An account is just a NAME. Supabase Auth still needs an identifier in email
-// shape, so we map the name to `<name>@cladensis.local` behind the scenes — this
-// is never a real address, is never shown, and no email is ever collected. This
-// domain matches the admin allowlist (public.admins) and the existing accounts,
-// so a plain name signs in everywhere and is_admin() keeps working.
+// shape, so we map the name to `<name>@cladensis.local` behind the scenes. This
+// is never a real address, is never shown, and no email is ever collected. Admin
+// is NOT keyed off this identifier (that would be spoofable by registering the
+// admin's name): is_admin() reads an app_metadata role claim set with the service
+// role, so the account name carries no privilege.
 const PLAYER_DOMAIN = "@cladensis.local";
 
 /** Name → the internal identifier Supabase Auth needs. Keeps only name-safe
@@ -77,9 +78,10 @@ export function usePlayer(): UsePlayer {
     return () => { live = false; };
   }, [session]);
 
-  // Server-verified admin flag. is_admin() is SECURITY DEFINER and keys off the
-  // caller's JWT, so this can't be spoofed client-side. Non-admins (and signed-out
-  // players) resolve to false, which hides admin-only affordances.
+  // Server-verified admin flag. is_admin() is SECURITY DEFINER and reads the
+  // caller's app_metadata role claim (service-role-only), so it can't be spoofed
+  // client-side. Non-admins (and signed-out players) resolve to false, which hides
+  // admin-only affordances.
   useEffect(() => {
     if (!supabase || !session) { setIsAdmin(false); return; }
     let live = true;

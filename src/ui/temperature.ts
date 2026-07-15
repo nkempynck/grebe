@@ -16,12 +16,3 @@ export function warmthColor(warmth: number, isWin: boolean): string {
   const c = [0, 1, 2].map((i) => lerp(COLD[i], WARM[i], t));
   return `#${hex(c[0])}${hex(c[1])}${hex(c[2])}`;
 }
-
-export function warmthLabel(warmth: number, isWin: boolean): string {
-  if (isWin) return "Found";
-  if (warmth >= 0.85) return "Scalding";
-  if (warmth >= 0.65) return "Hot";
-  if (warmth >= 0.45) return "Warm";
-  if (warmth >= 0.25) return "Cool";
-  return "Cold";
-}

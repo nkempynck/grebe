@@ -280,13 +280,6 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     setError(null);
   }, [tree, config.scopeRootId]);
 
-  const answerNode = useMemo(
-    () => (tree && answerId ? tree.byId.get(answerId) ?? null : null),
-    [tree, answerId]
-  );
-  // answerNode is exposed via tree+answerId; kept in useMemo to signal intent.
-  void answerNode;
-
   return {
     tree,
     mode,
