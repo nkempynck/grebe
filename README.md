@@ -210,3 +210,8 @@ board generator (structure, determinism, difficulty ordering, one-away detection
   only third-party request during normal play).
 - **Fonts** — Bricolage Grotesque, Spectral, and Spline Sans Mono (SIL Open Font License),
   self-hosted and bundled with the app (no CDN).
+
+## License
+
+Source-available under the PolyForm Noncommercial License 1.0.0: free to use, modify, and share
+for noncommercial purposes; commercial use is not permitted. See [LICENSE.md](LICENSE.md).

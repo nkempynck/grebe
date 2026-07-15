@@ -261,7 +261,9 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         <a href="https://tree.opentreeoflife.org" target="_blank" rel="noreferrer">tree.opentreeoflife.org</a>
       </p>
       <p className="about-foot">
-        Made by Niklas.
+        Made by Niklas. © 2026 Niklas Kempynck. Free to play, share, and build on for
+        noncommercial use; not for commercial use (
+        <a href="https://github.com/nkempynck/grebe/blob/main/LICENSE.md" target="_blank" rel="noreferrer">PolyForm Noncommercial License</a>).
       </p>
     </div>
   );
