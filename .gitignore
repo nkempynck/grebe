@@ -25,3 +25,6 @@ dev-notes.md
 
 # backend setup docs — kept local, out of the repo (see also supabase/)
 SUPABASE_SETUP.md
+
+# build artifact — regenerated each taxonomy build
+scripts/name-review.tsv

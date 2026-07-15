@@ -10,7 +10,7 @@
 // Writes src/data/taxonomy.json (nodes + scopes). Run: npm run build:taxonomy.
 // It hits the network; the app itself never does — it just reads the JSON.
 
-import { writeFileSync } from "node:fs";
+import { writeFileSync, copyFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { COMMON_NAME_OVERRIDES } from "./common-name-overrides.mjs";
@@ -18,41 +18,90 @@ import { COMMON_NAME_OVERRIDES } from "./common-name-overrides.mjs";
 const GBIF = "https://api.gbif.org/v1";
 const OTL = "https://api.opentreeoflife.org/v3";
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "data", "taxonomy.json");
+// Human-review dump of every derived name (clades + species), so junk that slips
+// past the filters can be caught by eye and pushed into the override maps.
+const NAME_REVIEW = join(dirname(fileURLToPath(import.meta.url)), "name-review.tsv");
+
+// ---- flags (all reversible) --------------------------------------------------
+// The build writes a .bak of the previous snapshot first, so a bad run is always
+// recoverable (that, plus git). New phases default ON but can be turned off to
+// reproduce the older, shallower snapshot:
+//   --no-densify      skip family densification (base proportional set only)
+//   --no-clade-names  skip GBIF clade-name derivation (rely on cladeNames.ts)
+const FLAGS = new Set(process.argv.slice(2));
+const DO_DENSIFY = !FLAGS.has("--no-densify");
+const DO_CLADE_NAMES = !FLAGS.has("--no-clade-names");
+// Cap of members per family. Densification tops each family up to this by pulling
+// the group's most-observed species (see densifyByGroup); a family already at the
+// cap is left alone. Recognizability comes from rank-within-group, not this number.
+const DENSIFY_TARGET = 6;
+const DENSIFY_CAP = 2500; // hard blow-up guard on total added species
+// Only look up a vernacular for clades at least this "big" (species under them) —
+// tiny clades aren't worth a group label and it keeps the API load sane.
+const CLADE_NAME_MIN_LEAVES = 3;
+
+// Umbrella words that are true for a whole kingdom/domain but useless (or wrong)
+// as a specific clade's label — GBIF sometimes returns "Animals" for a small bird
+// family. A derived clade name matching one of these is dropped → Latin fallback.
+// (The legit broad labels like Metazoa→"Animals" come from CLADE_COMMON, not here.)
+const GENERIC_CLADE_NAMES = new Set([
+  "life", "organism", "organisms", "animal", "animals", "plant", "plants",
+  "fungus", "fungi", "mould", "moulds", "mold", "molds", "microbe", "microbes",
+  "bacteria", "creature", "creatures", "insect", "insects",
+  "species", "wildlife", "vertebrate", "vertebrates", "invertebrate", "invertebrates",
+]);
+
+// High-precision markers of a NON-English vernacular that GBIF mislabelled as
+// "eng" (ASCII slips past the non-Latin filter). Kept short and unambiguous —
+// Spanish/Portuguese/Malay function & colour words that never appear in an
+// English organism name. A clade name containing one as a whole word is dropped.
+const FOREIGN_MARKERS = new Set([
+  "de", "la", "el", "del", "los", "las", "da", "do", "dos", "das",
+  "roja", "rojo", "negra", "negro", "verde", "comun", "gato", "perro",
+  "cavalo", "ular", "kura", "ikan", "burung", "pokok", "ardilla", "berleher",
+]);
 
 // Per-GROUP quota keeps birds/insects (billions of records) from crowding out
 // mammals, reptiles, fish. Occurrence volume then only decides WHICH species fill
 // each share. Bumped up for a meatier game.
 // Quotas are AMBITIONS, not guarantees — each group fills only as far as it has
 // occurrence-ranked species with a clean English common name (the real ceiling).
+// `quota` = base proportional pull (occurrence-ranked, per-order capped) — the
+// balanced skeleton, unchanged. `deep` = the DENSIFICATION budget: how far down
+// this group's occurrence ranking to reach when topping families up to 6 (see
+// densifyByGroup). Only the most-observed species in the group are ever pulled,
+// so depth arrives in the recognizable families and never reaches the obscure
+// tail. Groups with a long obscure tail (insects, arachnids, molluscs, most
+// plants, fungi) get NO `deep` — their extra depth would be unrecognizable.
 const ANCHORS = [
-  { name: "Mammalia", quota: 210 },
-  { name: "Aves", quota: 240 },
-  { name: "Squamata", quota: 100 },
-  { name: "Testudines", quota: 34 },
-  { name: "Crocodylia", quota: 12 },
-  { name: "Amphibia", quota: 85, key: 131 },
+  { name: "Mammalia", quota: 260, deep: 520 },
+  { name: "Aves", quota: 300, deep: 580 },
+  { name: "Squamata", quota: 130, deep: 240 },
+  { name: "Testudines", quota: 46, deep: 80 },
+  { name: "Crocodylia", quota: 15, deep: 28 },
+  { name: "Amphibia", quota: 85, key: 131, deep: 180 }, // quota unchanged — base fill hit the name ceiling (28/85); only deepen
   // Fish orders are single-order anchors → skip the per-order cap (flat).
-  { name: "Perciformes", quota: 75, flat: true },
-  { name: "Cypriniformes", quota: 34, flat: true },
-  { name: "Salmoniformes", quota: 24, flat: true },
-  { name: "Gadiformes", quota: 14, flat: true },
-  { name: "Siluriformes", quota: 20, flat: true },
-  { name: "Pleuronectiformes", quota: 14, flat: true },
-  { name: "Characiformes", quota: 16, flat: true },
-  { name: "Anguilliformes", quota: 12, flat: true },
-  { name: "Elasmobranchii", quota: 48, key: 121 }, // sharks & rays
-  { name: "Insecta", quota: 220 },
-  { name: "Arachnida", quota: 55 },
-  { name: "Cephalopoda", quota: 26 },
-  { name: "Malacostraca", quota: 48 },
-  { name: "Anthozoa", quota: 26 },
-  { name: "Gastropoda", quota: 44 }, // snails & slugs
-  { name: "Bivalvia", quota: 22 }, // clams, mussels
-  { name: "Magnoliopsida", quota: 230 }, // dicots
-  { name: "Liliopsida", quota: 105 }, // monocots
-  { name: "Pinopsida", quota: 32, flat: true }, // conifers (≈ one order)
-  { name: "Polypodiopsida", quota: 24 }, // ferns
-  { name: "Agaricomycetes", quota: 85 }, // mushrooms
+  { name: "Perciformes", quota: 95, flat: true, deep: 200 },
+  { name: "Cypriniformes", quota: 45, flat: true, deep: 80 },
+  { name: "Salmoniformes", quota: 30, flat: true, deep: 55 },
+  { name: "Gadiformes", quota: 18, flat: true, deep: 32 },
+  { name: "Siluriformes", quota: 28, flat: true, deep: 48 },
+  { name: "Pleuronectiformes", quota: 18, flat: true, deep: 32 },
+  { name: "Characiformes", quota: 22, flat: true, deep: 38 },
+  { name: "Anguilliformes", quota: 16, flat: true, deep: 28 },
+  { name: "Elasmobranchii", quota: 64, key: 121, deep: 120 }, // sharks & rays
+  { name: "Insecta", quota: 270 },
+  { name: "Arachnida", quota: 55 }, // ceiling-limited (42/55) — unchanged
+  { name: "Cephalopoda", quota: 34, deep: 58 },
+  { name: "Malacostraca", quota: 48 }, // ceiling-limited (29/48) — unchanged
+  { name: "Anthozoa", quota: 32 },
+  { name: "Gastropoda", quota: 55 }, // snails & slugs
+  { name: "Bivalvia", quota: 28 }, // clams, mussels
+  { name: "Magnoliopsida", quota: 280 }, // dicots
+  { name: "Liliopsida", quota: 105 }, // monocots — ceiling-limited (85/105) — unchanged
+  { name: "Pinopsida", quota: 42, flat: true, deep: 60 }, // conifers (≈ one order)
+  { name: "Polypodiopsida", quota: 30 }, // ferns
+  { name: "Agaricomycetes", quota: 105 }, // mushrooms
 ];
 // Per-anchor cap so no single order dominates a group; scales with the quota.
 const orderCap = (quota) => Math.max(5, Math.ceil(quota / 7));
@@ -278,6 +327,85 @@ const EXTRAS = [
   { name: "Amanita phalloides", common: "Death cap" },
   { name: "Lentinula edodes", common: "Shiitake" },
   { name: "Tuber melanosporum", common: "Black truffle" },
+
+  // ---- Within-clade depth for harder Kinship boards ----
+  // Famous species that rank too low in occurrence for densification to reach, but
+  // fill out recognisable sub-clades so a "within X" board has four groups of four.
+  // (Dolphins/Panthera/dabbling-duck bases already exist above or in the anchors.)
+
+  // Whales (Cetacea): rorquals · right whales · beaked whales · porpoises
+  { name: "Balaenoptera physalus", common: "Fin whale" },
+  { name: "Balaenoptera acutorostrata", common: "Minke whale" },
+  { name: "Balaenoptera borealis", common: "Sei whale" },
+  { name: "Eubalaena glacialis", common: "North Atlantic right whale" },
+  { name: "Eubalaena australis", common: "Southern right whale" },
+  { name: "Eubalaena japonica", common: "North Pacific right whale" },
+  { name: "Balaena mysticetus", common: "Bowhead whale" },
+  { name: "Ziphius cavirostris", common: "Cuvier's beaked whale" },
+  { name: "Hyperoodon ampullatus", common: "Northern bottlenose whale" },
+  { name: "Berardius bairdii", common: "Baird's beaked whale" },
+  { name: "Mesoplodon densirostris", common: "Blainville's beaked whale" },
+  { name: "Phocoena phocoena", common: "Harbour porpoise" },
+  { name: "Phocoenoides dalli", common: "Dall's porpoise" },
+  { name: "Neophocaena asiaeorientalis", common: "Finless porpoise" },
+  { name: "Phocoena sinus", common: "Vaquita" }, // Phocoenidae 3→4 → 4th whale group
+
+  // Cats (Felidae): small cats · lynxes · ocelots (+ big cats already present)
+  { name: "Felis silvestris", common: "Wildcat" },
+  { name: "Felis chaus", common: "Jungle cat" },
+  { name: "Felis nigripes", common: "Black-footed cat" },
+  { name: "Felis margarita", common: "Sand cat" },
+  { name: "Lynx rufus", common: "Bobcat" },
+  { name: "Lynx canadensis", common: "Canada lynx" },
+  { name: "Lynx pardinus", common: "Iberian lynx" },
+  { name: "Leopardus pardalis", common: "Ocelot" },
+  { name: "Leopardus wiedii", common: "Margay" },
+  { name: "Leopardus geoffroyi", common: "Geoffroy's cat" },
+  { name: "Leopardus tigrinus", common: "Oncilla" },
+  { name: "Prionailurus bengalensis", common: "Leopard cat" },
+  { name: "Prionailurus viverrinus", common: "Fishing cat" },
+  { name: "Caracal caracal", common: "Caracal" },
+  { name: "Leptailurus serval", common: "Serval" },
+  { name: "Neofelis nebulosa", common: "Clouded leopard" },
+  { name: "Otocolobus manul", common: "Pallas's cat" }, // +4 cats push Felidae >25 leaves
+  { name: "Herpailurus yagouaroundi", common: "Jaguarundi" }, // so grid descends to
+  { name: "Catopuma temminckii", common: "Asian golden cat" }, // Panthera|Felis|Lynx|Leopardus
+  { name: "Prionailurus rubiginosus", common: "Rusty-spotted cat" },
+
+  // Ducks (Anatidae): dabbling ducks · diving ducks · sea ducks (+ geese/swans base)
+  { name: "Anas crecca", common: "Eurasian teal" },
+  { name: "Anas acuta", common: "Northern pintail" },
+  { name: "Spatula clypeata", common: "Northern shoveler" },
+  { name: "Spatula discors", common: "Blue-winged teal" },
+  { name: "Mareca strepera", common: "Gadwall" },
+  { name: "Aythya ferina", common: "Common pochard" },
+  { name: "Aythya fuligula", common: "Tufted duck" },
+  { name: "Aythya marila", common: "Greater scaup" },
+  { name: "Aythya americana", common: "Redhead" },
+  { name: "Aythya valisineria", common: "Canvasback" },
+  { name: "Mergus merganser", common: "Common merganser" },
+  { name: "Mergus serrator", common: "Red-breasted merganser" },
+  { name: "Bucephala clangula", common: "Common goldeneye" },
+  { name: "Bucephala albeola", common: "Bufflehead" },
+  { name: "Somateria mollissima", common: "Common eider" },
+  { name: "Melanitta nigra", common: "Common scoter" },
+
+  // Dogs (Canidae): true foxes · wolves & jackals · South American canids
+  { name: "Vulpes velox", common: "Swift fox" },
+  { name: "Vulpes macrotis", common: "Kit fox" },
+  { name: "Vulpes corsac", common: "Corsac fox" },
+  { name: "Canis aureus", common: "Golden jackal" },
+  { name: "Canis mesomelas", common: "Black-backed jackal" },
+  { name: "Canis lupaster", common: "African golden wolf" },
+  { name: "Canis simensis", common: "Ethiopian wolf" },
+  { name: "Lycalopex culpaeus", common: "Culpeo" },
+  { name: "Lycalopex gymnocercus", common: "Pampas fox" },
+  { name: "Cerdocyon thous", common: "Crab-eating fox" },
+  { name: "Chrysocyon brachyurus", common: "Maned wolf" },
+  { name: "Speothos venaticus", common: "Bush dog" },
+  { name: "Nyctereutes procyonoides", common: "Raccoon dog" },
+  { name: "Otocyon megalotis", common: "Bat-eared fox" },
+  { name: "Urocyon cinereoargenteus", common: "Gray fox" },
 ];
 
 // Scope presets: clade NAMES to expose if OTL places them in the pulled tree.
@@ -345,6 +473,7 @@ async function resolveExtra(e) {
     canonicalName: doc.canonicalName ?? e.name,
     common: e.common,
     orderKey: doc.orderKey ?? null,
+    familyKey: doc.familyKey ?? null,
   };
 }
 
@@ -356,17 +485,46 @@ function cleanCommon(name) {
   if (/[^\x00-\x7F]/.test(n)) return null;
   if (n === n.toUpperCase() && n.length <= 5) return null;
   if (n.split(/\s+/).length > 4) return null;
-  return n.charAt(0).toUpperCase() + n.slice(1);
+  // De-shout an all-caps vernacular ("EARED SEALS" → "Eared seals") so it reads
+  // like the curated sentence-case labels instead of yelling.
+  const norm = n === n.toUpperCase() ? n.toLowerCase() : n;
+  return norm.charAt(0).toUpperCase() + norm.slice(1);
 }
 
-async function englishCommonName(key, sciName) {
+// A stricter cleaner for CLADE labels (group names, shown to every player). Starts
+// from cleanCommon, then drops names that are useless or wrong as a group label:
+// generic umbrellas ("Animals"), leaked non-English (foreign marker word or a
+// hyphenated reduplication like "Kura-kura"). A dropped clade just keeps its Latin
+// name — fine, a clade doesn't need a common name.
+function cleanCladeName(name) {
+  // GBIF tags higher taxa "Pinks, Cactuses, and Allies" / "Spiderworts and Allies";
+  // trim the vague tail so the label is just the recognisable part.
+  let cc = cleanCommon((name ?? "").replace(/,?\s+and allies$/i, "").trim());
+  if (!cc) return null;
+  // GBIF placeholder / rank junk — never a real label ("Indet. Diver", "Nyctalus
+  // Bat species", "Amanita Sect. Lepidella"). Drop → Latin fallback.
+  if (/\bindet\b/i.test(cc) || /\bspecies$/i.test(cc) || /\bsect\.?\b/i.test(cc)) return null;
+  const words = cc.toLowerCase().split(/[\s-]+/).filter(Boolean);
+  // Drop only when the WHOLE label is generic ("Insects", "Animals") — a qualifier
+  // makes it specific enough to keep ("Carp-like Fish", "Land Plants").
+  if (words.every((w) => GENERIC_CLADE_NAMES.has(w))) return null;
+  if (words.some((w) => FOREIGN_MARKERS.has(w))) return null;
+  // reduplication (word-word, same halves) — a Malay/Indonesian tell, never English
+  if (/\b([a-z]{3,})-\1\b/i.test(cc)) return null;
+  // GBIF Title-Cases everything; lowercase the connector words so multiword labels
+  // read like the curated sentence-case style ("Swallows And Martins" → "…and…").
+  cc = cc.replace(/\b(And|Or|Of|The|In)\b/g, (m) => m.toLowerCase());
+  return cc;
+}
+
+async function englishCommonName(key, sciName, clean = cleanCommon) {
   const doc = await getJSON(`${GBIF}/species/${key}/vernacularNames?limit=80`);
   if (!doc || doc.__error) return null;
   const eng = (doc.results ?? []).filter((v) => v.language === "eng" && v.vernacularName);
   const preferred = eng.filter((v) => v.preferred).map((v) => v.vernacularName);
   const sciTokens = new Set((sciName ?? "").toLowerCase().split(/\s+/));
   for (const c of [...preferred, ...eng.map((v) => v.vernacularName)]) {
-    const cc = cleanCommon(c);
+    const cc = clean(c);
     if (cc && !sciTokens.has(cc.toLowerCase())) return cc;
   }
   return null;
@@ -399,6 +557,56 @@ async function speciesForAnchor(a, key) {
     }
   }
   return chosen;
+}
+
+// ---------- densification: deepen recognizable families ----------
+// Kinship groups are clades of ≥4; the base sample is broad but shallow (few
+// clades reach 4), so hard "within-clade" boards can't form. This deepens families
+// up to DENSIFY_TARGET (6) so e.g. the bird/carnivore/perch families fill and their
+// parent clades become within-clade boards.
+//
+// The recognizability gate is RANK WITHIN THE GROUP, not an absolute count: for
+// each anchor group we walk its GBIF occurrence ranking (most-observed first) only
+// as deep as the group's `deep` budget, and cap each family at the target. So depth
+// arrives in the families famous species cluster into, and the obscure long tail
+// (mites, loaches, scorpionflies — far down their group's ranking) is never
+// reached. Groups without a `deep` budget aren't densified at all. Judged per group
+// so fish/insects/plants are each measured on their own scale, never a shared floor.
+async function densifyByGroup(anchors, specs, target) {
+  // Current family occupancy across everything chosen so far (base + extras).
+  const famCount = new Map(); // familyKey -> count
+  const seen = new Set();
+  for (const s of specs) {
+    seen.add(String(s.speciesKey));
+    if (s.familyKey != null) famCount.set(s.familyKey, (famCount.get(s.familyKey) ?? 0) + 1);
+  }
+  const added = [];
+  let capped = false;
+  for (const a of anchors) {
+    if (!a.deep || a.deep <= a.quota) continue; // only groups with a depth budget
+    if (added.length >= DENSIFY_CAP) { capped = true; break; }
+    // The group's occurrence ranking; take the top `deep` positions.
+    const doc = await getJSON(`${GBIF}/occurrence/search?taxonKey=${a.key}&facet=speciesKey&facetLimit=${Math.min(a.deep, 1500)}&limit=0`);
+    const ranked = (doc?.facets?.[0]?.counts ?? []).map((c) => String(c.name)).slice(0, a.deep);
+    const fresh = ranked.filter((sk) => !seen.has(sk)); // base already took the very top
+    let addedHere = 0;
+    for (let j = 0; j < fresh.length; j += 24) {
+      if (added.length >= DENSIFY_CAP) { capped = true; break; }
+      const recs = (await mapLimit(fresh.slice(j, j + 24), 8, (sk) => getJSON(`${GBIF}/species/${sk}`)))
+        .filter((s) => s && !s.__error && s.rank === "SPECIES" && s.speciesKey && s.canonicalName);
+      await mapLimit(recs, 8, async (s) => { s.common = await englishCommonName(s.speciesKey, s.canonicalName); });
+      for (const s of recs) {
+        const key = String(s.speciesKey);
+        if (seen.has(key) || !s.common) continue;          // dedupe + recognizability
+        if (s.familyKey == null) continue;                 // need a family to cap against
+        if ((famCount.get(s.familyKey) ?? 0) >= target) continue; // family already full
+        seen.add(key); famCount.set(s.familyKey, (famCount.get(s.familyKey) ?? 0) + 1);
+        added.push(s); addedHere++;
+      }
+    }
+    console.log(`   ${a.name}: +${addedHere} (deep ${a.quota}→${a.deep})`);
+  }
+  return { added, capped };
 }
 
 // ---------- Open Tree of Life: topology ----------
@@ -486,6 +694,14 @@ function parseLabel(raw) {
 }
 
 async function main() {
+  // Safety net: keep the previous snapshot so any run is recoverable (cp OUT.bak
+  // back over OUT, or `git checkout`). Written before we touch anything.
+  if (existsSync(OUT)) {
+    copyFileSync(OUT, OUT + ".bak");
+    console.log(`↩ backed up current snapshot → ${OUT}.bak`);
+  }
+  console.log(`  phases: densify=${DO_DENSIFY ? `on (≥${DENSIFY_TARGET}/family)` : "off"}, clade-names=${DO_CLADE_NAMES ? "on" : "off"}`);
+
   console.log("→ [GBIF] resolving anchor groups…");
   const anchors = [];
   for (const a of ANCHORS) {
@@ -521,6 +737,20 @@ async function main() {
     else { seen.add(s.speciesKey); specs.push(s); specByKey.set(key, s); added++; }
   }
   console.log(`   +${added} new, ${renamed} renamed to their curated common name`);
+
+  const baseCount = specs.length;
+  const stats = { base: baseCount, densified: 0, densCapped: false, cladesNamedGbif: 0 };
+  if (DO_DENSIFY) {
+    console.log(`→ [GBIF] densifying recognizable families to ≤${DENSIFY_TARGET}/family (top-of-group only)…`);
+    const { added: dens, capped } = await densifyByGroup(anchors, specs, DENSIFY_TARGET);
+    for (const s of dens) {
+      const key = String(s.speciesKey);
+      if (specByKey.has(key)) continue;
+      seen.add(s.speciesKey); specs.push(s); specByKey.set(key, s);
+    }
+    stats.densified = dens.length; stats.densCapped = capped;
+    console.log(`   +${dens.length} species${capped ? " (hit cap)" : ""}`);
+  }
 
   // Curated common-name corrections, by scientific name — fixes GBIF vernacular
   // collisions/errors (two species sharing an English name, or a plain-wrong one).
@@ -633,6 +863,88 @@ async function main() {
     nodes.get(nid).rank = rank && rank !== "species" && !/^no /.test(rank) ? rank.toLowerCase() : "clade";
   }
 
+  // ---- genus-node injection ----
+  // OTL's induced topology often leaves a genus's clade unlabeled — the branch point
+  // exists, but no name rode along. Where a genus is MONOPHYLETIC here (an unnamed
+  // node whose every descendant is that same genus) we attach the genus name. This
+  // adds NO topology (the clade already exists) and asserts nothing OTL contradicts:
+  // a genus that is paraphyletic in this tree (its MRCA sweeps in other genera) fails
+  // the purity test and is left alone — deferring to OTL, never overriding it. It's
+  // the same GBIF-taxonomy × OTL-topology reconciliation the build already does for
+  // families, just at genus rank. Lets grid.ts theme genus-level groups (ducks,
+  // foxes, whiptails…). Runs before clade-naming so injected genera get vernaculars.
+  {
+    const childrenOf = new Map();
+    for (const n of nodes.values()) {
+      if (n.parentId == null) continue;
+      (childrenOf.get(n.parentId) ?? childrenOf.set(n.parentId, []).get(n.parentId)).push(n.id);
+    }
+    const leafCache = new Map();
+    const leavesN = (id) => {
+      if (leafCache.has(id)) return leafCache.get(id);
+      const ch = childrenOf.get(id);
+      let r;
+      if (!ch || ch.length === 0) r = [id];
+      else { r = []; for (const c of ch) r.push(...leavesN(c)); }
+      leafCache.set(id, r); return r;
+    };
+    const genusOf = (n) => (n && n.rank === "species" ? n.sciName.split(/\s+/)[0] : null);
+    const pathToRoot = (id) => { const p = []; for (let c = id; c; c = nodes.get(c)?.parentId) p.push(c); return p; };
+    const mrca = (ids) => {
+      let anc = pathToRoot(ids[0]);
+      for (const id of ids.slice(1)) { const s = new Set(pathToRoot(id)); anc = anc.filter((a) => s.has(a)); if (!anc.length) break; }
+      return anc[0] ?? null;
+    };
+    const byGenus = new Map();
+    for (const n of nodes.values()) {
+      const g = genusOf(n);
+      if (g) (byGenus.get(g) ?? byGenus.set(g, []).get(g)).push(n.id);
+    }
+    let injected = 0;
+    for (const [g, sp] of byGenus) {
+      if (sp.length < 2) continue;
+      const m = mrca(sp);
+      const node = m && nodes.get(m);
+      if (!node || node.rank === "species" || node.sciName) continue; // only UNNAMED internal nodes
+      if (leavesN(m).some((id) => genusOf(nodes.get(id)) !== g)) continue; // purity: MRCA is all one genus
+      node.sciName = g;
+      node.rank = "genus";
+      nameToId.set(g, m);
+      injected++;
+    }
+    console.log(`→ [inject] named ${injected} monophyletic genus clades OTL left unlabeled`);
+  }
+
+  // ---- clade common names, DERIVED from GBIF (not a hand list) ----
+  // Open Tree gives topology + scientific names but no vernaculars; GBIF has them
+  // (the same source we already use for species). For every named clade big enough
+  // to be a group label, look up its English vernacular via the SAME cleaner used
+  // for species. Baked into the snapshot; cladeNames.ts remains only a load-time
+  // correction layer (a curated entry overrides a junk GBIF name). Clades with no
+  // clean vernacular simply stay scientific-name-only — the game tolerates that.
+  if (DO_CLADE_NAMES) {
+    // species descendants under each clade (walk each species up to the root)
+    const leafCount = new Map();
+    for (const n of nodes.values()) {
+      if (n.rank !== "species") continue;
+      for (let cur = n.parentId; cur; cur = nodes.get(cur)?.parentId) {
+        leafCount.set(cur, (leafCount.get(cur) ?? 0) + 1);
+      }
+    }
+    const targets = [...nodes.values()].filter(
+      (n) => n.rank !== "species" && n.sciName && (leafCount.get(n.id) ?? 0) >= CLADE_NAME_MIN_LEAVES
+    );
+    console.log(`→ [GBIF] deriving common names for ${targets.length} clades…`);
+    await mapLimit(targets, 6, async (n) => {
+      const m = await getJSON(`${GBIF}/species/match?name=${encodeURIComponent(n.sciName)}`);
+      const key = m && !m.__error && m.matchType !== "NONE" ? m.usageKey ?? null : null;
+      if (!key) return;
+      const cn = await englishCommonName(key, n.sciName, cleanCladeName);
+      if (cn) { n.common = cn; stats.cladesNamedGbif++; }
+    });
+    console.log(`   ${stats.cladesNamedGbif}/${targets.length} clades got a clean GBIF vernacular`);
+  }
+
   const list = [...nodes.values()].map((n) => ({
     id: n.id, sciName: n.sciName, ...(n.common ? { common: n.common } : {}), rank: n.rank, parentId: n.parentId,
   }));
@@ -646,14 +958,64 @@ async function main() {
   }
 
   const species = list.filter((n) => n.rank === "species").length;
+  const clades = list.filter((n) => n.rank !== "species").length;
+  const namedClades = list.filter((n) => n.rank !== "species" && n.common).length;
+
+  // Family-depth histogram — the metric that governs Kinship hardness (a group
+  // needs ≥4 members; several ≥4 families under one parent make a within-clade
+  // board). Kept in the snapshot so we can watch it move build over build.
+  const byId = new Map(list.map((n) => [n.id, n]));
+  const famOf = (id) => { for (let c = byId.get(id)?.parentId; c; c = byId.get(c)?.parentId) { const n = byId.get(c); if (n?.rank === "family") return c; } return null; };
+  const famMembers = {};
+  for (const n of list) if (n.rank === "species") { const f = famOf(n.id); if (f) famMembers[f] = (famMembers[f] ?? 0) + 1; }
+  const famSizes = Object.values(famMembers);
+  const familyDepth = {
+    families: famSizes.length,
+    ge4: famSizes.filter((v) => v >= 4).length,
+    ge6: famSizes.filter((v) => v >= 6).length,
+  };
+
+  const buildStats = {
+    baseSpecies: stats.base,
+    densifiedSpecies: stats.densified,
+    densifyCapped: stats.densCapped,
+    cladesNamedFromGbif: stats.cladesNamedGbif,
+    familyDepth,
+  };
+
   writeFileSync(OUT, JSON.stringify({
     generatedAt: new Date().toISOString(),
     source: "GBIF (species + common names) × Open Tree of Life (topology)",
     counts: { nodes: list.length, species },
+    build: buildStats,
     scopes, nodes: list,
   }, null, 2));
   console.log(`✓ wrote ${OUT}`);
-  console.log(`  ${list.length} nodes, ${species} species, ${scopes.length} scopes: ${scopes.map((s) => s.label).join(", ")}`);
+
+  // ---- name-review dump ----
+  // Every named clade + species, sorted, with member count — eyeball it for junk,
+  // then move fixes into CLADE_COMMON (clades) / COMMON_NAME_OVERRIDES (species).
+  const leaves = new Map();
+  for (const n of list) {
+    if (n.rank !== "species") continue;
+    for (let cur = n.parentId; cur; cur = byId.get(cur)?.parentId) leaves.set(cur, (leaves.get(cur) ?? 0) + 1);
+  }
+  const named = list.filter((n) => n.common);
+  const cladeRows = named.filter((n) => n.rank !== "species")
+    .sort((a, b) => (leaves.get(b.id) ?? 0) - (leaves.get(a.id) ?? 0) || a.common.localeCompare(b.common))
+    .map((n) => `clade\t${leaves.get(n.id) ?? 0}\t${n.rank}\t${n.sciName}\t${n.common}`);
+  const speciesRows = named.filter((n) => n.rank === "species")
+    .sort((a, b) => a.common.localeCompare(b.common))
+    .map((n) => `species\t\t${n.rank}\t${n.sciName}\t${n.common}`);
+  writeFileSync(NAME_REVIEW,
+    `# kind\tleaves\trank\tsciName\tcommonName\n# ${cladeRows.length} named clades, ${speciesRows.length} named species\n` +
+    [...cladeRows, ...speciesRows].join("\n") + "\n");
+  console.log(`  ↪ names for review: ${NAME_REVIEW} (${cladeRows.length} clades, ${speciesRows.length} species)`);
+
+  console.log(`  ${list.length} nodes, ${species} species (${stats.base} base + ${stats.densified} densified), ${scopes.length} scopes`);
+  console.log(`  clades: ${clades} (${namedClades} with a common name — ${stats.cladesNamedGbif} derived from GBIF)`);
+  console.log(`  family depth: ${familyDepth.families} families, ${familyDepth.ge4} with ≥4 species, ${familyDepth.ge6} with ≥6  (was 94 / 56 before densification)`);
+  console.log(`  ↩ revert: cp "${OUT}.bak" "${OUT}"  (or git checkout)`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

@@ -224,4 +224,34 @@ export const CLADE_COMMON: Record<string, string> = {
   Actiniaria: "Sea anemones",
   Scleractinia: "Stony corals",
   Octocorallia: "Soft corals",
+
+  // GBIF-vernacular corrections — the derived name was factually wrong or badly
+  // scoped (found via scripts/name-review.tsv). These override the baked name.
+  Herpestidae: "Mongooses", // GBIF said "Civets" (a different family)
+  Haemulidae: "Grunts", // GBIF said "Bonnetmouths"
+  Lutjanidae: "Snappers", // GBIF said "Fusiliers"
+  Setophaga: "Wood warblers", // GBIF said "Redstarts" (misleads — these are warblers)
+  Anatidae: "Ducks, geese & swans", // GBIF said "Dabbling Ducks" (too narrow)
+  Amanita: "Amanitas", // GBIF said "Amanita Sect. Lepidella"
+  Equus: "Horses", // GBIF said "Cavalo" (Portuguese)
+  Craniata: "Craniates", // GBIF said "Craniate Brachiopods"
+  Gryllidae: "Crickets", // GBIF said "Blast" (garbage)
+  Gavia: "Loons", // GBIF said "Indet. Diver" (placeholder)
+  Planorbidae: "Ramshorn snails", // GBIF said "Indet. Ramshorn"
+  Rhinolophus: "Horseshoe bats", // GBIF said "Horseshoe Bat species"
+  Nyctalus: "Noctule bats", // GBIF said "Nyctalus Bat species"
+  Equidae: "Horses, zebras & asses", // GBIF said "Asses" (too narrow)
+  Varanus: "Monitor lizards", // GBIF said "Leguaans" (regional)
+  Gammarus: "Scuds", // GBIF said "Malacostracans" (whole-class name on a genus)
+
+  // Genus-board labels (injected genus nodes) — clean up the group names players
+  // see on the new within-clade boards (cats / ducks / whales).
+  Panthera: "Big cats", // was sci-only
+  Felis: "Small cats", // GBIF said just "Cat"
+  Lynx: "Lynxes", // GBIF said "Bobcats" (only one of them is a bobcat)
+  Leopardus: "Spotted cats", // GBIF said "American Small Cats"
+  Cygnus: "Swans", // was sci-only
+  Aythya: "Diving ducks", // GBIF said "Scaups, Pochards"
+  Anas: "Dabbling ducks", // GBIF said "Mallards, Pintails"
+  Phocoenidae: "Porpoises", // GBIF said "Mereswine" (archaic)
 };

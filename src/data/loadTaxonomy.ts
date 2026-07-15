@@ -25,10 +25,12 @@ export function loadTree(): Promise<Tree> {
 }
 
 async function build(): Promise<Tree> {
-  // Give the major clades friendly common names so they can be guessed as groups
-  // ("snakes", "cats") and read nicely. Species and already-named nodes untouched.
+  // Clade common names are now DERIVED at build time (GBIF vernaculars, baked into
+  // taxonomy.json). CLADE_COMMON is kept only as a CORRECTION layer: a curated
+  // entry OVERRIDES the baked name, so we can fix GBIF's junk/ambiguous clade
+  // vernaculars without regenerating. Clades with neither stay scientific-only.
   const nodes = (taxonomy.nodes as TaxonNode[]).map((n) =>
-    n.rank !== "species" && !n.common && CLADE_COMMON[n.sciName]
+    n.rank !== "species" && CLADE_COMMON[n.sciName]
       ? { ...n, common: CLADE_COMMON[n.sciName] }
       : n
   );
