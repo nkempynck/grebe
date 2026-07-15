@@ -75,6 +75,10 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
   // name shows as a fallback rather than flashing every name before images load.
   const [noImg, setNoImg] = useState<Set<string>>(new Set());
   const [flipped, setFlipped] = useState<Set<string>>(new Set());
+  // Full-res image per species for the click-to-enlarge overlay (fetched alongside
+  // the thumbnail, so no extra request), and which tile is currently enlarged.
+  const [fulls, setFulls] = useState<Record<string, string>>({});
+  const [zoomId, setZoomId] = useState<string | null>(null);
   // Post-game Wikipedia reader.
   const [wikiId, setWikiId] = useState<string | null>(null);
 
@@ -93,8 +97,10 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
       if (!node) continue;
       fetchWikiImage(node).then((img) => {
         if (!live) return;
-        if (img) setThumbs((t) => (t[id] ? t : { ...t, [id]: img.thumb }));
-        else setNoImg((s) => (s.has(id) ? s : new Set(s).add(id)));
+        if (img) {
+          setThumbs((t) => (t[id] ? t : { ...t, [id]: img.thumb }));
+          setFulls((f) => (f[id] ? f : { ...f, [id]: img.full }));
+        } else setNoImg((s) => (s.has(id) ? s : new Set(s).add(id)));
       });
     }
     return () => { live = false; };
@@ -107,7 +113,9 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
     if (!g.revealed.includes(id)) g.reveal(id);
     if (!thumbs[id]) {
       const node = tree.byId.get(id);
-      if (node) fetchWikiImage(node).then((img) => { if (img) setThumbs((t) => ({ ...t, [id]: img.thumb })); });
+      if (node) fetchWikiImage(node).then((img) => {
+        if (img) { setThumbs((t) => ({ ...t, [id]: img.thumb })); setFulls((f) => ({ ...f, [id]: img.full })); }
+      });
     }
     setFlipped((f) => { const n = new Set(f); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
@@ -203,6 +211,19 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
                   onClick={() => g.toggle(id)}
                 >
                   {imgShown && <img className="grid-tile-img" src={thumbs[id]} alt="" />}
+                  {imgShown && (
+                    <span
+                      className="grid-tile-zoom"
+                      role="button"
+                      tabIndex={0}
+                      title="Enlarge picture"
+                      aria-label={`Enlarge ${nameOf(id)} picture`}
+                      onClick={(e) => { e.stopPropagation(); setZoomId(id); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setZoomId(id); } }}
+                    >
+                      ⤢
+                    </span>
+                  )}
                   {nameShown ? (
                     <span className={imgShown ? "grid-tile-cap" : "grid-tile-name"}>{nameOf(id)}</span>
                   ) : (
@@ -296,6 +317,13 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
       )}
 
       {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} />}
+
+      {zoomId && (fulls[zoomId] || thumbs[zoomId]) && (
+        <div className="grid-zoom" role="dialog" aria-label={`${nameOf(zoomId)} picture`} onClick={() => setZoomId(null)}>
+          <img src={fulls[zoomId] ?? thumbs[zoomId]} alt={nameOf(zoomId)} />
+          <span className="grid-zoom-cap">{nameOf(zoomId)} · tap to close</span>
+        </div>
+      )}
     </div>
   );
 }
