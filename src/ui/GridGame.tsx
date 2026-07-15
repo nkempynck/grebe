@@ -259,7 +259,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
             {preshow
               ? "Pictures are shown to help on the easier days."
               : pictureMode
-              ? "Pictures only today — no names. Tap 🔤 on a tile to reveal its name; the first three are free, then every two more costs a little score."
+              ? "Pictures only today, no names. Tap 🔤 on a tile to reveal its name; the first three are free, then every two more costs a little score."
               : "Tap the 🔍 on a tile to see its picture. The first three are free; after that, every two more costs a little score."}
           </p>
 

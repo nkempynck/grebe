@@ -105,8 +105,8 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
         {isToday
           ? "Today’s leaderboard"
           : browsingDay
-            ? `Daily №${dailyNumber(dayDate)} — ${groupLabel ?? "Overall"}`
-            : `Rankings — ${groupLabel ?? "Overall"}`}
+            ? `Daily №${dailyNumber(dayDate)} · ${groupLabel ?? "Overall"}`
+            : `Rankings · ${groupLabel ?? "Overall"}`}
         {previewing && " · demo"}
       </div>
 

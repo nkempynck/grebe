@@ -116,7 +116,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
                   type="button"
                   className="clado-pt is-collapsed"
                   style={{ left: p.x, top: p.y }}
-                  title={`${p.count} unnamed splits — click to expand`}
+                  title={`${p.count} unnamed splits, click to expand`}
                   onClick={() => toggleRun(p.id)}
                 >
                   <span className="pt-dot" />

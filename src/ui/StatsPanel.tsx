@@ -59,7 +59,7 @@ function SyncBar({ player }: { player: UsePlayer }) {
 
           {mode === "register" ? (
             <>
-              <p>Carry your stats to other devices. Just a creature name and a password — nothing else.</p>
+              <p>Carry your stats to other devices. Just a creature name and a password, nothing else.</p>
               <div className="admin-login-fields">
                 <div className="sync-handle">
                   <input type="text" value={regName} readOnly aria-label="Your creature name (assigned)" />
@@ -67,7 +67,7 @@ function SyncBar({ player }: { player: UsePlayer }) {
                 </div>
                 <input type="password" autoComplete="new-password" placeholder="password" value={p} onChange={(e) => setP(e.target.value)} />
               </div>
-              <p className="stats-sync-note">You'll be <b>{regName}</b> — rename yourself anytime in Account. Note it to log in elsewhere.</p>
+              <p className="stats-sync-note">You'll be <b>{regName}</b>. Rename yourself anytime in Account, and note it to log in elsewhere.</p>
               <p className="stats-sync-warn">There's no password recovery, so pick one you'll remember.</p>
               <Turnstile key={capKey} onToken={setToken} />
               <div className="stats-sync-actions">
@@ -189,7 +189,7 @@ export function StatsPanel({ stats, player, onClose }: Props) {
       {/* ---------- PRACTICE — free play, unranked ---------- */}
       <div className="stats-sub stats-sub-2">Practice · free play</div>
       {practice.played === 0 ? (
-        <p className="stats-empty">Free-play rounds show up here. Practice is unranked, so it isn't scored — just win-rate by group.</p>
+        <p className="stats-empty">Free-play rounds show up here. Practice is unranked, so it isn't scored, just win-rate by group.</p>
       ) : (
         <>
           <div className="stats-nums">

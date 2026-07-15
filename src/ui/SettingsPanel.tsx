@@ -65,7 +65,7 @@ export function SettingsPanel({ config, onScope, onWinWithin, assist, onAssist }
   return (
     <div className="settings">
       <fieldset className="optgroup">
-        <legend>Scope — where the tree is rooted</legend>
+        <legend>Scope: where the tree is rooted</legend>
         <div className="chips">
           {SCOPE_PRESETS.map((s) => (
             <Chip
@@ -80,7 +80,7 @@ export function SettingsPanel({ config, onScope, onWinWithin, assist, onAssist }
       </fieldset>
 
       <fieldset className="optgroup">
-        <legend>Resolution — how close counts as a win</legend>
+        <legend>Resolution: how close counts as a win</legend>
         <div className="chips">
           {RESOLUTION_PRESETS.map((r) => (
             <Chip
@@ -95,7 +95,7 @@ export function SettingsPanel({ config, onScope, onWinWithin, assist, onAssist }
       </fieldset>
 
       <fieldset className="optgroup">
-        <legend>Difficulty — how much the search helps</legend>
+        <legend>Difficulty: how much the search helps</legend>
         <div className="chips">
           <Chip
             on={!assist}

@@ -106,7 +106,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
   const speciesCount = candidates.reduce((n, c) => (c.kind === "species" ? n + 1 : n), 0);
   const placeholder = focusNode
     ? `Name a ${focusNode.common ?? focusNode.sciName}… (${speciesCount} options)`
-    : "Name a species — or a group like 'snakes' to scout…";
+    : "Name a species, or a group like 'snakes' to scout…";
 
   const choose = (c: Cand) => {
     onSubmit(label(c));

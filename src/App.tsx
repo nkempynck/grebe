@@ -240,11 +240,11 @@ export default function App() {
 
   const subtitle =
     view === "home"
-      ? "Daily puzzles played on the shared-ancestry tree that connects all living things."
+      ? "Daily puzzles on the tree of life."
       : view === "kinship"
       ? "Sort sixteen species into the four clades they belong to."
       : view === "branches"
-      ? "Rebuild a slice of the tree — place each species on its correct branch."
+      ? "Rebuild a slice of the tree: place each species on its correct branch."
       : view === "lineage"
       ? "Guess the organism. Every miss tells you where you branched apart."
       : "Daily puzzles on the tree of life.";
@@ -307,7 +307,7 @@ export default function App() {
       {g.guesses.length === 0 && g.hintIds.length === 0 && !roundOver ? (
         <p className="empty">
           No guesses yet. Each guess appears on the tree at the clade it shares with the
-          hidden species — closer guesses branch off <em>lower down</em>. Not sure of a species?
+          hidden species, so closer guesses branch off <em>lower down</em>. Not sure of a species?
           Guess a whole group like <em>snakes</em> or <em>beetles</em> to scout. Stuck? Take a hint.
         </p>
       ) : (
@@ -409,7 +409,7 @@ export default function App() {
           <span className="winbanner-ico" aria-hidden="true">👑</span>
           <span className="winbanner-txt">
             {winNudge.length === 1
-              ? <>You topped the daily — <b>№{dailyNumber(winNudge[0])}</b> ({winNudge[0]}). Daily-winner badge earned.</>
+              ? <>You topped the daily: <b>№{dailyNumber(winNudge[0])}</b> ({winNudge[0]}). Daily-winner badge earned.</>
               : <>You topped <b>{winNudge.length}</b> recent dailies. Daily-winner badge earned.</>}
           </span>
           <button className="winbanner-x" onClick={() => setWinNudge([])} aria-label="Dismiss">×</button>
