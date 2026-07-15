@@ -110,11 +110,12 @@ const lineageResolver: Resolver<"lineage"> = {
 
 const kinshipResolver: Resolver<"kinship"> = {
   game: "kinship",
-  // v2: harder brutal days — no-giveaway groups (Thu–Sat), no mammals (Sat–Sun),
-  // Sunday picture-mode. Board identity changed for those weekdays, so pins written
-  // by v1 differ from what v2 generates. Un-played future dates should be re-pinned
-  // (npm run pin -- --force --from <today>); past/played pins stay authoritative.
-  version: 2,
+  // v4: difficulty by taxonomic RANK of the four groups (genus siblings = brutal,
+  // orders = easy) instead of tree depth, so hard days are genuinely tight and no
+  // easy cross-order board lands on a brutal tier; groups feature only up to the
+  // difficulty they can reach. Board identity changed again → re-pin un-played
+  // future dates (npm run pin -- --force --from <today>); past pins stay frozen.
+  version: 4,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;

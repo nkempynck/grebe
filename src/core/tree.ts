@@ -81,10 +81,17 @@ export function descendants(tree: Tree, rootId: string): string[] {
 }
 
 /** Leaf node ids (no children) in the subtree rooted at `rootId`. */
+const leavesUnderCache = new WeakMap<Tree, Map<string, string[]>>();
 export function leavesUnder(tree: Tree, rootId: string): string[] {
-  return descendants(tree, rootId).filter(
+  let byTree = leavesUnderCache.get(tree);
+  if (!byTree) leavesUnderCache.set(tree, (byTree = new Map()));
+  const hit = byTree.get(rootId);
+  if (hit) return hit;
+  const res = descendants(tree, rootId).filter(
     (id) => (tree.childrenOf.get(id) ?? []).length === 0
   );
+  byTree.set(rootId, res);
+  return res;
 }
 
 /** Number of edges between two nodes where one is an ancestor of the other. */
