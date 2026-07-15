@@ -176,28 +176,116 @@ function shiftDate(dateKey: string, delta: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Once the game narrows to a species' terminal clade, siblings there are
+// indistinguishable by warmth — so a big "rake" of leaves under one parent turns
+// the endgame into a 1-in-N guess (luck, not skill). Bar species in a rake larger
+// than this from being the ANSWER (they stay fully guessable); the answer then
+// always sits in a ≤RAKE_CAP terminal clade. In this tree every rake this big is
+// also obscure (shrews, abalone, boletes, hares), so this doubles as an obscurity
+// filter — no occurrence data or rebuild needed, it's pure tree structure.
+const RAKE_CAP = 3;
+const rakeExcludedByTree = new WeakMap<Tree, Set<string>>();
+function rakeExcluded(tree: Tree): Set<string> {
+  let s = rakeExcludedByTree.get(tree);
+  if (s) return s;
+  s = new Set();
+  for (const [, children] of tree.childrenOf) {
+    const leafKids = children.filter((c) => (tree.childrenOf.get(c) ?? []).length === 0);
+    if (leafKids.length > RAKE_CAP) for (const c of leafKids) s.add(c);
+  }
+  rakeExcludedByTree.set(tree, s);
+  return s;
+}
+
 // leavesUnder is the costly part of a pick; cache it per (tree, scope) so the
-// epoch replay below is O(1) per day.
+// epoch replay below is O(1) per day. Answer-eligible leaves only (rake-capped).
 const leavesByTree = new WeakMap<Tree, Map<string, string[]>>();
 function scopeLeaves(tree: Tree, scope: string): string[] {
   let m = leavesByTree.get(tree);
   if (!m) { m = new Map(); leavesByTree.set(tree, m); }
   let l = m.get(scope);
-  if (!l) { l = leavesUnder(tree, scope); m.set(scope, l); }
+  if (!l) {
+    const excluded = rakeExcluded(tree);
+    l = leavesUnder(tree, scope).filter((id) => !excluded.has(id));
+    m.set(scope, l);
+  }
   return l;
 }
 
-/** One day's answer: a curator pin, else the first re-roll not blocked by `avoid`. */
+// Prominence weighting for the daily answer, biased by difficulty. The weight is
+// base^exp: `base` is 1 for curated icons, else the species' occurrence percentile
+// WITHIN ITS ORDER (so each order surfaces its own recognisable members instead of
+// the most species-rich group drowning the rest — whales aren't buried by mice).
+// `exp` is large on gentle days (famous-biased) and 0 on Sunday (uniform). Every
+// species keeps a nonzero weight, so the anti-repeat pool is never shrunk.
+const PROM_EXP = [0, 8, 6, 4.5, 3, 1.8, 0.8, 0]; // index by tier 1…7 (0 unused)
+
+// Per species: occurrence percentile within its nearest ORDER ancestor (0,1].
+// Empty until patch-prominence.mjs has baked `occ` — then weighting is uniform, a
+// graceful no-op. Cached per tree.
+const orderPromByTree = new WeakMap<Tree, Map<string, number>>();
+function orderProm(tree: Tree): Map<string, number> {
+  const cached = orderPromByTree.get(tree);
+  if (cached) return cached;
+  const m = new Map<string, number>();
+  const keyFor = (id: string): string => {
+    let fallback = "__root";
+    for (let c: string | null | undefined = tree.byId.get(id)?.parentId; c; c = tree.byId.get(c)?.parentId) {
+      const n = tree.byId.get(c);
+      if (!n) break;
+      if (n.rank === "order") return n.id;
+      if (fallback === "__root" && (n.rank === "class" || n.rank === "phylum")) fallback = n.id;
+    }
+    return fallback;
+  };
+  const groups = new Map<string, { id: string; occ: number }[]>();
+  for (const n of tree.byId.values()) {
+    if ((tree.childrenOf.get(n.id) ?? []).length) continue; // leaves = species
+    if (n.occ == null) continue; // no occ baked yet → leave empty → uniform
+    (groups.get(keyFor(n.id)) ?? groups.set(keyFor(n.id), []).get(keyFor(n.id))!).push({ id: n.id, occ: n.occ });
+  }
+  for (const arr of groups.values()) {
+    arr.sort((a, b) => a.occ - b.occ);
+    arr.forEach((s, i) => m.set(s.id, (i + 1) / (arr.length + 1))); // most-recorded → highest
+  }
+  orderPromByTree.set(tree, m);
+  return m;
+}
+
+const weightsByTree = new WeakMap<Tree, Map<string, number[]>>();
+function scopeWeights(tree: Tree, scope: string, tier: number): number[] | undefined {
+  const exp = PROM_EXP[tier] ?? 0;
+  if (exp === 0) return undefined; // uniform
+  const prom = orderProm(tree);
+  if (prom.size === 0) return undefined; // pre-patch: no occ → uniform
+  let m = weightsByTree.get(tree);
+  if (!m) { m = new Map(); weightsByTree.set(tree, m); }
+  const key = `${scope}|${tier}`;
+  let w = m.get(key);
+  if (!w) {
+    w = scopeLeaves(tree, scope).map((id) => {
+      const n = tree.byId.get(id);
+      const base = n?.icon ? 1 : (prom.get(id) ?? 0.01);
+      return Math.pow(base, exp);
+    });
+    m.set(key, w);
+  }
+  return w;
+}
+
+/** One day's answer: a curator pin, else the first re-roll not blocked by `avoid`.
+ *  The pick is prominence-weighted by tier (gentle = icon/familiar-biased, Sunday = uniform). */
 function pickDay(tree: Tree, dateKey: string, plan: DailyPlan, avoid: (id: string) => boolean): string {
   const rules = resolveDailyRules(dateKey, plan);
   if (rules.answerId && tree.byId.has(rules.answerId)) return rules.answerId;
   const scope = rules.config.scopeRootId;
   const leaves = scopeLeaves(tree, scope);
+  const weights = scopeWeights(tree, scope, rules.tier);
   for (let attempt = 0; attempt < RESOLVE_ATTEMPTS; attempt++) {
-    const cand = dailyAnswerFromLeaves(leaves, dateKey, scope, attempt);
+    const cand = dailyAnswerFromLeaves(leaves, dateKey, scope, attempt, weights);
     if (!avoid(cand)) return cand;
   }
-  return dailyAnswerFromLeaves(leaves, dateKey, scope, 0);
+  return dailyAnswerFromLeaves(leaves, dateKey, scope, 0, weights);
 }
 
 /** The daily answer species for a date, skipping any species used in the previous

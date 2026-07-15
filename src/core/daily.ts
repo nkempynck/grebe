@@ -63,12 +63,31 @@ export function dailyAnswerFromLeaves(
   scopeRootId: string,
   /** Re-roll index. 0 is the canonical pick; the anti-repeat layer bumps this to
    *  draw an alternative when the canonical pick was used too recently. */
-  attempt = 0
+  attempt = 0,
+  /** Optional per-leaf weights (aligned with `leaves`). When given, the pick is a
+   *  deterministic weighted draw instead of uniform — Lineage uses this to bias
+   *  toward prominent species. The whole list stays eligible (nonzero weights), so
+   *  the anti-repeat layer can never be starved into a repeat. */
+  weights?: number[]
 ): string {
   if (leaves.length === 0) throw new Error(`No leaves under scope ${scopeRootId}`);
   // attempt 0 keeps the original seed key, so it stays a stable canonical pick.
   const seedKey = attempt === 0 ? `${dateKey}::${scopeRootId}` : `${dateKey}::${scopeRootId}::${attempt}`;
-  return leaves[xmur3(seedKey) % leaves.length];
+  const h = xmur3(seedKey);
+  if (weights && weights.length === leaves.length) {
+    let total = 0;
+    for (const w of weights) total += w;
+    if (total > 0) {
+      const u = (h / 4294967296) * total; // h is a uint32 → u ∈ [0, total)
+      let acc = 0;
+      for (let i = 0; i < leaves.length; i++) {
+        acc += weights[i];
+        if (u < acc) return leaves[i];
+      }
+      return leaves[leaves.length - 1];
+    }
+  }
+  return leaves[h % leaves.length];
 }
 
 export function dailyAnswerId(

@@ -23,7 +23,7 @@ describe("Lineage anti-repeat", () => {
         expect(answers[i]).not.toBe(answers[j]);
       }
     }
-  });
+  }, 20000); // O(n²): 150 full epoch replays — heavy but deterministic
 
   it("is deterministic for a date", () => {
     expect(dailyAnswerFor(tree, "2026-09-01")).toBe(dailyAnswerFor(tree, "2026-09-01"));
@@ -45,5 +45,5 @@ describe("Kinship anti-repeat", () => {
         expect(sigs[i]).not.toBe(sigs[j]);
       }
     }
-  });
+  }, 20000); // O(n²): 120 full epoch replays — heavy but deterministic
 });
