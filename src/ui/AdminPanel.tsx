@@ -103,7 +103,9 @@ const SCHEMA_CHECKS = [
 interface FileCheck {
   label: string;
   file: string;
-  rows: Array<[string, boolean]> | null; // null → RPC unavailable (file not applied)
+  // [key, value] pairs from the check's jsonb: booleans are pass/fail, numbers are
+  // metadata (e.g. a row count) shown as a detail. null → RPC unavailable.
+  rows: Array<[string, boolean | number]> | null;
   error: string | null;
 }
 
@@ -141,7 +143,7 @@ function SystemHealth({ tree }: { tree: Tree }) {
       SCHEMA_CHECKS.map(async (c): Promise<FileCheck> => {
         const { data, error } = await sb.rpc(c.rpc);
         if (error || !data) return { label: c.label, file: c.file, rows: null, error: error?.message ?? "no response" };
-        return { label: c.label, file: c.file, rows: Object.entries(data as Record<string, boolean>), error: null };
+        return { label: c.label, file: c.file, rows: Object.entries(data as Record<string, boolean | number>), error: null };
       })
     );
     setSchema(out);
@@ -167,7 +169,8 @@ function SystemHealth({ tree }: { tree: Tree }) {
     ];
   }, [tree, today]);
 
-  const schemaBad = (schema ?? []).filter((r) => r.rows === null || r.rows.some(([, ok]) => !ok));
+  // Only boolean `false` marks a file bad; numeric entries (row counts) are metadata.
+  const schemaBad = (schema ?? []).filter((r) => r.rows === null || r.rows.some(([, v]) => v === false));
   // A missing backend on a local-only build isn't a failure to flag.
   const runtimeBad = [...runtime, ...engines].filter((c) => !c.ok && (c.label !== "Backend configured" || live));
   const allOk = !loading && runtimeBad.length === 0 && (!live || schemaBad.length === 0);
@@ -201,9 +204,10 @@ function SystemHealth({ tree }: { tree: Tree }) {
             ) : (
               schema.map((r) => {
                 if (r.rows === null) return <li key={r.file} className="is-bad">✗ <b>{r.label}</b> — <code>{r.file}</code> not applied ({r.error})</li>;
-                const bad = r.rows.filter(([, ok]) => !ok).map(([k]) => k);
+                const bad = r.rows.filter(([, v]) => v === false).map(([k]) => k);
+                const meta = r.rows.filter(([, v]) => typeof v === "number").map(([k, v]) => `${v} ${k}`).join(" · ");
                 return bad.length === 0
-                  ? <li key={r.file} className="is-ok">✓ <b>{r.label}</b> <code>{r.file}</code></li>
+                  ? <li key={r.file} className="is-ok">✓ <b>{r.label}</b> <code>{r.file}</code>{meta && <span className="sys-detail"> — {meta}</span>}</li>
                   : <li key={r.file} className="is-bad">✗ <b>{r.label}</b> — missing: {bad.join(", ")}</li>;
               })
             )}
