@@ -162,6 +162,20 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
     ? "Pictures only today, names hidden: flip a name with 🔤 (first three free, then a little score)."
     : "Flip a tile to its picture with 🔍 (first three free, then a little score).";
 
+  // Live reveal tracker (shown while reveals are in play, i.e. not the easy preshow
+  // days): how many used, how many free remain, and — once past the free three —
+  // the score it's costing (a deduction, NOT a board-ending mistake). The cost is
+  // the points a clean win loses to the reveal penalty at this tier.
+  const usedReveals = g.revealed.length;
+  const revealPenalty = kinshipRevealPenalty(usedReveals);
+  const revealCost = kinshipPoints(true, g.tier, 0) - kinshipPoints(true, g.tier, Math.min(4, revealPenalty));
+  const revealStatus =
+    revealPenalty > 0
+      ? `${usedReveals} · −${revealCost} pts`
+      : usedReveals < KINSHIP_FREE_REVEALS
+      ? `${usedReveals} · ${KINSHIP_FREE_REVEALS - usedReveals} free left`
+      : `${usedReveals} · still free`;
+
   return (
     <div className="grid-game">
       <GameHeader
@@ -262,6 +276,13 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
               ))}
             </span>
           </div>
+
+          {!preshow && (
+            <div className={`grid-reveals${revealPenalty > 0 ? " is-penalised" : ""}`} aria-label="reveals used">
+              <span className="grid-mistakes-lbl">{pictureMode ? "Names shown" : "Pictures shown"}</span>
+              <span className="grid-reveals-val">{revealStatus}</span>
+            </div>
+          )}
 
           <p className="grid-peek-note">
             {preshow

@@ -1409,6 +1409,9 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .grid-dots { display: inline-flex; gap: 8px; }
 .grid-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--brass); }
 .grid-dot.is-used { background: var(--line); }
+.grid-reveals { display: flex; align-items: center; justify-content: center; gap: 10px; margin: -8px 0 14px; }
+.grid-reveals-val { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.grid-reveals.is-penalised .grid-reveals-val { color: #d4a017; }
 
 .grid-feedback {
   text-align: center; font-family: var(--font-mono); font-size: 12px;
