@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   fetchLeaderboard,
   fetchStanding,
+  fetchGameStreaks,
   type LeaderboardEntry,
   type LeaderboardPeriod,
   type Standing,
@@ -60,6 +61,8 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
   const [rows, setRows] = useState<LeaderboardEntry[] | null>(null);
   const [total, setTotal] = useState(0);
   const [standing, setStanding] = useState<Standing | null>(null);
+  // Each player's current daily-win streak (name → streak), shown as a flame.
+  const [streaks, setStreaks] = useState<Record<string, number>>({});
 
   const groupLabel = GROUPS.find((g) => g.id === group)?.label ?? null;
   const groupLabelForDemo = group === null ? null : groupLabel;
@@ -94,6 +97,15 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
     });
     return () => { live = false; };
   }, [period, group, previewing, groupLabelForDemo, reloadKey, forDate]);
+
+  // Live per-player daily-win streaks (name → streak), shown as a flame. Skipped in
+  // the admin demo preview (its names are synthetic).
+  useEffect(() => {
+    if (previewing) { setStreaks({}); return; }
+    let live = true;
+    fetchGameStreaks("lineage").then((s) => { if (live) setStreaks(s); });
+    return () => { live = false; };
+  }, [previewing, reloadKey]);
 
   const highlight = previewing ? "you" : me;
   const canShowYou = previewing || !!me;
@@ -171,7 +183,12 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
               return (
                 <div className={`lb-row${isMe ? " is-me" : ""}${i < 3 ? " is-podium" : ""}`} key={`${r.display_name}-${i}`}>
                   <span className={`lb-rank${i < 3 ? " is-medal" : ""}`}>{i < 3 ? MEDALS[i] : i + 1}</span>
-                  <span className="lb-name">{r.display_name}{isMe && <span className="lb-youtag">you</span>}</span>
+                  <span className="lb-name">
+                    {r.display_name}{isMe && <span className="lb-youtag">you</span>}
+                    {streaks[r.display_name] >= 2 && (
+                      <span className="lb-rowstreak" title={`${streaks[r.display_name]}-day win streak`}>🔥{streaks[r.display_name]}</span>
+                    )}
+                  </span>
                   {!oneDay && <span className="lb-meta" title="wins / games played">{r.wins}/{r.games}</span>}
                   <span className="lb-score">{r.total_score}</span>
                 </div>

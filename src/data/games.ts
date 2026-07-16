@@ -307,6 +307,36 @@ export async function fetchCombinedDaily(forDate: string, limit = 200): Promise<
   return out;
 }
 
+/** Each opted-in player's CURRENT daily-win streak for a game (name → streak),
+ *  from game_streaks(). Only players on a live streak (≥1) are returned. Empty if
+ *  the backend isn't configured or the streaks migration hasn't been run. */
+export async function fetchGameStreaks(game: GameId): Promise<Record<string, number>> {
+  if (!supabase) return {};
+  try {
+    const { data, error } = await supabase.rpc("game_streaks", { p_game: game });
+    if (error || !data) return {};
+    const out: Record<string, number> = {};
+    for (const r of data as { display_name: string; streak: number }[]) out[r.display_name] = r.streak;
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** The caller's overall (combined-board) champion record: how many past days they
+ *  topped the combined leaderboard, and the winning dates. Null when there's no
+ *  backend or the streaks migration hasn't been run. */
+export async function fetchOverallBadges(): Promise<{ daily_wins: number; win_dates: string[] } | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc("overall_player_badges");
+    if (error || !data) return null;
+    return data as { daily_wins: number; win_dates: string[] };
+  } catch {
+    return null;
+  }
+}
+
 /** The caller's competitive badge inputs for any game. */
 export async function fetchGameBadges(game: GameId): Promise<import("./badges").PlayerBadges | null> {
   if (!supabase) return null;

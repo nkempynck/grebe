@@ -96,6 +96,7 @@ const SCHEMA_CHECKS = [
   { rpc: "puzzles_schema_check", label: "Puzzles", file: "puzzles.sql" },
   { rpc: "names_schema_check", label: "Names", file: "names.sql" },
   { rpc: "badges_schema_check", label: "Badges", file: "badges.sql" },
+  { rpc: "streaks_schema_check", label: "Streaks", file: "streaks.sql" },
 ];
 
 interface FileCheck {

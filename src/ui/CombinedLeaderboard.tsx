@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchCombinedDaily, type CombinedEntry } from "../data/games";
+import { fetchCombinedDaily, fetchOverallBadges, type CombinedEntry } from "../data/games";
 import { todayKey, dailyNumber, DAILY_EPOCH } from "../core/daily";
 
 interface Props {
@@ -9,6 +9,9 @@ interface Props {
 
 /** Podium medals for ranks 1–3; plain numbers below. */
 const MEDALS = ["🥇", "🥈", "🥉"];
+
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const fmtDay = (d: string) => { const [, m, day] = d.split("-"); return `${MON[+m - 1]} ${+day}`; };
 
 function stepDate(key: string, delta: number): string {
   const d = new Date(`${key}T00:00:00Z`);
@@ -23,6 +26,7 @@ export function CombinedLeaderboard({ me }: Props) {
   const today = todayKey();
   const [dayDate, setDayDate] = useState<string>(today);
   const [rows, setRows] = useState<CombinedEntry[] | null>(null);
+  const [overall, setOverall] = useState<{ daily_wins: number; win_dates: string[] } | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -32,6 +36,15 @@ export function CombinedLeaderboard({ me }: Props) {
     });
     return () => { live = false; };
   }, [dayDate]);
+
+  // The signed-in player's own overall-champion record (how many past days they
+  // topped the combined board), shown below the board.
+  useEffect(() => {
+    if (!me) { setOverall(null); return; }
+    let live = true;
+    fetchOverallBadges().then((o) => { if (live) setOverall(o); });
+    return () => { live = false; };
+  }, [me]);
 
   const myIdx = rows && me ? rows.findIndex((r) => r.display_name === me) : -1;
 
@@ -75,7 +88,10 @@ export function CombinedLeaderboard({ me }: Props) {
               return (
                 <div className={`lb-row${isMe ? " is-me" : ""}${i < 3 ? " is-podium" : ""}`} key={r.display_name}>
                   <span className={`lb-rank${i < 3 ? " is-medal" : ""}`}>{i < 3 ? MEDALS[i] : i + 1}</span>
-                  <span className="lb-name">{r.display_name}{isMe && <span className="lb-youtag">you</span>}</span>
+                  <span className="lb-name">
+                    {i === 0 && <span className="lb-crown" title={`Overall ${dayDate === today ? "leader" : "winner"} of the day`}>👑</span>}
+                    {r.display_name}{isMe && <span className="lb-youtag">you</span>}
+                  </span>
                   <span className="lb-meta" title="games played today">{r.played}/3</span>
                   <span className="lb-score">{r.combined}</span>
                 </div>
@@ -96,9 +112,17 @@ export function CombinedLeaderboard({ me }: Props) {
         </>
       )}
 
+      {overall && overall.daily_wins > 0 && (
+        <div className="lb-champ" title={`Overall daily wins: ${overall.win_dates.map(fmtDay).join(", ")}`}>
+          👑 Overall daily champion ×{overall.daily_wins}
+          {overall.win_dates[0] && <span className="lb-champ-latest"> · latest {fmtDay(overall.win_dates[0])}</span>}
+        </div>
+      )}
+
       <p className="lb-note">
         Each game scored 0–100 (your score as a share of the day’s best in that game), then averaged
         across Lineage, Kinship and Branches for one daily total out of 100. Play all three to top it.
+        Top it on a finished day (with ≥3 players) to earn the 👑.
       </p>
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   fetchGameLeaderboard,
   fetchGameStanding,
+  fetchGameStreaks,
   gameParLabel,
   type GameId,
   type GameStanding,
@@ -55,6 +56,8 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, n
   const [rows, setRows] = useState<LeaderboardEntry[] | null>(null);
   const [total, setTotal] = useState(0);
   const [standing, setStanding] = useState<GameStanding | null>(null);
+  // Each player's current daily-win streak (name → streak), shown as a flame.
+  const [streaks, setStreaks] = useState<Record<string, number>>({});
 
   const today = todayKey();
   const browsingDay = !isToday && period === "day";
@@ -75,6 +78,14 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, n
     });
     return () => { live = false; };
   }, [game, period, reloadKey, forDate]);
+
+  // Streaks are a live per-player property (not tied to the window), fetched once
+  // per game and refreshed after a submit.
+  useEffect(() => {
+    let live = true;
+    fetchGameStreaks(game).then((s) => { if (live) setStreaks(s); });
+    return () => { live = false; };
+  }, [game, reloadKey]);
 
   return (
     <div className="lb">
@@ -134,7 +145,12 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, n
               return (
                 <div className={`lb-row${isMe ? " is-me" : ""}${i < 3 ? " is-podium" : ""}`} key={`${r.display_name}-${i}`}>
                   <span className={`lb-rank${i < 3 ? " is-medal" : ""}`}>{i < 3 ? MEDALS[i] : i + 1}</span>
-                  <span className="lb-name">{r.display_name}{isMe && <span className="lb-youtag">you</span>}</span>
+                  <span className="lb-name">
+                    {r.display_name}{isMe && <span className="lb-youtag">you</span>}
+                    {streaks[r.display_name] >= 2 && (
+                      <span className="lb-rowstreak" title={`${streaks[r.display_name]}-day win streak`}>🔥{streaks[r.display_name]}</span>
+                    )}
+                  </span>
                   {!oneDay && <span className="lb-meta" title="wins / games played">{r.wins}/{r.games}</span>}
                   <span className="lb-score">{r.total_score}</span>
                 </div>
