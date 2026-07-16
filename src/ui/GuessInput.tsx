@@ -46,7 +46,9 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
     if (!query) { setOosHits([]); return; }
     let live = true;
     const t = setTimeout(() => {
-      searchOutOfSet(query, 6).then((hits) => { if (live) setOosHits(hits); });
+      // Over-fetch: some hits get dropped by the scope filter below, so ask for
+      // more than the ~4 slots we'll actually show.
+      searchOutOfSet(query, 12).then((hits) => { if (live) setOosHits(hits); });
     }, 180);
     return () => { live = false; clearTimeout(t); };
   }, [text, onOutOfSetGuess]);
@@ -122,8 +124,16 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
     // as informative probes when chosen.
     if (inSet.length < 8) {
       const seenName = new Set(inSet.map((c) => (c.common ?? c.sci).toLowerCase()));
+      // An out-of-set organism is in the game's scope iff its shipped connection
+      // point (the last lineage entry) is at or below the scope root — the grafted
+      // organism hangs below it, so it descends from the scope root exactly then.
+      const inScope = (h: OutOfSetHit) => {
+        const conn = h.graft.lineage[h.graft.lineage.length - 1]?.id;
+        return !!conn && (conn === config.scopeRootId || isAncestor(tree, config.scopeRootId, conn));
+      };
       for (const h of oosHits) {
         if (inSet.length >= 8) break;
+        if (!inScope(h)) continue;
         const nm = (h.common ?? h.sci).toLowerCase();
         if (seenName.has(nm)) continue;
         seenName.add(nm);
@@ -131,7 +141,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
       }
     }
     return inSet;
-  }, [candidates, candById, q, text, sortedCandidates, tree, oosHits]);
+  }, [candidates, candById, q, text, sortedCandidates, tree, config.scopeRootId, oosHits]);
 
   // Entries you can actually pick (already-guessed ones are shown but not
   // selectable). activeId lets each row test "am I active?" in O(1) — important
