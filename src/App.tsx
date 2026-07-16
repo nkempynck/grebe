@@ -5,6 +5,7 @@ import { groupOf } from "./data/clades";
 import { useStats } from "./hooks/useStats";
 import { usePlayer } from "./hooks/usePlayer";
 import { recordGame, fetchPlayerBadges, recordGridGame, recordBranchesGame } from "./data/games";
+import { enqueuePendingSubmit, loadPendingSubmits, clearPendingSubmits } from "./data/pendingSubmits";
 import { newDailyWins } from "./data/badges";
 import { kinshipRevealPenalty } from "./data/score";
 import { todayKey, dailyNumber } from "./core/daily";
@@ -132,13 +133,15 @@ export default function App() {
       // client and the server (which only sees `mistakes`) stay in agreement.
       const scoreMistakes = Math.min(4, r.mistakes + kinshipRevealPenalty(r.reveals));
       recordKinship({ status: r.won ? "won" : "lost", mistakes: scoreMistakes, tier: r.tier });
+      const args = { puzzleDate: r.date, won: r.won, mistakes: scoreMistakes };
       if (player.session) {
-        void recordGridGame({ puzzleDate: r.date, won: r.won, mistakes: scoreMistakes }).then(() =>
-          setKinBoardReload((c) => c + 1)
-        );
+        void recordGridGame(args).then(() => setKinBoardReload((c) => c + 1));
+      } else if (player.configured) {
+        // Signed out: stash for the leaderboard, replayed when they sign in.
+        enqueuePendingSubmit({ game: "kinship", args });
       }
     },
-    [recordKinship, player.session]
+    [recordKinship, player.session, player.configured]
   );
 
   // Record a finished Branches board: local stat + streak always; a signed-in
@@ -146,13 +149,15 @@ export default function App() {
   const recordBranchesResult = useCallback(
     (r: BranchesComplete) => {
       recordBranches({ won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, tier: r.tier });
+      const args = { puzzleDate: r.date, won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked };
       if (player.session) {
-        void recordBranchesGame({
-          puzzleDate: r.date, won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked,
-        }).then(() => setBranchBoardReload((c) => c + 1));
+        void recordBranchesGame(args).then(() => setBranchBoardReload((c) => c + 1));
+      } else if (player.configured) {
+        // Signed out: stash for the leaderboard, replayed when they sign in.
+        enqueuePendingSubmit({ game: "branches", args });
       }
     },
-    [recordBranches, player.session]
+    [recordBranches, player.session, player.configured]
   );
 
   const daily = g.mode === "daily";
@@ -188,9 +193,9 @@ export default function App() {
     // Only DAILY games get a durable cloud row (free play is tracked in stats
     // only). Descriptive detail (answer, assist, resolution, par) rides along but
     // never affects scoring. On resolve, bump boardReload to refetch the board.
-    if (daily && player.session) {
-      void recordGame({
-        userId: player.session.user.id,
+    if (daily) {
+      const args = {
+        userId: player.session?.user.id ?? "",
         puzzleDate: todayKey(),
         scopeId: g.config.scopeRootId,
         cladeGroup: group,
@@ -201,9 +206,15 @@ export default function App() {
         assist: g.assist,
         winWithin: g.config.winWithin,
         par,
-      }).then(() => setBoardReload((c) => c + 1));
+      };
+      if (player.session) {
+        void recordGame(args).then(() => setBoardReload((c) => c + 1));
+      } else if (player.configured) {
+        // Signed out: stash for the leaderboard, replayed when they sign in.
+        enqueuePendingSubmit({ game: "lineage", args });
+      }
     }
-  }, [roundOver, daily, g.dailyLocked, g.mode, g.tree, g.answerId, g.status, g.guesses, g.hintIds, g.daily.tier, g.config.scopeRootId, g.config.winWithin, g.assist, par, player.session, record]);
+  }, [roundOver, daily, g.dailyLocked, g.mode, g.tree, g.answerId, g.status, g.guesses, g.hintIds, g.daily.tier, g.config.scopeRootId, g.config.winWithin, g.assist, par, player.session, player.configured, record]);
 
   useEffect(() => {
     if (!player.session) { setWinNudge([]); return; }
@@ -214,6 +225,31 @@ export default function App() {
       if (fresh.length) setWinNudge(fresh);
     });
     return () => { live = false; };
+  }, [player.session]);
+
+  // Carry over signed-out play: on sign-in, replay any dailies finished before the
+  // player had an account onto the leaderboard. The submit RPCs are idempotent
+  // (daily-once index) and reject future dates, so a replay is always safe; then
+  // the boards refetch to include the newly-landed rows.
+  useEffect(() => {
+    if (!player.session) return;
+    const pending = loadPendingSubmits();
+    if (pending.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const p of pending) {
+        if (cancelled) return;
+        if (p.game === "lineage") await recordGame(p.args);
+        else if (p.game === "kinship") await recordGridGame(p.args);
+        else await recordBranchesGame(p.args);
+      }
+      if (cancelled) return;
+      clearPendingSubmits();
+      setBoardReload((c) => c + 1);
+      setKinBoardReload((c) => c + 1);
+      setBranchBoardReload((c) => c + 1);
+    })();
+    return () => { cancelled = true; };
   }, [player.session]);
 
   if (g.error && !g.tree) {
