@@ -27,6 +27,26 @@ async function main() {
     console.error("Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY in the environment.");
     process.exit(1);
   }
+  // Guard against the #1 mistake: pasting the anon key. Only the service_role key
+  // bypasses RLS, which the write path relies on. Decode the JWT role claim (or
+  // sniff the new-style key prefix) and bail early with a clear message.
+  const jwtRole = (k) => {
+    try {
+      const parts = k.split(".");
+      if (parts.length !== 3) return null;
+      return JSON.parse(Buffer.from(parts[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")).role ?? null;
+    } catch { return null; }
+  };
+  const role = jwtRole(key);
+  if (key.startsWith("sb_publishable_") || role === "anon") {
+    console.error("That looks like the ANON / publishable key. Use the SERVICE_ROLE secret");
+    console.error("(Supabase → Project Settings → API → service_role, or the sb_secret_… key).");
+    process.exit(1);
+  }
+  if (role && role !== "service_role") {
+    console.error(`Key role is "${role}", not "service_role" — writes will hit RLS. Use the service_role secret.`);
+    process.exit(1);
+  }
   const replace = process.argv.includes("--replace");
   const db = createClient(url, key, { auth: { persistSession: false } });
 
