@@ -93,9 +93,15 @@ async function englishCommonName(key, sciName) {
   return null;
 }
 
+const GBIF_BACKBONE = "d7dddbf4-2cf0-4f39-9b2a-bb099caae36c";
 async function groupKey(name) {
   const doc = await getJSON(`${GBIF}/species/match?name=${encodeURIComponent(name)}`);
-  return doc && !doc.__error && doc.matchType !== "NONE" ? doc.usageKey ?? null : null;
+  if (doc && !doc.__error && doc.matchType !== "NONE" && doc.usageKey) return doc.usageKey;
+  // Some higher taxa (e.g. Amphibia) don't resolve via /match — fall back to an
+  // exact-name search within the GBIF backbone dataset.
+  const s = await getJSON(`${GBIF}/species/search?q=${encodeURIComponent(name)}&datasetKey=${GBIF_BACKBONE}&limit=10`);
+  const hit = (s?.results ?? []).find((r) => r.canonicalName === name);
+  return hit ? (hit.nubKey ?? hit.key ?? null) : null;
 }
 
 // Occurrence-ranked species in a group that carry an English common name.
