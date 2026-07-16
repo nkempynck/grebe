@@ -257,6 +257,15 @@ export function competitiveBadges(server: PlayerBadges | null): Badge[] {
   return out;
 }
 
+/** The overall (combined-board) champion badge, from overall_player_badges().
+ *  One tiered 👑 badge for topping the day's combined leaderboard, with the winning
+ *  dates attached. Empty until the first overall win. */
+export function overallBadges(server: { daily_wins: number; win_dates: string[] } | null): Badge[] {
+  if (!server) return [];
+  const b = champBadge("champ-overall", "👑", "overall daily champion", "overall daily", server.daily_wins, server.win_dates, fmtDay);
+  return b ? [b] : [];
+}
+
 /** How many more plays to the next collector tier (a gentle nudge), or null.
  *  `noun` labels it per game ('puzzle' for Lineage, 'board' for Kinship). */
 export function nextPlayMilestone(played: number, noun = "puzzle"): { remaining: number; label: string } | null {

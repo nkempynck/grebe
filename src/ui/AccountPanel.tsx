@@ -3,6 +3,7 @@ import type { DerivedStats } from "../data/stats";
 import type { UsePlayer } from "../hooks/usePlayer";
 import { StatsPanel } from "./StatsPanel";
 import { BadgesPanel } from "./BadgesPanel";
+import { OverallBadgesPanel } from "./OverallBadgesPanel";
 
 interface Props {
   stats: DerivedStats;
@@ -86,6 +87,7 @@ export function AccountPanel({ stats, player }: Props) {
     <>
       {player.session && <Profile player={player} />}
       <StatsPanel stats={stats} player={player} />
+      <OverallBadgesPanel player={player} />
       <BadgesPanel stats={stats} player={player} game="lineage" />
       <BadgesPanel stats={stats} player={player} game="kinship" />
       <BadgesPanel stats={stats} player={player} game="branches" />
