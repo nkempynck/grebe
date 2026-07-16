@@ -81,6 +81,8 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
   const [zoomId, setZoomId] = useState<string | null>(null);
   // Post-game Wikipedia reader.
   const [wikiId, setWikiId] = useState<string | null>(null);
+  // A tile whose reveal would cost score, awaiting confirmation (null = none).
+  const [pendingReveal, setPendingReveal] = useState<string | null>(null);
 
   // Easy/medium days show every picture from the start (free); harder days hide
   // them behind the reveal penalty. Sunday (tier 7) inverts it: pictures are the
@@ -107,9 +109,15 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preshow, pictureMode, tiles, tree]);
 
-  // Flip a tile to its picture. Reveal (with its gentle penalty) happens on the
-  // first flip of a species; after that, flipping just toggles the picture.
-  function flip(id: string) {
+  // Points a NEW reveal costs right now: 0 within the free three (and on the "free"
+  // reveal of each pair past it), about a mistake's worth on the others. Measured as
+  // the points a clean win would lose by taking one more reveal at this tier.
+  const revealCostOf = (usedBefore: number) =>
+    kinshipPoints(true, g.tier, Math.min(4, kinshipRevealPenalty(usedBefore))) -
+    kinshipPoints(true, g.tier, Math.min(4, kinshipRevealPenalty(usedBefore + 1)));
+
+  // Actually flip a tile to its picture (reveal on first flip, then just toggle).
+  function doFlip(id: string) {
     if (!g.revealed.includes(id)) g.reveal(id);
     if (!thumbs[id]) {
       const node = tree.byId.get(id);
@@ -118,6 +126,16 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
       });
     }
     setFlipped((f) => { const n = new Set(f); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+
+  // A first reveal that would cost points warns first; free flips (and toggling an
+  // already-revealed tile) go straight through.
+  function flip(id: string) {
+    if (!g.revealed.includes(id) && revealCostOf(g.revealed.length) > 0) {
+      setPendingReveal(id);
+      return;
+    }
+    doFlip(id);
   }
 
   if (!g.board) return <p className="empty">No grid puzzle available today.</p>;
@@ -220,11 +238,12 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
               // and none in picture mode for an image-less tile (its name is shown).
               const canReveal = pictureMode ? hasImg : !preshow;
               const noun = pictureMode ? "name" : "picture";
+              const nextCost = revealCostOf(g.revealed.length);
               const flipTitle = g.revealed.includes(id)
                 ? `Hide ${noun}`
-                : g.revealed.length < KINSHIP_FREE_REVEALS
-                ? `Reveal its ${noun} (free)`
-                : `Reveal its ${noun} (a few more cost a little score)`;
+                : nextCost > 0
+                ? `Reveal its ${noun} (−${nextCost} pts)`
+                : `Reveal its ${noun} (free)`;
               return (
                 <button
                   key={id}
@@ -351,6 +370,25 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
         <div className="grid-zoom" role="dialog" aria-label={`${nameOf(zoomId)} picture`} onClick={() => setZoomId(null)}>
           <img src={fulls[zoomId] ?? thumbs[zoomId]} alt={nameOf(zoomId)} />
           <span className="grid-zoom-cap">{nameOf(zoomId)} · tap to close</span>
+        </div>
+      )}
+
+      {pendingReveal && (
+        <div className="grid-confirm" role="alertdialog" aria-label="Confirm reveal">
+          <p>
+            You’ve used your {KINSHIP_FREE_REVEALS} free reveals. Showing this{" "}
+            {pictureMode ? "name" : "picture"} deducts <b>{revealCostOf(g.revealed.length)}</b> of your{" "}
+            <b>{kinshipPoints(true, g.tier, 0)}</b> points.
+          </p>
+          <div className="grid-confirm-actions">
+            <button className="linkbtn" onClick={() => setPendingReveal(null)}>Cancel</button>
+            <button
+              className="grid-submit"
+              onClick={() => { const id = pendingReveal; setPendingReveal(null); doFlip(id); }}
+            >
+              Reveal (−{revealCostOf(g.revealed.length)})
+            </button>
+          </div>
         </div>
       )}
     </div>

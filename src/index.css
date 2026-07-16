@@ -1676,3 +1676,11 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 }
 .branches-confirm p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: var(--ink); }
 .branches-confirm-actions { display: flex; gap: 10px; align-items: center; }
+
+/* Kinship costly-reveal confirm — same look as the Branches peek confirm. */
+.grid-confirm {
+  margin: 14px 0; padding: 16px 18px; border: 1px solid var(--danger); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--danger) 7%, var(--bg-2));
+}
+.grid-confirm p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: var(--ink); }
+.grid-confirm-actions { display: flex; gap: 10px; align-items: center; }
