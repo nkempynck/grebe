@@ -51,16 +51,24 @@ async function main() {
   const db = createClient(url, key, { auth: { persistSession: false } });
 
   const { entries } = JSON.parse(readFileSync(SRC, "utf8"));
-  const rows = entries.map((e) => ({
-    ott_id: e.graft.id,
-    sci_name: e.graft.sciName,
-    common: e.graft.common ?? null,
-    rank: e.graft.rank ?? null,
-    name_norm: normalizeName(e.graft.sciName),
-    common_norm: e.graft.common ? normalizeName(e.graft.common) : null,
-    lineage: e.graft.lineage,
-  }));
-  console.log(`loading ${rows.length} taxa → taxon_index`);
+  // Dedupe by ott_id: two different source names can resolve (via TNRS) to the
+  // same OTT taxon, and a batch upsert can't touch the same primary key twice.
+  const byId = new Map();
+  for (const e of entries) {
+    if (byId.has(e.graft.id)) continue;
+    byId.set(e.graft.id, {
+      ott_id: e.graft.id,
+      sci_name: e.graft.sciName,
+      common: e.graft.common ?? null,
+      rank: e.graft.rank ?? null,
+      name_norm: normalizeName(e.graft.sciName),
+      common_norm: e.graft.common ? normalizeName(e.graft.common) : null,
+      lineage: e.graft.lineage,
+    });
+  }
+  const rows = [...byId.values()];
+  const dupes = entries.length - rows.length;
+  console.log(`loading ${rows.length} taxa → taxon_index${dupes ? ` (${dupes} duplicate ott_id dropped)` : ""}`);
 
   if (replace) {
     const keep = rows.map((r) => r.ott_id);

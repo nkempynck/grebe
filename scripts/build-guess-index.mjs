@@ -182,9 +182,11 @@ async function main() {
   });
   console.log(`grafted ${connected}, orphaned ${orphaned} (no shipped ancestor)`);
 
-  entries.sort((a, b) => a.keys[0].localeCompare(b.keys[0]));
-  writeFileSync(OUT, JSON.stringify({ generatedAt: new Date().toISOString(), groups: GROUPS, cap: CAP, entries }, null, 0) + "\n");
-  console.log(`wrote ${entries.length} entries → ${OUT}`);
+  // Dedupe by OTT id: distinct source names can resolve to the same taxon.
+  const uniq = [...new Map(entries.map((e) => [e.graft.id, e])).values()];
+  uniq.sort((a, b) => a.keys[0].localeCompare(b.keys[0]));
+  writeFileSync(OUT, JSON.stringify({ generatedAt: new Date().toISOString(), groups: GROUPS, cap: CAP, entries: uniq }, null, 0) + "\n");
+  console.log(`wrote ${uniq.length} entries (${entries.length - uniq.length} duplicate ott_id dropped) → ${OUT}`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
