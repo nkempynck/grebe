@@ -146,13 +146,14 @@ export async function recordGame(g: GameRow): Promise<void> {
 /** Record one finished Kinship daily via submit_grid_game() (direct INSERT is
  *  denied by RLS). The server pins `tier` from the date; `won`/`mistakes` are
  *  client-reported. One row per player per day. Best-effort. */
-export async function recordGridGame(g: { puzzleDate: string; won: boolean; mistakes: number }): Promise<void> {
+export async function recordGridGame(g: { puzzleDate: string; won: boolean; mistakes: number; reveals: number }): Promise<void> {
   if (!supabase) return;
   try {
     await supabase.rpc("submit_grid_game", {
       p_puzzle_date: g.puzzleDate,
       p_won: g.won,
       p_mistakes: g.mistakes,
+      p_reveals: g.reveals,
     });
   } catch {
     /* best-effort */

@@ -3,7 +3,7 @@ import type { Tree } from "../core";
 import { dailyNumber } from "../core";
 import { useGridGame, type GridComplete } from "../hooks/useGridGame";
 import { resolveDailyRules } from "../data/dailySchedule";
-import { kinshipPoints, kinshipRevealPenalty, KINSHIP_FREE_REVEALS } from "../data/score";
+import { kinshipPoints, KINSHIP_FREE_REVEALS } from "../data/score";
 import { fetchWikiImage } from "../data/wikipedia";
 import { GameHeader } from "./GameHeader";
 import { WikiCard } from "./WikiCard";
@@ -113,8 +113,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
   // reveal of each pair past it), about a mistake's worth on the others. Measured as
   // the points a clean win would lose by taking one more reveal at this tier.
   const revealCostOf = (usedBefore: number) =>
-    kinshipPoints(true, g.tier, Math.min(4, kinshipRevealPenalty(usedBefore))) -
-    kinshipPoints(true, g.tier, Math.min(4, kinshipRevealPenalty(usedBefore + 1)));
+    kinshipPoints(true, g.tier, 0, usedBefore) - kinshipPoints(true, g.tier, 0, usedBefore + 1);
 
   // Actually flip a tile to its picture (reveal on first flip, then just toggle).
   function doFlip(id: string) {
@@ -157,7 +156,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
     const rows = g.attempts.map((r) => r.map((l) => LEVEL_SQUARE[l]).join("")).join("\n");
     const verdict =
       g.status === "won"
-        ? `Solved · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"} · ${kinshipPoints(true, g.tier, g.mistakes)} pts`
+        ? `Solved · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"} · ${kinshipPoints(true, g.tier, g.mistakes, g.revealed.length)} pts`
         : `Missed it · ${g.solvedGroups.length}/4 groups`;
     return `${head}\n${pips}\n${rows}\n${verdict}`;
   })();
@@ -185,10 +184,9 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
   // the score it's costing (a deduction, NOT a board-ending mistake). The cost is
   // the points a clean win loses to the reveal penalty at this tier.
   const usedReveals = g.revealed.length;
-  const revealPenalty = kinshipRevealPenalty(usedReveals);
-  const revealCost = kinshipPoints(true, g.tier, 0) - kinshipPoints(true, g.tier, Math.min(4, revealPenalty));
+  const revealCost = kinshipPoints(true, g.tier, 0, 0) - kinshipPoints(true, g.tier, 0, usedReveals);
   const revealStatus =
-    revealPenalty > 0
+    revealCost > 0
       ? `${usedReveals} · −${revealCost} pts`
       : usedReveals < KINSHIP_FREE_REVEALS
       ? `${usedReveals} · ${KINSHIP_FREE_REVEALS - usedReveals} free left`
@@ -297,7 +295,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
           </div>
 
           {!preshow && (
-            <div className={`grid-reveals${revealPenalty > 0 ? " is-penalised" : ""}`} aria-label="reveals used">
+            <div className={`grid-reveals${revealCost > 0 ? " is-penalised" : ""}`} aria-label="reveals used">
               <span className="grid-mistakes-lbl">{pictureMode ? "Names shown" : "Pictures shown"}</span>
               <span className="grid-reveals-val">{revealStatus}</span>
             </div>
@@ -307,8 +305,8 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
             {preshow
               ? "Pictures are shown to help on the easier days."
               : pictureMode
-              ? "Pictures only today, no names. Tap 🔤 on a tile to reveal its name; the first three are free, then every two more costs a little score."
-              : "Tap the 🔍 on a tile to see its picture. The first three are free; after that, every two more costs a little score."}
+              ? "Pictures only today, no names. Tap 🔤 on a tile to reveal its name; the first three are free, then each one costs a little score."
+              : "Tap the 🔍 on a tile to see its picture. The first three are free; after that, each one costs a little score."}
           </p>
 
           {g.feedback && <div className="grid-feedback" role="status">{g.feedback}</div>}
@@ -338,7 +336,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
               : `Out of guesses. Found ${g.solvedGroups.length}/4`}
           </div>
           <div className="grid-scoreline">
-            🧬 {kinshipPoints(g.status === "won", g.tier, Math.min(4, g.mistakes + kinshipRevealPenalty(g.revealed.length)))} pts
+            🧬 {kinshipPoints(g.status === "won", g.tier, g.mistakes, g.revealed.length)} pts
             {g.status === "won" && streak != null && streak > 0 && (
               <span className="grid-streak"> · 🔥 {streak}-day streak</span>
             )}

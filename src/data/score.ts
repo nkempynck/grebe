@@ -18,25 +18,26 @@ export function gamePoints(won: boolean, tier: number, guesses: number, hints: n
   return Math.max(0, Math.round(weight * efficiency * hintFactor));
 }
 
-/** Kinship (grid) per-game points: the day's weight scaled down by mistakes,
- *  zero for a loss. Four mistakes ends the board (a loss), so a win carries 0–3
- *  mistakes → 100/75/50/25% of the weight. MUST match public.grid_game_points in
- *  supabase/kinship.sql. */
-export function kinshipPoints(won: boolean, tier: number, mistakes: number): number {
-  if (!won) return 0;
-  const m = Math.min(Math.max(mistakes, 0), 4);
-  return Math.max(0, Math.round(tierWeight(tier) * (1 - m / 4)));
-}
-
-/** Free Kinship picture reveals before any score penalty kicks in. */
+/** Free Kinship picture/name reveals before any score penalty kicks in. */
 export const KINSHIP_FREE_REVEALS = 3;
 
-/** A picture peek is far gentler than a wrong guess: the first few are free, then
- *  every two further reveals cost one mistake's worth of score (never ending the
- *  board). Folded into the mistakes total that both the client and the server
- *  score on, so no separate leaderboard field is needed. */
-export function kinshipRevealPenalty(reveals: number): number {
-  return Math.floor(Math.max(0, reveals - KINSHIP_FREE_REVEALS) / 2);
+/** Each reveal past the free ones deducts this fraction of the day's weight — a
+ *  flat, consistent cost (never ends the board). Scored SEPARATELY from mistakes
+ *  (they're a whole 25% step; reveals are gentler), so grid_games carries its own
+ *  `reveals` column and public.grid_game_points takes it as a 4th argument. */
+export const KINSHIP_REVEAL_PENALTY = 0.15;
+
+/** Kinship (grid) per-game points: the day's weight scaled down by mistakes, minus
+ *  a flat penalty per reveal past the free three, zero for a loss. Four mistakes
+ *  ends the board (a loss), so a win carries 0–3 mistakes → 100/75/50/25% of the
+ *  weight; each paid reveal then shaves another 15% of the weight. MUST match
+ *  public.grid_game_points(won, tier, mistakes, reveals) in supabase/kinship.sql. */
+export function kinshipPoints(won: boolean, tier: number, mistakes: number, reveals = 0): number {
+  if (!won) return 0;
+  const w = tierWeight(tier);
+  const m = Math.min(Math.max(mistakes, 0), 4);
+  const paid = Math.max(0, reveals - KINSHIP_FREE_REVEALS);
+  return Math.max(0, Math.round(w * (1 - m / 4) - w * KINSHIP_REVEAL_PENALTY * paid));
 }
 
 /** Branches per-game points: partial credit for correctly-placed species, scaled

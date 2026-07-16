@@ -118,7 +118,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
               board earns the full weight (<code>40 + 20 × tier</code>); each of your up-to-four mistakes
               shaves a quarter. On the easier days every species' picture is shown for free to help;
               from Tricky up they hide behind a gentle peek that never ends the board (the first three
-              free, then every two more cost about a mistake's worth of score). Sunday flips it: the
+              free, then each further reveal costs 15% of the day's points). Sunday flips it: the
               pictures are the tiles and the names are hidden, revealed the same way (first three free).
               It shares the weekday weight with Lineage, so scores are comparable across the games.
             </p>

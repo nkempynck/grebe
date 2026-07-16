@@ -9,7 +9,7 @@ import type { GameRow } from "./games";
  *  stats cloud-seed on first sign-in. */
 export type PendingSubmit =
   | { game: "lineage"; args: GameRow }
-  | { game: "kinship"; args: { puzzleDate: string; won: boolean; mistakes: number } }
+  | { game: "kinship"; args: { puzzleDate: string; won: boolean; mistakes: number; reveals: number } }
   | { game: "branches"; args: { puzzleDate: string; won: boolean; correct: number; total: number; hinted: number; peeked: number } };
 
 const KEY = "cladensis.pendingSubmits";

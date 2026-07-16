@@ -58,6 +58,23 @@ describe("kinshipPoints", () => {
     expect(kinshipPoints(true, 7, 2)).toBe(90);
     expect(kinshipPoints(true, 7, 3)).toBe(45);
   });
+
+  it("the first three reveals are free", () => {
+    expect(kinshipPoints(true, 7, 0, 0)).toBe(180);
+    expect(kinshipPoints(true, 7, 0, 3)).toBe(180);
+  });
+
+  it("each reveal past the free three deducts a flat 15% of the day's weight", () => {
+    // tier 7 weight = 180; 15% = 27 per paid reveal.
+    expect(kinshipPoints(true, 7, 0, 4)).toBe(153); // 180 − 27
+    expect(kinshipPoints(true, 7, 0, 5)).toBe(126); // 180 − 54
+    expect(kinshipPoints(true, 7, 0, 6)).toBe(99);  // 180 − 81
+  });
+
+  it("reveal penalty stacks with mistakes and never goes below zero", () => {
+    expect(kinshipPoints(true, 7, 2, 4)).toBe(63); // 90 − 27
+    expect(kinshipPoints(true, 1, 0, 12)).toBe(0); // 60 − 9×15%×60 floored at 0
+  });
 });
 
 // branchesPoints() MUST stay byte-identical to public.branches_game_points in

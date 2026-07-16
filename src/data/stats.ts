@@ -7,7 +7,7 @@
  *  No accounts, no network — all from localStorage (optionally synced). */
 
 import { CLADE_GROUPS, cladeGroup, OTHER_GROUP } from "./clades";
-import { gamePoints, kinshipPoints, branchesPoints } from "./score";
+import { gamePoints, kinshipPoints, branchesPoints, KINSHIP_FREE_REVEALS } from "./score";
 import { supabase } from "./supabase";
 
 export interface DailyEntry {
@@ -25,6 +25,9 @@ export interface KinshipEntry {
   status: "won" | "lost";
   mistakes: number;
   tier: number;
+  /** Picture/name reveals used (scored separately from mistakes). Optional so
+   *  entries saved before this field default to none. */
+  reveals?: number;
 }
 
 /** One finished Branches daily. Partial credit for correct placements; a hint
@@ -444,13 +447,16 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
   const dates = Object.keys(kinship);
   const played = dates.length;
   const wins = dates.filter((d) => kinship[d].status === "won").length;
-  const flawless = dates.filter((d) => kinship[d].status === "won" && kinship[d].mistakes === 0).length;
+  const flawless = dates.filter((d) => {
+    const e = kinship[d];
+    return e.status === "won" && e.mistakes === 0 && (e.reveals ?? 0) <= KINSHIP_FREE_REVEALS;
+  }).length;
 
   let total = 0;
   let best = 0;
   for (const d of dates) {
     const e = kinship[d];
-    const p = kinshipPoints(e.status === "won", e.tier, e.mistakes);
+    const p = kinshipPoints(e.status === "won", e.tier, e.mistakes, e.reveals ?? 0);
     total += p;
     if (p > best) best = p;
   }

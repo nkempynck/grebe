@@ -210,9 +210,9 @@ export function useGridGame(
     setStatus("won");
   }, [board]);
 
-  // Reveal a tile's picture. Peeking never ends the board; a few are free and
-  // beyond that it costs a little score (see kinshipRevealPenalty). We only track
-  // the count here; the penalty is applied where the score is computed.
+  // Reveal a tile's picture. Peeking never ends the board; the first few are free
+  // and each one past that shaves a flat slice of score (see kinshipPoints, which
+  // takes the reveal count). We only track the count here.
   const reveal = useCallback(
     (id: string) => {
       if (!board || status !== "playing" || revealed.includes(id)) return;

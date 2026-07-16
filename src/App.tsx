@@ -7,7 +7,6 @@ import { usePlayer } from "./hooks/usePlayer";
 import { recordGame, fetchPlayerBadges, recordGridGame, recordBranchesGame } from "./data/games";
 import { enqueuePendingSubmit, loadPendingSubmits, clearPendingSubmits } from "./data/pendingSubmits";
 import { newDailyWins } from "./data/badges";
-import { kinshipRevealPenalty } from "./data/score";
 import { todayKey, dailyNumber } from "./core/daily";
 import { dailyAnswerFor } from "./data/dailySchedule";
 import { loadStore } from "./data/stats";
@@ -129,11 +128,11 @@ export default function App() {
   // post-game board refetches to include it.
   const recordKinshipResult = useCallback(
     (r: GridComplete) => {
-      // Picture peeks are folded into the mistakes total the score runs on, so the
-      // client and the server (which only sees `mistakes`) stay in agreement.
-      const scoreMistakes = Math.min(4, r.mistakes + kinshipRevealPenalty(r.reveals));
-      recordKinship({ status: r.won ? "won" : "lost", mistakes: scoreMistakes, tier: r.tier });
-      const args = { puzzleDate: r.date, won: r.won, mistakes: scoreMistakes };
+      // Wrong guesses and reveals are scored separately (reveals are gentler than a
+      // whole mistake), so both are reported; the server scores on both.
+      const mistakes = Math.min(4, r.mistakes);
+      recordKinship({ status: r.won ? "won" : "lost", mistakes, tier: r.tier, reveals: r.reveals });
+      const args = { puzzleDate: r.date, won: r.won, mistakes, reveals: r.reveals };
       if (player.session) {
         void recordGridGame(args).then(() => setKinBoardReload((c) => c + 1));
       } else if (player.configured) {
