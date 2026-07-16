@@ -154,6 +154,14 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
     }
   };
 
+  // Tier-specific one-liner on the picture/name reveal mechanic, folded into the
+  // header blurb so it's read up front (the in-board note repeats it during play).
+  const revealHint = preshow
+    ? "Every picture is shown free on the easier days."
+    : pictureMode
+    ? "Pictures only today, names hidden: flip a name with 🔤 (first three free, then a little score)."
+    : "Flip a tile to its picture with 🔍 (first three free, then a little score).";
+
   return (
     <div className="grid-game">
       <GameHeader
@@ -162,7 +170,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
         dayName={rules.dayName}
         difficulty={rules.difficulty}
         onHowItWorks={onHowItWorks}
-        blurb="Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess. Four wrong guesses allowed."
+        blurb={`Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess. Four wrong guesses allowed. ${revealHint}`}
       />
 
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
