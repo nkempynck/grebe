@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildTree } from "./tree";
-import { graftTaxon } from "./graft";
+import { graftTaxon, reconstructGraft } from "./graft";
 import { mrca, edgeDistance } from "./tree";
 import { evaluateGuess } from "./game";
 import type { TaxonNode, Tree } from "./types";
@@ -75,6 +75,27 @@ describe("graftTaxon", () => {
     const tree = fresh();
     const orphan = { id: "x", sciName: "X", rank: "species", lineage: [{ id: "nowhere", sciName: "Nowhere", rank: "order" }] };
     expect(graftTaxon(tree, orphan)).toBeNull();
+  });
+
+  it("reconstructGraft round-trips: graft → reconstruct → re-graft on a fresh tree", () => {
+    const tree = fresh();
+    graftTaxon(tree, pangolin);
+    // Rebuild the payload purely from the grafted tree (as a reload would).
+    const rebuilt = reconstructGraft(tree, "oos:pangolin");
+    expect(rebuilt).not.toBeNull();
+    expect(rebuilt!.sciName).toBe("Manis pentadactyla");
+    // The rebuilt lineage ends at the shipped connection point.
+    expect(rebuilt!.lineage.map((n) => n.id)).toEqual(["oos:manidae", "oos:pholidota", "laur"]);
+    // Applying it to a clean tree recreates the same structure + MRCA.
+    const clean = fresh();
+    expect(graftTaxon(clean, rebuilt!)).toBe("oos:pangolin");
+    expect(mrca(clean, "oos:pangolin", "lion")).toBe("laur");
+    expect(clean.byId.get("oos:pholidota")?.virtual).toBe(true);
+  });
+
+  it("reconstructGraft returns null for a shipped (non-virtual) node", () => {
+    const tree = fresh();
+    expect(reconstructGraft(tree, "lion")).toBeNull();
   });
 
   it("a grafted guess scores as a probe and never wins (evaluateGuess + forced isWin)", () => {

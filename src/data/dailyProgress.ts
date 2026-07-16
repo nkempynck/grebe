@@ -1,4 +1,4 @@
-import type { GameStatus } from "../core";
+import type { GameStatus, GraftTaxon } from "../core";
 
 /** Today's daily attempt, persisted so a reload restores it — signed-out players
  *  on the same device stay locked to one attempt. (Signed-in players restore from
@@ -10,6 +10,9 @@ export interface DailyProgress {
   guessIds: string[]; // newest-first, matching in-memory order
   hintIds: string[];
   status: GameStatus;
+  /** Graft payloads for any out-of-set guesses, so a reload can re-graft them onto
+   *  the (baked) tree before restoring — their ids aren't in taxonomy.json. */
+  grafts?: GraftTaxon[];
 }
 
 const KEY = "cladensis.daily.progress";

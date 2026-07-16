@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ancestryChain,
+  applyGrafts,
   evaluateGuess,
   graftTaxon,
+  reconstructGraft,
   isInScope,
   randomAnswerId,
   resolveGuess,
@@ -190,6 +192,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     // is instant; signed-in players may then get overlaid by the cloud below).
     const prog = mode === "daily" ? loadDailyProgress() : null;
     if (prog && prog.date === today && prog.answerId === ans) {
+      applyGrafts(tree, prog.grafts ?? []); // re-graft out-of-set guesses so their ids resolve
       setGuesses(prog.guessIds.filter((id) => tree.byId.has(id)).map((id) => evaluateGuess(tree, ans, id, config)));
       setHintIds(prog.hintIds.filter((id) => tree.byId.has(id)));
       setStatus(prog.status);
@@ -213,6 +216,9 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     fetchTodayDaily(today).then((row) => {
       if (!live || !row) return;
       cloudRestored.current = key;
+      // The cloud row stores only ids; re-graft this device's out-of-set guesses
+      // (saved locally) so grafted ids in guess_ids still resolve after a reload.
+      applyGrafts(tree, loadDailyProgress()?.grafts ?? []);
       setGuesses((row.guess_ids ?? []).filter((id) => tree.byId.has(id)).map((id) => evaluateGuess(tree, answerId, id, config)));
       setHintIds((row.hint_ids ?? []).filter((id) => tree.byId.has(id)));
       setStatus(row.won ? "won" : "gaveup");
@@ -237,6 +243,11 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
       guessIds: guesses.map((g) => g.guess.id),
       hintIds,
       status,
+      // Out-of-set guesses (grafted, virtual) aren't in the baked tree — store their
+      // graft payloads so a reload can rebuild them. Empty for a normal all-in-set game.
+      grafts: guesses
+        .map((g) => reconstructGraft(tree, g.guess.id))
+        .filter((x): x is NonNullable<typeof x> => x !== null),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, tree, answerId, guesses, hintIds, status]);

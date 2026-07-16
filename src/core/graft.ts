@@ -62,3 +62,25 @@ export function graftTaxon(tree: Tree, t: GraftTaxon): string | null {
   add(t, t.lineage[0]?.id ?? t.lineage[connectIdx].id);
   return t.id;
 }
+
+/** Rebuild the graft payload for an already-grafted (virtual) node by walking its
+ *  ancestor chain up to and INCLUDING the first shipped node (the connection). Lets
+ *  a saved game re-graft its out-of-set guesses on reload. Null for a non-virtual
+ *  or unknown id. Inverse of graftTaxon(). */
+export function reconstructGraft(tree: Tree, id: string): GraftTaxon | null {
+  const node = tree.byId.get(id);
+  if (!node?.virtual) return null;
+  const lineage: GraftAncestor[] = [];
+  let cur = node.parentId ? tree.byId.get(node.parentId) : undefined;
+  while (cur) {
+    lineage.push({ id: cur.id, sciName: cur.sciName, common: cur.common, rank: cur.rank });
+    if (!cur.virtual) break; // reached the shipped connection point
+    cur = cur.parentId ? tree.byId.get(cur.parentId) : undefined;
+  }
+  return { id: node.id, sciName: node.sciName, common: node.common, rank: node.rank, lineage };
+}
+
+/** Apply a batch of graft payloads (idempotent). */
+export function applyGrafts(tree: Tree, grafts: GraftTaxon[]): void {
+  for (const g of grafts) graftTaxon(tree, g);
+}
