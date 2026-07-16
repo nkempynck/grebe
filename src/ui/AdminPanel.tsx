@@ -29,6 +29,20 @@ import {
   type DayPlan,
 } from "../data/dailyPlan";
 import { isSupabaseConfigured, supabase } from "../data/supabase";
+import {
+  fetchPinnedIndex,
+  fetchPinnedPuzzle,
+  computePuzzle,
+  repinFuture,
+  currentVersions,
+  GAMES,
+  type Game,
+  type PinnedDay,
+  type RepinProgress,
+  type LineagePuzzle,
+  type KinshipPuzzle,
+  type BranchesPuzzle,
+} from "../data/pinnedPuzzles";
 import { Turnstile, captchaEnabled } from "./Turnstile";
 
 function loadLocalDraft(): DailyPlan {
@@ -279,6 +293,330 @@ function TestBench({ tree }: { tree: Tree }) {
   );
 }
 
+const GAME_META: Record<Game, { icon: string; label: string }> = {
+  lineage: { icon: "🧬", label: "Lineage" },
+  kinship: { icon: "🧩", label: "Kinship" },
+  branches: { icon: "🌿", label: "Branches" },
+};
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+type PinCellState = "blank" | "past" | "empty" | "partial" | "stale" | "full";
+
+/** What one day serves for all three games — reads the FROZEN pin (what players
+ *  will actually see), falling back to the freshly computed puzzle for unpinned
+ *  dates. Admin-only, so it's fine that it reveals answers. */
+function DayInspector({ tree, date, versions, onClose }: { tree: Tree; date: string; versions?: Partial<Record<Game, number>>; onClose: () => void }) {
+  const cur = useMemo(() => currentVersions(), []);
+  const [data, setData] = useState<{ lineage: LineagePuzzle | null; kinship: KinshipPuzzle | null; branches: BranchesPuzzle | null } | null>(null);
+  const [source, setSource] = useState<Record<Game, "pinned" | "preview">>({ lineage: "preview", kinship: "preview", branches: "preview" });
+
+  useEffect(() => {
+    let alive = true;
+    setData(null);
+    (async () => {
+      const [l, k, b] = await Promise.all([
+        fetchPinnedPuzzle("lineage", date),
+        fetchPinnedPuzzle("kinship", date),
+        fetchPinnedPuzzle("branches", date),
+      ]);
+      if (!alive) return;
+      setSource({ lineage: l ? "pinned" : "preview", kinship: k ? "pinned" : "preview", branches: b ? "pinned" : "preview" });
+      setData({
+        lineage: l ?? computePuzzle("lineage", tree, date),
+        kinship: k ?? computePuzzle("kinship", tree, date),
+        branches: b ?? computePuzzle("branches", tree, date),
+      });
+    })();
+    return () => { alive = false; };
+  }, [tree, date]);
+
+  const nm = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
+  const weekday = new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+  const tier = data?.lineage?.tier ?? data?.kinship?.tier ?? data?.branches?.tier ?? null;
+
+  const tag = (g: Game) => {
+    const v = versions?.[g];
+    const stale = v != null && v < cur[g];
+    return (
+      <span className={`admin-day-tag${source[g] === "pinned" ? (stale ? " is-stale" : " is-pinned") : " is-preview"}`}>
+        {source[g] === "pinned" ? `pinned v${v ?? "?"}${stale ? " · stale" : ""}` : "preview (unpinned)"}
+      </span>
+    );
+  };
+
+  return (
+    <div className="admin-day">
+      <div className="admin-day-head">
+        <span>№{dailyNumber(date)} · {date} · {weekday}{tier != null && <> · tier {tier}</>}</span>
+        <button className="stats-close" onClick={onClose} aria-label="Close day">×</button>
+      </div>
+      {!data ? (
+        <p className="admin-testbench-hint">Loading…</p>
+      ) : (
+        <div className="admin-day-games">
+          <div className="admin-day-game">
+            <div className="admin-day-gttl">🧬 Lineage {tag("lineage")}</div>
+            {data.lineage ? (
+              <div className="admin-day-body">
+                <b>{nm(data.lineage.answerId)}</b>
+                <span className="admin-day-meta">
+                  {scopeLabel(data.lineage.scopeRootId)} · {resLabel(data.lineage.winWithin)} · {data.lineage.assist ? "assist on" : "no assist"}
+                </span>
+              </div>
+            ) : <div className="admin-day-body is-none">no puzzle</div>}
+          </div>
+
+          <div className="admin-day-game">
+            <div className="admin-day-gttl">🧩 Kinship {tag("kinship")}</div>
+            {data.kinship ? (
+              <div className="admin-day-body">
+                {data.kinship.groups.map((grp) => (
+                  <div key={grp.cladeId} className="admin-day-group">
+                    <span className={`admin-day-glbl lvl-${grp.level}`}>{nm(grp.cladeId)}</span>
+                    <span className="admin-day-members">{grp.memberIds.map(nm).join(" · ")}</span>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="admin-day-body is-none">no puzzle</div>}
+          </div>
+
+          <div className="admin-day-game">
+            <div className="admin-day-gttl">🌿 Branches {tag("branches")}</div>
+            {data.branches ? (
+              <div className="admin-day-body">
+                <span className="admin-day-meta">Region: {nm(data.branches.rootId)} · {data.branches.slotIds.length} to place · {data.branches.anchorIds.length} prefilled</span>
+                {data.branches.groupIds.map((gid, i) => {
+                  const slot = data.branches!.slotIds[i];
+                  return (
+                    <div key={gid} className="admin-day-group">
+                      <span className="admin-day-glbl">{nm(gid)}</span>
+                      <span className="admin-day-members">place <b>{slot ? nm(slot) : "—"}</b></span>
+                    </div>
+                  );
+                })}
+                {data.branches.anchorIds.length > 0 && (
+                  <span className="admin-day-meta">Prefilled in tree: {data.branches.anchorIds.map(nm).join(" · ")}</span>
+                )}
+              </div>
+            ) : <div className="admin-day-body is-none">no puzzle</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Pin manager: a coverage calendar of every future daily (which games are pinned,
+ *  and whether at the current generator version) plus a bulk re-pin over a chosen
+ *  horizon. Re-pin only ever writes FUTURE dates through pin_puzzle() — the past is
+ *  frozen server-side — so it's the safe in-app equivalent of `npm run pin`. */
+function PinManager({ tree }: { tree: Tree }) {
+  const live = isSupabaseConfigured;
+  const today = todayKey();
+  const cur = useMemo(() => currentVersions(), []);
+  const [index, setIndex] = useState<PinnedDay[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [days, setDays] = useState(730);
+  const [games, setGames] = useState<Game[]>([...GAMES]);
+  const [running, setRunning] = useState(false);
+  const [prog, setProg] = useState<RepinProgress | null>(null);
+  const [result, setResult] = useState<RepinProgress | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!live) return;
+    setLoading(true);
+    setIndex(await fetchPinnedIndex());
+    setLoading(false);
+  }, [live]);
+  useEffect(() => { load(); }, [load]);
+
+  const byDate = useMemo(() => {
+    const m = new Map<string, PinnedDay>();
+    for (const d of index ?? []) m.set(d.date, d);
+    return m;
+  }, [index]);
+
+  // Coverage stats over FUTURE pinned days (the only re-pinnable ones).
+  const stats = useMemo(() => {
+    const stale: Record<Game, number> = { lineage: 0, kinship: 0, branches: 0 };
+    const missing: Record<Game, number> = { lineage: 0, kinship: 0, branches: 0 };
+    let future = 0;
+    let lastDate = "";
+    for (const d of index ?? []) {
+      if (d.date <= today) continue;
+      future++;
+      lastDate = d.date;
+      for (const g of GAMES) {
+        const v = d.versions[g];
+        if (v == null) missing[g]++;
+        else if (v < cur[g]) stale[g]++;
+      }
+    }
+    return { future, stale, missing, lastDate };
+  }, [index, today, cur]);
+
+  const cellState = useCallback((date: string): PinCellState => {
+    if (date <= today) return "past";
+    const d = byDate.get(date);
+    const pinned = GAMES.filter((g) => d?.versions[g] != null);
+    if (pinned.length === 0) return "empty";
+    if (pinned.length < GAMES.length) return "partial";
+    return GAMES.some((g) => (d!.versions[g] ?? 0) < cur[g]) ? "stale" : "full";
+  }, [byDate, today, cur]);
+
+  // Month rows spanning today → the horizon end, each a strip of day cells.
+  const months = useMemo(() => {
+    const end = new Date(`${today}T00:00:00Z`);
+    end.setUTCDate(end.getUTCDate() + days);
+    const out: { y: number; m: number }[] = [];
+    const start = new Date(`${today}T00:00:00Z`);
+    for (let y = start.getUTCFullYear(), m = start.getUTCMonth(); ;) {
+      out.push({ y, m });
+      if (y === end.getUTCFullYear() && m === end.getUTCMonth()) break;
+      if (++m > 11) { m = 0; y++; }
+      if (out.length > 60) break; // safety
+    }
+    return out;
+  }, [today, days]);
+
+  const toggleGame = (g: Game) =>
+    setGames((sel) => {
+      const next = sel.includes(g) ? sel.filter((x) => x !== g) : [...sel, g];
+      return GAMES.filter((x) => next.includes(x)); // keep canonical order
+    });
+
+  const run = async () => {
+    if (!games.length) return;
+    const who = games.length === GAMES.length ? "all three games" : games.map((g) => GAME_META[g].label).join(", ");
+    if (!window.confirm(
+      `Re-pin ${who} for the next ${days} days with the CURRENT logic?\n\n` +
+        `Only future (unplayed) dates are written — today and the past stay frozen. ` +
+        `Safe to re-run if interrupted.`
+    )) return;
+    setRunning(true);
+    setResult(null);
+    setProg({ done: 0, total: 0, failed: 0 });
+    const res = await repinFuture(tree, { days, games, onProgress: setProg });
+    setResult(res);
+    setRunning(false);
+    await load();
+  };
+
+  const verTip = (date: string) => {
+    const d = byDate.get(date);
+    return `${date}\n` + GAMES.map((g) => `${GAME_META[g].icon} v${d?.versions[g] ?? "–"}`).join("  ");
+  };
+
+  return (
+    <div className="admin-pins">
+      <div className="admin-pins-head">
+        <div className="admin-testbench-ttl">Pinned puzzles</div>
+        <button className="linkbtn" onClick={load} disabled={loading || !live}>{loading ? "loading…" : "Refresh"}</button>
+      </div>
+      {!live ? (
+        <p className="admin-testbench-hint">Backend not configured — nothing to pin.</p>
+      ) : (
+        <>
+          <p className="admin-testbench-hint">
+            Generators now at {GAMES.map((g) => `${GAME_META[g].icon} v${cur[g]}`).join(" · ")}. A future day
+            shown amber is pinned at an older version and would still serve the old board until re-pinned.
+          </p>
+
+          <div className="admin-pins-stats">
+            <span><b>{stats.future}</b> future days pinned{stats.lastDate && <> · through {stats.lastDate}</>}</span>
+            {GAMES.map((g) => {
+              const bad = stats.stale[g] + stats.missing[g];
+              return (
+                <span key={g} className={bad ? "is-warn" : "is-ok"}>
+                  {GAME_META[g].icon} {bad ? `${stats.stale[g]} stale${stats.missing[g] ? `, ${stats.missing[g]} missing` : ""}` : "all current"}
+                </span>
+              );
+            })}
+          </div>
+
+          <div className="admin-pins-cal">
+            {months.map(({ y, m }) => {
+              const dim = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+              return (
+                <div className="pin-cal-row" key={`${y}-${m}`}>
+                  <span className="pin-cal-mlbl">{MONTHS[m]} ’{String(y).slice(2)}</span>
+                  <div className="pin-cal-days">
+                    {Array.from({ length: 31 }, (_, i) => {
+                      const day = i + 1;
+                      if (day > dim) return <span key={i} className="pin-cell is-blank" />;
+                      const date = `${y}-${pad2(m + 1)}-${pad2(day)}`;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          className={`pin-cell is-${cellState(date)}${selected === date ? " is-sel" : ""}`}
+                          title={verTip(date)}
+                          aria-label={`${date} puzzles`}
+                          onClick={() => setSelected((s) => (s === date ? null : date))}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="admin-pins-legend">
+            <span><i className="pin-cell is-full" /> current</span>
+            <span><i className="pin-cell is-stale" /> stale (old version)</span>
+            <span><i className="pin-cell is-partial" /> partial</span>
+            <span><i className="pin-cell is-empty" /> unpinned</span>
+            <span><i className="pin-cell is-past" /> frozen (today/past)</span>
+            <span className="admin-pins-legend-hint">· click any day to inspect its puzzles</span>
+          </div>
+
+          {selected && (
+            <DayInspector tree={tree} date={selected} versions={byDate.get(selected)?.versions} onClose={() => setSelected(null)} />
+          )}
+
+          <div className="admin-pins-controls">
+            <label className="admin-pins-days">
+              Horizon
+              <input type="number" min={1} max={1460} value={days} disabled={running}
+                onChange={(e) => setDays(Math.max(1, Math.min(1460, Number(e.target.value) || 1)))} />
+              days
+            </label>
+            <div className="admin-pins-games">
+              {GAMES.map((g) => (
+                <label key={g} className={`admin-pins-gtog${games.includes(g) ? " is-on" : ""}`}>
+                  <input type="checkbox" checked={games.includes(g)} disabled={running} onChange={() => toggleGame(g)} />
+                  {GAME_META[g].icon} {GAME_META[g].label}
+                </label>
+              ))}
+            </div>
+            <button className="admin-rand" onClick={run} disabled={running || !games.length}>
+              {running ? "Re-pinning…" : "Re-pin future"}
+            </button>
+          </div>
+
+          {running && prog && (
+            <div className="admin-pins-prog">
+              <div className="admin-pins-bar"><span style={{ width: `${prog.total ? (prog.done / prog.total) * 100 : 0}%` }} /></div>
+              <span>{prog.done} / {prog.total}{prog.failed ? ` · ${prog.failed} failed` : ""}</span>
+            </div>
+          )}
+          {!running && result && (
+            <p className={`admin-pins-done${result.failed ? " is-warn" : ""}`}>
+              {result.failed
+                ? `Wrote ${result.done - result.failed}/${result.total}, ${result.failed} failed — re-run to retry the rest.`
+                : `✓ Re-pinned ${result.done} rows.`}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function AdminPanel({ tree }: { tree: Tree }) {
   const live = isSupabaseConfigured;
 
@@ -327,6 +665,7 @@ export function AdminPanel({ tree }: { tree: Tree }) {
   };
 
   // ---- Draft / plan being edited ----
+  const [tab, setTab] = useState<"health" | "play" | "pins" | "schedule">("health");
   const [draft, setDraft] = useState<DailyPlan>(live ? {} : loadLocalDraft);
   const [date, setDate] = useState(todayKey());
   const [q, setQ] = useState("");
@@ -484,10 +823,21 @@ export function AdminPanel({ tree }: { tree: Tree }) {
         {saveErr && <span className="admin-saveerr">Save failed: {saveErr}</span>}
       </div>
 
-      <ErrorBoundary label="System health"><SystemHealth tree={tree} /></ErrorBoundary>
+      <div className="admin-tabs" role="tablist" aria-label="Admin sections">
+        <button role="tab" aria-selected={tab === "health"} className={`admin-tab${tab === "health" ? " is-on" : ""}`} onClick={() => setTab("health")}>🩺 Health</button>
+        <button role="tab" aria-selected={tab === "play"} className={`admin-tab${tab === "play" ? " is-on" : ""}`} onClick={() => setTab("play")}>🎮 Test bench</button>
+        <button role="tab" aria-selected={tab === "pins"} className={`admin-tab${tab === "pins" ? " is-on" : ""}`} onClick={() => setTab("pins")}>📌 Pins</button>
+        <button role="tab" aria-selected={tab === "schedule"} className={`admin-tab${tab === "schedule" ? " is-on" : ""}`} onClick={() => setTab("schedule")}>🗓 Schedule</button>
+      </div>
 
-      <ErrorBoundary label="Test bench"><TestBench tree={tree} /></ErrorBoundary>
+      {tab === "health" && <ErrorBoundary label="System health"><SystemHealth tree={tree} /></ErrorBoundary>}
 
+      {tab === "play" && <ErrorBoundary label="Test bench"><TestBench tree={tree} /></ErrorBoundary>}
+
+      {tab === "pins" && <ErrorBoundary label="Pinned puzzles"><PinManager tree={tree} /></ErrorBoundary>}
+
+      {tab === "schedule" && (
+      <ErrorBoundary label="Schedule editor">
       <div className="admin-datebar">
         <label htmlFor="admin-date">Date</label>
         <input
@@ -649,6 +999,8 @@ export function AdminPanel({ tree }: { tree: Tree }) {
         </p>
         <pre className="admin-export-json">{exportJson}</pre>
       </div>
+      </ErrorBoundary>
+      )}
     </div>
   );
 }

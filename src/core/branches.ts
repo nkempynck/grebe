@@ -33,13 +33,16 @@ export interface BranchesBoard {
   rootId: string;
   /** Every species leaf on the board (anchors ∪ slots). */
   leafIds: string[];
-  /** Leaves shown pre-filled as worked examples, inside the slot groups. */
+  /** Leaves shown pre-filled (never draggable): worked examples inside the slot
+   *  groups (never in an answer's own final clade) PLUS one representative species
+   *  for each context clade — a non-answer family that just fills out the tree. */
   anchorIds: string[];
   /** Empty tips to fill; each sits in its own distinct group clade (the
    *  solvability guarantee). The correct species for a slot IS that leaf. */
   slotIds: string[];
-  /** The clade id of each board group — the ONLY clades the UI labels (the rest
-   *  of the skeleton collapses to bare branch points, so there's no Latin fluff). */
+  /** The clade ids the UI labels: every answer group PLUS the context clades (the
+   *  rest of the skeleton collapses to bare branch points). Not all of these have a
+   *  slot — a context clade is labelled but already filled. */
   groupIds: string[];
   /** The slot species, shuffled — the tray the player drags from. */
   tray: string[];
@@ -95,6 +98,16 @@ const isLeaf = (tree: Tree, id: string) => (tree.childrenOf.get(id) ?? []).lengt
 const hasName = (tree: Tree, id: string) => {
   const n = tree.byId.get(id);
   return Boolean(n && (n.common || n.sciName));
+};
+
+/** The significant words of a species' COMMON name (lowercased, ≥3 letters), e.g.
+ *  "Gould's wattled bat" → {gould, wattled, bat}. Empty for a Latin-only species
+ *  (a scientific tile carries no everyday word to give anything away). Purely
+ *  data-driven — no hand-kept word list. */
+const nameWords = (tree: Tree, id: string): Set<string> => {
+  const c = tree.byId.get(id)?.common;
+  if (!c) return new Set();
+  return new Set(c.toLowerCase().split(/[^a-z]+/).filter((t) => t.length >= 3));
 };
 
 // ---- discovery (tree-only, cached per tree) ----
@@ -182,6 +195,22 @@ function containersForTier(tree: Tree, tier: number): Container[] {
   return getContainers(tree, MAX_GROUP_LEAVES);
 }
 
+/** Pick the day's container, biased by tier: easy tiers favour SHALLOW containers
+ *  (their groups sit far apart across the tree — owls vs. beetles vs. oaks), hard
+ *  tiers favour DEEP ones (tight sibling families — one squid family vs. another).
+ *  A window around the tier's target keeps day-to-day variety and lets the
+ *  anti-repeat layer still find alternatives. */
+function pickContainer(tree: Tree, tier: number, rng: () => number): Container {
+  const pool = containersForTier(tree, tier);
+  if (pool.length <= 1) return pool[0];
+  const sorted = [...pool].sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id));
+  const center = ((tier - 1) / 6) * (sorted.length - 1); // shallow (Mon) → deep (Sun)
+  const half = Math.max(1, Math.round(sorted.length * 0.2));
+  const lo = Math.max(0, Math.floor(center - half));
+  const hi = Math.min(sorted.length - 1, Math.ceil(center + half));
+  return sorted[lo + Math.floor(rng() * (hi - lo + 1))];
+}
+
 function tierForDate(dateKey: string): number {
   const day = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
   return ((day + 6) % 7) + 1;
@@ -197,35 +226,92 @@ function shiftDate(dateKey: string, delta: number): string {
 function slotCount(tier: number, available: number): number {
   return Math.min(available, MIN_GROUPS + Math.round(((tier - 1) / 6) * 3));
 }
-/** Anchored groups fall from all → few as the tier rises (fewer worked examples). */
-function anchorCount(tier: number, k: number): number {
-  return Math.max(1, Math.round(k * (1 - ((tier - 1) / 6) * 0.8)));
+/** Leaves of a group that sit in a DIFFERENT direct branch than the slot — i.e. not
+ *  the answer's own final sub-clade. Empty when the group doesn't fork, so a group
+ *  never prefills a species right beside its answer. */
+function otherBranchLeaves(tree: Tree, groupId: string, slot: string, groupLeaves: string[]): string[] {
+  const kids = tree.childrenOf.get(groupId) ?? [];
+  if (kids.length < 2) return [];
+  const slotBranch = kids.find((k) => leavesUnder(tree, k).includes(slot));
+  if (!slotBranch) return [];
+  const slotSet = new Set(leavesUnder(tree, slotBranch));
+  return groupLeaves.filter((id) => id !== slot && !slotSet.has(id));
 }
 
 /** The cheap per-day board selection over the tier's containers. */
 function selectBoard(tree: Tree, dateKey: string, tier: number, attempt: number): BranchesBoard {
   const seedKey = attempt === 0 ? `grebe:branches:${dateKey}:${tier}` : `grebe:branches:${dateKey}:${tier}:${attempt}`;
   const rng = mulberry32(xmur3(seedKey));
-  const container = pickN(containersForTier(tree, tier), 1, rng)[0];
+  const container = pickContainer(tree, tier, rng);
 
   const k = slotCount(tier, container.groups.length);
   const chosen = pickN(container.groups, k, rng);
-  const nAnchors = anchorCount(tier, k);
 
   const slotIds: string[] = [];
   const anchorIds: string[] = [];
   const groupIds: string[] = [];
-  chosen.forEach((grp, i) => {
-    // Prefer members with common names so both the tray tile and the anchor read
-    // recognisably. Take up to two: the slot, plus an anchor for the first nAnchors
-    // groups (a worked example sharing the slot's group).
+  const usedGroupIds = new Set(chosen.map((g) => g.cladeId));
+
+  // Pass 1: each group's slot (the answer) + its group label. Prefer common-named
+  // members so the tray tile reads recognisably.
+  const picks = chosen.map((grp) => {
     const named = grp.leaves.filter((id) => tree.byId.get(id)?.common);
-    const pool = named.length >= 2 ? named : grp.leaves;
-    const pair = pickN(pool, 2, rng);
-    slotIds.push(pair[0]);
-    groupIds.push(grp.cladeId);
-    if (i < nAnchors && pair[1]) anchorIds.push(pair[1]);
+    const pool = shuffle(named.length >= 2 ? [...named] : [...grp.leaves], rng);
+    return { grp, slot: pool[0] };
   });
+  picks.forEach(({ grp, slot }) => {
+    slotIds.push(slot);
+    groupIds.push(grp.cladeId);
+  });
+  // Distinctive-word collision model: a shared name word only gives a placement away
+  // if it's UNIQUE to one group's answer on this board. Generic words shared across
+  // the board — "squid" when every group is a squid family — don't help, so they're
+  // allowed; that keeps same-word regions from rendering completely empty.
+  const answerWords = picks.map((p) => nameWords(tree, p.slot));
+  const wordGroups = new Map<string, number>();
+  for (const ws of answerWords) for (const w of ws) wordGroups.set(w, (wordGroups.get(w) ?? 0) + 1);
+  const distinctive = (w: string) => (wordGroups.get(w) ?? 0) === 1;
+  // No prefilled species (worked example OR context) may carry a word DISTINCTIVE to
+  // a single answer — that word would point straight at one clade, whether the
+  // species sits in that clade (a give-away) or elsewhere (misleading). Generic
+  // words shared across the board ("squid") are fine.
+  const clashesAnswer = (id: string) => {
+    for (const w of nameWords(tree, id)) if (distinctive(w)) return true;
+    return false;
+  };
+
+  // Pre-filled context (never draggable) to make the tree fuller and teach the
+  // neighbourhood. Amount tapers with the tier — about one per slot on Monday down
+  // to none on Sunday.
+  const target = Math.round(slotIds.length * (1 - (tier - 1) / 6));
+  const used = new Set(slotIds);
+
+  // (a) CONTEXT CLADES: other labelled families/orders in the region that hold NONE
+  // of the answers, each shown with one representative species — decoys that fill
+  // the tree and teach by elimination ("your species don't go here").
+  for (const cg of shuffle(container.groups.filter((g) => !usedGroupIds.has(g.cladeId)), rng)) {
+    if (anchorIds.length >= target) break;
+    const named = cg.leaves.filter((id) => tree.byId.get(id)?.common);
+    const rep = shuffle(named.length ? [...named] : [...cg.leaves], rng).find((id) => !used.has(id) && !clashesAnswer(id));
+    if (!rep) continue;
+    anchorIds.push(rep);
+    used.add(rep);
+    groupIds.push(cg.cladeId); // label the context clade too
+  }
+
+  // (b) WORKED EXAMPLES inside answer groups, from a DIFFERENT branch than the slot
+  // (never the answer's own final clade), if the target isn't met yet.
+  const primary = picks.map(({ grp, slot }) =>
+    shuffle(otherBranchLeaves(tree, grp.cladeId, slot, grp.leaves), rng).filter((id) => !used.has(id) && !clashesAnswer(id))
+  );
+  for (let more = true; more && anchorIds.length < target; ) {
+    more = false;
+    for (const list of primary) {
+      if (anchorIds.length >= target) break;
+      const next = list.find((id) => !used.has(id));
+      if (next) { anchorIds.push(next); used.add(next); more = true; }
+    }
+  }
 
   const leafIds = [...anchorIds, ...slotIds];
   let root = leafIds[0];

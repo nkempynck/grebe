@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DisplayTreeNode, Tree } from "../core";
-import { inducedSubtree } from "../core";
+import { inducedSubtree, dailyNumber } from "../core";
 import { resolveDailyRules } from "../data/dailySchedule";
 import { GameHeader } from "./GameHeader";
 import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame";
@@ -94,6 +94,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
   const [wikiId, setWikiId] = useState<string | null>(null);
   const [pendingPeek, setPendingPeek] = useState<string | null>(null);
   const [mode, setMode] = useState<BranchesView>("radial");
+  const [copied, setCopied] = useState(false);
 
   const skeleton = useMemo<DisplayTreeNode | null>(() => {
     if (!g.board) return null;
@@ -127,6 +128,33 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
   };
   const rootAnnoId = rootId ? namedAncestorOf(rootId) : null;
   const points = g.result ? branchesPoints(g.tier, g.result.correct, g.result.total, g.result.hinted + 0.5 * g.result.peeked) : 0;
+  // Shareable result grid: one square per slot in board order. The answer species
+  // are never encoded — only whether each was placed right, and with what help —
+  // so the grid is safe to post. Clean correct 🟩, hint-revealed 🟨, peeked 🟦,
+  // wrong ⬛.
+  const day = new Date(`${g.date}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+  const pips = "●".repeat(g.tier) + "○".repeat(Math.max(0, 7 - g.tier));
+  const shareSquare = (s: string) =>
+    g.placements[s] !== s ? "⬛" : g.hints.includes(s) ? "🟨" : g.peeked.includes(s) ? "🟦" : "🟩";
+  const shareText = (() => {
+    const head = `🌿 Grebe Branches · №${dailyNumber(g.date)} · ${g.date} (${day})`;
+    const grid = board.slotIds.map(shareSquare).join("");
+    const help = [
+      g.result?.hinted ? `${g.result.hinted} hint${g.result.hinted > 1 ? "s" : ""}` : "",
+      g.result?.peeked ? `${g.result.peeked} peek${g.result.peeked > 1 ? "s" : ""}` : "",
+    ].filter(Boolean).join(", ");
+    const verdict = `${g.result?.correct}/${g.result?.total} placed · ${points} pts${help ? ` · ${help}` : ""}`;
+    return `${head}\n${pips}\n${grid}\n${verdict}`;
+  })();
+  const copyShare = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard unavailable — no-op */
+    }
+  };
   const wikiNode = wikiId ? tree.byId.get(wikiId) ?? null : null;
   const peekNode = pendingPeek ? tree.byId.get(pendingPeek) ?? null : null;
   // Looking up a species you still have to place forfeits its point, so it goes
@@ -331,6 +359,18 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
           {g.result.correct < g.result.total && (
             <p className="branches-result-note">Each miss shows its correct species.</p>
           )}
+          <div className="share">
+            <div className="share-head">🌿 Grebe Branches <span>· №{dailyNumber(g.date)} · {g.date} ({day})</span></div>
+            <div className="share-sub"><span className="share-dots">{pips}</span></div>
+            <div className="share-grid" aria-label={`placements: ${board.slotIds.map(shareSquare).join("")}`}>
+              {board.slotIds.map(shareSquare).join("")}
+            </div>
+            <div className="share-verdict">
+              {g.result.correct}/{g.result.total} placed
+              <span className="share-score"> · {points} pts</span>
+            </div>
+            <button className="share-btn" onClick={copyShare}>{copied ? "Copied ✓" : "Copy result"}</button>
+          </div>
           {g.locked && <p className="daily-lock">✓ You’ve played today’s Branches. Come back tomorrow for a new board.</p>}
         </div>
       )}

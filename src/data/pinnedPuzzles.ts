@@ -19,6 +19,7 @@
 //     read ahead. Prefer this over computePuzzle when it resolves non-null.
 
 import type { BranchesBoard, GridBoard, Tree } from "../core";
+import { DAILY_EPOCH, todayKey } from "../core/daily";
 import { resolveDailyRules, dailyAnswerFor } from "./dailySchedule";
 import { gridBoardFor } from "./gridDaily";
 import { branchesBoardFor } from "./branchesDaily";
@@ -131,7 +132,19 @@ const kinshipResolver: Resolver<"kinship"> = {
 
 const branchesResolver: Resolver<"branches"> = {
   game: "branches",
-  version: 1,
+  // v2: an anchor (prefilled tree species) may no longer share a name word with any
+  // answer tile ("Gould's wattled bat" beside "Chocolate wattled bat"), which gave
+  // the placement away; a group with no clean anchor now goes unanchored.
+  //   v2.1/2.2 (same stored version — nothing was pinned at v2 yet): worked-example
+  //   anchors sit in a DIFFERENT branch of the group than the slot (never the
+  //   answer's own final clade); labelled CONTEXT CLADES (non-answer families, each
+  //   with a representative species) fill the tree and teach by elimination; the
+  //   collision rule is now distinctive-word (only a word unique to one answer is a
+  //   give-away, so all-"squid" boards still populate); and container choice is
+  //   depth-biased by tier (easy = spread-out groups, hard = tight siblings).
+  // Board identity changed → re-pin un-played future dates (Admin ▸ Pins ▸ Re-pin,
+  // or npm run pin -- --force); past pins stay frozen.
+  version: 2,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
@@ -150,10 +163,133 @@ const RESOLVERS: { [G in Game]: Resolver<G> } = {
 
 export const puzzleVersion = (game: Game): number => RESOLVERS[game].version;
 
+/** All three games, in display order. */
+export const GAMES: Game[] = ["lineage", "kinship", "branches"];
+
+/** The current generator version of every game — what a fresh pin would record. */
+export const currentVersions = (): Record<Game, number> => ({
+  lineage: puzzleVersion("lineage"),
+  kinship: puzzleVersion("kinship"),
+  branches: puzzleVersion("branches"),
+});
+
 /** The synchronous generator result for a date — the fallback used for instant,
  *  offline render and for un-pinned/future dates. */
 export function computePuzzle<G extends Game>(game: G, tree: Tree, date: string): PuzzleByGame[G] | null {
   return RESOLVERS[game].compute(tree, date);
+}
+
+const shiftDateKey = (dateKey: string, delta: number): string => {
+  const d = new Date(`${dateKey}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+};
+
+// ---- admin: pin index + bulk re-pin (client, via the pin_puzzle RPC) ----
+
+/** One date's pin state: the version each game is pinned at (absent = not pinned). */
+export interface PinnedDay {
+  date: string;
+  versions: Partial<Record<Game, number>>;
+}
+
+/** Every pinned row (admin-only; RLS lets admins read future rows), folded to one
+ *  entry per date with each game's pinned version. Paginated so it isn't capped at
+ *  PostgREST's default 1000-row page. Best-effort — returns [] on any failure. */
+export async function fetchPinnedIndex(fromDate: string = DAILY_EPOCH): Promise<PinnedDay[]> {
+  if (!supabase) return [];
+  const byDate = new Map<string, PinnedDay>();
+  const PAGE = 1000;
+  try {
+    for (let offset = 0; ; offset += PAGE) {
+      const { data, error } = await supabase
+        .from("daily_puzzles")
+        .select("game, puzzle_date, version")
+        .gte("puzzle_date", fromDate)
+        .order("puzzle_date")
+        .range(offset, offset + PAGE - 1);
+      if (error || !data) break;
+      for (const r of data as { game: Game; puzzle_date: string; version: number }[]) {
+        const d = byDate.get(r.puzzle_date) ?? { date: r.puzzle_date, versions: {} };
+        d.versions[r.game] = r.version;
+        byDate.set(r.puzzle_date, d);
+      }
+      if (data.length < PAGE) break;
+    }
+  } catch {
+    return [];
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export interface RepinProgress {
+  done: number;
+  total: number;
+  failed: number;
+}
+
+/** Admin-only: recompute every FUTURE daily for the chosen games with the CURRENT
+ *  generators and overwrite its pin via the pin_puzzle() RPC. That RPC refuses any
+ *  date ≤ today, and this also skips them client-side, so played/past puzzles (and
+ *  their leaderboards) can never be touched — only the not-yet-seen horizon is
+ *  refreshed after a generation-logic change. Idempotent per row, so a re-run just
+ *  finishes an interrupted pass. Runs with bounded concurrency; reports progress. */
+export async function repinFuture(
+  tree: Tree,
+  opts: {
+    from?: string;
+    days?: number;
+    games?: Game[];
+    concurrency?: number;
+    onProgress?: (p: RepinProgress) => void;
+  } = {}
+): Promise<RepinProgress> {
+  const empty = { done: 0, total: 0, failed: 0 };
+  if (!supabase) return empty;
+  const days = Math.max(1, opts.days ?? 730);
+  const games = opts.games?.length ? opts.games : GAMES;
+  const start = opts.from ?? DAILY_EPOCH;
+  const cutoff = todayKey(); // never write today or earlier (mirrors the RPC guard)
+
+  const jobs: { game: Game; date: string; payload: StoredPayload; version: number }[] = [];
+  for (let i = 0; i < days; i++) {
+    const date = shiftDateKey(start, i);
+    if (date <= cutoff) continue; // future only — the past is frozen
+    for (const game of games) {
+      const p = computePuzzle(game, tree, date);
+      if (!p) continue;
+      jobs.push({ game, date, payload: encodePuzzle(game, p), version: puzzleVersion(game) });
+    }
+  }
+
+  const total = jobs.length;
+  let done = 0;
+  let failed = 0;
+  const tick = () => opts.onProgress?.({ done, total, failed });
+  tick();
+
+  let idx = 0;
+  const worker = async () => {
+    while (idx < jobs.length) {
+      const job = jobs[idx++];
+      try {
+        const { error } = await supabase!.rpc("pin_puzzle", {
+          p_game: job.game,
+          p_date: job.date,
+          p_payload: job.payload,
+          p_version: job.version,
+        });
+        if (error) failed++;
+      } catch {
+        failed++;
+      }
+      done++;
+      tick();
+    }
+  };
+  const lanes = Math.max(1, Math.min(opts.concurrency ?? 6, jobs.length));
+  await Promise.all(Array.from({ length: lanes }, worker));
+  return { done, total, failed };
 }
 
 /** Encode a computed puzzle for storage (used by the prefill script + admin edits). */

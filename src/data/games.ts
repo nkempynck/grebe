@@ -258,6 +258,55 @@ export async function fetchGameStanding(
   }
 }
 
+// ---- Combined daily board (all three games, normalised) ----
+
+export interface CombinedEntry {
+  display_name: string;
+  /** The three normalised game scores averaged into a single 0–100 total. */
+  combined: number;
+  /** How many of the three games the player has a ranked result for that day. */
+  played: number;
+  /** Each game's score as a 0–100 share of that game's top score on the day. */
+  parts: { lineage: number; kinship: number; branches: number };
+}
+
+const COMBINED_GAMES: GameId[] = ["lineage", "kinship", "branches"];
+
+/** The combined daily board for one date: each game's per-player score is scaled
+ *  to a 0–100 share of that game's best score on the day (so every game weighs the
+ *  same regardless of its raw point scale), then averaged across the three for one
+ *  total out of 100. Computed on the client from the existing per-game day boards —
+ *  no new server function — so it stays in lock-step with each game's own board.
+ *  Players who skipped a game just score 0 for it. Ranked high to low. */
+export async function fetchCombinedDaily(forDate: string, limit = 200): Promise<CombinedEntry[]> {
+  if (!supabase) return [];
+  const boards = await Promise.all(
+    COMBINED_GAMES.map((g) => fetchGameLeaderboard(g, "day", { forDate, limit }))
+  );
+  // The day's top score in each game (≥1 so a game with no results can't divide by
+  // zero — it simply contributes 0 to everyone).
+  const maxOf = boards.map((rows) => Math.max(1, ...rows.map((r) => r.total_score)));
+  const acc = new Map<string, CombinedEntry>();
+  boards.forEach((rows, gi) => {
+    for (const r of rows) {
+      const e =
+        acc.get(r.display_name) ??
+        { display_name: r.display_name, combined: 0, played: 0, parts: { lineage: 0, kinship: 0, branches: 0 } };
+      e.parts[COMBINED_GAMES[gi]] = Math.round((r.total_score / maxOf[gi]) * 100);
+      e.played += 1;
+      acc.set(r.display_name, e);
+    }
+  });
+  const out = [...acc.values()].map((e) => ({
+    ...e,
+    combined: Math.round((e.parts.lineage + e.parts.kinship + e.parts.branches) / 3),
+  }));
+  out.sort(
+    (a, b) => b.combined - a.combined || b.played - a.played || a.display_name.localeCompare(b.display_name)
+  );
+  return out;
+}
+
 /** The caller's competitive badge inputs for any game. */
 export async function fetchGameBadges(game: GameId): Promise<import("./badges").PlayerBadges | null> {
   if (!supabase) return null;

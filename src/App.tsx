@@ -26,6 +26,7 @@ import { BranchesGame } from "./ui/BranchesGame";
 import { GameHeader } from "./ui/GameHeader";
 import { HomePanel } from "./ui/HomePanel";
 import { Leaderboard } from "./ui/Leaderboard";
+import { CombinedLeaderboard } from "./ui/CombinedLeaderboard";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import type { GridComplete } from "./hooks/useGridGame";
 import type { BranchesComplete } from "./hooks/useBranchesGame";
@@ -108,8 +109,9 @@ export default function App() {
   const [kinBoardReload, setKinBoardReload] = useState(0);
   // Same idea for the Branches board after a result is submitted.
   const [branchBoardReload, setBranchBoardReload] = useState(0);
-  // Which game's rankings the Leaderboard tab is showing.
-  const [lbGame, setLbGame] = useState<"lineage" | "kinship" | "branches">("lineage");
+  // Which game's rankings the Leaderboard tab is showing ("combined" = all three,
+  // normalised into one daily total).
+  const [lbGame, setLbGame] = useState<"combined" | "lineage" | "kinship" | "branches">("combined");
   // Daily-winner celebration: on sign-in, fetch the player's recent winning days
   // and surface any not yet shown on this device (see newDailyWins for baseline).
   const [winNudge, setWinNudge] = useState<string[]>([]);
@@ -452,11 +454,14 @@ export default function App() {
       {view === "leaderboard" && (
         <>
           <div className="lb-gametabs" role="tablist" aria-label="Leaderboard game">
+            <button role="tab" aria-selected={lbGame === "combined"} className={`lb-seg${lbGame === "combined" ? " is-on" : ""}`} onClick={() => setLbGame("combined")}>🏆 Combined</button>
             <button role="tab" aria-selected={lbGame === "lineage"} className={`lb-seg${lbGame === "lineage" ? " is-on" : ""}`} onClick={() => setLbGame("lineage")}>🧬 Lineage</button>
             <button role="tab" aria-selected={lbGame === "kinship"} className={`lb-seg${lbGame === "kinship" ? " is-on" : ""}`} onClick={() => setLbGame("kinship")}>🧩 Kinship</button>
             <button role="tab" aria-selected={lbGame === "branches"} className={`lb-seg${lbGame === "branches" ? " is-on" : ""}`} onClick={() => setLbGame("branches")}>🌿 Branches</button>
           </div>
-          {lbGame === "lineage" ? (
+          {lbGame === "combined" ? (
+            <CombinedLeaderboard me={boardName} />
+          ) : lbGame === "lineage" ? (
             <>
               <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} streak={stats.daily.currentStreak} />
               <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} />

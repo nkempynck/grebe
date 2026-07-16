@@ -565,6 +565,98 @@ body {
   background: var(--bg); border: 1px solid var(--line);
 }
 
+/* Admin section tabs. */
+.admin-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 20px; }
+.admin-tab {
+  padding: 9px 16px; border-radius: var(--radius);
+  border: 1px solid var(--line); background: var(--bg-2);
+  color: var(--ink-soft); font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.admin-tab:hover { border-color: var(--brass); color: var(--ink); }
+.admin-tab.is-on { border-color: var(--brass); background: color-mix(in srgb, var(--brass) 14%, transparent); color: var(--brass-bright); }
+
+/* Pin manager: coverage calendar + bulk re-pin. */
+.admin-pins {
+  margin-bottom: 20px; padding: 16px; border-radius: var(--radius);
+  border: 1px dashed var(--line); background: var(--bg-2);
+}
+.admin-pins-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.admin-pins-stats {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 0;
+  font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft);
+}
+.admin-pins-stats .is-warn { color: #d4a017; }
+.admin-pins-stats .is-ok { color: var(--ink-faint); }
+.admin-pins-cal { display: flex; flex-direction: column; gap: 2px; margin: 12px 0; overflow-x: auto; }
+.pin-cal-row { display: flex; align-items: center; gap: 8px; }
+.pin-cal-mlbl {
+  flex: none; width: 52px; text-align: right;
+  font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+}
+.pin-cal-days { display: grid; grid-template-columns: repeat(31, 1fr); gap: 2px; flex: 1; min-width: 372px; }
+.pin-cell {
+  aspect-ratio: 1; border-radius: 2px; background: var(--line-soft);
+  display: inline-block; width: 100%;
+}
+.pin-cell.is-blank { background: transparent; }
+.pin-cell.is-past { background: rgba(255, 255, 255, 0.06); }
+.pin-cell.is-empty { background: #5a2222; }
+.pin-cell.is-partial { background: #cc6d2e; }
+.pin-cell.is-stale { background: #d4a017; }
+.pin-cell.is-full { background: #2ea043; }
+button.pin-cell { padding: 0; border: none; cursor: pointer; }
+button.pin-cell:hover { outline: 1px solid var(--brass); outline-offset: 1px; }
+.pin-cell.is-sel { outline: 2px solid var(--brass-bright); outline-offset: 1px; }
+.admin-pins-legend-hint { color: var(--ink-faint); font-style: italic; }
+
+/* Day inspector: what one date serves across the three games. */
+.admin-day {
+  margin: 14px 0; padding: 14px; border-radius: var(--radius);
+  border: 1px solid var(--brass); background: var(--bg);
+}
+.admin-day-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-family: var(--font-mono); font-size: 13px; color: var(--ink); margin-bottom: 12px;
+}
+.admin-day-games { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.admin-day-game { padding: 12px; border-radius: var(--radius); background: var(--bg-2); border: 1px solid var(--line-soft); }
+.admin-day-gttl { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--ink); margin-bottom: 8px; }
+.admin-day-tag {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 999px; border: 1px solid var(--line);
+}
+.admin-day-tag.is-pinned { color: #2ea043; border-color: color-mix(in srgb, #2ea043 50%, transparent); }
+.admin-day-tag.is-stale { color: #d4a017; border-color: color-mix(in srgb, #d4a017 50%, transparent); }
+.admin-day-tag.is-preview { color: var(--ink-faint); }
+.admin-day-body { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--ink-soft); }
+.admin-day-body.is-none { color: var(--ink-faint); font-style: italic; }
+.admin-day-body > b { color: var(--ink); font-size: 15px; }
+.admin-day-meta { font-size: 12px; color: var(--ink-faint); }
+.admin-day-group { display: flex; flex-direction: column; gap: 1px; }
+.admin-day-glbl { font-weight: 600; color: var(--ink); font-size: 12.5px; }
+.admin-day-members { font-size: 12px; color: var(--ink-soft); }
+.admin-pins-legend {
+  display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 14px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft);
+}
+.admin-pins-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.admin-pins-legend i { width: 11px; height: 11px; aspect-ratio: auto; }
+.admin-pins-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.admin-pins-days { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); }
+.admin-pins-days input { width: 76px; padding: 7px 9px; }
+.admin-pins-games { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.admin-pins-gtog {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--radius);
+  font-size: 12px; color: var(--ink-soft);
+}
+.admin-pins-gtog.is-on { border-color: var(--brass); color: var(--ink); }
+.admin-pins-prog { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); }
+.admin-pins-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
+.admin-pins-bar span { display: block; height: 100%; background: var(--brass); transition: width 0.15s ease; }
+.admin-pins-done { margin-top: 12px; font-size: 13px; color: #2ea043; }
+.admin-pins-done.is-warn { color: #d4a017; }
+
 /* Inline playtest toolbar shown above a sandbox game. */
 .playtest {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
