@@ -118,10 +118,10 @@ export async function fetchPlayerBadges(): Promise<import("./badges").PlayerBadg
  *  denied by RLS; free play isn't stored server-side). The server pins `tier`
  *  from the date and derives guess/hint counts from the id arrays. The trailing
  *  fields are descriptive detail and don't affect scoring. Best-effort. */
-export async function recordGame(g: GameRow): Promise<void> {
-  if (!supabase) return;
+export async function recordGame(g: GameRow): Promise<boolean> {
+  if (!supabase) return false;
   try {
-    await supabase.rpc("submit_game", {
+    const { error } = await supabase.rpc("submit_game", {
       p_mode: "daily",
       p_puzzle_date: g.puzzleDate,
       p_scope_id: g.scopeId,
@@ -134,8 +134,11 @@ export async function recordGame(g: GameRow): Promise<void> {
       p_win_within: g.winWithin,
       p_par: g.par,
     });
-  } catch {
-    /* best-effort — a lost row shouldn't break the game */
+    if (error) { console.warn("submit_game failed", error); return false; }
+    return true;
+  } catch (e) {
+    console.warn("submit_game threw", e);
+    return false;
   }
 }
 
@@ -146,17 +149,20 @@ export async function recordGame(g: GameRow): Promise<void> {
 /** Record one finished Kinship daily via submit_grid_game() (direct INSERT is
  *  denied by RLS). The server pins `tier` from the date; `won`/`mistakes` are
  *  client-reported. One row per player per day. Best-effort. */
-export async function recordGridGame(g: { puzzleDate: string; won: boolean; mistakes: number; reveals: number }): Promise<void> {
-  if (!supabase) return;
+export async function recordGridGame(g: { puzzleDate: string; won: boolean; mistakes: number; reveals: number }): Promise<boolean> {
+  if (!supabase) return false;
   try {
-    await supabase.rpc("submit_grid_game", {
+    const { error } = await supabase.rpc("submit_grid_game", {
       p_puzzle_date: g.puzzleDate,
       p_won: g.won,
       p_mistakes: g.mistakes,
       p_reveals: g.reveals,
     });
-  } catch {
-    /* best-effort */
+    if (error) { console.warn("submit_grid_game failed", error); return false; }
+    return true;
+  } catch (e) {
+    console.warn("submit_grid_game threw", e);
+    return false;
   }
 }
 
@@ -167,10 +173,10 @@ export async function recordGridGame(g: { puzzleDate: string; won: boolean; mist
  *  are client-reported. One row per player per day. Best-effort. */
 export async function recordBranchesGame(g: {
   puzzleDate: string; won: boolean; correct: number; total: number; hinted: number; peeked: number;
-}): Promise<void> {
-  if (!supabase) return;
+}): Promise<boolean> {
+  if (!supabase) return false;
   try {
-    await supabase.rpc("submit_branches_game", {
+    const { error } = await supabase.rpc("submit_branches_game", {
       p_puzzle_date: g.puzzleDate,
       p_won: g.won,
       p_correct: g.correct,
@@ -178,8 +184,11 @@ export async function recordBranchesGame(g: {
       p_hinted: g.hinted,
       p_peeked: g.peeked,
     });
-  } catch {
-    /* best-effort */
+    if (error) { console.warn("submit_branches_game failed", error); return false; }
+    return true;
+  } catch (e) {
+    console.warn("submit_branches_game threw", e);
+    return false;
   }
 }
 

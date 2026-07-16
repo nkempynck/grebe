@@ -134,7 +134,13 @@ export default function App() {
       recordKinship({ status: r.won ? "won" : "lost", mistakes, tier: r.tier, reveals: r.reveals });
       const args = { puzzleDate: r.date, won: r.won, mistakes, reveals: r.reveals };
       if (player.session) {
-        void recordGridGame(args).then(() => setKinBoardReload((c) => c + 1));
+        // On failure (transient network / RPC hiccup) queue it so the next load
+        // retries — the submit is idempotent, so a signed-in board never silently
+        // drops a result.
+        void recordGridGame(args).then((ok) => {
+          if (ok) setKinBoardReload((c) => c + 1);
+          else if (player.configured) enqueuePendingSubmit({ game: "kinship", args });
+        });
       } else if (player.configured) {
         // Signed out: stash for the leaderboard, replayed when they sign in.
         enqueuePendingSubmit({ game: "kinship", args });
@@ -150,7 +156,10 @@ export default function App() {
       recordBranches({ won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, tier: r.tier });
       const args = { puzzleDate: r.date, won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked };
       if (player.session) {
-        void recordBranchesGame(args).then(() => setBranchBoardReload((c) => c + 1));
+        void recordBranchesGame(args).then((ok) => {
+          if (ok) setBranchBoardReload((c) => c + 1);
+          else if (player.configured) enqueuePendingSubmit({ game: "branches", args });
+        });
       } else if (player.configured) {
         // Signed out: stash for the leaderboard, replayed when they sign in.
         enqueuePendingSubmit({ game: "branches", args });
@@ -207,7 +216,10 @@ export default function App() {
         par,
       };
       if (player.session) {
-        void recordGame(args).then(() => setBoardReload((c) => c + 1));
+        void recordGame(args).then((ok) => {
+          if (ok) setBoardReload((c) => c + 1);
+          else if (player.configured) enqueuePendingSubmit({ game: "lineage", args });
+        });
       } else if (player.configured) {
         // Signed out: stash for the leaderboard, replayed when they sign in.
         enqueuePendingSubmit({ game: "lineage", args });
