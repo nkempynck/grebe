@@ -22,8 +22,14 @@ export interface OutOfSetHit {
   id: string;
   common: string;
   sci: string;
+  /** "group" for a clade (order/family/…), "species" otherwise — for display. */
+  kind: "species" | "group";
   graft: GraftTaxon;
 }
+
+/** A clade rank reads as a "group"; species/subspecies read as a species. */
+const kindOf = (rank: string): "species" | "group" =>
+  /^(species|subspecies|form|variety)$/i.test(rank) ? "species" : "group";
 
 interface LocalEntry { keys: string[]; graft: GraftTaxon; }
 
@@ -39,7 +45,7 @@ const LOCAL: LocalEntry[] = [
   },
 ].map((e) => ({ ...e, keys: e.keys.map(normalizeName) }));
 
-const toHit = (g: GraftTaxon): OutOfSetHit => ({ id: g.id, common: g.common ?? g.sciName, sci: g.sciName, graft: g });
+const toHit = (g: GraftTaxon): OutOfSetHit => ({ id: g.id, common: g.common ?? g.sciName, sci: g.sciName, kind: kindOf(g.rank), graft: g });
 
 function localMatches(nq: string): { pre: OutOfSetHit[]; sub: OutOfSetHit[] } {
   const pre: OutOfSetHit[] = [], sub: OutOfSetHit[] = [];

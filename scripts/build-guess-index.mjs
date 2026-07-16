@@ -34,7 +34,10 @@ const arg = (k, d) => {
   return hit ? hit.slice(k.length + 3) : d;
 };
 const GROUPS = arg("groups", "Mammalia,Aves,Squamata,Amphibia").split(",").map((s) => s.trim()).filter(Boolean);
-const CAP = parseInt(arg("cap", "200"), 10); // candidates swept per group
+const CAP = parseInt(arg("cap", "200"), 10);            // species swept per group
+const CLADE_RANKS = ["ORDER", "FAMILY"];                // higher taxa to index (scouting-useful)
+const CLADE_CAP = parseInt(arg("cladecap", "500"), 10); // higher taxa scanned per rank per group
+const NO_CLADES = process.argv.includes("--no-clades");
 
 // --- HTTP (retry + concurrency), mirroring build-taxonomy.mjs ---
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -75,7 +78,7 @@ function cleanCommon(name) {
   return norm.charAt(0).toUpperCase() + norm.slice(1);
 }
 const normalizeName = (s) =>
-  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9\s]+/g, " ").replace(/\s+/g, " ").trim();
+  (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9\s]+/g, " ").replace(/\s+/g, " ").trim();
 
 async function englishCommonName(key, sciName) {
   const doc = await getJSON(`${GBIF}/species/${key}/vernacularNames?limit=80`);
@@ -114,6 +117,28 @@ async function sweepGroup(name) {
   return chosen;
 }
 
+// Higher taxa (orders, families) in a group — the scouting-useful clades. Unlike
+// species we DON'T require a common name (Latin is a valid way to scout a clade),
+// but we take an English vernacular inline from the search result when present.
+async function sweepClades(name) {
+  const key = await groupKey(name);
+  if (!key) return [];
+  const out = [];
+  for (const rank of CLADE_RANKS) {
+    for (let offset = 0; offset < CLADE_CAP; offset += 100) {
+      const doc = await getJSON(`${GBIF}/species/search?highertaxonKey=${key}&rank=${rank}&status=ACCEPTED&limit=100&offset=${offset}`);
+      const results = doc?.results ?? [];
+      for (const r of results) {
+        if (!r.canonicalName) continue;
+        const eng = (r.vernacularNames ?? []).find((v) => v.language === "eng" && v.vernacularName);
+        out.push({ canonicalName: r.canonicalName, common: eng ? cleanCommon(eng.vernacularName) : null });
+      }
+      if (results.length < 100) break;
+    }
+  }
+  return out;
+}
+
 // OTL TNRS: canonical names → { name: ott_id }.
 async function tnrsMatch(names) {
   const out = new Map();
@@ -134,18 +159,21 @@ async function main() {
   const shippedNames = new Set(tax.nodes.map((n) => normalizeName(n.sciName)));
   console.log(`taxonomy: ${tax.nodes.length} nodes shipped. Groups: ${GROUPS.join(", ")} (cap ${CAP})`);
 
-  // 1) sweep candidates
+  // 1) sweep candidates: recognizable species + higher taxa (orders/families)
   const seen = new Set();
   const candidates = [];
+  const add = (c) => {
+    const k = normalizeName(c.canonicalName);
+    if (!k || seen.has(k) || shippedNames.has(k)) return; // dedupe + skip already-shipped
+    seen.add(k);
+    candidates.push(c);
+  };
   for (const g of GROUPS) {
-    const list = await sweepGroup(g);
-    for (const c of list) {
-      const k = normalizeName(c.canonicalName);
-      if (seen.has(k) || shippedNames.has(k)) continue; // dedupe + skip already-shipped
-      seen.add(k);
-      candidates.push(c);
-    }
-    console.log(`  ${g}: swept ${list.length}, kept ${candidates.length} total`);
+    const species = await sweepGroup(g);
+    species.forEach(add);
+    const clades = NO_CLADES ? [] : await sweepClades(g);
+    clades.forEach(add);
+    console.log(`  ${g}: species ${species.length}, clades ${clades.length}, kept ${candidates.length} total`);
   }
 
   // 2) resolve to OTT

@@ -127,7 +127,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
         const nm = (h.common ?? h.sci).toLowerCase();
         if (seenName.has(nm)) continue;
         seenName.add(nm);
-        inSet.push({ id: h.id, common: h.common, sci: h.sci, kind: "species", oos: true, graft: h.graft });
+        inSet.push({ id: h.id, common: h.common, sci: h.sci, kind: h.kind, oos: true, graft: h.graft });
       }
     }
     return inSet;
@@ -215,7 +215,9 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
                   <span className="gs-name">{c.common ?? c.sci}</span>
                   {c.kind === "group" && <span className="gs-tag">group</span>}
                   {c.oos && <span className="gs-tag gs-oos-tag" title="Not one of today's possible answers — grafted onto the tree to show where it sits">not in set</span>}
-                  {c.common && c.kind === "species" && <span className="gs-sci">{c.sci}</span>}
+                  {/* Show the Latin name whenever a common name is displayed — for
+                      clades (groups) too, not just species. */}
+                  {c.common && c.common.toLowerCase() !== c.sci.toLowerCase() && <span className="gs-sci">{c.sci}</span>}
                   {r && (
                     <span className="gs-done" style={{ color: warm }}>
                       {r.isWin ? "✓ found" : `guessed · ${Math.round(r.warmth * 100)}°`}
