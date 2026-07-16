@@ -97,6 +97,7 @@ const SCHEMA_CHECKS = [
   { rpc: "names_schema_check", label: "Names", file: "names.sql" },
   { rpc: "badges_schema_check", label: "Badges", file: "badges.sql" },
   { rpc: "streaks_schema_check", label: "Streaks", file: "streaks.sql" },
+  { rpc: "taxon_index_schema_check", label: "Guess index", file: "taxon_index.sql" },
 ];
 
 interface FileCheck {
@@ -241,7 +242,7 @@ function LineageBench({ tree }: { tree: Tree }) {
       )}
       {over && <ResultCard tree={tree} answer={answer} won={g.status === "won"} guessCount={g.guesses.length} streak={null} par={null} />}
       <div className="playbar">
-        <GuessInput tree={tree} config={g.config} disabled={over} onSubmit={g.submit} focusCladeId={g.assist ? g.focusCladeId : null} guesses={g.guesses} />
+        <GuessInput tree={tree} config={g.config} disabled={over} onSubmit={g.submit} onOutOfSetGuess={g.submitGraft} focusCladeId={g.assist ? g.focusCladeId : null} guesses={g.guesses} />
         <div className="errline">{g.error}</div>
         <div className="subactions">
           {!over && <button className="linkbtn" onClick={g.revealHint} disabled={!g.canHint}>Hint: reveal next branch</button>}

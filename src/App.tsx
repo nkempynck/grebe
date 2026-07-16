@@ -398,6 +398,7 @@ export default function App() {
           config={g.config}
           disabled={roundOver}
           onSubmit={g.submit}
+          onOutOfSetGuess={g.submitGraft}
           focusCladeId={g.assist ? g.focusCladeId : null}
           guesses={g.guesses}
         />

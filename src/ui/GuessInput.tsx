@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
-import type { GameConfig, GuessResult, Tree } from "../core";
+import { useEffect, useMemo, useState } from "react";
+import type { GameConfig, GraftTaxon, GuessResult, Tree } from "../core";
 import { isAncestor, isInScope, normalizeName } from "../core";
-import { searchOutOfSet } from "../data/guessIndex";
+import { searchOutOfSet, type OutOfSetHit } from "../data/guessIndex";
 import { warmthColor } from "./temperature";
 
 interface Props {
@@ -9,6 +9,9 @@ interface Props {
   config: GameConfig;
   disabled: boolean;
   onSubmit: (text: string) => void;
+  /** Picking an out-of-set organism from the suggestions: graft it in directly
+   *  (no re-lookup). Absent → out-of-set hits aren't offered. */
+  onOutOfSetGuess?: (graft: GraftTaxon) => void;
   /** When set (focused difficulty), only species inside this clade are offered. */
   focusCladeId: string | null;
   /** Guesses so far, to mark already-guessed entries. */
@@ -23,14 +26,30 @@ interface Cand {
   /** True for an out-of-set organism (not a playable answer): shown below in-set
    *  matches, grafts onto the tree as an informative probe when guessed. */
   oos?: boolean;
+  /** For an out-of-set hit: the payload to graft when chosen. */
+  graft?: GraftTaxon;
 }
 
 const label = (c: Cand) => (c.common ? `${c.common} (${c.sci})` : c.sci);
 
-export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, guesses }: Props) {
+export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses }: Props) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  // Out-of-set hits from the DB (the "for nerds" long tail), fetched async and
+  // debounced per keystroke; shown BELOW in-set matches. Only when a graft sink
+  // is wired (Lineage), never in scout-only contexts.
+  const [oosHits, setOosHits] = useState<OutOfSetHit[]>([]);
+  useEffect(() => {
+    if (!onOutOfSetGuess) return;
+    const query = text.trim();
+    if (!query) { setOosHits([]); return; }
+    let live = true;
+    const t = setTimeout(() => {
+      searchOutOfSet(query, 6).then((hits) => { if (live) setOosHits(hits); });
+    }, 180);
+    return () => { live = false; clearTimeout(t); };
+  }, [text, onOutOfSetGuess]);
 
   const guessedById = useMemo(
     () => new Map(guesses.map((r) => [r.guess.id, r])),
@@ -98,17 +117,21 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
     // Groups surface above species within each tier.
     const order = (arr: Cand[]) => [...arr.filter((c) => c.kind === "group"), ...arr.filter((c) => c.kind === "species")];
     const inSet = [...order(pre), ...order(sub)].slice(0, 8);
-    // Out-of-set organisms fill any remaining slots, always BELOW in-set matches
-    // (guessable answers are preferred). They graft in as informative probes.
+    // Out-of-set organisms (fetched async into oosHits) fill any remaining slots,
+    // always BELOW in-set matches — guessable answers are preferred. They graft in
+    // as informative probes when chosen.
     if (inSet.length < 8) {
       const seenName = new Set(inSet.map((c) => (c.common ?? c.sci).toLowerCase()));
-      for (const h of searchOutOfSet(text, 8 - inSet.length)) {
-        if (seenName.has((h.common ?? h.sci).toLowerCase())) continue;
-        inSet.push({ id: h.id, common: h.common, sci: h.sci, kind: "species", oos: true });
+      for (const h of oosHits) {
+        if (inSet.length >= 8) break;
+        const nm = (h.common ?? h.sci).toLowerCase();
+        if (seenName.has(nm)) continue;
+        seenName.add(nm);
+        inSet.push({ id: h.id, common: h.common, sci: h.sci, kind: "species", oos: true, graft: h.graft });
       }
     }
     return inSet;
-  }, [candidates, candById, q, text, sortedCandidates, tree]);
+  }, [candidates, candById, q, text, sortedCandidates, tree, oosHits]);
 
   // Entries you can actually pick (already-guessed ones are shown but not
   // selectable). activeId lets each row test "am I active?" in O(1) — important
@@ -123,7 +146,8 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
     : "Name a species, or a group like 'snakes' to scout…";
 
   const choose = (c: Cand) => {
-    onSubmit(label(c));
+    if (c.oos && c.graft && onOutOfSetGuess) onOutOfSetGuess(c.graft);
+    else onSubmit(label(c));
     setText("");
     setOpen(false);
     setActive(0);

@@ -7,6 +7,7 @@ import {
   randomAnswerId,
   resolveGuess,
   type GameConfig,
+  type GraftTaxon,
   type GuessResult,
   type GameStatus,
   type Tree,
@@ -41,6 +42,9 @@ export interface UseGame {
   setScope: (scopeRootId: string) => void;
   setWinWithin: (winWithin: number) => void;
   submit: (text: string) => void;
+  /** Guess an out-of-set organism by its graft payload (from GuessInput's DB
+   *  suggestions) — grafts it onto the tree as an informative probe. */
+  submitGraft: (graft: GraftTaxon) => void;
   giveUp: () => void;
   newRandom: () => void;
   /** Difficulty aid: when on, the guess box only offers species inside the
@@ -247,32 +251,40 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     setFreeConfig((c) => ({ ...c, winWithin }));
   }, []);
 
+  // Place an OUT-OF-SET organism: graft it (and any missing ancestor clades) onto
+  // the tree, then score it as an INFORMATIVE probe — it shows where it sits and
+  // how close it lands, but can never win (the daily answer is always in-set).
+  const submitGraft = useCallback(
+    (graft: GraftTaxon) => {
+      if (!tree || !answerId || status !== "playing") return;
+      const gid = graftTaxon(tree, graft);
+      if (!gid) { setError(`Couldn't place ${graft.common ?? graft.sciName} on the tree.`); return; }
+      if (!isInScope(tree, config, gid)) {
+        setError(`${graft.common ?? graft.sciName} isn't inside the current scope.`);
+        return;
+      }
+      if (guesses.some((g) => g.guess.id === gid)) {
+        setError(`You already guessed ${graft.common ?? graft.sciName}.`);
+        return;
+      }
+      setError(null);
+      const probe = evaluateGuess(tree, answerId, gid, config);
+      setGuesses((gs) => [{ ...probe, isWin: false }, ...gs]);
+    },
+    [tree, answerId, status, config, guesses]
+  );
+
   const submit = useCallback(
     (text: string) => {
       if (!tree || !answerId || status !== "playing") return;
       const node = resolveGuess(tree, text);
       if (!node) {
-        // Not in the playable set — but maybe a known out-of-set organism. Graft
-        // it (and any missing ancestor clades) in, then score it as an INFORMATIVE
-        // probe: it shows where it sits and how close it lands, but can never win
-        // (the daily answer is always an in-set species).
-        const oos = resolveOutOfSet(text);
-        const gid = oos ? graftTaxon(tree, oos) : null;
-        if (oos && gid) {
-          if (!isInScope(tree, config, gid)) {
-            setError(`${oos.common ?? oos.sciName} isn't inside the current scope.`);
-            return;
-          }
-          if (guesses.some((g) => g.guess.id === gid)) {
-            setError(`You already guessed ${oos.common ?? oos.sciName}.`);
-            return;
-          }
-          setError(null);
-          const probe = evaluateGuess(tree, answerId, gid, config);
-          setGuesses((gs) => [{ ...probe, isWin: false }, ...gs]);
-          return;
-        }
-        setError(`No match for "${text.trim()}". Try a common or scientific name.`);
+        // Not in the playable set — try the out-of-set index (curated + DB). It's
+        // async (DB), so resolve then graft.
+        void resolveOutOfSet(text).then((oos) => {
+          if (oos) submitGraft(oos);
+          else setError(`No match for "${text.trim()}". Try a common or scientific name.`);
+        });
         return;
       }
       if (!isInScope(tree, config, node.id)) {
@@ -288,7 +300,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
       setGuesses((gs) => [result, ...gs]);
       if (result.isWin) setStatus("won");
     },
-    [tree, answerId, status, config, guesses]
+    [tree, answerId, status, config, guesses, submitGraft]
   );
 
   const giveUp = useCallback(() => setStatus("gaveup"), []);
@@ -315,6 +327,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     setScope,
     setWinWithin,
     submit,
+    submitGraft,
     giveUp,
     newRandom,
     assist,
