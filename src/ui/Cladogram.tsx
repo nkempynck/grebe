@@ -151,9 +151,13 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
             }
             const color =
               p.kind === "answer" ? "var(--vermilion)" : p.kind === "guess" ? warmthColor(p.warmth ?? 0, !!p.isWin) : undefined;
+            // Grafted out-of-set organisms (and the clades added with them) are
+            // drawn dashed and flagged, so it's clear they aren't playable answers.
+            const oos = !!t.virtual;
             const cls = [
               "clado-pt",
               p.kind === "clade" ? "is-clade" : p.kind === "answer" ? "is-answer" : "is-guess",
+              oos ? "is-oos" : "",
               p.id === model.closestId ? "is-closest" : "",
               selectedId === p.id ? "is-selected" : "",
             ].join(" ");
@@ -175,6 +179,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
                   {isSpecies && (
                     <span className="pt-warm" style={color ? { color } : undefined}>
                       {p.kind === "answer" ? " · answer" : p.isWin ? " · found" : ` · ${Math.round((p.warmth ?? 0) * 100)}°`}
+                      {oos && " · not in set"}
                     </span>
                   )}
                 </span>

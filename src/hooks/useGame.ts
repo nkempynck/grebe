@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ancestryChain,
   evaluateGuess,
+  graftTaxon,
   isInScope,
   randomAnswerId,
   resolveGuess,
@@ -10,6 +11,7 @@ import {
   type GameStatus,
   type Tree,
 } from "../core";
+import { resolveOutOfSet } from "../data/guessIndex";
 import { loadTree } from "../data/loadTaxonomy";
 import { DEFAULT_SCOPE_ID } from "../data/presets";
 import { resolveDailyRules, dailyAnswerFor, type DailyRules } from "../data/dailySchedule";
@@ -250,6 +252,26 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
       if (!tree || !answerId || status !== "playing") return;
       const node = resolveGuess(tree, text);
       if (!node) {
+        // Not in the playable set — but maybe a known out-of-set organism. Graft
+        // it (and any missing ancestor clades) in, then score it as an INFORMATIVE
+        // probe: it shows where it sits and how close it lands, but can never win
+        // (the daily answer is always an in-set species).
+        const oos = resolveOutOfSet(text);
+        const gid = oos ? graftTaxon(tree, oos) : null;
+        if (oos && gid) {
+          if (!isInScope(tree, config, gid)) {
+            setError(`${oos.common ?? oos.sciName} isn't inside the current scope.`);
+            return;
+          }
+          if (guesses.some((g) => g.guess.id === gid)) {
+            setError(`You already guessed ${oos.common ?? oos.sciName}.`);
+            return;
+          }
+          setError(null);
+          const probe = evaluateGuess(tree, answerId, gid, config);
+          setGuesses((gs) => [{ ...probe, isWin: false }, ...gs]);
+          return;
+        }
         setError(`No match for "${text.trim()}". Try a common or scientific name.`);
         return;
       }

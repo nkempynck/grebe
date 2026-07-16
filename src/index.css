@@ -306,6 +306,9 @@ body {
   color: var(--cold); border: 1px solid var(--line); border-radius: 20px; padding: 1px 6px;
 }
 .gs-sci { font-family: var(--font-mono); font-style: italic; font-size: 11px; color: var(--ink-soft); }
+/* Out-of-set suggestion: a muted "not in set" pill; the row sits below in-set hits. */
+.gs-oos-tag { color: var(--ink-faint); border-color: var(--line); }
+.gs-opt.is-oos .gs-name { color: var(--ink-soft); }
 .gs-done { margin-left: auto; font-family: var(--font-mono); font-size: 10px; font-weight: 700; white-space: nowrap; }
 /* already-guessed: dimmed and non-interactive */
 .gs-opt.is-guessed { cursor: default; opacity: 0.6; }
@@ -390,6 +393,10 @@ body {
 .clado-pt.is-clade .pt-name { font-style: italic; font-weight: 500; color: var(--ink-soft); }
 .clado-pt.is-guess .pt-dot { background: var(--bg-3); }
 .clado-pt.is-answer .pt-dot { border-width: 2px; }
+/* Grafted out-of-set node: dashed dot + faded label, so it reads as "shown for
+   context, not a playable answer". */
+.clado-pt.is-oos .pt-dot { border-style: dashed; background: var(--bg); }
+.clado-pt.is-oos .pt-name { font-style: italic; }
 /* nameless phylogenetic junction: a small bare split point */
 .clado-pt.is-junction { width: auto; grid-template-columns: 12px; pointer-events: none; }
 .clado-pt.is-junction .pt-dot { width: 6px; height: 6px; background: var(--clado-line); border-color: var(--clado-line); }

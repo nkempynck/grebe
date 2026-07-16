@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { GameConfig, GuessResult, Tree } from "../core";
 import { isAncestor, isInScope, normalizeName } from "../core";
+import { searchOutOfSet } from "../data/guessIndex";
 import { warmthColor } from "./temperature";
 
 interface Props {
@@ -19,6 +20,9 @@ interface Cand {
   common?: string;
   sci: string;
   kind: "species" | "group";
+  /** True for an out-of-set organism (not a playable answer): shown below in-set
+   *  matches, grafts onto the tree as an informative probe when guessed. */
+  oos?: boolean;
 }
 
 const label = (c: Cand) => (c.common ? `${c.common} (${c.sci})` : c.sci);
@@ -93,7 +97,17 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
     }
     // Groups surface above species within each tier.
     const order = (arr: Cand[]) => [...arr.filter((c) => c.kind === "group"), ...arr.filter((c) => c.kind === "species")];
-    return [...order(pre), ...order(sub)].slice(0, 8);
+    const inSet = [...order(pre), ...order(sub)].slice(0, 8);
+    // Out-of-set organisms fill any remaining slots, always BELOW in-set matches
+    // (guessable answers are preferred). They graft in as informative probes.
+    if (inSet.length < 8) {
+      const seenName = new Set(inSet.map((c) => (c.common ?? c.sci).toLowerCase()));
+      for (const h of searchOutOfSet(text, 8 - inSet.length)) {
+        if (seenName.has((h.common ?? h.sci).toLowerCase())) continue;
+        inSet.push({ id: h.id, common: h.common, sci: h.sci, kind: "species", oos: true });
+      }
+    }
+    return inSet;
   }, [candidates, candById, q, text, sortedCandidates, tree]);
 
   // Entries you can actually pick (already-guessed ones are shown but not
@@ -170,12 +184,13 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
                   key={c.id}
                   role="option"
                   aria-selected={isActive}
-                  className={`gs-opt${c.kind === "group" ? " is-group" : ""}${r ? " is-guessed" : ""}${isActive ? " is-active" : ""}`}
+                  className={`gs-opt${c.kind === "group" ? " is-group" : ""}${c.oos ? " is-oos" : ""}${r ? " is-guessed" : ""}${isActive ? " is-active" : ""}`}
                   // preventDefault keeps input focus so the click registers before blur
                   onMouseDown={(e) => { e.preventDefault(); if (!r) choose(c); }}
                 >
                   <span className="gs-name">{c.common ?? c.sci}</span>
                   {c.kind === "group" && <span className="gs-tag">group</span>}
+                  {c.oos && <span className="gs-tag gs-oos-tag" title="Not one of today's possible answers — grafted onto the tree to show where it sits">not in set</span>}
                   {c.common && c.kind === "species" && <span className="gs-sci">{c.sci}</span>}
                   {r && (
                     <span className="gs-done" style={{ color: warm }}>
