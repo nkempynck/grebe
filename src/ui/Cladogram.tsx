@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DisplayTreeNode, GuessResult, TaxonNode, Tree } from "../core";
 import { ancestryChain, inducedSubtree, isAncestor, leavesUnder } from "../core";
 import { fetchWikiSummary, wikiUrlFor, type WikiSummary } from "../data/wikipedia";
@@ -60,18 +60,44 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
   const selected = selectedId && selectedId !== TARGET ? tree.byId.get(selectedId) ?? null : null;
   const stageRef = useRef<HTMLDivElement>(null);
 
-  // Keep the hidden species (or, on reveal, the answer) centred in view so you
-  // never have to scroll to find where the search has landed.
-  const focal = model?.nodes.find((n) => n.kind === "target" || n.kind === "answer");
-  useEffect(() => {
+  // Scroll the stage so a canvas point sits in the middle of the viewport. Works
+  // identically in tree and radial views (node positions are absolute canvas
+  // coordinates in both).
+  const centerOn = useCallback((x: number, y: number, behavior: ScrollBehavior = "smooth") => {
     const stage = stageRef.current;
-    if (!stage || !focal) return;
-    stage.scrollTo({
-      left: focal.x - stage.clientWidth / 2,
-      top: focal.y - stage.clientHeight / 2,
-      behavior: "smooth",
-    });
-  }, [focal?.x, focal?.y]);
+    if (!stage) return;
+    stage.scrollTo({ left: x - stage.clientWidth / 2, top: y - stage.clientHeight / 2, behavior });
+  }, []);
+
+  // The hidden species while playing, or the answer once revealed.
+  const focal = model?.nodes.find((n) => n.kind === "target" || n.kind === "answer");
+  const focalX = focal?.x;
+  const focalY = focal?.y;
+  const centerOnHidden = useCallback(() => {
+    if (focalX != null && focalY != null) centerOn(focalX, focalY);
+  }, [focalX, focalY, centerOn]);
+
+  // Re-center on the hidden/answer node on first paint, a view switch, and the
+  // reveal — but NOT on every guess (a landing guess pans to itself below).
+  useEffect(() => {
+    if (focalX != null && focalY != null) centerOn(focalX, focalY);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, revealed]);
+
+  // When a NEW guess lands, pan to where it slotted in, so you see the result of
+  // the guess rather than being yanked back to the hidden species. The "Center on
+  // hidden" button brings you back.
+  const prevCount = useRef(results.length);
+  const latestGuessId = results[0]?.guess.id ?? null;
+  useEffect(() => {
+    if (results.length > prevCount.current && latestGuessId && model) {
+      const g = model.nodes.find((n) => n.id === latestGuessId);
+      if (g) centerOn(g.x, g.y);
+    }
+    prevCount.current = results.length;
+    // model read via closure; we only want to react to a guess landing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results.length, latestGuessId, centerOn]);
 
   if (!model) return null;
   const { nodes, links, width, height, closestName } = model;
@@ -86,9 +112,20 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
           : "Each guess hangs at the clade it shares with the hidden species. Guess to grow the tree downward."}
       </figcaption>
 
-      <div className="branches-viewtoggle" role="tablist" aria-label="Tree view">
-        <button role="tab" aria-selected={mode === "tree"} className={`branches-viewseg${mode === "tree" ? " is-on" : ""}`} onClick={() => setMode("tree")}>Tree</button>
-        <button role="tab" aria-selected={mode === "radial"} className={`branches-viewseg${mode === "radial" ? " is-on" : ""}`} onClick={() => setMode("radial")}>Radial</button>
+      <div className="clado-toolbar">
+        <div className="branches-viewtoggle" role="tablist" aria-label="Tree view">
+          <button role="tab" aria-selected={mode === "tree"} className={`branches-viewseg${mode === "tree" ? " is-on" : ""}`} onClick={() => setMode("tree")}>Tree</button>
+          <button role="tab" aria-selected={mode === "radial"} className={`branches-viewseg${mode === "radial" ? " is-on" : ""}`} onClick={() => setMode("radial")}>Radial</button>
+        </div>
+        <button
+          type="button"
+          className="clado-center"
+          onClick={centerOnHidden}
+          disabled={focalX == null}
+          title={`Scroll to the ${revealed ? "answer" : "hidden species"}`}
+        >
+          ◎ Center on {revealed ? "answer" : "hidden"}
+        </button>
       </div>
 
       <div className="clado-stage" ref={stageRef}>
