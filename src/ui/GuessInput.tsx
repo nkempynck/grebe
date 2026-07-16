@@ -124,12 +124,14 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
     // as informative probes when chosen.
     if (inSet.length < 8) {
       const seenName = new Set(inSet.map((c) => (c.common ?? c.sci).toLowerCase()));
-      // An out-of-set organism is in the game's scope iff its shipped connection
-      // point (the last lineage entry) is at or below the scope root — the grafted
-      // organism hangs below it, so it descends from the scope root exactly then.
+      // An out-of-set organism is in play iff its shipped connection point (the
+      // last lineage entry) is at or below the current search root — the scope
+      // root normally, or the pinned focus clade in assist mode, so out-of-set
+      // clade scouting stays consistent with the in-set candidates.
+      const searchRoot = focusCladeId ?? config.scopeRootId;
       const inScope = (h: OutOfSetHit) => {
         const conn = h.graft.lineage[h.graft.lineage.length - 1]?.id;
-        return !!conn && (conn === config.scopeRootId || isAncestor(tree, config.scopeRootId, conn));
+        return !!conn && (conn === searchRoot || isAncestor(tree, searchRoot, conn));
       };
       for (const h of oosHits) {
         if (inSet.length >= 8) break;
@@ -141,7 +143,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
       }
     }
     return inSet;
-  }, [candidates, candById, q, text, sortedCandidates, tree, config.scopeRootId, oosHits]);
+  }, [candidates, candById, q, text, sortedCandidates, tree, config.scopeRootId, focusCladeId, oosHits]);
 
   // Entries you can actually pick (already-guessed ones are shown but not
   // selectable). activeId lets each row test "am I active?" in O(1) — important
@@ -152,7 +154,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
   const focusNode = focusCladeId ? tree.byId.get(focusCladeId) : null;
   const speciesCount = candidates.reduce((n, c) => (c.kind === "species" ? n + 1 : n), 0);
   const placeholder = focusNode
-    ? `Name a ${focusNode.common ?? focusNode.sciName}… (${speciesCount} options)`
+    ? `Name a species in ${focusNode.common ?? focusNode.sciName}… (${speciesCount} options)`
     : "Name a species, or a group like 'snakes' to scout…";
 
   const choose = (c: Cand) => {
