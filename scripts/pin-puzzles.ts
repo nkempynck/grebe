@@ -22,7 +22,9 @@
 
 import { createClient } from "@supabase/supabase-js";
 import taxonomy from "../src/data/taxonomy.json";
-import { buildTree, DAILY_EPOCH } from "../src/core";
+import augment from "../src/data/taxonomyAugment.json";
+import { buildTree, DAILY_EPOCH, type TaxonNode, type Tree } from "../src/core";
+import { CLADE_COMMON } from "../src/data/cladeNames";
 import { computePuzzle, encodePuzzle, puzzleVersion, type Game } from "../src/data/pinnedPuzzles";
 
 const GAMES: Game[] = ["lineage", "kinship", "branches"];
@@ -56,7 +58,16 @@ async function main() {
     process.exit(1);
   }
 
-  const tree = buildTree((taxonomy as { nodes: Parameters<typeof buildTree>[0] }).nodes);
+  // Mirror loadTaxonomy: apply the CLADE_COMMON correction layer so the trees here
+  // match the app exactly (a clade's common name flips containers()' "named" theme
+  // preference, so skipping it would generate DIFFERENT Kinship/Branches boards than
+  // players see). Synonyms are irrelevant to generation, so we skip them.
+  const withCommon = (nodes: TaxonNode[]): Tree =>
+    buildTree(nodes.map((n) => (n.rank !== "species" && CLADE_COMMON[n.sciName] ? { ...n, common: CLADE_COMMON[n.sciName] } : n)));
+  const baseNodes = (taxonomy as { nodes: TaxonNode[] }).nodes;
+  const tree = withCommon(baseNodes);                                   // Lineage: curated in-set
+  const richTree = withCommon([...baseNodes, ...(augment as { nodes: TaxonNode[] }).nodes]); // Kinship/Branches
+  const treeFor = (game: Game): Tree => (game === "lineage" ? tree : richTree);
   const client = createClient(url, key, { auth: { persistSession: false } });
 
   // Build every (game, date) row from the shared registry.
@@ -65,7 +76,7 @@ async function main() {
   for (let i = 0; i < days; i++) {
     const date = shiftDate(from, i);
     for (const game of GAMES) {
-      const puzzle = computePuzzle(game, tree, date);
+      const puzzle = computePuzzle(game, treeFor(game), date);
       if (!puzzle) { skipped++; continue; } // tree can't field this puzzle — rare
       rows.push({ game, puzzle_date: date, payload: encodePuzzle(game, puzzle), version: puzzleVersion(game) });
     }

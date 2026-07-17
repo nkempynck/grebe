@@ -242,6 +242,10 @@ export async function repinFuture(
     games?: Game[];
     concurrency?: number;
     onProgress?: (p: RepinProgress) => void;
+    /** The rich tree (base + augment). Kinship/Branches boards are generated from
+     *  it — pins MUST match what players see, and players play the rich tree. Lineage
+     *  always uses the base `tree` (its answer pool is the curated in-set). */
+    richTree?: Tree;
   } = {}
 ): Promise<RepinProgress> {
   const empty = { done: 0, total: 0, failed: 0 };
@@ -256,7 +260,10 @@ export async function repinFuture(
     const date = shiftDateKey(start, i);
     if (date <= cutoff) continue; // future only — the past is frozen
     for (const game of games) {
-      const p = computePuzzle(game, tree, date);
+      // Kinship/Branches generate from the rich tree (what players play); Lineage
+      // from the curated base. Fall back to base if no rich tree was supplied.
+      const t = game === "lineage" ? tree : opts.richTree ?? tree;
+      const p = computePuzzle(game, t, date);
       if (!p) continue;
       jobs.push({ game, date, payload: encodePuzzle(game, p), version: puzzleVersion(game) });
     }

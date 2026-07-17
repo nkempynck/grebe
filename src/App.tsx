@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGame } from "./hooks/useGame";
-import { informedPar } from "./core";
+import { loadRichTree } from "./data/loadTaxonomy";
+import { informedPar, type Tree } from "./core";
 import { groupOf } from "./data/clades";
 import { useStats } from "./hooks/useStats";
 import { usePlayer } from "./hooks/usePlayer";
@@ -86,6 +87,14 @@ export default function App() {
   );
   const { stats, record, recordKinship, recordBranches } = useStats(userId, dailyGroupOf);
 
+  // Whether this device has played each of today's games (signed in or not) —
+  // today's leaderboards are hidden until the viewer has played that game.
+  const dayKey = todayKey();
+  const playedTodayLineage = stats.daily.playedDates.includes(dayKey);
+  const playedTodayKinship = stats.kinship.playedDates.includes(dayKey);
+  const playedTodayBranches = stats.branches.playedDates.includes(dayKey);
+  const playedTodayAny = playedTodayLineage || playedTodayKinship || playedTodayBranches;
+
   // Prime the frozen pins for the past dates these lookups touch — the player's
   // local Lineage history, plus a recent window for the admin leaderboard preview.
   useEffect(() => {
@@ -98,6 +107,16 @@ export default function App() {
     return () => { live = false; };
   }, [tree, stats]);
   const [view, setView] = useState<"home" | "lineage" | "kinship" | "branches" | "leaderboard" | "account" | "about">("home");
+  // Kinship/Branches generate boards from the RICH tree (base + a quality-filtered
+  // augment). It's lazy-loaded the first time either tab opens — a separate chunk —
+  // so the initial page and Lineage never download it. Falls back to the base tree
+  // if the chunk fails, so the games still work (just without the extra variety).
+  const [richTree, setRichTree] = useState<Tree | null>(null);
+  useEffect(() => {
+    if ((view === "kinship" || view === "branches") && !richTree) {
+      loadRichTree().then(setRichTree).catch(() => setRichTree(g.tree));
+    }
+  }, [view, richTree, g.tree]);
   // A section id for the About page to scroll to — set when a game page's
   // "How this works" link is clicked, cleared when About is opened from the nav.
   const [aboutFocus, setAboutFocus] = useState<string | null>(null);
@@ -499,28 +518,36 @@ export default function App() {
       {view === "lineage" && <div className="gameview" data-game="lineage">{play}</div>}
       {view === "kinship" && (
         <div className="gameview" data-game="kinship">
-          <GridGame
-            tree={g.tree}
-            streak={stats.kinship.currentStreak}
-            onComplete={recordKinshipResult}
-            me={boardName}
-            configured={player.configured}
-            reloadKey={kinBoardReload}
-            onHowItWorks={() => openAbout("about-kinship")}
-          />
+          {richTree ? (
+            <GridGame
+              tree={richTree}
+              streak={stats.kinship.currentStreak}
+              onComplete={recordKinshipResult}
+              me={boardName}
+              configured={player.configured}
+              reloadKey={kinBoardReload}
+              onHowItWorks={() => openAbout("about-kinship")}
+            />
+          ) : (
+            <p className="empty">Growing the tree of life…</p>
+          )}
         </div>
       )}
       {view === "branches" && (
         <div className="gameview" data-game="branches">
-          <BranchesGame
-            tree={g.tree}
-            onComplete={recordBranchesResult}
-            onHowItWorks={() => openAbout("about-branches")}
-            me={boardName}
-            configured={player.configured}
-            reloadKey={branchBoardReload}
-            streak={stats.branches.currentStreak}
-          />
+          {richTree ? (
+            <BranchesGame
+              tree={richTree}
+              onComplete={recordBranchesResult}
+              onHowItWorks={() => openAbout("about-branches")}
+              me={boardName}
+              configured={player.configured}
+              reloadKey={branchBoardReload}
+              streak={stats.branches.currentStreak}
+            />
+          ) : (
+            <p className="empty">Growing the tree of life…</p>
+          )}
         </div>
       )}
       {view === "leaderboard" && (
@@ -532,21 +559,21 @@ export default function App() {
             <button role="tab" aria-selected={lbGame === "branches"} className={`lb-seg${lbGame === "branches" ? " is-on" : ""}`} onClick={() => setLbGame("branches")}>🌿 Branches</button>
           </div>
           {lbGame === "combined" ? (
-            <CombinedLeaderboard me={boardName} />
+            <CombinedLeaderboard me={boardName} playedToday={playedTodayAny} />
           ) : lbGame === "lineage" ? (
             <>
-              <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} streak={stats.daily.currentStreak} />
-              <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} />
+              <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} />
+              <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} />
             </>
           ) : lbGame === "kinship" ? (
             <>
-              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="today" streak={stats.kinship.currentStreak} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
-              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="config" streak={stats.kinship.currentStreak} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
+              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="today" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
+              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="config" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
             </>
           ) : (
             <>
-              <Leaderboard game="branches" label="Branches" me={boardName} variant="today" streak={stats.branches.currentStreak} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
-              <Leaderboard game="branches" label="Branches" me={boardName} variant="config" streak={stats.branches.currentStreak} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
+              <Leaderboard game="branches" label="Branches" me={boardName} variant="today" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
+              <Leaderboard game="branches" label="Branches" me={boardName} variant="config" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
             </>
           )}
         </>

@@ -14,6 +14,7 @@ import { GridGame } from "./GridGame";
 import { BranchesGame } from "./BranchesGame";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { useGame } from "../hooks/useGame";
+import { loadRichTree } from "../data/loadTaxonomy";
 import { asEmail, fromEmail } from "../hooks/usePlayer";
 import { SettingsPanel } from "./SettingsPanel";
 import { GuessInput } from "./GuessInput";
@@ -128,7 +129,7 @@ function StatusRow({ label, ok, detail, spoiler, revealed, onReveal }: Check & {
 
 /** One-glance "is everything OK?" dashboard: runtime config, the three game
  *  engines building today's board locally, and every backend schema file. */
-function SystemHealth({ tree }: { tree: Tree }) {
+function SystemHealth({ tree, richTree }: { tree: Tree; richTree: Tree }) {
   const live = isSupabaseConfigured;
   const [schema, setSchema] = useState<FileCheck[] | null>(null);
   const [loading, setLoading] = useState(live);
@@ -160,14 +161,14 @@ function SystemHealth({ tree }: { tree: Tree }) {
   const engines = useMemo<Check[]>(() => {
     const ans = dailyAnswerFor(tree, today);
     const node = ans ? tree.byId.get(ans) : null;
-    const grid = gridBoardFor(tree, today);
-    const br = branchesBoardFor(tree, today);
+    const grid = gridBoardFor(richTree, today);
+    const br = branchesBoardFor(richTree, today);
     return [
       { label: "Lineage answer resolves", ok: !!node, detail: node ? undefined : "no answer", spoiler: node ? displayName(node) : undefined },
       { label: "Kinship board builds", ok: !!grid && grid.groups.length === 4, detail: grid ? `${grid.groups.length} groups · ${grid.tiles.length} tiles` : "null" },
       { label: "Branches board builds", ok: !!br && br.slotIds.length >= 4, detail: br ? `${br.slotIds.length} slots` : "null" },
     ];
-  }, [tree, today]);
+  }, [tree, richTree, today]);
 
   // Only boolean `false` marks a file bad; numeric entries (row counts) are metadata.
   const schemaBad = (schema ?? []).filter((r) => r.rows === null || r.rows.some(([, v]) => v === false));
@@ -260,7 +261,7 @@ function LineageBench({ tree }: { tree: Tree }) {
 /** Play the daily games right here for testing: force a difficulty, deal fresh
  *  boards, autosolve. Nothing played here is recorded to stats or the leaderboard,
  *  so the real dailies and standings stay untouched. */
-function TestBench({ tree }: { tree: Tree }) {
+function TestBench({ tree, richTree }: { tree: Tree; richTree: Tree }) {
   const [game, setGame] = useState<"lineage" | "kinship" | "branches">("kinship");
   const [cleared, setCleared] = useState(false);
   const resetToday = () => {
@@ -292,7 +293,7 @@ function TestBench({ tree }: { tree: Tree }) {
       </div>
       <ErrorBoundary key={game} label={`${game} test bench`}>
         <div className="gameview admin-testbench-stage" data-game={game}>
-          {game === "lineage" ? <LineageBench tree={tree} /> : game === "kinship" ? <GridGame tree={tree} sandbox /> : <BranchesGame tree={tree} sandbox />}
+          {game === "lineage" ? <LineageBench tree={tree} /> : game === "kinship" ? <GridGame tree={richTree} sandbox /> : <BranchesGame tree={richTree} sandbox />}
         </div>
       </ErrorBoundary>
     </div>
@@ -313,7 +314,7 @@ type PinCellState = "blank" | "past" | "empty" | "partial" | "stale" | "full";
 /** What one day serves for all three games — reads the FROZEN pin (what players
  *  will actually see), falling back to the freshly computed puzzle for unpinned
  *  dates. Admin-only, so it's fine that it reveals answers. */
-function DayInspector({ tree, date, versions, onClose }: { tree: Tree; date: string; versions?: Partial<Record<Game, number>>; onClose: () => void }) {
+function DayInspector({ tree, richTree, date, versions, onClose }: { tree: Tree; richTree: Tree; date: string; versions?: Partial<Record<Game, number>>; onClose: () => void }) {
   const cur = useMemo(() => currentVersions(), []);
   const [data, setData] = useState<{ lineage: LineagePuzzle | null; kinship: KinshipPuzzle | null; branches: BranchesPuzzle | null } | null>(null);
   const [source, setSource] = useState<Record<Game, "pinned" | "preview">>({ lineage: "preview", kinship: "preview", branches: "preview" });
@@ -331,14 +332,16 @@ function DayInspector({ tree, date, versions, onClose }: { tree: Tree; date: str
       setSource({ lineage: l ? "pinned" : "preview", kinship: k ? "pinned" : "preview", branches: b ? "pinned" : "preview" });
       setData({
         lineage: l ?? computePuzzle("lineage", tree, date),
-        kinship: k ?? computePuzzle("kinship", tree, date),
-        branches: b ?? computePuzzle("branches", tree, date),
+        kinship: k ?? computePuzzle("kinship", richTree, date),
+        branches: b ?? computePuzzle("branches", richTree, date),
       });
     })();
     return () => { alive = false; };
-  }, [tree, date]);
+  }, [tree, richTree, date]);
 
-  const nm = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
+  // Names come from the rich tree (a superset) so augment species on Kinship/Branches
+  // boards resolve, not just base taxa.
+  const nm = (id: string) => richTree.byId.get(id)?.common ?? richTree.byId.get(id)?.sciName ?? id;
   const weekday = new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
   const tier = data?.lineage?.tier ?? data?.kinship?.tier ?? data?.branches?.tier ?? null;
 
@@ -418,7 +421,7 @@ function DayInspector({ tree, date, versions, onClose }: { tree: Tree; date: str
  *  and whether at the current generator version) plus a bulk re-pin over a chosen
  *  horizon. Re-pin only ever writes FUTURE dates through pin_puzzle() — the past is
  *  frozen server-side — so it's the safe in-app equivalent of `npm run pin`. */
-function PinManager({ tree }: { tree: Tree }) {
+function PinManager({ tree, richTree }: { tree: Tree; richTree: Tree }) {
   const live = isSupabaseConfigured;
   const today = todayKey();
   const cur = useMemo(() => currentVersions(), []);
@@ -505,7 +508,7 @@ function PinManager({ tree }: { tree: Tree }) {
     setRunning(true);
     setResult(null);
     setProg({ done: 0, total: 0, failed: 0 });
-    const res = await repinFuture(tree, { days, games, onProgress: setProg });
+    const res = await repinFuture(tree, { days, games, richTree, onProgress: setProg });
     setResult(res);
     setRunning(false);
     await load();
@@ -581,7 +584,7 @@ function PinManager({ tree }: { tree: Tree }) {
           </div>
 
           {selected && (
-            <DayInspector tree={tree} date={selected} versions={byDate.get(selected)?.versions} onClose={() => setSelected(null)} />
+            <DayInspector tree={tree} richTree={richTree} date={selected} versions={byDate.get(selected)?.versions} onClose={() => setSelected(null)} />
           )}
 
           <div className="admin-pins-controls">
@@ -625,6 +628,13 @@ function PinManager({ tree }: { tree: Tree }) {
 
 export function AdminPanel({ tree }: { tree: Tree }) {
   const live = isSupabaseConfigured;
+  // Kinship/Branches generate from the rich tree (base + augment) — the admin bench,
+  // day inspector, and pin re-generation must use it so previews and frozen pins
+  // match what players see. Lineage keeps the base `tree`. Falls back to base until
+  // the augment chunk loads.
+  const [richTree, setRichTree] = useState<Tree | null>(null);
+  useEffect(() => { loadRichTree().then(setRichTree).catch(() => setRichTree(tree)); }, [tree]);
+  const rich = richTree ?? tree;
 
   // ---- Auth (only relevant when Supabase is configured) ----
   const [session, setSession] = useState<Session | null>(null);
@@ -836,11 +846,11 @@ export function AdminPanel({ tree }: { tree: Tree }) {
         <button role="tab" aria-selected={tab === "schedule"} className={`admin-tab${tab === "schedule" ? " is-on" : ""}`} onClick={() => setTab("schedule")}>🗓 Schedule</button>
       </div>
 
-      {tab === "health" && <ErrorBoundary label="System health"><SystemHealth tree={tree} /></ErrorBoundary>}
+      {tab === "health" && <ErrorBoundary label="System health"><SystemHealth tree={tree} richTree={rich} /></ErrorBoundary>}
 
-      {tab === "play" && <ErrorBoundary label="Test bench"><TestBench tree={tree} /></ErrorBoundary>}
+      {tab === "play" && <ErrorBoundary label="Test bench"><TestBench tree={tree} richTree={rich} /></ErrorBoundary>}
 
-      {tab === "pins" && <ErrorBoundary label="Pinned puzzles"><PinManager tree={tree} /></ErrorBoundary>}
+      {tab === "pins" && <ErrorBoundary label="Pinned puzzles"><PinManager tree={tree} richTree={rich} /></ErrorBoundary>}
 
       {tab === "schedule" && (
       <ErrorBoundary label="Schedule editor">

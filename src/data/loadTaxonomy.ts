@@ -16,20 +16,44 @@ import { SYNONYMS } from "./synonyms";
  * (e.g. the admin test bench alongside the main game): guesses from one must be
  * renderable by components reading the other's tree, which only holds if the node
  * references are identical.
+ *
+ * Two trees exist:
+ *  • loadTree()      — the BASE in-set tree. Lineage's answer + guess pool; MUST
+ *    stay curated or dailies get impossibly obscure.
+ *  • loadRichTree()  — base PLUS a quality-filtered augment (taxonomyAugment.json),
+ *    used ONLY by Kinship/Branches for richer clade variety. The augment is lazy-
+ *    loaded (a separate chunk fetched when those games open), so the initial page
+ *    and Lineage never pay for it.
  */
 let cached: Promise<Tree> | null = null;
+let richCached: Promise<Tree> | null = null;
 
 export function loadTree(): Promise<Tree> {
-  if (!cached) cached = build();
+  if (!cached) cached = build(taxonomy.nodes as TaxonNode[]);
   return cached;
 }
 
-async function build(): Promise<Tree> {
-  // Clade common names are now DERIVED at build time (GBIF vernaculars, baked into
-  // taxonomy.json). CLADE_COMMON is kept only as a CORRECTION layer: a curated
-  // entry OVERRIDES the baked name, so we can fix GBIF's junk/ambiguous clade
-  // vernaculars without regenerating. Clades with neither stay scientific-only.
-  const nodes = (taxonomy.nodes as TaxonNode[]).map((n) =>
+/** The base tree grafted with the Kinship/Branches augment. Same node refs as the
+ *  base for shipped taxa are NOT guaranteed (this is a distinct tree), so keep it to
+ *  the two games that generate boards from it. Lazy — the augment chunk downloads on
+ *  first call. */
+export function loadRichTree(): Promise<Tree> {
+  if (!richCached) {
+    richCached = import("./taxonomyAugment.json").then((m) => {
+      const augment = (m.default ?? m) as { nodes: TaxonNode[] };
+      return build([...(taxonomy.nodes as TaxonNode[]), ...augment.nodes]);
+    });
+  }
+  return richCached;
+}
+
+async function build(rawNodes: TaxonNode[]): Promise<Tree> {
+  // Clade common names are DERIVED at build time (GBIF vernaculars, baked into
+  // taxonomy.json). CLADE_COMMON is kept only as a CORRECTION layer: a curated entry
+  // OVERRIDES the baked name, so we can fix GBIF's junk/ambiguous clade vernaculars
+  // without regenerating. Clades with neither stay scientific-only. (The augment's
+  // extra clades pass through here too, so the same corrections apply to them.)
+  const nodes = rawNodes.map((n) =>
     n.rank !== "species" && CLADE_COMMON[n.sciName]
       ? { ...n, common: CLADE_COMMON[n.sciName] }
       : n

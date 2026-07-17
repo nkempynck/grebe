@@ -254,4 +254,22 @@ export const CLADE_COMMON: Record<string, string> = {
   Aythya: "Diving ducks", // GBIF said "Scaups, Pochards"
   Anas: "Dabbling ducks", // GBIF said "Mallards, Pintails"
   Phocoenidae: "Porpoises", // GBIF said "Mereswine" (archaic)
+
+  // Clade labels that surface as Kinship groups once the augment enriches the tree —
+  // give the recognisable ones a friendly name (display-only, no effect on which
+  // species a board picks). Genuinely obscure fish/moth ranks stay scientific.
+  Dactyloidae: "Anoles",
+  Iguaninae: "Iguanas",
+  Colubroidea: "Colubroid snakes",
+  Campanulaceae: "Bellflowers",
+  Nymphalinae: "Brush-footed butterflies",
+  Papilionoidea: "Butterflies",
+  Pyraloidea: "Snout moths",
+  Ascomycota: "Sac fungi",
+  Agaricales: "Gilled mushrooms",
+  Meruliaceae: "Crust fungi",
+  Amygdaleae: "Cherries & almonds",
+  Fragariinae: "Strawberries & relatives",
+  "BOP clade": "Grasses",
+  Noctuini: "Cutworm moths",
 };
