@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ancestryChain,
+  applyGrafts,
   evaluateGuess,
+  graftTaxon,
+  reconstructGraft,
   isInScope,
   randomAnswerId,
   resolveGuess,
   type GameConfig,
+  type GraftTaxon,
   type GuessResult,
   type GameStatus,
   type Tree,
 } from "../core";
+import { resolveOutOfSet } from "../data/guessIndex";
 import { loadTree } from "../data/loadTaxonomy";
 import { DEFAULT_SCOPE_ID } from "../data/presets";
 import { resolveDailyRules, dailyAnswerFor, type DailyRules } from "../data/dailySchedule";
@@ -39,6 +44,9 @@ export interface UseGame {
   setScope: (scopeRootId: string) => void;
   setWinWithin: (winWithin: number) => void;
   submit: (text: string) => void;
+  /** Guess an out-of-set organism by its graft payload (from GuessInput's DB
+   *  suggestions) — grafts it onto the tree as an informative probe. */
+  submitGraft: (graft: GraftTaxon) => void;
   giveUp: () => void;
   newRandom: () => void;
   /** Difficulty aid: when on, the guess box only offers species inside the
@@ -184,6 +192,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     // is instant; signed-in players may then get overlaid by the cloud below).
     const prog = mode === "daily" ? loadDailyProgress() : null;
     if (prog && prog.date === today && prog.answerId === ans) {
+      applyGrafts(tree, prog.grafts ?? []); // re-graft out-of-set guesses so their ids resolve
       setGuesses(prog.guessIds.filter((id) => tree.byId.has(id)).map((id) => evaluateGuess(tree, ans, id, config)));
       setHintIds(prog.hintIds.filter((id) => tree.byId.has(id)));
       setStatus(prog.status);
@@ -207,6 +216,9 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     fetchTodayDaily(today).then((row) => {
       if (!live || !row) return;
       cloudRestored.current = key;
+      // The cloud row stores only ids; re-graft this device's out-of-set guesses
+      // (saved locally) so grafted ids in guess_ids still resolve after a reload.
+      applyGrafts(tree, loadDailyProgress()?.grafts ?? []);
       setGuesses((row.guess_ids ?? []).filter((id) => tree.byId.has(id)).map((id) => evaluateGuess(tree, answerId, id, config)));
       setHintIds((row.hint_ids ?? []).filter((id) => tree.byId.has(id)));
       setStatus(row.won ? "won" : "gaveup");
@@ -231,6 +243,11 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
       guessIds: guesses.map((g) => g.guess.id),
       hintIds,
       status,
+      // Out-of-set guesses (grafted, virtual) aren't in the baked tree — store their
+      // graft payloads so a reload can rebuild them. Empty for a normal all-in-set game.
+      grafts: guesses
+        .map((g) => reconstructGraft(tree, g.guess.id))
+        .filter((x): x is NonNullable<typeof x> => x !== null),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, tree, answerId, guesses, hintIds, status]);
@@ -245,12 +262,40 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     setFreeConfig((c) => ({ ...c, winWithin }));
   }, []);
 
+  // Place an OUT-OF-SET organism: graft it (and any missing ancestor clades) onto
+  // the tree, then score it as an INFORMATIVE probe — it shows where it sits and
+  // how close it lands, but can never win (the daily answer is always in-set).
+  const submitGraft = useCallback(
+    (graft: GraftTaxon) => {
+      if (!tree || !answerId || status !== "playing") return;
+      const gid = graftTaxon(tree, graft);
+      if (!gid) { setError(`Couldn't place ${graft.common ?? graft.sciName} on the tree.`); return; }
+      if (!isInScope(tree, config, gid)) {
+        setError(`${graft.common ?? graft.sciName} isn't inside the current scope.`);
+        return;
+      }
+      if (guesses.some((g) => g.guess.id === gid)) {
+        setError(`You already guessed ${graft.common ?? graft.sciName}.`);
+        return;
+      }
+      setError(null);
+      const probe = evaluateGuess(tree, answerId, gid, config);
+      setGuesses((gs) => [{ ...probe, isWin: false }, ...gs]);
+    },
+    [tree, answerId, status, config, guesses]
+  );
+
   const submit = useCallback(
     (text: string) => {
       if (!tree || !answerId || status !== "playing") return;
       const node = resolveGuess(tree, text);
       if (!node) {
-        setError(`No match for "${text.trim()}". Try a common or scientific name.`);
+        // Not in the playable set — try the out-of-set index (curated + DB). It's
+        // async (DB), so resolve then graft.
+        void resolveOutOfSet(text).then((oos) => {
+          if (oos) submitGraft(oos);
+          else setError(`No match for "${text.trim()}". Try a common or scientific name.`);
+        });
         return;
       }
       if (!isInScope(tree, config, node.id)) {
@@ -266,7 +311,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
       setGuesses((gs) => [result, ...gs]);
       if (result.isWin) setStatus("won");
     },
-    [tree, answerId, status, config, guesses]
+    [tree, answerId, status, config, guesses, submitGraft]
   );
 
   const giveUp = useCallback(() => setStatus("gaveup"), []);
@@ -293,6 +338,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     setScope,
     setWinWithin,
     submit,
+    submitGraft,
     giveUp,
     newRandom,
     assist,

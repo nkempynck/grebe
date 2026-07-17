@@ -1,13 +1,23 @@
-import { useMemo, useState } from "react";
-import type { GameConfig, GuessResult, Tree } from "../core";
+import { useEffect, useMemo, useState } from "react";
+import type { GameConfig, GraftTaxon, GuessResult, TaxonNode, Tree } from "../core";
 import { isAncestor, isInScope, normalizeName } from "../core";
+import { searchOutOfSet, type OutOfSetHit } from "../data/guessIndex";
+import { wikiUrlFor } from "../data/wikipedia";
 import { warmthColor } from "./temperature";
+
+/** Wikipedia URL for a suggestion (in-set node or out-of-set hit) — same
+ *  scientific-name-first resolution the rest of the app uses. */
+const wikiHref = (c: { id: string; common?: string; sci: string }) =>
+  wikiUrlFor({ id: c.id, sciName: c.sci, common: c.common, rank: "", parentId: null } as TaxonNode);
 
 interface Props {
   tree: Tree;
   config: GameConfig;
   disabled: boolean;
   onSubmit: (text: string) => void;
+  /** Picking an out-of-set organism from the suggestions: graft it in directly
+   *  (no re-lookup). Absent → out-of-set hits aren't offered. */
+  onOutOfSetGuess?: (graft: GraftTaxon) => void;
   /** When set (focused difficulty), only species inside this clade are offered. */
   focusCladeId: string | null;
   /** Guesses so far, to mark already-guessed entries. */
@@ -19,14 +29,35 @@ interface Cand {
   common?: string;
   sci: string;
   kind: "species" | "group";
+  /** True for an out-of-set organism (not a playable answer): shown below in-set
+   *  matches, grafts onto the tree as an informative probe when guessed. */
+  oos?: boolean;
+  /** For an out-of-set hit: the payload to graft when chosen. */
+  graft?: GraftTaxon;
 }
 
 const label = (c: Cand) => (c.common ? `${c.common} (${c.sci})` : c.sci);
 
-export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, guesses }: Props) {
+export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses }: Props) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  // Out-of-set hits from the DB (the "for nerds" long tail), fetched async and
+  // debounced per keystroke; shown BELOW in-set matches. Only when a graft sink
+  // is wired (Lineage), never in scout-only contexts.
+  const [oosHits, setOosHits] = useState<OutOfSetHit[]>([]);
+  useEffect(() => {
+    if (!onOutOfSetGuess) return;
+    const query = text.trim();
+    if (!query) { setOosHits([]); return; }
+    let live = true;
+    const t = setTimeout(() => {
+      // Over-fetch: some hits get dropped by the scope filter below, so ask for
+      // more than the ~4 slots we'll actually show.
+      searchOutOfSet(query, 12).then((hits) => { if (live) setOosHits(hits); });
+    }, 180);
+    return () => { live = false; clearTimeout(t); };
+  }, [text, onOutOfSetGuess]);
 
   const guessedById = useMemo(
     () => new Map(guesses.map((r) => [r.guess.id, r])),
@@ -93,8 +124,32 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
     }
     // Groups surface above species within each tier.
     const order = (arr: Cand[]) => [...arr.filter((c) => c.kind === "group"), ...arr.filter((c) => c.kind === "species")];
-    return [...order(pre), ...order(sub)].slice(0, 8);
-  }, [candidates, candById, q, text, sortedCandidates, tree]);
+    const inSet = [...order(pre), ...order(sub)].slice(0, 8);
+    // Out-of-set organisms (fetched async into oosHits) fill any remaining slots,
+    // always BELOW in-set matches — guessable answers are preferred. They graft in
+    // as informative probes when chosen.
+    if (inSet.length < 8) {
+      const seenName = new Set(inSet.map((c) => (c.common ?? c.sci).toLowerCase()));
+      // An out-of-set organism is in play iff its shipped connection point (the
+      // last lineage entry) is at or below the current search root — the scope
+      // root normally, or the pinned focus clade in assist mode, so out-of-set
+      // clade scouting stays consistent with the in-set candidates.
+      const searchRoot = focusCladeId ?? config.scopeRootId;
+      const inScope = (h: OutOfSetHit) => {
+        const conn = h.graft.lineage[h.graft.lineage.length - 1]?.id;
+        return !!conn && (conn === searchRoot || isAncestor(tree, searchRoot, conn));
+      };
+      for (const h of oosHits) {
+        if (inSet.length >= 8) break;
+        if (!inScope(h)) continue;
+        const nm = (h.common ?? h.sci).toLowerCase();
+        if (seenName.has(nm)) continue;
+        seenName.add(nm);
+        inSet.push({ id: h.id, common: h.common, sci: h.sci, kind: h.kind, oos: true, graft: h.graft });
+      }
+    }
+    return inSet;
+  }, [candidates, candById, q, text, sortedCandidates, tree, config.scopeRootId, focusCladeId, oosHits]);
 
   // Entries you can actually pick (already-guessed ones are shown but not
   // selectable). activeId lets each row test "am I active?" in O(1) — important
@@ -105,11 +160,12 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
   const focusNode = focusCladeId ? tree.byId.get(focusCladeId) : null;
   const speciesCount = candidates.reduce((n, c) => (c.kind === "species" ? n + 1 : n), 0);
   const placeholder = focusNode
-    ? `Name a ${focusNode.common ?? focusNode.sciName}… (${speciesCount} options)`
+    ? `Name a species in ${focusNode.common ?? focusNode.sciName}… (${speciesCount} options)`
     : "Name a species, or a group like 'snakes' to scout…";
 
   const choose = (c: Cand) => {
-    onSubmit(label(c));
+    if (c.oos && c.graft && onOutOfSetGuess) onOutOfSetGuess(c.graft);
+    else onSubmit(label(c));
     setText("");
     setOpen(false);
     setActive(0);
@@ -170,18 +226,35 @@ export function GuessInput({ tree, config, disabled, onSubmit, focusCladeId, gue
                   key={c.id}
                   role="option"
                   aria-selected={isActive}
-                  className={`gs-opt${c.kind === "group" ? " is-group" : ""}${r ? " is-guessed" : ""}${isActive ? " is-active" : ""}`}
+                  className={`gs-opt${c.kind === "group" ? " is-group" : ""}${c.oos ? " is-oos" : ""}${r ? " is-guessed" : ""}${isActive ? " is-active" : ""}`}
                   // preventDefault keeps input focus so the click registers before blur
                   onMouseDown={(e) => { e.preventDefault(); if (!r) choose(c); }}
                 >
                   <span className="gs-name">{c.common ?? c.sci}</span>
                   {c.kind === "group" && <span className="gs-tag">group</span>}
-                  {c.common && c.kind === "species" && <span className="gs-sci">{c.sci}</span>}
+                  {c.oos && <span className="gs-tag gs-oos-tag" title="Not one of today's possible answers — grafted onto the tree to show where it sits">not in set</span>}
+                  {/* Show the Latin name whenever a common name is displayed — for
+                      clades (groups) too, not just species. */}
+                  {c.common && c.common.toLowerCase() !== c.sci.toLowerCase() && <span className="gs-sci">{c.sci}</span>}
                   {r && (
                     <span className="gs-done" style={{ color: warm }}>
                       {r.isWin ? "✓ found" : `guessed · ${Math.round(r.warmth * 100)}°`}
                     </span>
                   )}
+                  {/* Read-up link. Isolated from the row's click so it opens
+                      Wikipedia instead of committing the guess, and keeps input
+                      focus so the dropdown doesn't blur shut first. */}
+                  <a
+                    className="gs-wiki"
+                    href={wikiHref(c)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`Look up ${c.common ?? c.sci} on Wikipedia`}
+                    aria-label={`Look up ${c.common ?? c.sci} on Wikipedia`}
+                    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); window.open(wikiHref(c), "_blank", "noopener,noreferrer"); }}
+                  >
+                    ↗
+                  </a>
                 </li>
               );
             })}

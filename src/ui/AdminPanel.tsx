@@ -97,12 +97,15 @@ const SCHEMA_CHECKS = [
   { rpc: "names_schema_check", label: "Names", file: "names.sql" },
   { rpc: "badges_schema_check", label: "Badges", file: "badges.sql" },
   { rpc: "streaks_schema_check", label: "Streaks", file: "streaks.sql" },
+  { rpc: "taxon_index_schema_check", label: "Guess index", file: "taxon_index.sql" },
 ];
 
 interface FileCheck {
   label: string;
   file: string;
-  rows: Array<[string, boolean]> | null; // null → RPC unavailable (file not applied)
+  // [key, value] pairs from the check's jsonb: booleans are pass/fail, numbers are
+  // metadata (e.g. a row count) shown as a detail. null → RPC unavailable.
+  rows: Array<[string, boolean | number]> | null;
   error: string | null;
 }
 
@@ -140,7 +143,7 @@ function SystemHealth({ tree }: { tree: Tree }) {
       SCHEMA_CHECKS.map(async (c): Promise<FileCheck> => {
         const { data, error } = await sb.rpc(c.rpc);
         if (error || !data) return { label: c.label, file: c.file, rows: null, error: error?.message ?? "no response" };
-        return { label: c.label, file: c.file, rows: Object.entries(data as Record<string, boolean>), error: null };
+        return { label: c.label, file: c.file, rows: Object.entries(data as Record<string, boolean | number>), error: null };
       })
     );
     setSchema(out);
@@ -166,7 +169,8 @@ function SystemHealth({ tree }: { tree: Tree }) {
     ];
   }, [tree, today]);
 
-  const schemaBad = (schema ?? []).filter((r) => r.rows === null || r.rows.some(([, ok]) => !ok));
+  // Only boolean `false` marks a file bad; numeric entries (row counts) are metadata.
+  const schemaBad = (schema ?? []).filter((r) => r.rows === null || r.rows.some(([, v]) => v === false));
   // A missing backend on a local-only build isn't a failure to flag.
   const runtimeBad = [...runtime, ...engines].filter((c) => !c.ok && (c.label !== "Backend configured" || live));
   const allOk = !loading && runtimeBad.length === 0 && (!live || schemaBad.length === 0);
@@ -200,9 +204,10 @@ function SystemHealth({ tree }: { tree: Tree }) {
             ) : (
               schema.map((r) => {
                 if (r.rows === null) return <li key={r.file} className="is-bad">✗ <b>{r.label}</b> — <code>{r.file}</code> not applied ({r.error})</li>;
-                const bad = r.rows.filter(([, ok]) => !ok).map(([k]) => k);
+                const bad = r.rows.filter(([, v]) => v === false).map(([k]) => k);
+                const meta = r.rows.filter(([, v]) => typeof v === "number").map(([k, v]) => `${v} ${k}`).join(" · ");
                 return bad.length === 0
-                  ? <li key={r.file} className="is-ok">✓ <b>{r.label}</b> <code>{r.file}</code></li>
+                  ? <li key={r.file} className="is-ok">✓ <b>{r.label}</b> <code>{r.file}</code>{meta && <span className="sys-detail"> — {meta}</span>}</li>
                   : <li key={r.file} className="is-bad">✗ <b>{r.label}</b> — missing: {bad.join(", ")}</li>;
               })
             )}
@@ -241,7 +246,7 @@ function LineageBench({ tree }: { tree: Tree }) {
       )}
       {over && <ResultCard tree={tree} answer={answer} won={g.status === "won"} guessCount={g.guesses.length} streak={null} par={null} />}
       <div className="playbar">
-        <GuessInput tree={tree} config={g.config} disabled={over} onSubmit={g.submit} focusCladeId={g.assist ? g.focusCladeId : null} guesses={g.guesses} />
+        <GuessInput tree={tree} config={g.config} disabled={over} onSubmit={g.submit} onOutOfSetGuess={g.submitGraft} focusCladeId={g.assist ? g.focusCladeId : null} guesses={g.guesses} />
         <div className="errline">{g.error}</div>
         <div className="subactions">
           {!over && <button className="linkbtn" onClick={g.revealHint} disabled={!g.canHint}>Hint: reveal next branch</button>}

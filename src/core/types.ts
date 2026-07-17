@@ -26,6 +26,10 @@ export interface TaxonNode {
   /** Species only: a curated iconic species (matches EXTRAS) — floored to top
    *  prominence so easy/medium days favour icons even if lightly recorded. */
   icon?: boolean;
+  /** True for a node GRAFTED at runtime — an out-of-set organism (and any missing
+   *  ancestor clades) added to the tree by an informative guess. Never baked, never
+   *  a daily answer, never a winning guess; purely to show where a probe lands. */
+  virtual?: boolean;
 }
 
 /** An indexed, ready-to-query tree built from a flat TaxonNode list. */
