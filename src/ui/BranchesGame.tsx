@@ -10,6 +10,7 @@ import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } 
 import { WikiCard } from "./WikiCard";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
+import { gameUrl } from "./share";
 import { PlaytestBar } from "./PlaytestBar";
 import { useDev } from "../data/devMode";
 
@@ -132,19 +133,19 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
   // are never encoded — only whether each was placed right, and with what help —
   // so the grid is safe to post. Clean correct 🟩, hint-revealed 🟨, peeked 🟦,
   // wrong ⬛.
-  const day = new Date(`${g.date}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
-  const pips = "●".repeat(g.tier) + "○".repeat(Math.max(0, 7 - g.tier));
+  const won = !!g.result && g.result.correct === g.result.total;
   const shareSquare = (s: string) =>
     g.placements[s] !== s ? "⬛" : g.hints.includes(s) ? "🟨" : g.peeked.includes(s) ? "🟦" : "🟩";
   const shareText = (() => {
-    const head = `🌿 Grebe Branches · №${dailyNumber(g.date)} · ${g.date} (${day})`;
+    const head = `🌿 Grebe Branches · №${dailyNumber(g.date)}${rules.difficulty ? ` · ${rules.difficulty}` : ""}`;
     const grid = board.slotIds.map(shareSquare).join("");
     const help = [
       g.result?.hinted ? `${g.result.hinted} hint${g.result.hinted > 1 ? "s" : ""}` : "",
       g.result?.peeked ? `${g.result.peeked} peek${g.result.peeked > 1 ? "s" : ""}` : "",
     ].filter(Boolean).join(", ");
-    const verdict = `${g.result?.correct}/${g.result?.total} placed · ${points} pts${help ? ` · ${help}` : ""}`;
-    return `${head}\n${pips}\n${grid}\n${verdict}`;
+    const streakLine = won && streak != null && streak > 0 ? ` · 🔥${streak}` : "";
+    const verdict = `${won ? "Solved" : "Missed it"} · ${g.result?.correct}/${g.result?.total} placed${help ? ` · ${help}` : ""} · ${points} pts${streakLine}`;
+    return `${head}\n${grid}\n${verdict}\n${gameUrl()}`;
   })();
   const copyShare = async () => {
     try {
@@ -360,14 +361,14 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
             <p className="branches-result-note">Each miss shows its correct species.</p>
           )}
           <div className="share">
-            <div className="share-head">🌿 Grebe Branches <span>· №{dailyNumber(g.date)} · {g.date} ({day})</span></div>
-            <div className="share-sub"><span className="share-dots">{pips}</span></div>
+            <div className="share-head">🌿 Grebe Branches <span>· №{dailyNumber(g.date)}{rules.difficulty ? ` · ${rules.difficulty}` : ""}</span></div>
             <div className="share-grid" aria-label={`placements: ${board.slotIds.map(shareSquare).join("")}`}>
               {board.slotIds.map(shareSquare).join("")}
             </div>
             <div className="share-verdict">
-              {g.result.correct}/{g.result.total} placed
+              {won ? "Solved" : "Missed it"} · {g.result.correct}/{g.result.total} placed
               <span className="share-score"> · {points} pts</span>
+              {won && streak != null && streak > 0 && <span className="share-streak"> · 🔥{streak}</span>}
             </div>
             <button className="share-btn" onClick={copyShare}>{copied ? "Copied ✓" : "Copy result"}</button>
           </div>

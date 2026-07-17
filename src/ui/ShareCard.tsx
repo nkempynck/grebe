@@ -3,6 +3,7 @@ import type { GameConfig, GuessResult } from "../core";
 import { dailyNumber } from "../core";
 import { RESOLUTION_PRESETS, SCOPE_PRESETS } from "../data/presets";
 import { gamePoints } from "../data/score";
+import { gameUrl } from "./share";
 
 interface Props {
   config: GameConfig;
@@ -13,6 +14,8 @@ interface Props {
   mode: "daily" | "free";
   /** The day's difficulty tier — only set for daily, drives the shared score. */
   tier?: number | null;
+  /** The day's difficulty name (e.g. "Tricky"), shown in place of the date. */
+  difficulty?: string | null;
   /** Current daily streak, shared on a daily win (null hides it). */
   streak?: number | null;
 }
@@ -29,7 +32,7 @@ function square(r: GuessResult): string {
   return "🟥";
 }
 
-export function ShareCard({ config, guesses, status, hintCount, date, mode, tier, streak }: Props) {
+export function ShareCard({ config, guesses, status, hintCount, date, mode, tier, difficulty, streak }: Props) {
   const [copied, setCopied] = useState(false);
 
   const chrono = [...guesses].reverse();
@@ -39,10 +42,6 @@ export function ShareCard({ config, guesses, status, hintCount, date, mode, tier
   const n = guesses.length;
   const verdict = status === "won" ? `Solved in ${n}` : `Gave up · ${n} ${n === 1 ? "guess" : "guesses"}`;
   const hintLine = hintCount > 0 ? ` · ${hintCount} hint${hintCount === 1 ? "" : "s"}` : "";
-  // Difficulty shown as filled/empty pips (matches the in-game daily indicator).
-  const dots = mode === "daily" && tier != null ? "●".repeat(tier) + "○".repeat(Math.max(0, 7 - tier)) : null;
-  // Weekday of the daily, for a friendlier header line.
-  const day = mode === "daily" ? new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }) : null;
   // Daily games earn a leaderboard score; show it (and share it).
   const score = mode === "daily" && tier != null ? gamePoints(status === "won", tier, n, hintCount) : null;
   const scoreLine = score != null ? ` · ${score} pts` : "";
@@ -50,9 +49,11 @@ export function ShareCard({ config, guesses, status, hintCount, date, mode, tier
   const showStreak = mode === "daily" && status === "won" && streak != null && streak > 0;
   const streakLine = showStreak ? ` · 🔥${streak}` : "";
 
-  const head = mode === "daily" ? `🧬 Grebe Lineage · №${dailyNumber(date)} · ${date}${day ? ` (${day})` : ""}` : "🧬 Grebe Lineage · free play";
-  const sub = [scope, res, dots].filter(Boolean).join(" · ");
-  const text = `${head}\n${sub}\n${row}\n${verdict}${hintLine}${scoreLine}${streakLine}`;
+  // Header shows the daily number + difficulty (no date), or "free play".
+  const label = mode === "daily" ? `№${dailyNumber(date)}${difficulty ? ` · ${difficulty}` : ""}` : "free play";
+  const head = `🧬 Grebe Lineage · ${label}`;
+  const sub = [scope, res].filter(Boolean).join(" · ");
+  const text = `${head}\n${sub}\n${row}\n${verdict}${hintLine}${scoreLine}${streakLine}\n${gameUrl()}`;
 
   const copy = async () => {
     try {
@@ -67,12 +68,9 @@ export function ShareCard({ config, guesses, status, hintCount, date, mode, tier
   return (
     <div className="share">
       <div className="share-head">
-        🧬 Grebe Lineage <span>· {mode === "daily" ? `№${dailyNumber(date)} · ${date}${day ? ` (${day})` : ""}` : "free play"}</span>
+        🧬 Grebe Lineage <span>· {label}</span>
       </div>
-      <div className="share-sub">
-        {scope} · {res}
-        {dots && <span className="share-dots"> · {dots}</span>}
-      </div>
+      <div className="share-sub">{scope} · {res}</div>
       <div className="share-grid" aria-label={`convergence: ${row}`}>{row}</div>
       <div className="share-verdict">
         {verdict}{hintLine}

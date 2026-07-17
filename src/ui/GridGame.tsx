@@ -11,6 +11,7 @@ import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
 import { KinshipTree } from "./KinshipTree";
 import { PlaytestBar } from "./PlaytestBar";
+import { gameUrl } from "./share";
 import { useDev } from "../data/devMode";
 import type { GridGroup } from "../core";
 
@@ -142,8 +143,6 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
   const over = g.status !== "playing";
   const rules = resolveDailyRules(g.date);
   const wikiNode = wikiId ? tree.byId.get(wikiId) ?? null : null;
-  const pips = "●".repeat(g.tier) + "○".repeat(Math.max(0, 7 - g.tier));
-  const day = new Date(`${g.date}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
   const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
 
   // Unsolved groups, revealed only after a loss (so the answer is always shown).
@@ -152,13 +151,17 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
 
   // Share: the classic coloured-square grid, one row per guess.
   const shareText = (() => {
-    const head = `🧬 Grebe Kinship · №${dailyNumber(g.date)} · ${g.date} (${day})`;
+    const won = g.status === "won";
+    const reveals = g.revealed.length;
+    const revealLine = reveals > 0 ? ` · ${reveals} reveal${reveals === 1 ? "" : "s"}` : "";
+    const pts = kinshipPoints(won, g.tier, g.mistakes, reveals);
+    const streakLine = won && streak != null && streak > 0 ? ` · 🔥${streak}` : "";
+    const head = `🧬 Grebe Kinship · №${dailyNumber(g.date)}${rules.difficulty ? ` · ${rules.difficulty}` : ""}`;
     const rows = g.attempts.map((r) => r.map((l) => LEVEL_SQUARE[l]).join("")).join("\n");
-    const verdict =
-      g.status === "won"
-        ? `Solved · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"} · ${kinshipPoints(true, g.tier, g.mistakes, g.revealed.length)} pts`
-        : `Missed it · ${g.solvedGroups.length}/4 groups`;
-    return `${head}\n${pips}\n${rows}\n${verdict}`;
+    const verdict = won
+      ? `Solved · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}${revealLine} · ${pts} pts${streakLine}`
+      : `Missed it · ${g.solvedGroups.length}/4 groups${revealLine} · ${pts} pts`;
+    return `${head}\n${rows}\n${verdict}\n${gameUrl()}`;
   })();
 
   const copy = async () => {
@@ -342,11 +345,17 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
             )}
           </div>
           <div className="share">
-            <div className="share-head">🧬 Grebe Kinship <span>· №{dailyNumber(g.date)} · {g.date} ({day})</span></div>
+            <div className="share-head">🧬 Grebe Kinship <span>· №{dailyNumber(g.date)}{rules.difficulty ? ` · ${rules.difficulty}` : ""}</span></div>
             <div className="grid-share-rows">
               {g.attempts.map((r, i) => (
                 <div key={i} className="grid-share-row">{r.map((l) => LEVEL_SQUARE[l]).join("")}</div>
               ))}
+            </div>
+            <div className="share-verdict">
+              {g.status === "won" ? `Solved · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}` : `Missed it · ${g.solvedGroups.length}/4 groups`}
+              {g.revealed.length > 0 && ` · ${g.revealed.length} reveal${g.revealed.length === 1 ? "" : "s"}`}
+              <span className="share-score"> · {kinshipPoints(g.status === "won", g.tier, g.mistakes, g.revealed.length)} pts</span>
+              {g.status === "won" && streak != null && streak > 0 && <span className="share-streak"> · 🔥{streak}</span>}
             </div>
             <button className="share-btn" onClick={copy}>{copied ? "Copied ✓" : "Copy result"}</button>
           </div>

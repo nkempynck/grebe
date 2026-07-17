@@ -381,6 +381,7 @@ export default function App() {
             date={today}
             mode={g.mode}
             tier={daily ? g.daily.tier : null}
+            difficulty={daily ? g.daily.difficulty : null}
             streak={daily ? stats.daily.currentStreak : null}
           />
           {daily && <p className="daily-lock">✓ You’ve played today’s Lineage. Come back tomorrow for a new puzzle.</p>}
