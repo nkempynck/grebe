@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import type { GameConfig, GraftTaxon, GuessResult, Tree } from "../core";
+import type { GameConfig, GraftTaxon, GuessResult, TaxonNode, Tree } from "../core";
 import { isAncestor, isInScope, normalizeName } from "../core";
 import { searchOutOfSet, type OutOfSetHit } from "../data/guessIndex";
+import { wikiUrlFor } from "../data/wikipedia";
 import { warmthColor } from "./temperature";
+
+/** Wikipedia URL for a suggestion (in-set node or out-of-set hit) — same
+ *  scientific-name-first resolution the rest of the app uses. */
+const wikiHref = (c: { id: string; common?: string; sci: string }) =>
+  wikiUrlFor({ id: c.id, sciName: c.sci, common: c.common, rank: "", parentId: null } as TaxonNode);
 
 interface Props {
   tree: Tree;
@@ -235,6 +241,20 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
                       {r.isWin ? "✓ found" : `guessed · ${Math.round(r.warmth * 100)}°`}
                     </span>
                   )}
+                  {/* Read-up link. Isolated from the row's click so it opens
+                      Wikipedia instead of committing the guess, and keeps input
+                      focus so the dropdown doesn't blur shut first. */}
+                  <a
+                    className="gs-wiki"
+                    href={wikiHref(c)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`Look up ${c.common ?? c.sci} on Wikipedia`}
+                    aria-label={`Look up ${c.common ?? c.sci} on Wikipedia`}
+                    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); window.open(wikiHref(c), "_blank", "noopener,noreferrer"); }}
+                  >
+                    ↗
+                  </a>
                 </li>
               );
             })}
