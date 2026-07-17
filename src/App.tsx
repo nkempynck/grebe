@@ -390,6 +390,29 @@ export default function App() {
         </>
       )}
 
+      {/* Optional explainer: what the "not in set" suggestions are. Collapsed by
+          default so it never gets in the way. */}
+      {!roundOver && (
+        <details className="oos-help">
+          <summary>What’s “not in set”?</summary>
+          <div className="oos-help-body">
+            <div className="oos-help-row">
+              <span className="oos-dot is-in" aria-hidden="true" />
+              <p><b>In the set.</b> One of the possible hidden species. Guess it to try to win.</p>
+            </div>
+            <div className="oos-help-row">
+              <span className="oos-dot is-out" aria-hidden="true" />
+              <p>
+                <span className="gs-tag gs-oos-tag">not in set</span>
+                Any other organism or clade. It can’t be today’s answer, but guessing it grafts it
+                onto the tree so you can see where it sits and how close it lands — handy for scouting.{" "}
+                <b>It still counts as a guess.</b>
+              </p>
+            </div>
+          </div>
+        </details>
+      )}
+
       {/* Guess bar sits at the bottom, under the tree, and sticks to the viewport
           so it stays reachable as the tree grows above it. */}
       <div className="playbar">

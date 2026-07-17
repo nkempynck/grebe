@@ -309,6 +309,26 @@ body {
 /* Out-of-set suggestion: a muted "not in set" pill; the row sits below in-set hits. */
 .gs-oos-tag { color: var(--ink-faint); border-color: var(--line); }
 .gs-opt.is-oos .gs-name { color: var(--ink-soft); }
+
+/* Optional "what's not in set?" explainer above the guess bar. */
+.oos-help { margin: 10px 0 2px; }
+.oos-help > summary {
+  cursor: pointer; width: fit-content;
+  font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.03em;
+  color: var(--ink-faint);
+}
+.oos-help > summary:hover { color: var(--brass); }
+.oos-help[open] > summary { color: var(--ink-soft); margin-bottom: 8px; }
+.oos-help-body {
+  display: grid; gap: 9px;
+  padding: 11px 13px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-2);
+}
+.oos-help-row { display: grid; grid-template-columns: 13px 1fr; gap: 10px; align-items: start; }
+.oos-help-row p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-soft); }
+.oos-help-row .gs-oos-tag { margin-right: 5px; }
+.oos-dot { width: 11px; height: 11px; border-radius: 50%; margin-top: 3px; }
+.oos-dot.is-in { background: var(--brass); border: 1.5px solid var(--brass); }
+.oos-dot.is-out { background: var(--bg); border: 1.5px dashed var(--ink-faint); }
 .gs-done { margin-left: auto; font-family: var(--font-mono); font-size: 10px; font-weight: 700; white-space: nowrap; }
 /* already-guessed: dimmed and non-interactive */
 .gs-opt.is-guessed { cursor: default; opacity: 0.6; }
