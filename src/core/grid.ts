@@ -139,22 +139,30 @@ function themePool(tree: Tree, leaves: string[]): string[] {
   return named.length >= GRID_GROUP_SIZE ? named : leaves;
 }
 
-/** How many of a board's groups give themselves away by name — a distinctive word
- *  shared by more than two of the four members (four "…bear"s, three "…heron"s). */
+/** How many of a board's groups give themselves away by name. A group is a
+ *  giveaway when a distinctive word is shared by more than two of its members AND
+ *  appears in NO other group on the board — those tiles obviously clump into a
+ *  free group ("…bear" ×4, only bears here). Board-aware on purpose: a word spread
+ *  across the groups (four frog families all named "…frog") doesn't distinguish
+ *  one group from another, so it's no giveaway — the name can't sort the board,
+ *  only the clade can, which is exactly what a hard board should demand. */
 function giveawayCount(tree: Tree, board: GridBoard): number {
-  let n = 0;
-  for (const g of board.groups) {
+  // Per group, the distinctive words it contains (each counted once per member).
+  const perGroup = board.groups.map((g) => {
     const c = new Map<string, number>();
-    let bad = false;
     for (const id of g.memberIds) {
-      for (const w of nameWords(tree, id)) {
-        const v = (c.get(w) ?? 0) + 1;
-        c.set(w, v);
-        if (v > 2) bad = true;
-      }
+      for (const w of new Set(nameWords(tree, id))) c.set(w, (c.get(w) ?? 0) + 1);
     }
-    if (bad) n++;
-  }
+    return c;
+  });
+  let n = 0;
+  perGroup.forEach((c, gi) => {
+    for (const [w, v] of c) {
+      if (v <= 2) continue;
+      const elsewhere = perGroup.some((other, oi) => oi !== gi && (other.get(w) ?? 0) > 0);
+      if (!elsewhere) { n++; break; } // this group self-labels via a word unique to it
+    }
+  });
   return n;
 }
 
@@ -288,6 +296,7 @@ const MIN_GROUP_CONTAINERS = 4; // below this, a group isn't featured (spread on
 const HARD_TIER_START = 3; // tiers 1–2 = cross-group spread; 3–7 = featured within-group
 
 const TIER_WINDOW = 8; // containers considered per tier before the seeded pick
+const GROUP_BAND = 6; // re-roll attempts spent widening one featured group before rotating to the next
 
 // How "tight" (confusable) a board is, from the taxonomic RANK of its four groups.
 // This is the difficulty axis: four genera that are siblings in one family look
@@ -426,19 +435,28 @@ function selectBoard(tree: Tree, d: Discovered, dateKey: string, tier: number, a
   // brutal end, coarser groups lower down. A group only features at a tier it can
   // genuinely reach, so no easy cross-order board lands on a hard day.
   //
-  // The pool widens on each re-roll `attempt`: some groups' hardest end is a single
-  // board (e.g. Squamata's only snakes board), so when the anti-repeat has used it,
-  // a wider window reaches that group's next-hardest boards instead of repeating.
-  const width = TIER_WINDOW * (1 + attempt);
+  // Re-rolls (`attempt`) serve two callers: the anti-repeat layer (find a fresh
+  // group-set) and the giveaway guard (find a board within the tier's name budget).
+  // The day's canonical featured group is attempt 0; each group gets a BAND of
+  // attempts to widen its slice — some groups' hardest end is a single board (e.g.
+  // Squamata's only snakes board), so a wider window reaches its next-hardest
+  // boards. Once a band is exhausted we ROTATE to the next eligible group, so a
+  // brutal day whose featured group is inherently self-labelling (every passerine
+  // "…nuthatch") can still escape to a group that fields a giveaway-free board,
+  // rather than shipping the gimme. The canonical group still wins whenever it can
+  // produce a fresh, within-budget board (the common case), keeping daily rotation.
   const tierGroups = tier >= HARD_TIER_START ? d.groupsByTier.get(tier) ?? [] : [];
   let pool: Container[];
   if (tierGroups.length === 0) {
-    pool = d.easy.slice(0, Math.min(width, d.easy.length));
+    pool = d.easy.slice(0, Math.min(TIER_WINDOW * (1 + attempt), d.easy.length));
   } else {
-    const group = tierGroups[((rotationIndex(dateKey) % tierGroups.length) + tierGroups.length) % tierGroups.length];
+    const band = Math.floor(attempt / GROUP_BAND);            // which group to feature
+    const local = attempt % GROUP_BAND;                       // slice width within it
+    const base = ((rotationIndex(dateKey) % tierGroups.length) + tierGroups.length) % tierGroups.length;
+    const group = tierGroups[(base + band) % tierGroups.length];
     // precomputed nearest-to-tier order; the re-roll just takes a wider slice
     const near = d.nearPool.get(`${group}|${tier}`) ?? d.easy;
-    pool = near.slice(0, Math.min(width, near.length));
+    pool = near.slice(0, Math.min(TIER_WINDOW * (1 + local), near.length));
   }
   const container = pickN(pool, 1, rng)[0];
 
@@ -499,20 +517,24 @@ const GRID_ATTEMPTS = 48;
 
 /** One day's board. Re-rolls looking for a board that is unused by `avoid` and
  *  within the tier's name-giveaway budget. If no attempt satisfies the budget it
- *  falls back to the first merely-fresh board (anti-repeat wins over the giveaway
- *  guard), and only to attempt 0 if every attempt was blocked. (Mammals are no
- *  longer banned on weekends — with per-group scaling a deep mammal board is
- *  genuinely hard, so they earn their place on brutal days.) */
+ *  falls back to the FRESHEST-with-fewest-giveaways board — so a brutal day whose
+ *  featured group is inherently self-labelling (every passerine "…lark") still
+ *  ships the least give-away-y board it can, not the first fresh one. Only if every
+ *  attempt was blocked does it drop to attempt 0. (Mammals are no longer banned on
+ *  weekends — with per-group scaling a deep mammal board is genuinely hard, so they
+ *  earn their place on brutal days.) */
 function boardForDay(tree: Tree, d: Discovered, dateKey: string, tier: number, avoid: (s: string) => boolean): GridBoard {
   const budget = maxGiveaways(tier);
-  let fresh: GridBoard | null = null;
+  let best: GridBoard | null = null;
+  let bestGive = Infinity;
   for (let attempt = 0; attempt < GRID_ATTEMPTS; attempt++) {
     const board = selectBoard(tree, d, dateKey, tier, attempt);
     if (avoid(groupSig(board))) continue;
-    if (giveawayCount(tree, board) <= budget) return board;
-    if (fresh === null) fresh = board;
+    const give = giveawayCount(tree, board);
+    if (give <= budget) return board;
+    if (give < bestGive) { bestGive = give; best = board; } // keep the least-giveaway fresh board
   }
-  return fresh ?? selectBoard(tree, d, dateKey, tier, 0);
+  return best ?? selectBoard(tree, d, dateKey, tier, 0);
 }
 
 /**
