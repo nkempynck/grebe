@@ -330,10 +330,13 @@ body {
 .oos-dot.is-in { background: var(--brass); border: 1.5px solid var(--brass); }
 .oos-dot.is-out { background: var(--bg); border: 1.5px dashed var(--ink-faint); }
 .gs-done { margin-left: auto; font-family: var(--font-mono); font-size: 10px; font-weight: 700; white-space: nowrap; }
-/* Read-up-on-Wikipedia link, far right of a suggestion row. */
+/* Read-up-on-Wikipedia link, far right of a suggestion row. A big hit zone
+   (full row height, wide) so it's easy to hit without misclicking the guess. */
 .gs-wiki {
-  margin-left: auto; flex: none; align-self: center; text-decoration: none;
-  color: var(--ink-faint); font-size: 13px; line-height: 1; padding: 3px 5px; border-radius: 5px;
+  margin-left: auto; flex: none; align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+  min-width: 40px; margin-right: -6px; text-decoration: none;
+  color: var(--ink-faint); font-size: 15px; line-height: 1;
 }
 .gs-wiki:hover, .gs-wiki:focus-visible { color: var(--brass); background: color-mix(in srgb, var(--brass) 13%, transparent); }
 .gs-opt.is-guessed .gs-wiki { margin-left: 8px; } /* sit after the "guessed" tag, not fight its auto-margin */
