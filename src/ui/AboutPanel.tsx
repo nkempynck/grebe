@@ -164,9 +164,9 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       {/* ---------- Data sources ---------- */}
       <h3 id="about-data" className="about-h">Data sources</h3>
       <p className="about-p">
-        The species and the tree come from two open biodiversity databases, combined once into a
-        static snapshot the game ships with. The app reads that snapshot locally, the species and
-        tree themselves never need the network.
+        The species and the tree come from a few open sources, combined once into a static snapshot
+        the game ships with. The app reads that snapshot locally, the species and tree themselves
+        never need the network.
       </p>
       <div className="about-snap">
         <span><b>{species.toLocaleString()}</b> species</span>
@@ -176,13 +176,16 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       </div>
       <div className="about-srcs">
         <div className="about-src is-teal">
-          <div className="about-src-tag">GBIF · species &amp; names</div>
+          <div className="about-src-tag">Wikipedia &amp; Wikidata · species &amp; names</div>
           <p>
-            The <a href="https://www.gbif.org" target="_blank" rel="noreferrer">Global
-            Biodiversity Information Facility</a> aggregates occurrence records from museums,
-            herbaria, and citizen-science platforms (iNaturalist, eBird). It provides the set of
-            species, selected per group and ranked by number of occurrence records, along with
-            their English common names.
+            Which species make the cut is decided by readership: organisms are ranked by how many
+            people read their English <a href="https://www.wikipedia.org" target="_blank" rel="noreferrer">Wikipedia</a> article,
+            so the game leans toward the ones you're likely to recognise rather than the
+            best-sampled ones. Each species' common name is its article title, with{" "}
+            <a href="https://www.wikidata.org" target="_blank" rel="noreferrer">Wikidata</a> filling
+            in the names Wikipedia titles don't cover and naming the clades. Grebe leans on these
+            for free, so if you enjoy it, please{" "}
+            <a href="https://donate.wikimedia.org" target="_blank" rel="noreferrer">donate to Wikipedia</a>.
           </p>
         </div>
         <div className="about-src is-brass">
@@ -195,21 +198,32 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
           </p>
         </div>
       </div>
+      <p className="about-p about-srcs-note">
+        A stable per-species identifier from the{" "}
+        <a href="https://www.gbif.org" target="_blank" rel="noreferrer">Global Biodiversity
+        Information Facility</a> (GBIF) keys everything together, so each species stays distinct on
+        the tree.
+      </p>
 
       {/* ---------- How it's built ---------- */}
       <h3 id="about-build" className="about-h">How it's built</h3>
       <p className="about-p">
-        Those two sources are combined into the snapshot in a few steps:
+        Those sources are combined into the snapshot in a few steps:
       </p>
       <ol className="about-build">
         <li>
-          <b>Pick the species.</b> Start from the best-recorded species in each group (mammals,
-          birds, insects, plants, and so on) that have a clear English name, then add a short
-          curated list of familiar extras like humans, lab model organisms, and well-known animals.
+          <b>Pick the species.</b> Rank organisms in each group (mammals, birds, insects, plants,
+          and so on) by how widely they're read about on Wikipedia and keep the most recognisable,
+          then add a short curated list of familiar extras like humans, lab model organisms, and
+          well-known animals. Balance out the pool so no one genus or family dominates.
         </li>
         <li>
           <b>Connect them on the tree.</b> Look up how those species are related and keep the slice
           of the tree of life that links them together.
+        </li>
+        <li>
+          <b>Name everything.</b> Give each species its everyday name from its Wikipedia title,
+          falling back to Wikidata, and name the clades the same way.
         </li>
         <li>
           <b>Save a snapshot.</b> The result is baked into a single file bundled with the app, so
@@ -257,8 +271,10 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       </ul>
 
       <p className="about-foot">
-        Snapshot built {built || "—"} · GBIF (species + names) × Open Tree of Life (topology + ranks).
-        Sources: <a href="https://www.gbif.org" target="_blank" rel="noreferrer">gbif.org</a> ·{" "}
+        Snapshot built {built || "—"} · species selected by Wikipedia readership, names from
+        Wikipedia &amp; Wikidata, topology &amp; ranks from Open Tree of Life.
+        Sources: <a href="https://www.wikipedia.org" target="_blank" rel="noreferrer">wikipedia.org</a> ·{" "}
+        <a href="https://www.wikidata.org" target="_blank" rel="noreferrer">wikidata.org</a> ·{" "}
         <a href="https://tree.opentreeoflife.org" target="_blank" rel="noreferrer">tree.opentreeoflife.org</a>
       </p>
       <p className="about-foot">
