@@ -63,6 +63,7 @@ async function main() {
       rank: e.graft.rank ?? null,
       name_norm: normalizeName(e.graft.sciName),
       common_norm: e.graft.common ? normalizeName(e.graft.common) : null,
+      views: e.graft.views ?? null,
       lineage: e.graft.lineage,
     });
   }
@@ -71,8 +72,9 @@ async function main() {
   console.log(`loading ${rows.length} taxa → taxon_index${dupes ? ` (${dupes} duplicate ott_id dropped)` : ""}`);
 
   if (replace) {
-    const keep = rows.map((r) => r.ott_id);
-    const { error } = await db.from("taxon_index").delete().not("ott_id", "in", `(${keep.map((k) => `"${k}"`).join(",")})`);
+    // Full swap: clear the table, then insert the new set. (The old per-id NOT IN prune
+    // built a URL with every kept ott_id — 21k ids overflowed it and the fetch failed.)
+    const { error } = await db.from("taxon_index").delete().not("ott_id", "is", null);
     if (error) console.warn("prune warning:", error.message);
   }
 

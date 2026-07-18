@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:taxonomy": "node scripts/build-taxonomy.mjs",
+    "build:taxonomy": "node scripts/assemble-taxonomy.mjs && node scripts/build-names.mjs && node scripts/finalize-taxonomy.mjs",
+    "build:guessindex": "node scripts/build-taxon-index.mjs",
     "pin": "esbuild scripts/pin-puzzles.ts --bundle --platform=node --format=esm --define:import.meta.env={} --loader:.json=json --external:@supabase/supabase-js --outfile=node_modules/.cache/pin-puzzles.mjs && node node_modules/.cache/pin-puzzles.mjs"
   },
   "dependencies": {

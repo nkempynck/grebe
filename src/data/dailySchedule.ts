@@ -238,14 +238,14 @@ function orderProm(tree: Tree): Map<string, number> {
     }
     return fallback;
   };
-  const groups = new Map<string, { id: string; occ: number }[]>();
+  const groups = new Map<string, { id: string; views: number }[]>();
   for (const n of tree.byId.values()) {
     if ((tree.childrenOf.get(n.id) ?? []).length) continue; // leaves = species
-    if (n.occ == null) continue; // no occ baked yet → leave empty → uniform
-    (groups.get(keyFor(n.id)) ?? groups.set(keyFor(n.id), []).get(keyFor(n.id))!).push({ id: n.id, occ: n.occ });
+    if (n.views == null) continue; // no views baked yet → leave empty → uniform
+    (groups.get(keyFor(n.id)) ?? groups.set(keyFor(n.id), []).get(keyFor(n.id))!).push({ id: n.id, views: n.views });
   }
   for (const arr of groups.values()) {
-    arr.sort((a, b) => a.occ - b.occ);
+    arr.sort((a, b) => a.views - b.views);
     arr.forEach((s, i) => m.set(s.id, (i + 1) / (arr.length + 1))); // most-recorded → highest
   }
   orderPromByTree.set(tree, m);
