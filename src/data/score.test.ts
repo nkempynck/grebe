@@ -71,9 +71,18 @@ describe("kinshipPoints", () => {
     expect(kinshipPoints(true, 7, 0, 6)).toBe(99);  // 180 − 81
   });
 
-  it("reveal penalty stacks with mistakes and never goes below zero", () => {
+  it("reveal penalty stacks with mistakes", () => {
     expect(kinshipPoints(true, 7, 2, 4)).toBe(63); // 90 − 27
-    expect(kinshipPoints(true, 1, 0, 12)).toBe(0); // 60 − 9×15%×60 floored at 0
+  });
+
+  it("a win never scores zero — reveals floor at 10% of the day's weight", () => {
+    // tier 1 weight = 60; the raw score (60 − 9×15%×60) goes negative, so a win
+    // floors at 60×0.1 = 6 instead of collapsing to zero.
+    expect(kinshipPoints(true, 1, 0, 12)).toBe(6);
+    // Worst case still positive: max mistakes for a win (3) plus every tile flipped.
+    expect(kinshipPoints(true, 7, 3, 16)).toBe(18); // floor 180×0.1
+    // A loss is still a flat zero, floor or not.
+    expect(kinshipPoints(false, 7, 3, 16)).toBe(0);
   });
 });
 

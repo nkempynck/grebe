@@ -27,17 +27,24 @@ export const KINSHIP_FREE_REVEALS = 3;
  *  `reveals` column and public.grid_game_points takes it as a 4th argument. */
 export const KINSHIP_REVEAL_PENALTY = 0.15;
 
+/** A win never scores zero: solving all four groups floors at this fraction of the
+ *  day's weight, however many reveals were burned. (Reveals can otherwise deduct
+ *  more than the whole board — flipping all sixteen tiles used to leave nothing.) */
+export const KINSHIP_WIN_FLOOR = 0.1;
+
 /** Kinship (grid) per-game points: the day's weight scaled down by mistakes, minus
  *  a flat penalty per reveal past the free three, zero for a loss. Four mistakes
  *  ends the board (a loss), so a win carries 0–3 mistakes → 100/75/50/25% of the
- *  weight; each paid reveal then shaves another 15% of the weight. MUST match
- *  public.grid_game_points(won, tier, mistakes, reveals) in supabase/kinship.sql. */
+ *  weight; each paid reveal then shaves another 15% of the weight, down to a small
+ *  floor a win always keeps. MUST match public.grid_game_points(won, tier, mistakes,
+ *  reveals) in supabase/kinship.sql. */
 export function kinshipPoints(won: boolean, tier: number, mistakes: number, reveals = 0): number {
   if (!won) return 0;
   const w = tierWeight(tier);
   const m = Math.min(Math.max(mistakes, 0), 4);
   const paid = Math.max(0, reveals - KINSHIP_FREE_REVEALS);
-  return Math.max(0, Math.round(w * (1 - m / 4) - w * KINSHIP_REVEAL_PENALTY * paid));
+  const raw = w * (1 - m / 4) - w * KINSHIP_REVEAL_PENALTY * paid;
+  return Math.max(Math.round(w * KINSHIP_WIN_FLOOR), Math.round(raw));
 }
 
 /** Branches per-game points: partial credit for correctly-placed species, scaled

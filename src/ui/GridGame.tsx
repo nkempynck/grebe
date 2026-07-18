@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Tree } from "../core";
 import { dailyNumber } from "../core";
 import { useGridGame, type GridComplete } from "../hooks/useGridGame";
@@ -82,8 +82,14 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
   const [zoomId, setZoomId] = useState<string | null>(null);
   // Post-game Wikipedia reader.
   const [wikiId, setWikiId] = useState<string | null>(null);
-  // A tile whose reveal would cost score, awaiting confirmation (null = none).
+  // A tile whose reveal would cost score, awaiting confirmation (null = none). The
+  // confirm sits below the board, so scroll it into view when it appears — on a tall
+  // board it would otherwise open off-screen and look like nothing happened.
   const [pendingReveal, setPendingReveal] = useState<string | null>(null);
+  const confirmRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (pendingReveal) confirmRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [pendingReveal]);
 
   // Easy/medium days show every picture from the start (free); harder days hide
   // them behind the reveal penalty. Sunday (tier 7) inverts it: pictures are the
@@ -92,8 +98,11 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
   const preshow = g.tier > 0 && g.tier <= PRESHOW_MAX_TIER;
   const pictureMode = g.tier >= 7;
   const tiles = g.board?.tiles;
+  // Prefetch every tile's image up front, in all modes. Easy/picture days show them;
+  // harder days keep them hidden until a flip — but we still fetch so we know which
+  // species have NO image, and never offer a reveal (or charge for one) on those.
   useEffect(() => {
-    if (!(preshow || pictureMode) || !tiles) return;
+    if (!tiles) return;
     let live = true;
     for (const id of tiles) {
       const node = tree.byId.get(id);
@@ -236,8 +245,9 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
               const nameShown = pictureMode ? flipped.has(id) || noImg.has(id) : true;
               // A reveal control exists on the harder days: it flips the hidden
               // half (picture normally, name in picture mode). None on easy days,
-              // and none in picture mode for an image-less tile (its name is shown).
-              const canReveal = pictureMode ? hasImg : !preshow;
+              // and — in either mode — none for an image-less tile: there's nothing
+              // to reveal, so flipping it must never cost a reveal.
+              const canReveal = pictureMode ? hasImg : !preshow && hasImg;
               const noun = pictureMode ? "name" : "picture";
               const nextCost = revealCostOf(g.revealed.length);
               const flipTitle = g.revealed.includes(id)
@@ -381,7 +391,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
       )}
 
       {pendingReveal && (
-        <div className="grid-confirm" role="alertdialog" aria-label="Confirm reveal">
+        <div className="grid-confirm" role="alertdialog" aria-label="Confirm reveal" ref={confirmRef}>
           <p>
             You’ve used your {KINSHIP_FREE_REVEALS} free reveals. Showing this{" "}
             {pictureMode ? "name" : "picture"} deducts <b>{revealCostOf(g.revealed.length)}</b> of your{" "}
