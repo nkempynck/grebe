@@ -24,6 +24,10 @@ interface Props {
   reloadKey?: number;
   /** The viewer's current streak for this game, shown in the footer. */
   streak?: number | null;
+  /** Whether the viewer has played today's board of this game (signed in or not).
+   *  When false, today's board is hidden behind a "play first" note — applies to
+   *  the fixed today view and to "By day" when it shows today. */
+  playedToday?: boolean;
   /** One-line explanation of how the score works. */
   note?: string;
   onClose?: () => void;
@@ -49,7 +53,7 @@ const MEDALS = ["🥇", "🥈", "🥉"];
  *  filter (Kinship, Branches — and any future game). Lineage keeps its own richer
  *  panel because it filters by clade group. Reads through the game-parameterised
  *  fetchers in data/games.ts, so a new game is one registry entry away. */
-export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, note, onClose }: Props) {
+export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, playedToday = true, note, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [dayDate, setDayDate] = useState<string>(() => todayKey());
@@ -63,10 +67,14 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, n
   const browsingDay = !isToday && period === "day";
   const oneDay = isToday || browsingDay;
   const forDate = isToday ? today : browsingDay ? dayDate : null;
+  // Today's board is earned by playing: hide it (and skip the fetch) until the
+  // viewer has played today's board of this game. Past days stay browsable.
+  const locked = !playedToday && (isToday || (browsingDay && dayDate === today));
 
   useEffect(() => {
     let live = true;
     setRows(null);
+    if (locked) return;
     Promise.all([
       fetchGameLeaderboard(game, period, { limit: 10, forDate }),
       fetchGameStanding(game, period, { forDate }),
@@ -77,7 +85,7 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, n
       setTotal(s?.total_players ?? r.length);
     });
     return () => { live = false; };
-  }, [game, period, reloadKey, forDate]);
+  }, [game, period, reloadKey, forDate, locked]);
 
   // Streaks are a live per-player property (not tied to the window), fetched once
   // per game and refreshed after a submit.
@@ -127,7 +135,9 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, n
         </div>
       )}
 
-      {rows === null ? (
+      {locked ? (
+        <p className="stats-empty">Play today’s {label} to see the leaderboard of the day.</p>
+      ) : rows === null ? (
         <p className="stats-empty">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="stats-empty">No ranked {label} games {isToday ? "today" : browsingDay ? "on this day" : "here yet"}. Play a signed-in daily to appear.</p>

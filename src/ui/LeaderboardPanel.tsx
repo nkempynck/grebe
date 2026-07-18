@@ -23,6 +23,10 @@ interface Props {
   /** The viewer's current daily streak, shown in the footer (their own only —
    *  other players' streaks aren't exposed by the server). */
   streak?: number | null;
+  /** Whether the viewer has played today's Lineage (any device state, signed in
+   *  or not). When false, today's board is hidden behind a "play first" note —
+   *  applies to the fixed today view and to "By day" when it shows today. */
+  playedToday?: boolean;
   /** Resolve a past day's answer species (for the day-browsing view). Only ever
    *  called for finished days, so it never reveals today's puzzle. */
   answerForDate?: (dateKey: string) => { name: string; sci: string } | null;
@@ -52,7 +56,7 @@ const GROUPS: { id: string | null; label: string; icon: string }[] = [
   { id: OTHER_GROUP.id, label: OTHER_GROUP.label, icon: OTHER_GROUP.icon },
 ];
 
-export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 0, streak, answerForDate, onClose }: Props) {
+export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 0, streak, playedToday = true, answerForDate, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [group, setGroup] = useState<string | null>(null);
@@ -78,6 +82,10 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
   const forDate = browsingDay ? dayDate : null;
   // The answer is revealed only for a finished day (never today's live puzzle).
   const dayAnswer = browsingDay && dayDate < today && answerForDate ? answerForDate(dayDate) : null;
+  // Today's board is earned by playing: hide it (and skip the fetch) until the
+  // viewer has played today's Lineage. Past days stay browsable; the admin demo
+  // preview bypasses the lock (synthetic data, layout tool).
+  const locked = !playedToday && !previewing && (isToday || (browsingDay && dayDate === today));
 
   useEffect(() => {
     let live = true;
@@ -89,6 +97,7 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
       return;
     }
     setRows(null);
+    if (locked) return;
     Promise.all([fetchLeaderboard(period, group, 10, forDate), fetchStanding(period, group, forDate)]).then(([r, s]) => {
       if (!live) return;
       setRows(r);
@@ -96,7 +105,7 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
       setTotal(s?.total_players ?? r.length);
     });
     return () => { live = false; };
-  }, [period, group, previewing, groupLabelForDemo, reloadKey, forDate]);
+  }, [period, group, previewing, groupLabelForDemo, reloadKey, forDate, locked]);
 
   // Live per-player daily-win streaks (name → streak), shown as a flame. Skipped in
   // the admin demo preview (its names are synthetic).
@@ -165,7 +174,9 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
         </div>
       )}
 
-      {rows === null ? (
+      {locked ? (
+        <p className="stats-empty">Play today’s Lineage to see the leaderboard of the day.</p>
+      ) : rows === null ? (
         <p className="stats-empty">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="stats-empty">No ranked games {isToday ? "today" : browsingDay ? "on this day" : "here yet"}. Play a signed-in daily to appear.</p>
