@@ -73,24 +73,39 @@ process.stderr.write("\n");
 console.log(`species: +${spFilled} filled from P1843`);
 
 // ---- clades: P1843 by OTT id (P9157) ----
+// OTL reuses some ott ids across a clade AND a tip (e.g. genus "Todiramphus" and the
+// species Todiramphus godeffroyi share ott3596382). A blind P9157->P1843 lookup then
+// hangs a species' common name ("Marquesan Kingfisher") on the clade. So we also pull
+// the carrying item's taxon name (P225) and only accept the common name when that name
+// matches the clade's own sci name (or the item has no P225 to contradict it).
 const cladeNodes = nodes.filter((n) => n.rank !== "species" && n.sciName && /^ott\d+$/.test(n.id));
 async function p1843ByOtt(list) {
-  const found = new Map();
+  const found = new Map(); // ott -> [{ sci, cns:[] }]
   for (let i = 0; i < list.length; i += 150) {
     const batch = list.slice(i, i + 150);
     const vals = batch.map((n) => `"${n.id.replace(/^ott/, "")}"`).join(" ");
-    const rows = await sparql(`SELECT ?ott (GROUP_CONCAT(DISTINCT ?cn;separator="|") AS ?cns) WHERE { VALUES ?ott { ${vals} } ?item wdt:P9157 ?ott; wdt:P1843 ?cn. FILTER(lang(?cn)="en") } GROUP BY ?ott`);
-    if (rows) for (const b of rows) found.set(b.ott.value, (b.cns?.value ?? "").split("|"));
+    const rows = await sparql(`SELECT ?ott ?sci (GROUP_CONCAT(DISTINCT ?cn;separator="|") AS ?cns) WHERE { VALUES ?ott { ${vals} } ?item wdt:P9157 ?ott; wdt:P1843 ?cn. OPTIONAL { ?item wdt:P225 ?sci } FILTER(lang(?cn)="en") } GROUP BY ?ott ?sci`);
+    if (rows) for (const b of rows) { const arr = found.get(b.ott.value) ?? []; arr.push({ sci: b.sci?.value ?? null, cns: (b.cns?.value ?? "").split("|") }); found.set(b.ott.value, arr); }
     process.stderr.write(`  p1843 clades ${Math.min(i + 150, list.length)}/${list.length}\r`);
     await sleep(200);
   }
   return found;
 }
 const clFound = await p1843ByOtt(cladeNodes);
-let clFilled = 0;
-for (const n of cladeNodes) { const cn = (clFound.get(n.id.replace(/^ott/, "")) ?? []).map(cleanCladeName).find((c) => c && c.toLowerCase() !== n.sciName.toLowerCase()); if (cn) { n.common = cn; clFilled++; } }
+let clFilled = 0, clRejected = 0;
+for (const n of cladeNodes) {
+  const entries = clFound.get(n.id.replace(/^ott/, "")) ?? [];
+  // Prefer the item whose taxon name IS this clade; fall back to a P225-less item;
+  // never borrow a name from an item that names a DIFFERENT taxon (the ott collision).
+  const match = entries.find((e) => e.sci && e.sci.toLowerCase() === n.sciName.toLowerCase());
+  const anon = entries.find((e) => !e.sci);
+  const usable = match ?? anon;
+  if (!usable && entries.length) clRejected++;
+  const cn = (usable?.cns ?? []).map(cleanCladeName).find((c) => c && c.toLowerCase() !== n.sciName.toLowerCase());
+  if (cn) { n.common = cn; clFilled++; }
+}
 process.stderr.write("\n");
-console.log(`clades: ${clFilled}/${cladeNodes.length} named from P1843`);
+console.log(`clades: ${clFilled}/${cladeNodes.length} named from P1843 (${clRejected} rejected: name belonged to a different taxon on a shared ott)`);
 
 // ---- overrides win (species) ----
 let overridden = 0;

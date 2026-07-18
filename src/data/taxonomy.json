@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-18T15:09:46.969Z",
+  "generatedAt": "2026-07-18T15:51:56.819Z",
   "source": "Wikidata + Wikipedia (species selection by pageviews, names) × Open Tree of Life (topology)",
   "provenance": {
     "otlSynthRelease": "opentree16.1",
@@ -94,8 +94,7 @@
       "id": "ott10210",
       "sciName": "Tracheophyta",
       "rank": "phylum",
-      "parentId": "ott56610",
-      "common": "Higher plants"
+      "parentId": "ott56610"
     },
     {
       "id": "ott1007992",
@@ -559,8 +558,7 @@
       "id": "ott565880",
       "sciName": "Pistacia",
       "rank": "genus",
-      "parentId": "ott200790",
-      "common": "Lentisk"
+      "parentId": "ott200790"
     },
     {
       "id": "3190585",
@@ -1432,8 +1430,7 @@
       "id": "ott359611",
       "sciName": "Reseda",
       "rank": "genus",
-      "parentId": "ott9635",
-      "common": "Garden mignonette"
+      "parentId": "ott9635"
     },
     {
       "id": "3040251",
@@ -1578,7 +1575,7 @@
       "sciName": "Tropaeolum majus",
       "rank": "species",
       "parentId": "ott751420",
-      "common": "Nasturtium",
+      "common": "Garden Nasturtium",
       "views": 10736
     },
     {
@@ -2842,7 +2839,7 @@
       "sciName": "Hypericum perforatum",
       "rank": "species",
       "parentId": "ott340219",
-      "common": "St John's wort",
+      "common": "Common St. Johnswort",
       "views": 50181
     },
     {
@@ -3137,8 +3134,7 @@
       "id": "ott2599",
       "sciName": "Ficus",
       "rank": "genus",
-      "parentId": "ott35317",
-      "common": "Chinese banyan"
+      "parentId": "ott35317"
     },
     {
       "id": "ott12095",
@@ -3202,8 +3198,7 @@
       "id": "ott281407",
       "sciName": "Artocarpus",
       "rank": "genus",
-      "parentId": "ott93655",
-      "common": "Marang"
+      "parentId": "ott93655"
     },
     {
       "id": "2984565",
@@ -3350,7 +3345,7 @@
       "sciName": "Pilea pumila",
       "rank": "species",
       "parentId": "ott117123",
-      "common": "Canada clearweed",
+      "common": "Canadian clearweed",
       "views": 2960
     },
     {
@@ -3394,8 +3389,7 @@
       "id": "ott74296",
       "sciName": "Celtis",
       "rank": "genus",
-      "parentId": "ott74299",
-      "common": "Common hackberry"
+      "parentId": "ott74299"
     },
     {
       "id": "2984492",
@@ -3493,8 +3487,7 @@
       "id": "ott94971",
       "sciName": "Ulmus",
       "rank": "genus",
-      "parentId": "ott311282",
-      "common": "Winged elm"
+      "parentId": "ott311282"
     },
     {
       "id": "ott113344",
@@ -3640,8 +3633,7 @@
       "id": "ott799207",
       "sciName": "Frangula",
       "rank": "genus",
-      "parentId": "ott796228",
-      "common": "Lanceleaf buckthorn"
+      "parentId": "ott796228"
     },
     {
       "id": "3039463",
@@ -3784,8 +3776,7 @@
       "id": "ott902631",
       "sciName": "Rubus",
       "rank": "genus",
-      "parentId": "ott18466",
-      "common": "Cloudberry"
+      "parentId": "ott18466"
     },
     {
       "id": "2991466",
@@ -4523,8 +4514,7 @@
       "id": "ott115372",
       "sciName": "Betula",
       "rank": "genus",
-      "parentId": "ott66017",
-      "common": "Japanese Cherry Birch"
+      "parentId": "ott66017"
     },
     {
       "id": "5331916",
@@ -4769,8 +4759,7 @@
       "id": "ott3931019",
       "sciName": "Carya",
       "rank": "genus",
-      "parentId": "ott199032",
-      "common": "Southern shagbark hickory"
+      "parentId": "ott199032"
     },
     {
       "id": "ott199037",
@@ -4818,8 +4807,7 @@
       "id": "ott137331",
       "sciName": "Quercus",
       "rank": "genus",
-      "parentId": "ott129466",
-      "common": "Scrub oak"
+      "parentId": "ott129466"
     },
     {
       "id": "ott117129",
@@ -5099,8 +5087,7 @@
       "id": "ott179898",
       "sciName": "Eucalyptus",
       "rank": "genus",
-      "parentId": "ott1015498",
-      "common": "Sugargum"
+      "parentId": "ott1015498"
     },
     {
       "id": "3176787",
@@ -5188,8 +5175,7 @@
       "id": "ott486599",
       "sciName": "Oenothera",
       "rank": "genus",
-      "parentId": "ott5747164",
-      "common": "Rose evening primrose"
+      "parentId": "ott5747164"
     },
     {
       "id": "ott101477",
@@ -5230,8 +5216,7 @@
       "id": "ott266692",
       "sciName": "Epilobium",
       "rank": "genus",
-      "parentId": "ott5747162",
-      "common": "Great hairy willowherb"
+      "parentId": "ott5747162"
     },
     {
       "id": "3189096",
@@ -5722,8 +5707,7 @@
       "id": "ott519500",
       "sciName": "Liquidambar",
       "rank": "genus",
-      "parentId": "ott131904",
-      "common": "Oriental Sweetgum"
+      "parentId": "ott131904"
     },
     {
       "id": "3152824",
@@ -6337,8 +6321,7 @@
       "id": "ott842200",
       "sciName": "Dianthus",
       "rank": "genus",
-      "parentId": "ott317820",
-      "common": "Carnation"
+      "parentId": "ott317820"
     },
     {
       "id": "3085421",
@@ -6581,7 +6564,7 @@
       "sciName": "Dysphania ambrosioides",
       "rank": "species",
       "parentId": "ott36264",
-      "common": "Goosefoot",
+      "common": "Pigweed",
       "views": 14909
     },
     {
@@ -6615,8 +6598,7 @@
       "id": "ott892638",
       "sciName": "Amaranthus",
       "rank": "genus",
-      "parentId": "ott317808",
-      "common": "Common Amaranth"
+      "parentId": "ott317808"
     },
     {
       "id": "ott214608",
@@ -6949,8 +6931,7 @@
       "id": "ott1009730",
       "sciName": "Talinum",
       "rank": "genus",
-      "parentId": "ott1061278",
-      "common": "Pink baby's-breath"
+      "parentId": "ott1061278"
     },
     {
       "id": "3084670",
@@ -7069,8 +7050,7 @@
       "id": "ott105810",
       "sciName": "Claytonia",
       "rank": "genus",
-      "parentId": "ott883499",
-      "common": "Gypsum springbeauty"
+      "parentId": "ott883499"
     },
     {
       "id": "3084748",
@@ -7133,7 +7113,7 @@
       "sciName": "Mesembryanthemum",
       "rank": "genus",
       "parentId": "ott21019",
-      "common": "Aptenia"
+      "common": "Iceplant"
     },
     {
       "id": "ott52704",
@@ -7541,7 +7521,7 @@
       "sciName": "Rumex obtusifolius",
       "rank": "species",
       "parentId": "ott213388",
-      "common": "Bitter Dock",
+      "common": "Broad-leaved Dock",
       "views": 21113
     },
     {
@@ -7736,8 +7716,7 @@
       "id": "ott23907",
       "sciName": "Nepenthes",
       "rank": "genus",
-      "parentId": "ott587622",
-      "common": "Pitcher plant"
+      "parentId": "ott587622"
     },
     {
       "id": "3702163",
@@ -8098,8 +8077,7 @@
       "id": "ott941086",
       "sciName": "Catalpa",
       "rank": "genus",
-      "parentId": "ott997894",
-      "common": "Northern catalpa"
+      "parentId": "ott997894"
     },
     {
       "id": "3172615",
@@ -8251,8 +8229,7 @@
       "id": "ott186862",
       "sciName": "Verbena",
       "rank": "genus",
-      "parentId": "ott1081020",
-      "common": "Gray vervain"
+      "parentId": "ott1081020"
     },
     {
       "id": "2925514",
@@ -8482,8 +8459,7 @@
       "id": "ott314692",
       "sciName": "Rosmarinus",
       "rank": "subgenus",
-      "parentId": "ott61904",
-      "common": "Rosemary"
+      "parentId": "ott61904"
     },
     {
       "id": "10902460",
@@ -9197,8 +9173,7 @@
       "id": "ott106269",
       "sciName": "Dichondra",
       "rank": "genus",
-      "parentId": "ott61122",
-      "common": "Hairy clustervine"
+      "parentId": "ott61122"
     },
     {
       "id": "2928667",
@@ -9245,8 +9220,7 @@
       "id": "ott77362",
       "sciName": "Ipomoea",
       "rank": "genus",
-      "parentId": "ott77351",
-      "common": "Littlebell"
+      "parentId": "ott77351"
     },
     {
       "id": "ott77360",
@@ -9370,8 +9344,7 @@
       "id": "ott30642",
       "sciName": "Solanum",
       "rank": "genus",
-      "parentId": "ott1020645",
-      "common": "Tansyleaf nightshade"
+      "parentId": "ott1020645"
     },
     {
       "id": "2930617",
@@ -9616,8 +9589,7 @@
       "id": "ott967604",
       "sciName": "Echium",
       "rank": "genus",
-      "parentId": "ott411085",
-      "common": "Pininana"
+      "parentId": "ott411085"
     },
     {
       "id": "2925892",
@@ -10175,7 +10147,7 @@
       "sciName": "Centaurium erythraea",
       "rank": "species",
       "parentId": "ott7053214",
-      "common": "Centaury",
+      "common": "Common centaury",
       "views": 3587
     },
     {
@@ -10456,8 +10428,7 @@
       "id": "ott417268",
       "sciName": "Helianthus",
       "rank": "genus",
-      "parentId": "ott515718",
-      "common": "Little sunflower"
+      "parentId": "ott515718"
     },
     {
       "id": "3119175",
@@ -10480,7 +10451,7 @@
       "sciName": "Rudbeckia",
       "rank": "genus",
       "parentId": "ott36525",
-      "common": "Orange coneflower"
+      "common": "Coneflower"
     },
     {
       "id": "3114225",
@@ -11014,8 +10985,7 @@
       "id": "ott831308",
       "sciName": "Panax",
       "rank": "genus",
-      "parentId": "ott524072",
-      "common": "American ginseng"
+      "parentId": "ott524072"
     },
     {
       "id": "5372262",
@@ -11389,8 +11359,7 @@
       "id": "ott628234",
       "sciName": "Lysimachia",
       "rank": "genus",
-      "parentId": "ott55202",
-      "common": "Dotted Loosestrife"
+      "parentId": "ott55202"
     },
     {
       "id": "8184903",
@@ -11411,7 +11380,7 @@
       "sciName": "Lysimachia punctata",
       "rank": "species",
       "parentId": "ott647181",
-      "common": "Dotted Loosestrife",
+      "common": "Large yellow loosestrife",
       "views": 10519
     },
     {
@@ -11819,8 +11788,7 @@
       "id": "ott9477",
       "sciName": "Actinidia",
       "rank": "genus",
-      "parentId": "ott279976",
-      "common": "Silver vine"
+      "parentId": "ott279976"
     },
     {
       "id": "3189694",
@@ -12028,8 +11996,7 @@
       "id": "ott459576",
       "sciName": "Sarracenia",
       "rank": "genus",
-      "parentId": "ott639943",
-      "common": "Hooded pitcher plant"
+      "parentId": "ott639943"
     },
     {
       "id": "5421389",
@@ -13010,8 +12977,7 @@
       "id": "ott605785",
       "sciName": "Papaver",
       "rank": "genus",
-      "parentId": "ott760916",
-      "common": "Blindeyes"
+      "parentId": "ott760916"
     },
     {
       "id": "2888437",
@@ -13197,8 +13163,7 @@
       "id": "ott215797",
       "sciName": "Tradescantia",
       "rank": "genus",
-      "parentId": "ott362889",
-      "common": "\"Wandering Jew\""
+      "parentId": "ott362889"
     },
     {
       "id": "ott17935",
@@ -14440,8 +14405,7 @@
       "id": "ott245627",
       "sciName": "Dendrophylax",
       "rank": "genus",
-      "parentId": "ott457006",
-      "common": "Harrisella"
+      "parentId": "ott457006"
     },
     {
       "id": "5314418",
@@ -14497,8 +14461,7 @@
       "id": "ott69117",
       "sciName": "Cypripedium",
       "rank": "genus",
-      "parentId": "ott55294",
-      "common": "Subtropical Cypripedium"
+      "parentId": "ott55294"
     },
     {
       "id": "2820340",
@@ -14754,8 +14717,7 @@
       "id": "ott107686",
       "sciName": "Dracaena",
       "rank": "genus",
-      "parentId": "ott32760",
-      "common": "Dragontree"
+      "parentId": "ott32760"
     },
     {
       "id": "5304574",
@@ -15403,8 +15365,7 @@
       "id": "ott112246",
       "sciName": "Trillium",
       "rank": "genus",
-      "parentId": "ott137936",
-      "common": "Narrowpetal wakerobin"
+      "parentId": "ott137936"
     },
     {
       "id": "2742283",
@@ -15452,8 +15413,7 @@
       "id": "ott603934",
       "sciName": "Veratrum",
       "rank": "genus",
-      "parentId": "ott603943",
-      "common": "California false hellebore"
+      "parentId": "ott603943"
     },
     {
       "id": "2742131",
@@ -15825,8 +15785,7 @@
       "id": "ott484568",
       "sciName": "Sagittaria",
       "rank": "genus",
-      "parentId": "ott1058522",
-      "common": "Wapato"
+      "parentId": "ott1058522"
     },
     {
       "id": "5328882",
@@ -15965,7 +15924,7 @@
       "sciName": "Acorus calamus",
       "rank": "species",
       "parentId": "ott1008191",
-      "common": "Beewort",
+      "common": "Calamus",
       "views": 13213
     },
     {
@@ -16262,8 +16221,7 @@
       "id": "ott129758",
       "sciName": "Cinnamomum",
       "rank": "genus",
-      "parentId": "ott17156",
-      "common": "Martaban Camphor Wood"
+      "parentId": "ott17156"
     },
     {
       "id": "ott481247",
@@ -16601,8 +16559,7 @@
       "id": "ott30460",
       "sciName": "Aristolochia",
       "rank": "genus",
-      "parentId": "ott46839",
-      "common": "Fragrant dutchman's pipe"
+      "parentId": "ott46839"
     },
     {
       "id": "2873994",
@@ -17366,8 +17323,7 @@
       "id": "ott54056",
       "sciName": "Ephedra",
       "rank": "genus",
-      "parentId": "ott673430",
-      "common": "Vine Ephedra"
+      "parentId": "ott673430"
     },
     {
       "id": "ott66079",
@@ -17473,8 +17429,7 @@
       "id": "ott39085",
       "sciName": "Picea",
       "rank": "genus",
-      "parentId": "ott517942",
-      "common": "Morinda Spruce"
+      "parentId": "ott517942"
     },
     {
       "id": "5284884",
@@ -17565,8 +17520,7 @@
       "id": "ott306565",
       "sciName": "Zamia",
       "rank": "genus",
-      "parentId": "ott596163",
-      "common": "Cycad"
+      "parentId": "ott596163"
     },
     {
       "id": "5284125",
@@ -18178,8 +18132,7 @@
       "id": "ott452795",
       "sciName": "Equisetum",
       "rank": "genus",
-      "parentId": "ott719034",
-      "common": "Marsh horsetail"
+      "parentId": "ott719034"
     },
     {
       "id": "2687927",
@@ -18803,8 +18756,7 @@
       "id": "ott92106",
       "sciName": "Rattus",
       "rank": "genus",
-      "parentId": "ott8118",
-      "common": "Himalayan Field Rat"
+      "parentId": "ott8118"
     },
     {
       "id": "ott109415",
@@ -19384,8 +19336,7 @@
       "id": "ott504988",
       "sciName": "Coendou",
       "rank": "genus",
-      "parentId": "ott848921",
-      "common": "Bicolor-spined Porcupine"
+      "parentId": "ott848921"
     },
     {
       "id": "2437600",
@@ -21019,8 +20970,7 @@
       "id": "ott1049687",
       "sciName": "Nycticebus",
       "rank": "genus",
-      "parentId": "ott152021",
-      "common": "Ashy Slow Loris"
+      "parentId": "ott152021"
     },
     {
       "id": "2436629",
@@ -21083,8 +21033,7 @@
       "id": "ott552578",
       "sciName": "Galago",
       "rank": "genus",
-      "parentId": "ott271531",
-      "common": "Somali Bushbaby"
+      "parentId": "ott271531"
     },
     {
       "id": "2436522",
@@ -22210,8 +22159,7 @@
       "id": "ott346599",
       "sciName": "Mesoplodon",
       "rank": "genus",
-      "parentId": "ott276848",
-      "common": "Bahamondi's Beaked Whale"
+      "parentId": "ott276848"
     },
     {
       "id": "ott276866",
@@ -23086,8 +23034,7 @@
       "id": "ott342724",
       "sciName": "Nyctalus",
       "rank": "genus",
-      "parentId": "ott966433",
-      "common": "Giant noctule"
+      "parentId": "ott966433"
     },
     {
       "id": "5218524",
@@ -23480,8 +23427,7 @@
       "id": "ott610867",
       "sciName": "Rhinolophus",
       "rank": "genus",
-      "parentId": "ott756634",
-      "common": "Lesser horseshoe bat"
+      "parentId": "ott756634"
     },
     {
       "id": "2432655",
@@ -23720,8 +23666,7 @@
       "id": "ott681184",
       "sciName": "Mustela",
       "rank": "genus",
-      "parentId": "ott39395",
-      "common": "Stoat"
+      "parentId": "ott39395"
     },
     {
       "id": "ott541439",
@@ -24309,8 +24254,7 @@
       "id": "ott759722",
       "sciName": "Monachus",
       "rank": "genus",
-      "parentId": "ott180367",
-      "common": "Mediterranean Monk Seal"
+      "parentId": "ott180367"
     },
     {
       "id": "ott6145549",
@@ -24638,8 +24582,7 @@
       "id": "ott315465",
       "sciName": "Vulpes",
       "rank": "genus",
-      "parentId": "ott297455",
-      "common": "Fennec"
+      "parentId": "ott297455"
     },
     {
       "id": "ott419501",
@@ -25289,8 +25232,7 @@
       "id": "ott563166",
       "sciName": "Felis",
       "rank": "genus",
-      "parentId": "ott563165",
-      "common": "Cat"
+      "parentId": "ott563165"
     },
     {
       "id": "ott563163",
@@ -26406,8 +26348,7 @@
       "id": "ott736497",
       "sciName": "Bradypus",
       "rank": "genus",
-      "parentId": "ott527308",
-      "common": "Pygmy three-toed sloth"
+      "parentId": "ott527308"
     },
     {
       "id": "ott726530",
@@ -27264,8 +27205,7 @@
       "id": "ott631442",
       "sciName": "Perameles",
       "rank": "genus",
-      "parentId": "ott683256",
-      "common": "Eastern barred bandicoot"
+      "parentId": "ott683256"
     },
     {
       "id": "5219457",
@@ -27888,8 +27828,7 @@
       "id": "ott82247",
       "sciName": "Sitta",
       "rank": "genus",
-      "parentId": "ott603922",
-      "common": "White-breasted Nuthatch"
+      "parentId": "ott603922"
     },
     {
       "id": "ott82233",
@@ -27961,8 +27900,7 @@
       "id": "ott676562",
       "sciName": "Phoenicurus",
       "rank": "genus",
-      "parentId": "ott113980",
-      "common": "Moussier's Redstart"
+      "parentId": "ott113980"
     },
     {
       "id": "5739315",
@@ -28096,8 +28034,7 @@
       "id": "ott489372",
       "sciName": "Catharus",
       "rank": "genus",
-      "parentId": "ott96279",
-      "common": "Swainson's Thrush"
+      "parentId": "ott96279"
     },
     {
       "id": "2490810",
@@ -28362,8 +28299,7 @@
       "id": "ott293380",
       "sciName": "Toxostoma",
       "rank": "genus",
-      "parentId": "ott410207",
-      "common": "Brown Thrasher"
+      "parentId": "ott410207"
     },
     {
       "id": "5231688",
@@ -28507,8 +28443,7 @@
       "id": "ott3597645",
       "sciName": "Cinnyris",
       "rank": "genus",
-      "parentId": "ott10513",
-      "common": "Loten's Sunbird"
+      "parentId": "ott10513"
     },
     {
       "id": "7340679",
@@ -28916,8 +28851,7 @@
       "id": "ott1041102",
       "sciName": "Piranga",
       "rank": "genus",
-      "parentId": "ott714800",
-      "common": "Red Tanager"
+      "parentId": "ott714800"
     },
     {
       "id": "ott565244",
@@ -29081,8 +29015,7 @@
       "id": "ott453762",
       "sciName": "Pipilo",
       "rank": "genus",
-      "parentId": "ott463024",
-      "common": "Eastern Towhee"
+      "parentId": "ott463024"
     },
     {
       "id": "2491210",
@@ -29210,8 +29143,7 @@
       "id": "ott34665",
       "sciName": "Setophaga",
       "rank": "genus",
-      "parentId": "ott285198",
-      "common": "Kirtland's Warbler"
+      "parentId": "ott285198"
     },
     {
       "id": "8378494",
@@ -29817,8 +29749,7 @@
       "id": "ott274520",
       "sciName": "Curruca",
       "rank": "genus",
-      "parentId": "ott101238",
-      "common": "Eastern Orphean Warbler"
+      "parentId": "ott101238"
     },
     {
       "id": "ott435633",
@@ -30111,8 +30042,7 @@
       "id": "ott71818",
       "sciName": "Phylloscopus",
       "rank": "genus",
-      "parentId": "ott3599681",
-      "common": "Eastern Bonelli's Warbler"
+      "parentId": "ott3599681"
     },
     {
       "id": "ott204587",
@@ -30468,8 +30398,7 @@
       "id": "ott119889",
       "sciName": "Poecile",
       "rank": "genus",
-      "parentId": "ott582675",
-      "common": "Chestnut-backed Chickadee"
+      "parentId": "ott582675"
     },
     {
       "id": "2487805",
@@ -30973,8 +30902,7 @@
       "id": "ott544658",
       "sciName": "Paradisaea",
       "rank": "genus",
-      "parentId": "ott499628",
-      "common": "Greater Bird-of-paradise"
+      "parentId": "ott499628"
     },
     {
       "id": "2494861",
@@ -31046,8 +30974,7 @@
       "id": "ott72475",
       "sciName": "Dicrurus",
       "rank": "genus",
-      "parentId": "ott72474",
-      "common": "Greater Racket-tailed Drongo"
+      "parentId": "ott72474"
     },
     {
       "id": "ott6520476",
@@ -31219,8 +31146,7 @@
       "id": "ott48944",
       "sciName": "Vireo",
       "rank": "genus",
-      "parentId": "ott604017",
-      "common": "Black-whiskered Vireo"
+      "parentId": "ott604017"
     },
     {
       "id": "2487413",
@@ -31268,8 +31194,7 @@
       "id": "ott299687",
       "sciName": "Oriolus",
       "rank": "genus",
-      "parentId": "ott631323",
-      "common": "Eurasian Golden Oriole"
+      "parentId": "ott631323"
     },
     {
       "id": "5844967",
@@ -31624,8 +31549,7 @@
       "id": "ott618377",
       "sciName": "Tyrannus",
       "rank": "genus",
-      "parentId": "ott463185",
-      "common": "Scissor-tailed Flycatcher"
+      "parentId": "ott463185"
     },
     {
       "id": "5229688",
@@ -31702,8 +31626,7 @@
       "id": "ott1032640",
       "sciName": "Procnias",
       "rank": "genus",
-      "parentId": "ott1032639",
-      "common": "White Bellbird"
+      "parentId": "ott1032639"
     },
     {
       "id": "2486403",
@@ -31887,8 +31810,7 @@
       "id": "ott174401",
       "sciName": "Agapornis",
       "rank": "genus",
-      "parentId": "ott174394",
-      "common": "Rosy-faced Lovebird"
+      "parentId": "ott174394"
     },
     {
       "id": "2479544",
@@ -31930,8 +31852,7 @@
       "id": "ott79217",
       "sciName": "Psittacula",
       "rank": "genus",
-      "parentId": "ott445306",
-      "common": "Grey-headed Parakeet"
+      "parentId": "ott445306"
     },
     {
       "id": "ott79220",
@@ -32037,8 +31958,7 @@
       "id": "ott851015",
       "sciName": "Ara",
       "rank": "genus",
-      "parentId": "ott1020129",
-      "common": "Red-and-green Macaw"
+      "parentId": "ott1020129"
     },
     {
       "id": "5959231",
@@ -32167,8 +32087,7 @@
       "id": "ott579824",
       "sciName": "Cacatua",
       "rank": "genus",
-      "parentId": "ott619340",
-      "common": "White Cockatoo"
+      "parentId": "ott619340"
     },
     {
       "id": "2479888",
@@ -33013,8 +32932,7 @@
       "id": "ott3600760",
       "sciName": "Anthracoceros",
       "rank": "genus",
-      "parentId": "ott3600757",
-      "common": "Malabar Pied Hornbill"
+      "parentId": "ott3600757"
     },
     {
       "id": "2475991",
@@ -33204,8 +33122,7 @@
       "id": "ott90567",
       "sciName": "Melanerpes",
       "rank": "genus",
-      "parentId": "ott90562",
-      "common": "Tellow-tufted Woodpecker"
+      "parentId": "ott90562"
     },
     {
       "id": "2478130",
@@ -33313,8 +33230,7 @@
       "id": "ott769998",
       "sciName": "Pteroglossus",
       "rank": "genus",
-      "parentId": "ott263564",
-      "common": "Many-banded Aracari"
+      "parentId": "ott263564"
     },
     {
       "id": "2478833",
@@ -33492,8 +33408,7 @@
       "id": "ott3596382",
       "sciName": "Todiramphus",
       "rank": "genus",
-      "parentId": "ott704134",
-      "common": "Marquesan Kingfisher"
+      "parentId": "ott704134"
     },
     {
       "id": "2475802",
@@ -33623,8 +33538,7 @@
       "id": "ott3596440",
       "sciName": "Coracias",
       "rank": "genus",
-      "parentId": "ott244695",
-      "common": "Purple-winged Roller"
+      "parentId": "ott244695"
     },
     {
       "id": "ott372551",
@@ -33854,8 +33768,7 @@
       "id": "ott214779",
       "sciName": "Calidris",
       "rank": "genus",
-      "parentId": "ott45306",
-      "common": "Red Knot"
+      "parentId": "ott45306"
     },
     {
       "id": "8250742",
@@ -33974,8 +33887,7 @@
       "id": "ott738509",
       "sciName": "Sterna",
       "rank": "genus",
-      "parentId": "ott47401",
-      "common": "South American Tern"
+      "parentId": "ott47401"
     },
     {
       "id": "9367409",
@@ -34354,8 +34266,7 @@
       "id": "ott313115",
       "sciName": "Vanellus",
       "rank": "genus",
-      "parentId": "ott129402",
-      "common": "Spur-winged Lapwing"
+      "parentId": "ott129402"
     },
     {
       "id": "2480242",
@@ -34391,8 +34302,7 @@
       "id": "ott661811",
       "sciName": "Charadrius",
       "rank": "genus",
-      "parentId": "ott129402",
-      "common": "Killdeer"
+      "parentId": "ott129402"
     },
     {
       "id": "ott425445",
@@ -34558,8 +34468,7 @@
       "id": "ott427706",
       "sciName": "Burhinus",
       "rank": "genus",
-      "parentId": "ott261310",
-      "common": "Cape Thick-knee"
+      "parentId": "ott261310"
     },
     {
       "id": "ott868643",
@@ -34625,8 +34534,7 @@
       "id": "ott521836",
       "sciName": "Fulica",
       "rank": "genus",
-      "parentId": "ott1041535",
-      "common": "Crested Coot"
+      "parentId": "ott1041535"
     },
     {
       "id": "2474393",
@@ -34747,8 +34655,7 @@
       "id": "ott7659876",
       "sciName": "Antigone",
       "rank": "genus",
-      "parentId": "ott260009",
-      "common": "White-naped Crane"
+      "parentId": "ott260009"
     },
     {
       "id": "9606460",
@@ -35003,8 +34910,7 @@
       "id": "ott532129",
       "sciName": "Selasphorus",
       "rank": "genus",
-      "parentId": "ott810756",
-      "common": "Rufous Hummingbird"
+      "parentId": "ott810756"
     },
     {
       "id": "7597244",
@@ -35259,8 +35165,7 @@
       "id": "ott178249",
       "sciName": "Nyctibius",
       "rank": "genus",
-      "parentId": "ott178253",
-      "common": "Great Potoo"
+      "parentId": "ott178253"
     },
     {
       "id": "2496811",
@@ -35743,8 +35648,7 @@
       "id": "ott744560",
       "sciName": "Egretta",
       "rank": "genus",
-      "parentId": "ott244700",
-      "common": "Reddish Egret"
+      "parentId": "ott244700"
     },
     {
       "id": "ott273425",
@@ -36107,8 +36011,7 @@
       "id": "ott549527",
       "sciName": "Ciconia",
       "rank": "genus",
-      "parentId": "ott363012",
-      "common": "Black Stork"
+      "parentId": "ott363012"
     },
     {
       "id": "2481912",
@@ -36704,8 +36607,7 @@
       "id": "ott607272",
       "sciName": "Ardeotis",
       "rank": "genus",
-      "parentId": "ott5027",
-      "common": "Heuglin's Bustard"
+      "parentId": "ott5027"
     },
     {
       "id": "2474909",
@@ -37094,8 +36996,7 @@
       "id": "ott493986",
       "sciName": "Columba",
       "rank": "genus",
-      "parentId": "ott67614",
-      "common": "Bolle's Laurel Pigeon"
+      "parentId": "ott67614"
     },
     {
       "id": "2495414",
@@ -37123,8 +37024,7 @@
       "id": "ott277810",
       "sciName": "Streptopelia",
       "rank": "genus",
-      "parentId": "ott244134",
-      "common": "Mourning Collared Dove"
+      "parentId": "ott244134"
     },
     {
       "id": "2495708",
@@ -37146,8 +37046,7 @@
       "id": "ott329078",
       "sciName": "Spilopelia",
       "rank": "genus",
-      "parentId": "ott244134",
-      "common": "Spotted Dove"
+      "parentId": "ott244134"
     },
     {
       "id": "6101223",
@@ -37502,8 +37401,7 @@
       "id": "ott1004888",
       "sciName": "Lagopus",
       "rank": "genus",
-      "parentId": "ott352764",
-      "common": "Red Grouse"
+      "parentId": "ott352764"
     },
     {
       "id": "5227679",
@@ -38072,8 +37970,7 @@
       "id": "ott817994",
       "sciName": "Cygnus",
       "rank": "genus",
-      "parentId": "ott140298",
-      "common": "Whooper swan"
+      "parentId": "ott140298"
     },
     {
       "id": "ott140314",
@@ -38320,8 +38217,7 @@
       "id": "ott195671",
       "sciName": "Caimaninae",
       "rank": "subfamily",
-      "parentId": "ott195670",
-      "common": "Caiman"
+      "parentId": "ott195670"
     },
     {
       "id": "ott953147",
@@ -38730,8 +38626,7 @@
       "id": "ott378502",
       "sciName": "Apalone",
       "rank": "genus",
-      "parentId": "ott149792",
-      "common": "Florida Softshell Turtle"
+      "parentId": "ott149792"
     },
     {
       "id": "2442680",
@@ -39830,8 +39725,7 @@
       "id": "ott578893",
       "sciName": "Bungarus",
       "rank": "genus",
-      "parentId": "ott578895",
-      "common": "Banded Krait"
+      "parentId": "ott578895"
     },
     {
       "id": "5226812",
@@ -40346,8 +40240,7 @@
       "id": "ott546142",
       "sciName": "Eryx",
       "rank": "genus",
-      "parentId": "ott78729",
-      "common": "Sand Boas"
+      "parentId": "ott78729"
     },
     {
       "id": "5225736",
@@ -40751,8 +40644,7 @@
       "id": "ott384634",
       "sciName": "Basiliscus",
       "rank": "genus",
-      "parentId": "ott116299",
-      "common": "Brown basilisk"
+      "parentId": "ott116299"
     },
     {
       "id": "ott1009501",
@@ -40890,8 +40782,7 @@
       "id": "ott917784",
       "sciName": "Sceloporus",
       "rank": "genus",
-      "parentId": "ott608984",
-      "common": "Texas Spiny Lizard"
+      "parentId": "ott608984"
     },
     {
       "id": "ott608985",
@@ -41593,8 +41484,7 @@
       "id": "ott741773",
       "sciName": "Plestiodon",
       "rank": "genus",
-      "parentId": "ott10868",
-      "common": "Southeastern Five-lined Skink"
+      "parentId": "ott10868"
     },
     {
       "id": "5789613",
@@ -41967,8 +41857,7 @@
       "id": "ott495362",
       "sciName": "Rhacodactylus",
       "rank": "genus",
-      "parentId": "ott190153",
-      "common": "New Caledonia Giant Gecko"
+      "parentId": "ott190153"
     },
     {
       "id": "2446599",
@@ -42339,8 +42228,7 @@
       "id": "ott735592",
       "sciName": "Hoplobatrachus",
       "rank": "genus",
-      "parentId": "ott214642",
-      "common": "Indian Bullfrog"
+      "parentId": "ott214642"
     },
     {
       "id": "2430382",
@@ -42461,8 +42349,7 @@
       "id": "ott442319",
       "sciName": "Breviceps",
       "rank": "genus",
-      "parentId": "ott811566",
-      "common": "Desert rain frog"
+      "parentId": "ott811566"
     },
     {
       "id": "5218071",
@@ -42621,8 +42508,7 @@
       "id": "ott686527",
       "sciName": "Hyla",
       "rank": "genus",
-      "parentId": "ott40328",
-      "common": "Squirrel Treefrog"
+      "parentId": "ott40328"
     },
     {
       "id": "ott610284",
@@ -42811,8 +42697,7 @@
       "id": "ott635213",
       "sciName": "Anaxyrus",
       "rank": "genus",
-      "parentId": "ott334620",
-      "common": "Fowler's Toad"
+      "parentId": "ott334620"
     },
     {
       "id": "2422872",
@@ -43185,8 +43070,7 @@
       "id": "ott991559",
       "sciName": "Bombina",
       "rank": "genus",
-      "parentId": "ott991561",
-      "common": "Fire-bellied Toad"
+      "parentId": "ott991561"
     },
     {
       "id": "2423435",
@@ -43279,8 +43163,7 @@
       "id": "ott411269",
       "sciName": "Ambystoma",
       "rank": "genus",
-      "parentId": "ott984720",
-      "common": "Jefferson Salamander"
+      "parentId": "ott984720"
     },
     {
       "id": "ott51835",
@@ -44400,8 +44283,7 @@
       "id": "ott362803",
       "sciName": "Ameiurus",
       "rank": "genus",
-      "parentId": "ott687155",
-      "common": "Yellow Bullhead"
+      "parentId": "ott687155"
     },
     {
       "id": "ott804481",
@@ -44487,8 +44369,7 @@
       "id": "ott693711",
       "sciName": "Sisoridae",
       "rank": "family",
-      "parentId": "ott5548749",
-      "common": "South Asian river catfishes"
+      "parentId": "ott5548749"
     },
     {
       "id": "ott866701",
@@ -45040,8 +44921,7 @@
       "id": "ott211981",
       "sciName": "Engraulis",
       "rank": "genus",
-      "parentId": "ott560624",
-      "common": "Anchovy"
+      "parentId": "ott560624"
     },
     {
       "id": "2414031",
@@ -46376,8 +46256,7 @@
       "id": "ott807488",
       "sciName": "Scophthalmus",
       "rank": "genus",
-      "parentId": "ott778687",
-      "common": "Brill"
+      "parentId": "ott778687"
     },
     {
       "id": "2409418",
@@ -46481,8 +46360,7 @@
       "id": "ott78208",
       "sciName": "Caranx",
       "rank": "genus",
-      "parentId": "ott45809",
-      "common": "Jack"
+      "parentId": "ott45809"
     },
     {
       "id": "2390805",
@@ -47336,8 +47214,7 @@
       "id": "ott95343",
       "sciName": "Arothron",
       "rank": "genus",
-      "parentId": "ott430248",
-      "common": "Map Blaasop"
+      "parentId": "ott430248"
     },
     {
       "id": "2407418",
@@ -47495,8 +47372,7 @@
       "id": "ott564277",
       "sciName": "Balistes",
       "rank": "genus",
-      "parentId": "ott36225",
-      "common": "Triggerfish"
+      "parentId": "ott36225"
     },
     {
       "id": "2407107",
@@ -49074,8 +48950,7 @@
       "id": "ott1075149",
       "sciName": "Pterois",
       "rank": "genus",
-      "parentId": "ott204660",
-      "common": "Red lionfish"
+      "parentId": "ott204660"
     },
     {
       "id": "2334438",
@@ -49321,8 +49196,7 @@
       "id": "ott45476",
       "sciName": "Epinephelus",
       "rank": "genus",
-      "parentId": "ott231681",
-      "common": "Four-saddle Grouper"
+      "parentId": "ott231681"
     },
     {
       "id": "ott772661",
@@ -49472,8 +49346,7 @@
       "id": "ott274637",
       "sciName": "Micropterus",
       "rank": "genus",
-      "parentId": "ott230486",
-      "common": "Suwannee Bass"
+      "parentId": "ott230486"
     },
     {
       "id": "5211250",
@@ -49769,8 +49642,7 @@
       "id": "ott675216",
       "sciName": "Mullus",
       "rank": "genus",
-      "parentId": "ott813991",
-      "common": "Red mullet"
+      "parentId": "ott813991"
     },
     {
       "id": "4284897",
@@ -49962,8 +49834,7 @@
       "id": "ott358610",
       "sciName": "Thunnus",
       "rank": "genus",
-      "parentId": "ott833200",
-      "common": "Southern bluefin tuna"
+      "parentId": "ott833200"
     },
     {
       "id": "2373980",
@@ -51002,8 +50873,7 @@
       "id": "ott854201",
       "sciName": "Anguilla",
       "rank": "genus",
-      "parentId": "ott854195",
-      "common": "Eel"
+      "parentId": "ott854195"
     },
     {
       "id": "5213022",
@@ -51136,8 +51006,7 @@
       "id": "ott804455",
       "sciName": "Lepisosteus",
       "rank": "genus",
-      "parentId": "ott904121",
-      "common": "Florida Gar"
+      "parentId": "ott904121"
     },
     {
       "id": "2346701",
@@ -51706,8 +51575,7 @@
       "id": "ott674436",
       "sciName": "Mobula",
       "rank": "genus",
-      "parentId": "ott109557",
-      "common": "Manta Ray"
+      "parentId": "ott109557"
     },
     {
       "id": "9548142",
@@ -52103,8 +51971,7 @@
       "id": "ott272025",
       "sciName": "Rhizoprionodon",
       "rank": "genus",
-      "parentId": "ott846406",
-      "common": "Fish-shark"
+      "parentId": "ott846406"
     },
     {
       "id": "2417892",
@@ -52140,8 +52007,7 @@
       "id": "ott171731",
       "sciName": "Mustelus",
       "rank": "genus",
-      "parentId": "ott47455",
-      "common": "Whitespot Smoothhound"
+      "parentId": "ott47455"
     },
     {
       "id": "2418312",
@@ -52217,8 +52083,7 @@
       "id": "ott1026500",
       "sciName": "Scyliorhinus",
       "rank": "genus",
-      "parentId": "ott150264",
-      "common": "Dogfish"
+      "parentId": "ott150264"
     },
     {
       "id": "2418670",
@@ -52362,8 +52227,7 @@
       "id": "ott798346",
       "sciName": "Orectolobus",
       "rank": "genus",
-      "parentId": "ott572732",
-      "common": "Japanese Wobbegong"
+      "parentId": "ott572732"
     },
     {
       "id": "2417541",
@@ -52580,8 +52444,7 @@
       "id": "ott1019126",
       "sciName": "Squalus",
       "rank": "genus",
-      "parentId": "ott1019129",
-      "common": "Cape Shark"
+      "parentId": "ott1019129"
     },
     {
       "id": "5216380",
@@ -52643,8 +52506,7 @@
       "id": "ott547460",
       "sciName": "Somniosus",
       "rank": "genus",
-      "parentId": "ott442056",
-      "common": "Pacific Sleeper Shark"
+      "parentId": "ott442056"
     },
     {
       "id": "2421162",
@@ -56050,8 +55912,7 @@
       "id": "ott629519",
       "sciName": "Hapalochlaena",
       "rank": "genus",
-      "parentId": "ott629518",
-      "common": "Southern blue-ringed octopus"
+      "parentId": "ott629518"
     },
     {
       "id": "2289324",
@@ -57253,8 +57114,7 @@
       "id": "ott1030364",
       "sciName": "Manduca",
       "rank": "genus",
-      "parentId": "ott54986",
-      "common": "Five-spotted Hawk Moth"
+      "parentId": "ott54986"
     },
     {
       "id": "1863978",
@@ -58279,8 +58139,7 @@
       "id": "ott624275",
       "sciName": "Vanessa",
       "rank": "genus",
-      "parentId": "ott581035",
-      "common": "American Painted Lady"
+      "parentId": "ott581035"
     },
     {
       "id": "1898286",
@@ -63857,8 +63716,7 @@
       "id": "ott1084241",
       "sciName": "Vespula",
       "rank": "genus",
-      "parentId": "ott52847",
-      "common": "Western Yellowjacket"
+      "parentId": "ott52847"
     },
     {
       "id": "1311671",
@@ -65881,8 +65739,7 @@
       "id": "ott991735",
       "sciName": "Reticulitermes",
       "rank": "genus",
-      "parentId": "ott991738",
-      "common": "Eastern Subterranean Termite"
+      "parentId": "ott991738"
     },
     {
       "id": "2007367",
@@ -65973,8 +65830,7 @@
       "id": "ott3483085",
       "sciName": "Parcoblatta",
       "rank": "genus",
-      "parentId": "ott48282",
-      "common": "Zebra Wood Cockroach"
+      "parentId": "ott48282"
     },
     {
       "id": "1997497",
@@ -66002,8 +65858,7 @@
       "id": "ott385480",
       "sciName": "Blattella",
       "rank": "genus",
-      "parentId": "ott48280",
-      "common": "Asian Cockroach"
+      "parentId": "ott48280"
     },
     {
       "id": "1997215",
@@ -67150,8 +67005,7 @@
       "id": "ott48545",
       "sciName": "Calopteryx",
       "rank": "genus",
-      "parentId": "ott353155",
-      "common": "Superb Jewelwing"
+      "parentId": "ott353155"
     },
     {
       "id": "ott48548",
@@ -67330,8 +67184,7 @@
       "id": "ott501348",
       "sciName": "Libellula",
       "rank": "genus",
-      "parentId": "ott117537",
-      "common": "Blue Chaser"
+      "parentId": "ott117537"
     },
     {
       "id": "ott133681",
@@ -68972,7 +68825,7 @@
       "sciName": "Lithodes maja",
       "rank": "species",
       "parentId": "ott78063",
-      "common": "Norway king crab",
+      "common": "Northern stone crab",
       "views": 2105
     },
     {
