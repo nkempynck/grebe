@@ -28,3 +28,8 @@ SUPABASE_SETUP.md
 
 # build artifact — regenerated each taxonomy build
 scripts/name-review.tsv
+
+# local data backups
+taxonomy.backup.json
+src/data/taxonomy.json.bak
+taxon_index.backup.*.json

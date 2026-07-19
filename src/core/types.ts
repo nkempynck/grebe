@@ -18,11 +18,12 @@ export interface TaxonNode {
   parentId: string | null;
   /** Wikipedia article title to link to. Falls back to common/sciName. */
   wikiTitle?: string;
-  /** Species only: GBIF occurrence count (how often recorded) — a familiarity
-   *  proxy, baked by scripts/patch-prominence.mjs. Lineage weights the daily answer
-   *  by a within-ORDER percentile of this (scaled by tier), so each order's
-   *  recognisable members surface rather than the most species-rich group. */
-  occ?: number;
+  /** Species only: ~60-day English Wikipedia pageviews — a fame/familiarity proxy
+   *  (replaces the old GBIF `occ`; pageviews track recognition, not survey effort).
+   *  Lineage weights the daily answer by a within-ORDER percentile of this (scaled by
+   *  tier), so each order's recognisable members surface rather than the most
+   *  species-rich group. */
+  views?: number;
   /** Species only: a curated iconic species (matches EXTRAS) — floored to top
    *  prominence so easy/medium days favour icons even if lightly recorded. */
   icon?: boolean;

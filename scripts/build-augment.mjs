@@ -1,157 +1,169 @@
-// Build the KINSHIP/BRANCHES augment: a quality-filtered, trimmed slice of the
-// out-of-set guess index, baked into src/data/taxonomyAugment.json.
+// Build src/data/taxonomyAugment.json — the OUT-OF-SET depth layer for Kinship &
+// Branches (never touches Lineage, which stays on the curated in-set tree).
 //
-// WHY a separate file (not taxonomy.json): Lineage's answerable pool MUST stay the
-// curated in-set (taxonomy.json) or the game becomes borderline impossible — it
-// would pick obscure daily answers. Kinship/Branches don't name a hidden species;
-// they sort recognisable tiles into clades, so they can safely draw from a LARGER
-// pool. This augment is grafted onto the tree ONLY for those two games (see
-// loadRichTree in loadTaxonomy.ts). It is lazy-loaded — a separate chunk fetched
-// only when a player opens Kinship/Branches — so the initial page never grows.
+// The in-set tree is small and curated-famous: each genus caps at 3 species and only
+// ~2,300 genera (858 families) ship at all. That starves the board generator of clade
+// variety. This grafts extra NAMED pool species onto the tree so those two games get
+// real breadth, while Lineage's shipped answer pool stays small. Three grafts:
 //
-// Source: src/data/guessIndex.generated.json — already occurrence-capped per group
-// at harvest, so the obscure deep tail is gone. We keep SPECIES with a clean English
-// common name, then TRIM to the "useful" ones: a species is kept only if it lands
-// under a clade that can actually field a Kinship group — a named internal clade
-// with MIN..MAX leaves. Species stranded in clades too small (can't form a group of
-// four) or too big (never a coherent theme) are dropped: they only add weight.
+//   1. DEPTH  — top up genera we already ship, up to AUG_PER_GENUS species each (the
+//      in-set cap of 3 is too shallow to field "four Panthera" style genus boards).
+//   2. BREADTH (genus) — add NEW genera (not in-set) under families we already ship, as
+//      fresh genus nodes, when the pool has ≥ NEW_GENUS_MIN named species for them.
+//   3. BREADTH (family) — add NEW families (not in-set at all) that field at least one
+//      eligible group, placing each under its nearest in-set ancestor via the OTL newick
+//      topology (so the class boundary Mammalia/Aves/… is inherited and no board crosses
+//      a class). Yields obscurer clades the curated set skipped (extra reptiles, plants…).
 //
-// Output: compact flat nodes { id, sciName, common, rank, parentId } — the same
-// shape as taxonomy.json, deduplicated (each new ancestor clade once), so the file
-// stays small. loadRichTree merges these onto the base node list and buildTree()s.
+// Named-only (a Wikipedia article title differing from the Latin name) — a bare-Latin
+// tile is an un-guessable dud. Pageviews (`views`) ride along for difficulty scaling.
 //
-// Run: node scripts/build-augment.mjs   (no network; pure transform)
-
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+// New-family placement (phase 3) is resolved offline by scripts/pull-family-anchors.mjs
+// into sel-family-anchors.json (family -> nearest in-set ancestor ott); run that first
+// when the pool/classification changes.
+//
+//   node scripts/build-augment.mjs
+//   reads: src/data/taxonomy.json, node_modules/.cache/{sel-pool,sel-classify-otl,sel-family-anchors}.json
+//   writes: src/data/taxonomyAugment.json
+import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-import { gzipSync } from "node:zlib";
+import { dirname, resolve } from "node:path";
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const C = resolve(ROOT, "node_modules/.cache");
 
-const here = dirname(fileURLToPath(import.meta.url));
-const DATA = join(here, "..", "src", "data");
-
-const base = JSON.parse(readFileSync(join(DATA, "taxonomy.json"), "utf8"));
-const index = JSON.parse(readFileSync(join(DATA, "guessIndex.generated.json"), "utf8"));
-
-const MIN_THEME_LEAVES = 4;   // must match src/core/grid.ts
+// Max species per genus node (in-set + augment). A board shows only 4 from a genus, so
+// this is headroom for daily variety / anti-repeat, not board size — kept modest so the
+// file stays small and no single genus dominates.
+const AUG_PER_GENUS = 10;
+// A NEW genus/family is only worth adding if it can be its own group — four named species.
+const NEW_GENUS_MIN = 4;
+// A theme needs a coherent number of leaves; a family with more than this can't itself be
+// a group (matches MAX_THEME_LEAVES in grid.ts) but can still host genus groups.
 const MAX_THEME_LEAVES = 25;
 
-// ---- 1. quality filter: species with a clean English common name ----
-const FOREIGN = /\b(de|du|des|la|le|les|van|von|der|del|di|da|dos|das)\b/i;
-function cleanCommon(common, sci) {
-  if (!common) return false;
-  const c = common.trim();
-  if (c.length < 3) return false;
-  // A single short word unrelated to the species ("Abbey" for a poplar) — junk.
-  if (!/[\s-]/.test(c) && c.length < 6 && !sci.toLowerCase().includes(c.toLowerCase())) return false;
-  if (FOREIGN.test(c)) return false; // leaked non-English vernaculars
-  return true;
+const tax = JSON.parse(readFileSync(resolve(ROOT, "src/data/taxonomy.json"), "utf8"));
+const pool = JSON.parse(readFileSync(resolve(C, "sel-pool.json"), "utf8"));
+const classify = JSON.parse(readFileSync(resolve(C, "sel-classify-otl.json"), "utf8")).byName;
+const familyAnchor = JSON.parse(readFileSync(resolve(C, "sel-family-anchors.json"), "utf8")).byFamily;
+
+// ---- existing tree structure we graft onto ----
+const genusNodeBySci = new Map(); // genus sci -> genus node id
+const famNodeBySci = new Map();   // family sci -> family node id
+const insetOtt = new Set();       // every in-set clade node id of the form ott<n>
+const allNodeIds = new Set();
+for (const n of tax.nodes) {
+  allNodeIds.add(n.id);
+  if (/^ott\d+$/.test(n.id)) insetOtt.add(n.id);
+  if (n.rank === "genus" && n.sciName) genusNodeBySci.set(n.sciName, n.id);
+  if (n.rank === "family" && n.sciName) famNodeBySci.set(n.sciName, n.id);
+}
+const inSetSci = new Set();
+for (const n of tax.nodes) if (n.rank === "species") inSetSci.add(n.sciName);
+const genusIdToSci = new Map([...genusNodeBySci].map(([sci, id]) => [id, sci]));
+const inSetCountByGenus = new Map(); // genus sci -> # in-set species already shipped
+for (const n of tax.nodes) {
+  if (n.rank !== "species") continue;
+  const gSci = genusIdToSci.get(n.parentId);
+  if (gSci) inSetCountByGenus.set(gSci, (inSetCountByGenus.get(gSci) ?? 0) + 1);
 }
 
-const seen = new Set();
-const candidates = []; // { id, sciName, common, rank, lineage }
-let dropRank = 0, dropName = 0, dropDup = 0;
-for (const e of index.entries) {
-  const g = e.graft;
-  if (!g || g.rank !== "species") { dropRank++; continue; }
-  if (!cleanCommon(g.common, g.sciName)) { dropName++; continue; }
-  if (seen.has(g.id) || !Array.isArray(g.lineage) || g.lineage.length === 0) { dropDup++; continue; }
-  seen.add(g.id);
-  candidates.push(g);
-}
+// ---- bucket candidate species by graft kind ----
+const named = (s) => s.article && s.article.toLowerCase() !== s.sci.toLowerCase() && s.sci.split(/\s+/).length === 2;
+const augId = (s) => `aug${s.gbif ?? s.qid ?? s.sci.replace(/\s+/g, "_")}`;
+const genusNodeId = (genus) => `auggen_${genus.replace(/[^A-Za-z0-9]+/g, "_")}`;
 
-// ---- 2. build the combined graph (base + candidate augment nodes) ----
-const baseIds = new Set(base.nodes.map((n) => n.id));
-const node = new Map();       // id -> { id, sciName, common, rank, parentId }
-const children = new Map();   // id -> id[]
-for (const n of base.nodes) {
-  node.set(n.id, n);
-  if (n.parentId) (children.get(n.parentId) ?? children.set(n.parentId, []).get(n.parentId)).push(n.id);
-}
-const augIds = new Set();      // candidate species ids
-for (const g of candidates) {
-  augIds.add(g.id);
-  const chain = [{ id: g.id, sciName: g.sciName, common: g.common, rank: g.rank }, ...g.lineage];
-  for (let i = 0; i < chain.length; i++) {
-    const n = chain[i], parent = chain[i + 1];
-    if (baseIds.has(n.id)) break;             // reached the shipped connection point
-    if (!node.has(n.id)) {
-      const rec = { id: n.id, sciName: n.sciName, common: n.common ?? undefined, rank: n.rank, parentId: parent ? parent.id : null };
-      node.set(n.id, rec);
-      if (rec.parentId) (children.get(rec.parentId) ?? children.set(rec.parentId, []).get(rec.parentId)).push(n.id);
-    }
+const genusBuckets = new Map(); // genus sci -> { isNew, parentId, species: [] }  (DEPTH + BREADTH-genus)
+const famBuckets = new Map();   // family sci -> { ott, genera: Map(genus->[]) }   (BREADTH-family)
+for (const s of pool) {
+  if (inSetSci.has(s.sci)) continue;
+  if (!named(s)) continue;
+  if (genusNodeBySci.has(s.genus)) {
+    let b = genusBuckets.get(s.genus);
+    if (!b) genusBuckets.set(s.genus, (b = { isNew: false, parentId: genusNodeBySci.get(s.genus), species: [] }));
+    b.species.push({ ...s, common: s.article });
+  } else if (s.family && famNodeBySci.has(s.family)) {
+    let b = genusBuckets.get(s.genus);
+    if (!b) genusBuckets.set(s.genus, (b = { isNew: true, parentId: famNodeBySci.get(s.family), species: [] }));
+    b.species.push({ ...s, common: s.article });
+  } else if (s.family && classify[s.family]?.ott) {
+    let f = famBuckets.get(s.family);
+    if (!f) famBuckets.set(s.family, (f = { ott: classify[s.family].ott, genera: new Map() }));
+    (f.genera.get(s.genus) ?? f.genera.set(s.genus, []).get(s.genus)).push({ ...s, common: s.article });
   }
 }
 
-// leaf counts (memoised DFS) over the combined graph
-const leafCount = new Map();
-function leaves(id) {
-  const memo = leafCount.get(id);
-  if (memo !== undefined) return memo;
-  const kids = children.get(id);
-  let c = 0;
-  if (!kids || kids.length === 0) c = 1;
-  else for (const k of kids) c += leaves(k);
-  leafCount.set(id, c);
-  return c;
+// ---- emit ----
+const nodes = [];
+const usedId = new Set();
+const usedSci = new Set();
+let depthGenera = 0, breadthGenera = 0, newFamilies = 0, newFamGenera = 0;
+
+/** Take up to `room` unused, named species (fame-first) as species nodes under parentId. */
+function takeSpecies(list, room, parentId) {
+  const out = [];
+  for (const s of [...list].sort((a, b) => (b.v ?? 0) - (a.v ?? 0))) {
+    if (out.length >= room) break;
+    const id = augId(s);
+    if (usedId.has(id) || usedSci.has(s.sci)) continue;
+    usedId.add(id); usedSci.add(s.sci);
+    out.push({ id, sciName: s.sci, common: s.common, rank: "species", parentId, views: s.v });
+  }
+  return out;
 }
 
-// ---- 3a. prominence: keep species people actually look up ----
-// Recognisability ≈ fame, which we measure with WIKIPEDIA PAGEVIEWS (enrich-wiki.mjs)
-// rather than GBIF occurrence counts — occurrence tracks survey effort and is
-// geographically biased (it kept heavily-logged obscure moths and dropped common
-// butterflies). We use views of the article at the SCIENTIFIC name: unambiguous (no
-// "Herald"→newspaper false hits) and it resolves redirects to the real article even
-// when it's titled by the common name (Panthera leo → "Lion"). No article, or fewer
-// than MIN_VIEWS over the ~60-day window, ⇒ obscure, dropped — the same bar across
-// every group, since fame is comparable in a way record-counts are not.
-const VIEWS_FILE = join(DATA, "wikiViews.json");
-if (!existsSync(VIEWS_FILE)) {
-  console.error("Missing src/data/wikiViews.json — run: node scripts/enrich-wiki.mjs");
-  process.exit(1);
-}
-const views = JSON.parse(readFileSync(VIEWS_FILE, "utf8"));
-const MIN_VIEWS = Number(process.env.MIN_VIEWS ?? 200); // ~60-day pageview floor
-const prominentEnough = (id) => (views[id]?.s ?? 0) >= MIN_VIEWS;
-
-// ---- 3b. trim: keep an augment species only if it's prominent AND sits under a theme-eligible clade ----
-const isThemeClade = (id) => {
-  const n = node.get(id);
-  if (!n || !(n.sciName || n.common)) return false;
-  const kids = children.get(id);
-  if (!kids || kids.length === 0) return false; // internal only
-  const l = leaves(id);
-  return l >= MIN_THEME_LEAVES && l <= MAX_THEME_LEAVES;
-};
-const usefulSpecies = new Set();
-let dropSparse = 0;
-for (const id of augIds) {
-  if (!prominentEnough(id)) { dropSparse++; continue; }
-  for (let cur = id; cur; cur = node.get(cur)?.parentId) {
-    if (cur !== id && isThemeClade(cur)) { usefulSpecies.add(id); break; }
+// 1+2) DEPTH and BREADTH-genus
+for (const [genus, b] of genusBuckets) {
+  if (b.isNew) {
+    const gid = genusNodeId(genus);
+    if (allNodeIds.has(gid) || usedId.has(gid)) continue;
+    const sp = takeSpecies(b.species, AUG_PER_GENUS, gid);
+    if (sp.length < NEW_GENUS_MIN) continue; // can't field a group — skip the whole genus
+    usedId.add(gid);
+    nodes.push({ id: gid, sciName: genus, rank: "genus", parentId: b.parentId }, ...sp);
+    breadthGenera++;
+  } else {
+    const room = AUG_PER_GENUS - (inSetCountByGenus.get(genus) ?? 0);
+    if (room <= 0) continue;
+    const sp = takeSpecies(b.species, room, b.parentId);
+    if (sp.length) { nodes.push(...sp); depthGenera++; }
   }
 }
 
-// ---- 4. emit the kept augment nodes (species + the new clades on their chains) ----
-const keep = new Map();
-for (const g of candidates) {
-  if (!usefulSpecies.has(g.id)) continue;
-  const chain = [{ id: g.id, sciName: g.sciName, common: g.common, rank: g.rank }, ...g.lineage];
-  for (let i = 0; i < chain.length; i++) {
-    const n = chain[i], parent = chain[i + 1];
-    if (baseIds.has(n.id)) break;
-    if (!keep.has(n.id)) keep.set(n.id, { id: n.id, sciName: n.sciName, common: n.common ?? undefined, rank: n.rank, parentId: parent ? parent.id : null });
+// 3) BREADTH-family: new families under their nearest in-set ancestor (resolved offline
+//    by pull-family-anchors.mjs — the induced-subtree topology doesn't contain them).
+for (const [family, f] of famBuckets) {
+  const anchor = familyAnchor[family];
+  if (!anchor || !insetOtt.has(anchor)) continue; // unplaceable → skip (no class wiring guessed)
+  const famId = `ott${f.ott}`;
+  if (allNodeIds.has(famId) || usedId.has(famId)) continue;
+  // Build this family's genus nodes + species first, so we know if it's eligible.
+  const famNodes = [];
+  let leaves = 0, hasGenusTheme = false;
+  for (const [genus, list] of f.genera) {
+    const gid = genusNodeId(genus);
+    if (allNodeIds.has(gid) || usedId.has(gid)) continue;
+    const sp = takeSpecies(list, AUG_PER_GENUS, gid);
+    if (!sp.length) continue;
+    usedId.add(gid);
+    famNodes.push({ id: gid, sciName: genus, rank: "genus", parentId: famId }, ...sp);
+    leaves += sp.length;
+    if (sp.length >= NEW_GENUS_MIN) hasGenusTheme = true;
   }
+  // Eligible only if it can be a group: a usable family-theme (4–25 leaves) or a genus-theme.
+  const eligible = hasGenusTheme || (leaves >= NEW_GENUS_MIN && leaves <= MAX_THEME_LEAVES);
+  if (!eligible) { for (const n of famNodes) if (n.rank === "genus") usedId.delete(n.id); continue; }
+  usedId.add(famId);
+  nodes.push({ id: famId, sciName: family, rank: "family", parentId: anchor }, ...famNodes);
+  newFamilies++;
+  newFamGenera += famNodes.filter((n) => n.rank === "genus").length;
 }
-// Stable order (by id) → reproducible builds and deterministic daily boards.
-const nodes = [...keep.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
-const payload = { generatedAt: new Date().toISOString(), count: nodes.length, nodes };
-const json = JSON.stringify(payload);
-writeFileSync(join(DATA, "taxonomyAugment.json"), json);
-
-const speciesKept = nodes.filter((n) => n.rank === "species").length;
-console.log(`kept ${usefulSpecies.size} useful species (of ${candidates.length} clean; dropped rank=${dropRank} name=${dropName} dup=${dropDup} obscure=${dropSparse} @${MIN_VIEWS}views)`);
-console.log(`augment nodes: ${nodes.length} (${speciesKept} species + ${nodes.length - speciesKept} new clades)`);
-console.log(`file: ${(json.length / 1024).toFixed(0)} KB raw | ${(gzipSync(json).length / 1024).toFixed(0)} KB gzipped`);
-console.log(`wrote src/data/taxonomyAugment.json`);
+nodes.sort((a, b) => (b.views ?? 0) - (a.views ?? 0) || (a.sciName < b.sciName ? -1 : 1));
+const OUT = resolve(ROOT, "src/data/taxonomyAugment.json");
+writeFileSync(OUT, JSON.stringify({ nodes }));
+const species = nodes.filter((n) => n.rank === "species").length;
+console.log(`✓ augment: ${species} species, ${breadthGenera + newFamGenera} new genera, ${newFamilies} new families`);
+console.log(`  1. depth  (top-up in-set genera):            ${depthGenera} genera`);
+console.log(`  2. breadth (new genera / in-set families):   ${breadthGenera} genera`);
+console.log(`  3. breadth (new families via OTL topology):  ${newFamilies} families, ${newFamGenera} genera`);
+console.log(`  wrote ${OUT} (${(Buffer.byteLength(JSON.stringify({ nodes })) / 1024).toFixed(0)} KB)`);

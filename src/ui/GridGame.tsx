@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Tree } from "../core";
 import { dailyNumber } from "../core";
 import { useGridGame, type GridComplete } from "../hooks/useGridGame";
@@ -39,9 +39,12 @@ interface Props {
  *  matching the colour classes in CSS, like Connections. */
 const LEVEL_SQUARE = ["🟨", "🟩", "🟦", "🟪"];
 
-/** Up to this tier (Gentle / Easy / Medium) every tile shows its picture from the
- *  start, free. On Tricky and above they stay hidden behind the reveal penalty. */
+/** Up to this tier (Mon–Wed) every tile shows its picture AND name from the start,
+ *  free. On Thu (tier 4) and above pictures stay hidden behind the reveal penalty. */
 const PRESHOW_MAX_TIER = 3;
+/** From this tier (Sat–Sun) the board is picture-only: pictures are shown and the
+ *  NAME is the hidden thing you reveal — sort the organisms by sight. */
+const PICTURE_MODE_MIN_TIER = 6;
 
 function GroupBar({ tree, group, dimmed, onPick }: { tree: Tree; group: GridGroup; dimmed?: boolean; onPick?: (id: string) => void }) {
   const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
@@ -82,18 +85,29 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
   const [zoomId, setZoomId] = useState<string | null>(null);
   // Post-game Wikipedia reader.
   const [wikiId, setWikiId] = useState<string | null>(null);
-  // A tile whose reveal would cost score, awaiting confirmation (null = none).
+  // A tile whose reveal would cost score, awaiting confirmation (null = none). The
+  // confirm sits below the board, so scroll it into view when it appears — on a tall
+  // board it would otherwise open off-screen and look like nothing happened.
   const [pendingReveal, setPendingReveal] = useState<string | null>(null);
-
-  // Easy/medium days show every picture from the start (free); harder days hide
-  // them behind the reveal penalty. Sunday (tier 7) inverts it: pictures are the
-  // tile, and the NAME is the hidden thing you reveal (first three free, then the
-  // same gentle penalty) — recognise the organism by sight, then sort by clade.
-  const preshow = g.tier > 0 && g.tier <= PRESHOW_MAX_TIER;
-  const pictureMode = g.tier >= 7;
-  const tiles = g.board?.tiles;
+  const confirmRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (!(preshow || pictureMode) || !tiles) return;
+    if (pendingReveal) confirmRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [pendingReveal]);
+
+  // Reveal mode is Kinship's PRIMARY difficulty lever (3/2/2 across the week):
+  //   Mon–Wed (tier ≤ 3)  name + picture — both shown free, easiest.
+  //   Thu–Fri (tier 4–5)  name only — pictures hidden behind the reveal penalty.
+  //   Sat–Sun (tier ≥ 6)  picture only — pictures are the tile and the NAME is the
+  //     hidden thing you reveal (first three free, then the same gentle penalty):
+  //     recognise the organism by sight, then sort by clade.
+  const preshow = g.tier > 0 && g.tier <= PRESHOW_MAX_TIER;
+  const pictureMode = g.tier >= PICTURE_MODE_MIN_TIER;
+  const tiles = g.board?.tiles;
+  // Prefetch every tile's image up front, in all modes. Easy/picture days show them;
+  // harder days keep them hidden until a flip — but we still fetch so we know which
+  // species have NO image, and never offer a reveal (or charge for one) on those.
+  useEffect(() => {
+    if (!tiles) return;
     let live = true;
     for (const id of tiles) {
       const node = tree.byId.get(id);
@@ -236,8 +250,9 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
               const nameShown = pictureMode ? flipped.has(id) || noImg.has(id) : true;
               // A reveal control exists on the harder days: it flips the hidden
               // half (picture normally, name in picture mode). None on easy days,
-              // and none in picture mode for an image-less tile (its name is shown).
-              const canReveal = pictureMode ? hasImg : !preshow;
+              // and — in either mode — none for an image-less tile: there's nothing
+              // to reveal, so flipping it must never cost a reveal.
+              const canReveal = pictureMode ? hasImg : !preshow && hasImg;
               const noun = pictureMode ? "name" : "picture";
               const nextCost = revealCostOf(g.revealed.length);
               const flipTitle = g.revealed.includes(id)
@@ -381,7 +396,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
       )}
 
       {pendingReveal && (
-        <div className="grid-confirm" role="alertdialog" aria-label="Confirm reveal">
+        <div className="grid-confirm" role="alertdialog" aria-label="Confirm reveal" ref={confirmRef}>
           <p>
             You’ve used your {KINSHIP_FREE_REVEALS} free reveals. Showing this{" "}
             {pictureMode ? "name" : "picture"} deducts <b>{revealCostOf(g.revealed.length)}</b> of your{" "}

@@ -20,6 +20,8 @@ function scopeIcon(label: string): string {
   if (l.includes("mammal")) return "🐘";
   if (l.includes("bird")) return "🐦";
   if (l.includes("fish")) return "🐟";
+  if (l.includes("amphibian")) return "🐸";
+  if (l.includes("reptile")) return "🦎";
   if (l.includes("insect")) return "🦋";
   if (l.includes("arthropod")) return "🦂";
   if (l.includes("plant")) return "🌿";

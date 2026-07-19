@@ -18,9 +18,13 @@ export const CLADE_GROUPS: CladeGroup[] = (
     { id: byKeyword(/mammal/i), label: "Mammals", icon: "🐘" },
     { id: byKeyword(/bird/i), label: "Birds", icon: "🐦" },
     { id: byKeyword(/fish/i), label: "Fish", icon: "🐟" },
+    { id: byKeyword(/amphibian/i), label: "Amphibians", icon: "🐸" },
+    { id: byKeyword(/reptile/i), label: "Reptiles", icon: "🦎" },
     { id: byKeyword(/insect/i), label: "Insects", icon: "🦋" },
+    // Arthropods AFTER insects so insects claim their own bucket first; this
+    // catches the non-insect arthropods (arachnids, crustaceans, …).
+    { id: byKeyword(/arthropod/i), label: "Arthropods", icon: "🦂" },
     { id: byKeyword(/plant/i), label: "Plants", icon: "🌿" },
-    { id: byKeyword(/fungi/i), label: "Fungi", icon: "🍄" },
   ] as Array<{ id: string | undefined; label: string; icon: string }>
 ).filter((g): g is CladeGroup => Boolean(g.id));
 

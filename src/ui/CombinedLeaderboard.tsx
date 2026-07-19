@@ -5,6 +5,10 @@ import { todayKey, dailyNumber, DAILY_EPOCH } from "../core/daily";
 interface Props {
   /** Signed-in player's display name, to highlight their own row. */
   me: string | null;
+  /** Whether the viewer has played at least one of today's games (signed in or
+   *  not). When false, today's combined board is hidden behind a "play first"
+   *  note; past days stay browsable. */
+  playedToday?: boolean;
 }
 
 /** Podium medals for ranks 1–3; plain numbers below. */
@@ -22,20 +26,24 @@ function stepDate(key: string, delta: number): string {
 /** One combined daily board: each of the three games scored 0–100 (the player's
  *  score as a share of that game's top score on the day), summed for a single
  *  total out of 300. Browsable back to the epoch; defaults to today. */
-export function CombinedLeaderboard({ me }: Props) {
+export function CombinedLeaderboard({ me, playedToday = true }: Props) {
   const today = todayKey();
   const [dayDate, setDayDate] = useState<string>(today);
   const [rows, setRows] = useState<CombinedEntry[] | null>(null);
   const [overall, setOverall] = useState<{ daily_wins: number; win_dates: string[] } | null>(null);
+  // Today's board is earned by playing: hide it (and skip the fetch) until the
+  // viewer has played at least one of today's games. Past days stay browsable.
+  const locked = !playedToday && dayDate === today;
 
   useEffect(() => {
     let live = true;
     setRows(null);
+    if (locked) return;
     fetchCombinedDaily(dayDate).then((r) => {
       if (live) setRows(r);
     });
     return () => { live = false; };
-  }, [dayDate]);
+  }, [dayDate, locked]);
 
   // The signed-in player's own overall-champion record (how many past days they
   // topped the combined board), shown below the board.
@@ -70,7 +78,9 @@ export function CombinedLeaderboard({ me }: Props) {
         </div>
       </div>
 
-      {rows === null ? (
+      {locked ? (
+        <p className="stats-empty">Play one of today’s games to see the leaderboard of the day.</p>
+      ) : rows === null ? (
         <p className="stats-empty">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="stats-empty">No ranked games on this day yet. Play a signed-in daily to appear.</p>

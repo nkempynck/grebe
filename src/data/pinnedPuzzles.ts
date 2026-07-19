@@ -94,7 +94,10 @@ interface Resolver<G extends Game> {
 
 const lineageResolver: Resolver<"lineage"> = {
   game: "lineage",
-  version: 1,
+  // v2: the in-set tree was rebuilt Wikipedia-first (different species set, names, and
+  // pageview prominence), so the daily answer a date resolves to changed. Re-pin un-played
+  // future dates (Admin ▸ Pins ▸ Re-pin); past pins stay frozen.
+  version: 2,
   compute(tree, date) {
     const rules = resolveDailyRules(date);
     return {
@@ -111,12 +114,12 @@ const lineageResolver: Resolver<"lineage"> = {
 
 const kinshipResolver: Resolver<"kinship"> = {
   game: "kinship",
-  // v4: difficulty by taxonomic RANK of the four groups (genus siblings = brutal,
-  // orders = easy) instead of tree depth, so hard days are genuinely tight and no
-  // easy cross-order board lands on a brutal tier; groups feature only up to the
-  // difficulty they can reach. Board identity changed again → re-pin un-played
-  // future dates (npm run pin -- --force --from <today>); past pins stay frozen.
-  version: 4,
+  // v5: difficulty = MEDIAN PAIRWISE MRCA separation of the four groups (maxed with
+  // obscurity), reveal mode (name+pic → name-only → picture-only) the primary lever;
+  // the pool was expanded (augment adds out-of-set genera + whole families) and members
+  // are now sampled weighted by pageviews. Board identity changed → re-pin un-played
+  // future dates (Admin ▸ Pins ▸ Re-pin); past pins stay frozen.
+  version: 5,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -142,9 +145,12 @@ const branchesResolver: Resolver<"branches"> = {
   //   collision rule is now distinctive-word (only a word unique to one answer is a
   //   give-away, so all-"squid" boards still populate); and container choice is
   //   depth-biased by tier (easy = spread-out groups, hard = tight siblings).
+  //   v3: the shared Kinship/Branches rich tree was expanded (augment now adds out-of-set
+  //   genera AND whole families via OTL topology), so the container/species pool — and
+  //   thus which boards a date produces — changed.
   // Board identity changed → re-pin un-played future dates (Admin ▸ Pins ▸ Re-pin,
   // or npm run pin -- --force); past pins stay frozen.
-  version: 2,
+  version: 3,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
