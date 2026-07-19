@@ -90,8 +90,8 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             <summary>How scoring works</summary>
             <p>
               A daily is scored <b>difficulty&nbsp;weight × efficiency × hint&nbsp;factor</b>, and zero
-              for a loss. The weight is the day's tier (<code>40 + 20 × tier</code>), so a Sunday win is
-              worth far more than a Monday one. Efficiency rewards fewer guesses; every hint and giving
+              for a loss. The weight is the day's tier (<code>100 + 12 × tier</code>), so a Sunday win is
+              worth a little more than a Monday one. Efficiency rewards fewer guesses; every hint and giving
               up trims the score. Only the daily is ranked. Free play isn't scored.
             </p>
           </details>
@@ -115,10 +115,10 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             <summary>How scoring works</summary>
             <p>
               A board is scored <b>the day's weight × (1 − mistakes⁄4)</b>, and zero for a loss. A clean
-              board earns the full weight (<code>40 + 20 × tier</code>); each of your up-to-four mistakes
-              shaves a quarter. On the easier days every species' picture is shown for free to help;
-              from Tricky up they hide behind a gentle peek that never ends the board (the first three
-              free, then each further reveal costs 15% of the day's points). Sunday flips it: the
+              board earns the full weight (<code>100 + 12 × tier</code>); each of your up-to-four mistakes
+              shaves a quarter. Early in the week every species' name and picture is shown for free to help;
+              midweek the pictures hide behind a gentle peek that never ends the board (the first three
+              free, then each further reveal costs 15% of the day's points). The weekend flips it: the
               pictures are the tiles and the names are hidden, revealed the same way (first three free).
               It shares the weekday weight with Lineage, so scores are comparable across the games.
             </p>
@@ -146,7 +146,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
               point. A <b>hint</b> that reveals a slot forfeits that whole point. Looking a to-place
               species up on Wikipedia forfeits <b>half</b>, since the article usually names its family
               and so is only a soft nudge. Enlarging a species' picture is free. It shares the weekday
-              weight (<code>40 + 20 × tier</code>) with Lineage and Kinship, so scores line up across
+              weight (<code>100 + 12 × tier</code>) with Lineage and Kinship, so scores line up across
               all three.
             </p>
           </details>

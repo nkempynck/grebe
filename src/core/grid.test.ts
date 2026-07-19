@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import taxonomy from "../data/taxonomy.json";
 import { buildTree, mrca } from "./index";
-import { generateGridBoard, checkGridSelection, GRID_GROUPS, GRID_GROUP_SIZE, GRID_TILES } from "./grid";
+import { generateGridBoard, gridBoardForSeed, checkGridSelection, GRID_GROUPS, GRID_GROUP_SIZE, GRID_TILES } from "./grid";
 
 const tree = buildTree((taxonomy as { nodes: Parameters<typeof buildTree>[0] }).nodes);
 
@@ -11,12 +11,16 @@ const board = (date: string, tier: number) => {
   return b;
 };
 
-// MRCA depth of a board's four group clades — the deeper, the more clustered
-// (harder) the board.
-const spreadDepth = (b: ReturnType<typeof board>) => {
+// Board tightness = MEDIAN over the six group-pairs of their MRCA depth (deeper = more
+// clustered = harder). Median (not the single all-four MRCA) matches the generator's own
+// difficulty measure: it's robust to one distant outlier group among three tight ones.
+const spreadDepth = (b: { groups: { cladeId: string }[] }) => {
   const ids = b.groups.map((g) => g.cladeId);
-  const anc = ids.reduce((acc, id) => mrca(tree, acc, id));
-  return tree.depthOf.get(anc) ?? 0;
+  const pd: number[] = [];
+  for (let i = 0; i < ids.length; i++)
+    for (let j = i + 1; j < ids.length; j++) pd.push(tree.depthOf.get(mrca(tree, ids[i], ids[j])) ?? 0);
+  pd.sort((a, z) => a - z);
+  return (pd[Math.floor((pd.length - 1) / 2)] + pd[Math.ceil((pd.length - 1) / 2)]) / 2;
 };
 
 describe("generateGridBoard", () => {
@@ -55,11 +59,16 @@ describe("generateGridBoard", () => {
     expect(new Set(sigs).size).toBeGreaterThan(1);
   });
 
-  it("clusters groups more tightly as the tier rises (averaged over dates)", () => {
-    const dates = Array.from({ length: 10 }, (_, i) => `2026-09-${String(i + 1).padStart(2, "0")}`);
-    const avg = (tier: number) =>
-      dates.reduce((s, d) => s + spreadDepth(board(d, tier)), 0) / dates.length;
-    expect(avg(7)).toBeGreaterThan(avg(1));
+  it("clusters groups more tightly on harder tiers (median over many boards)", () => {
+    // Sample many boards per tier via the seed path (no epoch replay → fast) and compare
+    // average tightness. The gradient is gentle by design (difficulty is carried mainly by
+    // the reveal mode), so average over a big sample rather than asserting per-board.
+    const seeds = Array.from({ length: 60 }, (_, i) => `grid-test-${i}`);
+    const avg = (tier: number) => {
+      const ds = seeds.map((s) => gridBoardForSeed(tree, s, tier)).filter(Boolean).map((b) => spreadDepth(b!));
+      return ds.reduce((a, x) => a + x, 0) / ds.length;
+    };
+    expect(avg(7)).toBeGreaterThan(avg(1)); // Sunday boards tighter than Monday's
   });
 });
 
