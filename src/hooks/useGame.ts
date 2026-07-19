@@ -84,6 +84,12 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
   const [error, setError] = useState<string | null>(null);
   const [hintIds, setHintIds] = useState<string[]>([]);
   const [dailyLocked, setDailyLocked] = useState(false);
+  // Identity (date + answer) the current daily state has been restored for. The
+  // save effect refuses to persist until this matches the live daily, so a render
+  // carrying the previous day's finished state (e.g. an open tab crossing the
+  // 09:00 rollover) can't write that stale result under the new day's key before
+  // the restore effect resets it.
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
 
   // The plan the daily resolves against. Starts from the local (committed +
   // draft) plan for an instant first paint; if Supabase is configured, the
@@ -203,6 +209,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
       setStatus("playing");
       setDailyLocked(false);
     }
+    setHydratedFor(`${today}:${ans}`);
   }, [tree, mode, config.scopeRootId, daily.answerId, pinnedDaily]);
 
   // Signed-in players restore an already-played daily from the cloud (works on
@@ -231,8 +238,13 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
   // Persist the daily attempt on every change so a reload restores it.
   useEffect(() => {
     if (mode !== "daily" || !tree || !answerId) return;
-    // Guard the mount window: don't let a pre-restore "playing" render clobber a
-    // day already finished in storage (which would silently unlock it).
+    // Only persist state that belongs to the live daily. Until the restore effect
+    // has run for this (date, answer), the state may still be the previous day's
+    // (a stale tab crossing the daily rollover), which must not be written under
+    // the new day's key.
+    if (hydratedFor !== `${today}:${answerId}`) return;
+    // Belt-and-braces: don't let a pre-restore "playing" render clobber a day
+    // already finished in storage (which would silently unlock it).
     if (status === "playing") {
       const saved = loadDailyProgress();
       if (saved && saved.date === today && saved.answerId === answerId && saved.status !== "playing") return;
@@ -250,7 +262,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
         .filter((x): x is NonNullable<typeof x> => x !== null),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, tree, answerId, guesses, hintIds, status]);
+  }, [mode, tree, answerId, guesses, hintIds, status, hydratedFor]);
 
   const setMode = useCallback((m: GameMode) => setModeState(m), []);
 

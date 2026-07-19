@@ -124,6 +124,12 @@ export function useGridGame(
   const [status, setStatus] = useState<GridStatus>("playing");
   const [feedback, setFeedback] = useState<string | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Signature of the board the current state has been restored for. The save
+  // effect refuses to persist until this matches the live board, so a render that
+  // carries the previous board's finished state (e.g. an open tab crossing the
+  // 09:00 rollover) can't write that stale result under the new day's key before
+  // the restore effect below resets it.
+  const [hydratedSig, setHydratedSig] = useState<string | null>(null);
 
   // Tile → group level, for colouring solved tiles and building the share.
   const levelById = useMemo(() => {
@@ -153,22 +159,25 @@ export function useGridGame(
     }
     setSelected([]);
     setOrder(board.tiles);
+    setHydratedSig(boardSig(board));
   }, [board, date, devActive]);
 
   // Persist every change against today's board — but never a playtest board.
   useEffect(() => {
     if (!board || devActive) return;
-    // Guard the mount window: this effect can fire once with the pre-restore
-    // "playing" state (before the restore effect above rehydrates it). Writing
-    // that would clobber a day already finished in storage and silently unlock
-    // it. So never downgrade today's finished result back to "playing". A real
-    // new day (different date) still writes normally.
+    // Only persist state that belongs to the live board. Until the restore effect
+    // above has run for this board, the state may still be the previous board's
+    // (a stale tab crossing the daily rollover), which must not be written under
+    // the new day's key.
+    if (hydratedSig !== boardSig(board)) return;
+    // Belt-and-braces: never downgrade today's finished result back to "playing"
+    // (a fast remount could still fire this with a pre-restore "playing" render).
     if (status === "playing") {
       const saved = loadGridProgress();
       if (saved && saved.date === date && saved.status !== "playing") return;
     }
     saveGridProgress({ date, solved, mistakes, attempts, revealed, status });
-  }, [board, date, devActive, solved, mistakes, attempts, revealed, status]);
+  }, [board, date, devActive, solved, mistakes, attempts, revealed, status, hydratedSig]);
 
   const solvedTiles = useMemo(() => {
     const s = new Set<string>();
