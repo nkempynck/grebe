@@ -1,10 +1,10 @@
 /** The day's difficulty weight (its leaderboard point base), shared by all three
  *  games so scores are comparable: harder weekdays are worth a little more, but the
- *  spread is deliberately gentle (tier 1→7 ≈ 112→184, ~1.5×). Difficulty is carried
- *  mostly by the play itself (e.g. Kinship's reveal mode), not the payout, so a hard
- *  day rewards more without making easy days feel pointless. */
+ *  spread is deliberately gentle — round values 100 (Mon) → 160 (Sun) in steps of 10,
+ *  ~1.6×. Difficulty is carried mostly by the play itself (e.g. Kinship's reveal mode),
+ *  not the payout, so a hard day rewards more without making easy days feel pointless. */
 export function tierWeight(tier: number): number {
-  return 100 + 12 * (tier || 1);
+  return 90 + 10 * (tier || 1);
 }
 
 /** Lineage per-game leaderboard points. MUST match public.game_points in

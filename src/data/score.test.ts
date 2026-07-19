@@ -5,8 +5,8 @@ import { gamePoints, kinshipPoints, branchesPoints } from "./score";
 // public.game_points in supabase/schema.sql — if you change the formula here,
 // change it THERE too (and update these expectations). This suite is the
 // tripwire that catches a silent client/SQL scoring drift.
-// Day weight = 100 + 12·tier (tier 1 = 112 … tier 7 = 184), a deliberately gentle
-// ~1.5× spread — difficulty lives in the play, not the payout.
+// Day weight = 90 + 10·tier → round values 100 (tier 1) … 160 (tier 7), a gentle
+// ~1.6× spread; difficulty lives in the play, not the payout.
 describe("gamePoints", () => {
   it("is zero for a loss, regardless of other inputs", () => {
     expect(gamePoints(false, 7, 1, 0)).toBe(0);
@@ -14,23 +14,23 @@ describe("gamePoints", () => {
   });
 
   it("weights by difficulty tier — a 1-guess, no-hint win equals the tier weight", () => {
-    expect(gamePoints(true, 1, 1, 0)).toBe(112);
-    expect(gamePoints(true, 5, 1, 0)).toBe(160);
-    expect(gamePoints(true, 7, 1, 0)).toBe(184); // theoretical max
+    expect(gamePoints(true, 1, 1, 0)).toBe(100);
+    expect(gamePoints(true, 5, 1, 0)).toBe(140);
+    expect(gamePoints(true, 7, 1, 0)).toBe(160); // theoretical max
   });
 
   it("decays with guesses (tier 5, no hints)", () => {
-    expect(gamePoints(true, 5, 1, 0)).toBe(160);
-    expect(gamePoints(true, 5, 2, 0)).toBe(139);
-    expect(gamePoints(true, 5, 3, 0)).toBe(123);
-    expect(gamePoints(true, 5, 6, 0)).toBe(91);
+    expect(gamePoints(true, 5, 1, 0)).toBe(140);
+    expect(gamePoints(true, 5, 2, 0)).toBe(122);
+    expect(gamePoints(true, 5, 3, 0)).toBe(108);
+    expect(gamePoints(true, 5, 6, 0)).toBe(80);
   });
 
   it("escalates the hint penalty — retains 90/70/40/0% at 1/2/3/4 hints (tier 5, 1 guess)", () => {
-    expect(gamePoints(true, 5, 1, 0)).toBe(160);
-    expect(gamePoints(true, 5, 1, 1)).toBe(144);
-    expect(gamePoints(true, 5, 1, 2)).toBe(112);
-    expect(gamePoints(true, 5, 1, 3)).toBe(64);
+    expect(gamePoints(true, 5, 1, 0)).toBe(140);
+    expect(gamePoints(true, 5, 1, 1)).toBe(126);
+    expect(gamePoints(true, 5, 1, 2)).toBe(98);
+    expect(gamePoints(true, 5, 1, 3)).toBe(56);
     expect(gamePoints(true, 5, 1, 4)).toBe(0);
   });
 
@@ -49,40 +49,40 @@ describe("kinshipPoints", () => {
   });
 
   it("is the full tier weight for a clean (0-mistake) win", () => {
-    expect(kinshipPoints(true, 1, 0)).toBe(112);
-    expect(kinshipPoints(true, 5, 0)).toBe(160);
-    expect(kinshipPoints(true, 7, 0)).toBe(184);
+    expect(kinshipPoints(true, 1, 0)).toBe(100);
+    expect(kinshipPoints(true, 5, 0)).toBe(140);
+    expect(kinshipPoints(true, 7, 0)).toBe(160);
   });
 
   it("scales down 100/75/50/25% by mistakes (tier 7)", () => {
-    expect(kinshipPoints(true, 7, 0)).toBe(184);
-    expect(kinshipPoints(true, 7, 1)).toBe(138);
-    expect(kinshipPoints(true, 7, 2)).toBe(92);
-    expect(kinshipPoints(true, 7, 3)).toBe(46);
+    expect(kinshipPoints(true, 7, 0)).toBe(160);
+    expect(kinshipPoints(true, 7, 1)).toBe(120);
+    expect(kinshipPoints(true, 7, 2)).toBe(80);
+    expect(kinshipPoints(true, 7, 3)).toBe(40);
   });
 
   it("the first three reveals are free", () => {
-    expect(kinshipPoints(true, 7, 0, 0)).toBe(184);
-    expect(kinshipPoints(true, 7, 0, 3)).toBe(184);
+    expect(kinshipPoints(true, 7, 0, 0)).toBe(160);
+    expect(kinshipPoints(true, 7, 0, 3)).toBe(160);
   });
 
   it("each reveal past the free three deducts a flat 15% of the day's weight", () => {
-    // tier 7 weight = 184; 15% = 27.6 per paid reveal.
-    expect(kinshipPoints(true, 7, 0, 4)).toBe(156); // 184 − 27.6
-    expect(kinshipPoints(true, 7, 0, 5)).toBe(129); // 184 − 55.2
-    expect(kinshipPoints(true, 7, 0, 6)).toBe(101); // 184 − 82.8
+    // tier 7 weight = 160; 15% = 24 per paid reveal.
+    expect(kinshipPoints(true, 7, 0, 4)).toBe(136); // 160 − 24
+    expect(kinshipPoints(true, 7, 0, 5)).toBe(112); // 160 − 48
+    expect(kinshipPoints(true, 7, 0, 6)).toBe(88);  // 160 − 72
   });
 
   it("reveal penalty stacks with mistakes", () => {
-    expect(kinshipPoints(true, 7, 2, 4)).toBe(64); // 92 − 27.6
+    expect(kinshipPoints(true, 7, 2, 4)).toBe(56); // 80 − 24
   });
 
   it("a win never scores zero — reveals floor at 10% of the day's weight", () => {
-    // tier 1 weight = 112; the raw score (112 − 9×15%×112) goes negative, so a win
-    // floors at 112×0.1 ≈ 11 instead of collapsing to zero.
-    expect(kinshipPoints(true, 1, 0, 12)).toBe(11);
+    // tier 1 weight = 100; the raw score goes negative, so a win floors at
+    // 100×0.1 = 10 instead of collapsing to zero.
+    expect(kinshipPoints(true, 1, 0, 12)).toBe(10);
     // Worst case still positive: max mistakes for a win (3) plus every tile flipped.
-    expect(kinshipPoints(true, 7, 3, 16)).toBe(18); // floor 184×0.1 ≈ 18
+    expect(kinshipPoints(true, 7, 3, 16)).toBe(16); // floor 160×0.1
     // A loss is still a flat zero, floor or not.
     expect(kinshipPoints(false, 7, 3, 16)).toBe(0);
   });
@@ -99,18 +99,18 @@ describe("branchesPoints", () => {
   });
 
   it("is the full tier weight for a perfect, penalty-free board", () => {
-    expect(branchesPoints(1, 8, 8, 0)).toBe(112);
-    expect(branchesPoints(7, 10, 10, 0)).toBe(184);
+    expect(branchesPoints(1, 8, 8, 0)).toBe(100);
+    expect(branchesPoints(7, 10, 10, 0)).toBe(160);
   });
 
   it("scales by the fraction placed correctly", () => {
-    expect(branchesPoints(5, 3, 6, 0)).toBe(80); // 160 * 3/6
-    expect(branchesPoints(5, 1, 3, 0)).toBe(53); // 160 * 1/3 = 53.3 -> 53
+    expect(branchesPoints(5, 3, 6, 0)).toBe(70); // 140 * 3/6
+    expect(branchesPoints(5, 1, 3, 0)).toBe(47); // 140 * 1/3 = 46.7 -> 47
   });
 
   it("docks a full point per hint and half per species peek", () => {
-    expect(branchesPoints(5, 6, 6, 1)).toBe(133);   // 160 * 5/6  = 133.3 -> 133
-    expect(branchesPoints(5, 6, 6, 0.5)).toBe(147);  // 160 * 5.5/6 = 146.7 -> 147
+    expect(branchesPoints(5, 6, 6, 1)).toBe(117);   // 140 * 5/6  = 116.7 -> 117
+    expect(branchesPoints(5, 6, 6, 0.5)).toBe(128);  // 140 * 5.5/6 = 128.3 -> 128
   });
 
   it("floors at zero when penalties exceed correct placements", () => {

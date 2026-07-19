@@ -17,6 +17,10 @@ export interface DailyEntry {
   tier: number;
   /** Clade group id (added v3). Optional only for entries migrated from v2. */
   group?: string;
+  /** Leaderboard points FROZEN at play time (added v6). Retuning the scoring formula
+   *  never moves a past game's score. Optional for entries saved before v6 (backfilled
+   *  on migrate). Mirrors the server's frozen games.points. */
+  points?: number;
 }
 
 /** One finished Kinship (grid) daily. Points scale down with mistakes; a loss
@@ -28,6 +32,8 @@ export interface KinshipEntry {
   /** Picture/name reveals used (scored separately from mistakes). Optional so
    *  entries saved before this field default to none. */
   reveals?: number;
+  /** Points FROZEN at play time (added v6); see DailyEntry.points. */
+  points?: number;
 }
 
 /** One finished Branches daily. Partial credit for correct placements; a hint
@@ -39,6 +45,8 @@ export interface BranchesEntry {
   hinted: number;
   peeked: number;
   tier: number;
+  /** Points FROZEN at play time (added v6); see DailyEntry.points. */
+  points?: number;
 }
 
 /** Free-play tally per clade group (practice is unranked → no points). */
@@ -48,7 +56,7 @@ interface CladeFree {
 }
 
 export interface StatsStore {
-  version: 5;
+  version: 6;
   /** date (YYYY-MM-DD) -> the Lineage daily result (drives ALL daily stats). */
   history: Record<string, DailyEntry>;
   /** group id -> free-play tally (drives ALL practice stats). */
@@ -153,7 +161,15 @@ export interface DerivedStats {
 
 const KEY = "cladensis.stats.v1"; // key kept stable; payload is versioned inside
 
-const emptyStore = (): StatsStore => ({ version: 5, history: {}, clades: {}, kinship: {}, branches: {} });
+// Frozen per-game points: the value stored on the entry if present (stamped at play
+// time), else recomputed from the entry's stored facts. Reading these everywhere means a
+// scoring-formula change never moves a game already recorded — mirrors the server, whose
+// games.points is frozen at submit. Backfilled onto pre-v6 entries on migrate.
+const dailyPts = (e: DailyEntry) => e.points ?? gamePoints(e.status === "won", e.tier, e.guesses, e.hints);
+const kinshipPts = (e: KinshipEntry) => e.points ?? kinshipPoints(e.status === "won", e.tier, e.mistakes, e.reveals ?? 0);
+const branchesPts = (e: BranchesEntry) => e.points ?? branchesPoints(e.tier, e.correct, e.total, e.hinted + 0.5 * e.peeked);
+
+const emptyStore = (): StatsStore => ({ version: 6, history: {}, clades: {}, kinship: {}, branches: {} });
 
 /** Accept a raw payload (localStorage or DB) and coerce to a valid store. Lineage
  *  history carries over from any prior version; v1/v2 clade tallies had an
@@ -173,7 +189,11 @@ function migrate(parsed: unknown): StatsStore {
   const clades = v >= 3 && s.clades ? s.clades : {};
   const kinship = v >= 4 && s.kinship ? s.kinship : {};
   const branches = v >= 5 && s.branches ? s.branches : {};
-  return { version: 5, history, clades, kinship, branches };
+  // v6: freeze each entry's points once, so a later formula change can't move past games.
+  for (const e of Object.values(history)) e.points = dailyPts(e);
+  for (const e of Object.values(kinship)) e.points = kinshipPts(e);
+  for (const e of Object.values(branches)) e.points = branchesPts(e);
+  return { version: 6, history, clades, kinship, branches };
 }
 
 export function loadStore(): StatsStore {
@@ -248,9 +268,9 @@ export async function pushCloudStats(store: StatsStore): Promise<void> {
 
 /** Apply a daily result onto a store IN PLACE, once per date (so replays don't
  *  inflate). The entry is tagged with its clade group so per-clade daily stats
- *  derive straight from history. */
+ *  derive straight from history. Points are FROZEN onto the entry here. */
 export function applyDaily(store: StatsStore, dateKey: string, entry: DailyEntry, groupId: string): StatsStore {
-  if (!store.history[dateKey]) store.history[dateKey] = { ...entry, group: groupId };
+  if (!store.history[dateKey]) store.history[dateKey] = { ...entry, group: groupId, points: dailyPts(entry) };
   return store;
 }
 
@@ -279,7 +299,7 @@ export function recordFree(entry: DailyEntry, groupId: string): StatsStore {
 
 /** Apply a finished Kinship daily onto a store IN PLACE, once per date. */
 export function applyKinship(store: StatsStore, dateKey: string, entry: KinshipEntry): StatsStore {
-  if (!store.kinship[dateKey]) store.kinship[dateKey] = { ...entry };
+  if (!store.kinship[dateKey]) store.kinship[dateKey] = { ...entry, points: kinshipPts(entry) };
   return store;
 }
 
@@ -292,7 +312,7 @@ export function recordKinship(dateKey: string, entry: KinshipEntry): StatsStore 
 
 /** Apply a finished Branches daily onto a store IN PLACE, once per date. */
 export function applyBranches(store: StatsStore, dateKey: string, entry: BranchesEntry): StatsStore {
-  if (!store.branches[dateKey]) store.branches[dateKey] = { ...entry };
+  if (!store.branches[dateKey]) store.branches[dateKey] = { ...entry, points: branchesPts(entry) };
   return store;
 }
 
@@ -348,7 +368,7 @@ function deriveDaily(
   const tally: Record<string, { played: number; wins: number; pts: number }> = {};
   for (const d of dates) {
     const e = history[d];
-    const p = gamePoints(e.status === "won", e.tier, e.guesses, e.hints);
+    const p = dailyPts(e);
     total += p;
     if (p > best) best = p;
     // Prefer the group tagged at play time; fall back to recomputing from the
@@ -456,7 +476,7 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
   let best = 0;
   for (const d of dates) {
     const e = kinship[d];
-    const p = kinshipPoints(e.status === "won", e.tier, e.mistakes, e.reveals ?? 0);
+    const p = kinshipPts(e);
     total += p;
     if (p > best) best = p;
   }
@@ -513,7 +533,7 @@ function deriveBranches(branches: Record<string, BranchesEntry>, todayKey: strin
   let best = 0;
   for (const d of dates) {
     const e = branches[d];
-    const p = branchesPoints(e.tier, e.correct, e.total, e.hinted + 0.5 * e.peeked);
+    const p = branchesPts(e);
     total += p;
     if (p > best) best = p;
   }
