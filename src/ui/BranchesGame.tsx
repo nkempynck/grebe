@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DisplayTreeNode, Tree } from "../core";
 import { inducedSubtree, dailyNumber } from "../core";
 import { resolveDailyRules } from "../data/dailySchedule";
@@ -49,7 +49,18 @@ const TIP_OUT = 22;
  *  below the deepest tip. Column/tier gaps stay identical, so the trees match. */
 
 function branchesLayout(root: DisplayTreeNode, radial: boolean): GraphLayout {
-  if (radial) return radialLayout(root, { ...CLADO_RADIAL, pad: 24, rim: 74, focusId: null });
+  // Radial: labels radiate outward (see the render's `flip`), and the canvas is sized to
+  // the real footprints — a leaf tile (up to ~148px wide) around its tip, and a clade label
+  // (150px) extending outward — so nothing clips at the rim. Branches carries wider boxes
+  // than Lineage's bare text, so it uses a bigger RADIUS (innerRadius) and enough angular
+  // gap (gapx) that leaf tiles don't touch, without inflating the depth spacing into a
+  // sprawl. Residual overlaps (a label over its own child's tile) are cleared after render
+  // by sliding tiles outward — see the nudge effect. `pad` leaves room for that slide.
+  if (radial) return radialLayout(root, {
+    ...CLADO_RADIAL, ring: 88, innerRadius: 100, spanMax: 2.6, gapx: 160,
+    pad: 44, rim: 74, focusId: null,
+    tipOut: TIP_OUT, leafBox: { halfW: 78, halfH: 28 }, labelW: 150, labelHalfH: 14,
+  });
   const L = treeLayout(root, { ...CLADO_TREE, padx: 92 });
   return { ...L, height: L.height + 56 };
 }
@@ -109,6 +120,43 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
   );
   const trayImgs = useSpeciesImages(tree, g.board?.tray ?? []);
   const [zoomId, setZoomId] = useState<string | null>(null);
+
+  // Radial overlap cleanup: after render, slide any leaf tile that overlaps a clade label
+  // (or an earlier tile) outward along its own branch until it's clear. Tiles carry no
+  // branch-anchored dot, so moving them along the ray reads naturally; labels stay put.
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const tileEls = useRef<Map<string, HTMLDivElement>>(new Map());
+  const nodeById = useMemo(() => new Map((layout?.nodes ?? []).map((n) => [n.id, n])), [layout]);
+  const placementSig = Object.entries(g.placements).sort().join("|");
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !layout) return;
+    for (const el of tileEls.current.values()) el.style.transform = ""; // clear prior nudges (also on leaving radial)
+    if (!radial) return; // tree mode stacks cleanly; nothing to nudge
+    const c = canvas.getBoundingClientRect();
+    const GAP = 5; // min clear space between boxes
+    const rect = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left - c.left - GAP, y: r.top - c.top - GAP, w: r.width + 2 * GAP, h: r.height + 2 * GAP };
+    };
+    type R = { x: number; y: number; w: number; h: number };
+    const hit = (a: R, b: R) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    const obstacles: R[] = [...canvas.querySelectorAll(".clado-pt")].map(rect);
+    const STEP = 8, MAX = 40;
+    for (const id of [...tileEls.current.keys()].sort()) {
+      const el = tileEls.current.get(id)!;
+      const node = nodeById.get(id);
+      if (!node) continue;
+      const ox = node.ox ?? 0, oy = node.oy ?? 0;
+      let r = rect(el), delta = 0;
+      while (delta < MAX && obstacles.some((o) => hit(r, o))) {
+        delta += STEP;
+        r = { x: r.x + ox * STEP, y: r.y + oy * STEP, w: r.w, h: r.h };
+      }
+      if (delta > 0) el.style.transform = `translate(calc(-50% + ${(ox * delta).toFixed(1)}px), calc(-50% + ${(oy * delta).toFixed(1)}px))`;
+      obstacles.push(r); // this tile is now an obstacle for the ones after it
+    }
+  }, [layout, radial, nodeById, g.status, g.tier, placementSig]);
 
   if (!g.board || !layout) return <p className="empty">No Branches puzzle available today.</p>;
 
@@ -251,7 +299,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
 
       <div className="branches-stage">
-        <div className="clado-canvas" style={{ width: layout.width, height: layout.height }}>
+        <div ref={canvasRef} className="clado-canvas" style={{ width: layout.width, height: layout.height }}>
           <svg className="clado-links" width={layout.width} height={layout.height} aria-hidden="true">
             {layout.links.map((l, i) => (
               <path key={i} d={l.d} className="clado-link" />
@@ -265,19 +313,29 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
                 ? { left: n.x + (n.ox ?? 0) * TIP_OUT, top: n.y + (n.oy ?? 0) * TIP_OUT }
                 : { left: n.x, top: n.y };
               return (
-                <div key={n.id} className={`branches-node is-leaf${radial ? " is-radial" : ""}`} style={style}>
+                <div
+                  key={n.id}
+                  ref={(el) => { if (el) tileEls.current.set(n.id, el); else tileEls.current.delete(n.id); }}
+                  className={`branches-node is-leaf${radial ? " is-radial" : ""}`}
+                  style={style}
+                >
                   <LeafTile id={n.id} />
                 </div>
               );
             }
-            // Clades + junctions render exactly like Lineage's cladogram points.
+            // Clades + junctions render exactly like Lineage's cladogram points. In the
+            // radial fan a clade label extends INWARD (toward the centre), where there's only
+            // thin branch structure, rather than outward toward the rim where the big leaf
+            // tiles sit. So a right-half label (ox > 0) is mirrored to point left (is-flip)
+            // and a left-half label points right — both away from their own tiles.
+            const flip = radial && (n.ox ?? 0) > 0;
             if (!groupSet.has(n.id)) {
               // The root shared ancestor gets a clade label (nearest named one);
               // every other unnamed split stays a bare junction dot.
               if (n.id === rootId && rootAnnoId) {
                 const anc = tree.byId.get(rootAnnoId);
                 return (
-                  <button key={n.id} type="button" className="clado-pt is-clade is-ancestor" style={{ left: n.x, top: n.y }} onClick={() => setWikiId(rootAnnoId)}>
+                  <button key={n.id} type="button" className={`clado-pt is-clade is-ancestor${flip ? " is-flip" : ""}`} style={{ left: n.x, top: n.y }} onClick={() => setWikiId(rootAnnoId)}>
                     <span className="pt-dot" />
                     <span className="pt-name">{cladeLabel(rootAnnoId)}</span>
                     {!hideRank && <span className="pt-rank">{anc?.rank}</span>}
@@ -292,7 +350,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
             }
             const node = tree.byId.get(n.id);
             return (
-              <button key={n.id} type="button" className="clado-pt is-clade" style={{ left: n.x, top: n.y }} onClick={() => setWikiId(n.id)}>
+              <button key={n.id} type="button" className={`clado-pt is-clade${flip ? " is-flip" : ""}`} style={{ left: n.x, top: n.y }} onClick={() => setWikiId(n.id)}>
                 <span className="pt-dot" />
                 <span className="pt-name">{cladeLabel(n.id)}</span>
                 {!hideRank && <span className="pt-rank">{node?.rank}</span>}

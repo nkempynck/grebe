@@ -432,6 +432,16 @@ body {
 .clado-pt.is-selected .pt-name { color: var(--brass-bright); }
 
 .clado-pt.is-clade .pt-name { font-style: italic; font-weight: 500; color: var(--ink-soft); }
+/* Radial fan, left half: mirror the label so it extends LEFT of the dot (dot on the
+   right, text right-aligned), so labels radiate outward instead of all pointing right. */
+.clado-pt.is-flip {
+  grid-template-columns: 1fr 12px;
+  transform: translate(calc(-100% + 6px), -50%);
+  text-align: right;
+}
+.clado-pt.is-flip .pt-dot { grid-column: 2; }
+.clado-pt.is-flip .pt-name,
+.clado-pt.is-flip .pt-rank { grid-column: 1; }
 .clado-pt.is-guess .pt-dot { background: var(--bg-3); }
 .clado-pt.is-answer .pt-dot { border-width: 2px; }
 /* Grafted out-of-set node: dashed dot + faded label, so it reads as "shown for
@@ -1593,8 +1603,10 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 
 /* The skeleton (links, clades, junctions) reuses Lineage's .clado-* styles so the
    two games look identical; only the interactive leaf tiles below are bespoke. */
-.branches-stage { overflow-x: auto; margin-bottom: 0; background: transparent; }
-.branches-stage .clado-canvas { margin: 0 auto; }
+/* Center the fan when it fits, but scroll (never clip the left edge) when it's wider than
+   the stage. `safe center` avoids the margin:auto+overflow clipping trap. */
+.branches-stage { overflow-x: auto; margin-bottom: 0; background: transparent; display: flex; justify-content: safe center; }
+.branches-stage .clado-canvas { margin: 0; flex: none; }
 /* Lineage sets each branch's stroke inline (per warmth); Branches is uniform. */
 .branches-stage .clado-link { stroke: var(--clado-line); }
 

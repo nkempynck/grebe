@@ -127,6 +127,19 @@ export interface RadialOpts {
   rim: number;
   /** If set, rotate the fan so this node sits at the bottom (θ=0). */
   focusId?: string | null;
+  /** Footprint hints so the canvas is sized to what's actually drawn and nothing clips.
+   *  All optional; omitted → legacy behaviour (node points + a radial `rim` for leaves).
+   *  A caller that renders wide labels/tiles passes these so edge elements stay in view. */
+  /** Half-width the leaf element extends around its tip (tip = node + tipOut along the
+   *  outward ray). When set, leaves reserve a box instead of the radial `rim`. */
+  leafBox?: { halfW: number; halfH: number };
+  /** Outward offset of a leaf element's centre from its node (matches the render). */
+  tipOut?: number;
+  /** Width an internal node's LABEL extends in its outward (left/right of centre)
+   *  direction, so clade labels are never clipped. 0/undefined → no label allowance. */
+  labelW?: number;
+  /** Half-height of an internal node's label (for vertical bounds). */
+  labelHalfH?: number;
 }
 
 /** Circular fan: depth grows the radius outward from a centre above the tips,
@@ -157,11 +170,30 @@ export function radialLayout(root: TreeLike, o: RadialOpts): GraphLayout {
   });
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const grow = (x: number, y: number) => {
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  };
   for (const p of raw.values()) {
-    const ex = p.x + (p.isLeaf ? Math.sin(p.theta) * o.rim : 0);
-    const ey = p.y + (p.isLeaf ? Math.cos(p.theta) * o.rim : 0);
-    minX = Math.min(minX, p.x, ex); maxX = Math.max(maxX, p.x, ex);
-    minY = Math.min(minY, p.y, ey); maxY = Math.max(maxY, p.y, ey);
+    grow(p.x, p.y);
+    if (p.isLeaf && o.leafBox) {
+      // Leaf renders as a box centred at the tip (node + tipOut along the ray); reserve
+      // its full extent so a tile near the rim never clips.
+      const cx = p.x + Math.sin(p.theta) * (o.tipOut ?? 0);
+      const cy = p.y + Math.cos(p.theta) * (o.tipOut ?? 0);
+      grow(cx - o.leafBox.halfW, cy - o.leafBox.halfH);
+      grow(cx + o.leafBox.halfW, cy + o.leafBox.halfH);
+    } else if (p.isLeaf) {
+      grow(p.x + Math.sin(p.theta) * o.rim, p.y + Math.cos(p.theta) * o.rim);
+    } else if (o.labelW) {
+      // Internal label extends INWARD, toward the vertical centre line (right half → left,
+      // left half → right), matching the render, so it never clips and stays clear of the
+      // rim tiles.
+      const dir = p.x >= 0 ? -1 : 1;
+      const hh = o.labelHalfH ?? 12;
+      grow(p.x + dir * o.labelW, p.y - hh);
+      grow(p.x + dir * o.labelW, p.y + hh);
+    }
   }
   const tx = (p: Pt): Pt => ({ x: p.x - minX + o.pad, y: p.y - minY + o.pad });
 
