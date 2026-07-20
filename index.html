@@ -3,6 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Redirect legacy grebe-games.pages.dev visitors to the canonical domain,
+      // preserving their path, query, and hash. Fires only on the old host, so
+      // grebegames.com is never affected. Allowed by its own CSP hash below.
+      if (location.hostname === "grebe-games.pages.dev") {
+        location.replace(
+          "https://grebegames.com" + location.pathname + location.search + location.hash
+        );
+      }
+    </script>
     <title>Grebe — daily tree-of-life game</title>
     <meta name="description" content="Daily puzzle games played on the tree of life." />
 

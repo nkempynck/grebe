@@ -11,9 +11,10 @@
 #   • Cloudflare Turnstile — captcha script + iframe (script/frame/connect challenges.cloudflare.com)
 #   • Wikipedia         — REST summary API           (connect-src en.wikipedia.org)
 #                         + lead images              (img-src upload.wikimedia.org, *.wikipedia.org)
-# The single inline <script> (theme-before-paint in index.html) is allowed by its
-# sha256 hash, NOT 'unsafe-inline', so injected scripts stay blocked. If that
-# inline snippet is ever edited, recompute the hash or the theme flash returns.
+# The two inline <script>s in index.html (legacy-domain redirect, then
+# theme-before-paint) are each allowed by their own sha256 hash, NOT
+# 'unsafe-inline', so injected scripts stay blocked. If either snippet is edited,
+# recompute its hash (see the one-liner in git history) or it will be blocked.
 # 'unsafe-inline' in style-src is required for React inline style={} attributes.
 /*
   X-Frame-Options: DENY
@@ -21,7 +22,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-pREEHP1tF4hnFjsGWhCxTHPIc2H7oIFfztRnZeIy1s8=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://upload.wikimedia.org https://*.wikipedia.org; connect-src 'self' https://*.supabase.co https://en.wikipedia.org https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-PO/pQhqitWhIIx4ClFM7VI1eOVPp/jW60mWSPv7RffI=' 'sha256-pREEHP1tF4hnFjsGWhCxTHPIc2H7oIFfztRnZeIy1s8=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://upload.wikimedia.org https://*.wikipedia.org; connect-src 'self' https://*.supabase.co https://en.wikipedia.org https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 # Cache strategy (SPA). index.html is the entry point and names the hashed JS/CSS
 # bundles; it MUST always be revalidated, or a returning browser keeps an old
