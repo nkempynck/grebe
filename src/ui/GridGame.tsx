@@ -170,7 +170,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
     const revealLine = reveals > 0 ? ` · ${reveals} reveal${reveals === 1 ? "" : "s"}` : "";
     const pts = kinshipPoints(won, g.tier, g.mistakes, reveals);
     const streakLine = won && streak != null && streak > 0 ? ` · 🔥${streak}` : "";
-    const head = `🧬 Grebe Kinship · №${dailyNumber(g.date)}${rules.difficulty ? ` · ${rules.difficulty}` : ""}`;
+    const head = `🧩 Grebe Kinship · №${dailyNumber(g.date)}${rules.difficulty ? ` · ${rules.difficulty}` : ""}`;
     const rows = g.attempts.map((r) => r.map((l) => LEVEL_SQUARE[l]).join("")).join("\n");
     const verdict = won
       ? `Solved · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}${revealLine} · ${pts} pts${streakLine}`
@@ -360,7 +360,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
             )}
           </div>
           <div className="share">
-            <div className="share-head">🧬 Grebe Kinship <span>· №{dailyNumber(g.date)}{rules.difficulty ? ` · ${rules.difficulty}` : ""}</span></div>
+            <div className="share-head">🧩 Grebe Kinship <span>· №{dailyNumber(g.date)}{rules.difficulty ? ` · ${rules.difficulty}` : ""}</span></div>
             <div className="grid-share-rows">
               {g.attempts.map((r, i) => (
                 <div key={i} className="grid-share-row">{r.map((l) => LEVEL_SQUARE[l]).join("")}</div>
