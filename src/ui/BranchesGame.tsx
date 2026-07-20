@@ -478,7 +478,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
         </div>
       )}
 
-      {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} />}
+      {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} hideImage={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0} />}
     </div>
   );
 }
