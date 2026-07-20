@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DisplayTreeNode, GuessResult, TaxonNode, Tree } from "../core";
-import { ancestryChain, inducedSubtree, isAncestor, leavesUnder } from "../core";
-import { fetchWikiSummary, wikiUrlFor, type WikiSummary } from "../data/wikipedia";
+import { ancestryChain, inducedSubtree, isAncestor } from "../core";
+import { WikiCard } from "./WikiCard";
 import { warmthColor } from "./temperature";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL } from "./cladoLayout";
 
@@ -233,40 +233,12 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
 }
 
 function WikiPanel({ node, tree, onClose }: { node: TaxonNode | null; tree: Tree; onClose: () => void }) {
-  const [wiki, setWiki] = useState<WikiSummary | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!node) return;
-    let live = true;
-    setLoading(true);
-    setWiki(null);
-    fetchWikiSummary(node).then((w) => {
-      if (live) { setWiki(w); setLoading(false); }
-    });
-    return () => { live = false; };
-  }, [node?.id]);
-
   if (!node) {
     return <p className="clado-hint">Tap any clade or guess above to read about it.</p>;
   }
-
-  const isLeaf = (tree.childrenOf.get(node.id) ?? []).length === 0;
-  const sub = isLeaf ? "species" : `${leavesUnder(tree, node.id).length} species below`;
-
-  return (
-    <div className="clado-wiki">
-      <button className="clado-wiki-close" onClick={onClose} aria-label="Close">×</button>
-      {wiki?.thumbnail && <img src={wiki.thumbnail} alt={node.common ?? node.sciName} />}
-      <div className="clado-wiki-body">
-        <div className="clado-wiki-rank">{node.rank} · {sub}</div>
-        <h3>{node.common ?? node.sciName}</h3>
-        {node.common && <div className="clado-wiki-sci">{node.sciName}</div>}
-        <p>{loading ? "Fetching field notes…" : wiki?.extract || "No Wikipedia summary found."}</p>
-        <a href={wiki?.pageUrl ?? wikiUrlFor(node)} target="_blank" rel="noreferrer">Read on Wikipedia →</a>
-      </div>
-    </div>
-  );
+  // Shares the games' reader, so Lineage species get the same photo-preferring
+  // image (a real photo instead of a range map / drawing where possible).
+  return <WikiCard node={node} tree={tree} onClose={onClose} />;
 }
 
 interface Model {
