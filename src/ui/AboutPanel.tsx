@@ -235,7 +235,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         <a href="https://github.com/nkempynck/grebe" target="_blank" rel="noreferrer">GitHub</a>.
         Coding was done by Claude Opus 4.8. Software engineering and page design were done by me and Claude. Game design and
         feature design were done by me (and inspiration from the existing games mentioned before obviously),
-        with help from my partner.
+        with help from Maria and valuable feedback from Eren.
       </p>
 
       {/* ---------- Privacy ---------- */}
