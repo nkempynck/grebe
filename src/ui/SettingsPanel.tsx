@@ -8,6 +8,7 @@ interface Props {
   onWinWithin: (n: number) => void;
   assist: boolean;
   onAssist: (on: boolean) => void;
+  onRandomize: () => void;
 }
 
 /** A little glyph for each scope, matched on its label keywords. Falls back to a
@@ -63,9 +64,16 @@ function Chip({ on, onClick, glyph, label, sub }: ChipProps) {
   );
 }
 
-export function SettingsPanel({ config, onScope, onWinWithin, assist, onAssist }: Props) {
+export function SettingsPanel({ config, onScope, onWinWithin, assist, onAssist, onRandomize }: Props) {
   return (
     <div className="settings">
+      <div className="settings-bar">
+        <button type="button" className="dice-btn" onClick={onRandomize} title="Randomize all options">
+          <span className="dice-ico" aria-hidden="true">🎲</span>
+          Randomize
+        </button>
+      </div>
+
       <fieldset className="optgroup">
         <legend>Scope: where the tree is rooted</legend>
         <div className="chips">

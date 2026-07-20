@@ -16,7 +16,7 @@ import {
 } from "../core";
 import { resolveOutOfSet } from "../data/guessIndex";
 import { loadTree } from "../data/loadTaxonomy";
-import { DEFAULT_SCOPE_ID } from "../data/presets";
+import { DEFAULT_SCOPE_ID, SCOPE_PRESETS, RESOLUTION_PRESETS } from "../data/presets";
 import { resolveDailyRules, dailyAnswerFor, type DailyRules } from "../data/dailySchedule";
 import { fetchPinnedPuzzle, type LineagePuzzle } from "../data/pinnedPuzzles";
 import { effectivePlan, fetchRemotePlan, type DailyPlan } from "../data/dailyPlan";
@@ -43,6 +43,8 @@ export interface UseGame {
   error: string | null;
   setScope: (scopeRootId: string) => void;
   setWinWithin: (winWithin: number) => void;
+  /** Free play: randomly set scope, resolution and difficulty at once. */
+  randomizeSettings: () => void;
   submit: (text: string) => void;
   /** Guess an out-of-set organism by its graft payload (from GuessInput's DB
    *  suggestions) — grafts it onto the tree as an informative probe. */
@@ -274,6 +276,15 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     setFreeConfig((c) => ({ ...c, winWithin }));
   }, []);
 
+  // Roll every free-play option at once. Changing the scope triggers the round
+  // effect (deps include config.scopeRootId), which draws a fresh specimen.
+  const randomizeSettings = useCallback(() => {
+    const scope = SCOPE_PRESETS[Math.floor(Math.random() * SCOPE_PRESETS.length)];
+    const res = RESOLUTION_PRESETS[Math.floor(Math.random() * RESOLUTION_PRESETS.length)];
+    setFreeConfig((c) => ({ ...c, scopeRootId: scope.id, winWithin: res.winWithin }));
+    setFreeAssist(Math.random() < 0.5);
+  }, []);
+
   // Place an OUT-OF-SET organism: graft it (and any missing ancestor clades) onto
   // the tree, then score it as an INFORMATIVE probe — it shows where it sits and
   // how close it lands, but can never win (the daily answer is always in-set).
@@ -349,6 +360,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     error,
     setScope,
     setWinWithin,
+    randomizeSettings,
     submit,
     submitGraft,
     giveUp,

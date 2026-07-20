@@ -3,9 +3,11 @@ import {
   fetchGameLeaderboard,
   fetchGameStanding,
   fetchGameStreaks,
+  fetchDailyCompletion,
   gameParLabel,
   type GameId,
   type GameStanding,
+  type DailyCompletion,
   type LeaderboardEntry,
   type LeaderboardPeriod,
 } from "../data/games";
@@ -60,6 +62,9 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, p
   const [rows, setRows] = useState<LeaderboardEntry[] | null>(null);
   const [total, setTotal] = useState(0);
   const [standing, setStanding] = useState<GameStanding | null>(null);
+  // Played/solved for a single day (the board lists only solvers, so failures are
+  // invisible without this). Only meaningful per-day, so null on week/all windows.
+  const [completion, setCompletion] = useState<DailyCompletion | null>(null);
   // Each player's current daily-win streak (name → streak), shown as a flame.
   const [streaks, setStreaks] = useState<Record<string, number>>({});
 
@@ -75,17 +80,22 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, p
     let live = true;
     setRows(null);
     if (locked) return;
+    setCompletion(null);
     Promise.all([
       fetchGameLeaderboard(game, period, { limit: 10, forDate }),
       fetchGameStanding(game, period, { forDate }),
-    ]).then(([r, s]) => {
+      // Completion is a single-day stat (played/solved on that date); skip it on
+      // multi-day windows, where it wouldn't have a clear meaning.
+      oneDay && forDate ? fetchDailyCompletion(game, forDate) : Promise.resolve(null),
+    ]).then(([r, s, c]) => {
       if (!live) return;
       setRows(r);
       setStanding(s);
       setTotal(s?.total_players ?? r.length);
+      setCompletion(c);
     });
     return () => { live = false; };
-  }, [game, period, reloadKey, forDate, locked]);
+  }, [game, period, reloadKey, forDate, locked, oneDay]);
 
   // Streaks are a live per-player property (not tied to the window), fetched once
   // per game and refreshed after a submit.
@@ -170,7 +180,13 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, p
 
           <div className="lb-foot">
             <span>
-              {total} player{total === 1 ? "" : "s"}
+              {oneDay && completion && completion.played > 0 ? (
+                // Per-day: show turnout + solve rate (board rows are solvers only,
+                // so this is where "how many played / failed" surfaces).
+                <>{completion.played} played · {completion.solved} solved · {Math.round((completion.solved / completion.played) * 100)}%</>
+              ) : (
+                <>{total} player{total === 1 ? "" : "s"}</>
+              )}
               {standing?.avg_score != null && <> · avg {standing.avg_score} pts</>}
               {standing?.par != null && <> · ⌀{standing.par} {gameParLabel(game)}</>}
             </span>

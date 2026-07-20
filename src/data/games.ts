@@ -333,6 +333,24 @@ export async function fetchGameStreaks(game: GameId): Promise<Record<string, num
   }
 }
 
+/** How many opted-in players played a game on a given day, and how many solved
+ *  it — so the board can show a completion rate (the board itself lists only
+ *  solvers; give-ups are recorded but excluded). `failed` = played − solved.
+ *  Null when there's no backend or the completion migration hasn't been run yet,
+ *  in which case the UI just hides the line. */
+export interface DailyCompletion { played: number; solved: number }
+export async function fetchDailyCompletion(game: GameId, date: string): Promise<DailyCompletion | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc("daily_completion", { p_game: game, p_date: date });
+    if (error || !data || !data[0]) return null;
+    const row = data[0] as { played: number | null; solved: number | null };
+    return { played: Number(row.played ?? 0), solved: Number(row.solved ?? 0) };
+  } catch {
+    return null;
+  }
+}
+
 /** The caller's overall (combined-board) champion record: how many past days they
  *  topped the combined leaderboard, and the winning dates. Null when there's no
  *  backend or the streaks migration hasn't been run. */

@@ -1,4 +1,4 @@
-import { dailyNumber, todayKey } from "../core/daily";
+import { dailyLabel, todayKey } from "../core/daily";
 
 interface Props {
   onPlay: (view: "lineage" | "kinship" | "branches") => void;
@@ -33,7 +33,7 @@ const GAMES = [
 
 /** The platform landing: what Grebe is, and a card per game to choose from. */
 export function HomePanel({ onPlay }: Props) {
-  const n = dailyNumber(todayKey());
+  const label = dailyLabel(todayKey());
   return (
     <div className="home">
       <p className="home-intro">
@@ -47,7 +47,7 @@ export function HomePanel({ onPlay }: Props) {
           <button key={game.id} className={`home-card is-${game.id}`} data-game={game.id} onClick={() => onPlay(game.id)}>
             <div className="home-card-top">
               <span className="home-card-ico" aria-hidden="true">{game.icon}</span>
-              <span className="home-card-daily">Daily №{n}</span>
+              <span className="home-card-daily">{label === "Preview" ? "Preview" : `Daily ${label}`}</span>
             </div>
             <h2 className="home-card-name">{game.name}</h2>
             <p className="home-card-tag">{game.tagline}</p>

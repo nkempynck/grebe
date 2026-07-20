@@ -3,9 +3,11 @@ import {
   fetchLeaderboard,
   fetchStanding,
   fetchGameStreaks,
+  fetchDailyCompletion,
   type LeaderboardEntry,
   type LeaderboardPeriod,
   type Standing,
+  type DailyCompletion,
 } from "../data/games";
 import { demoBoard } from "../data/demoLeaderboard";
 import { CLADE_GROUPS, OTHER_GROUP } from "../data/clades";
@@ -65,6 +67,9 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
   const [rows, setRows] = useState<LeaderboardEntry[] | null>(null);
   const [total, setTotal] = useState(0);
   const [standing, setStanding] = useState<Standing | null>(null);
+  // Played/solved for a single day — only fetched for the Overall view (the RPC
+  // isn't clade-filtered) and per-day (not for week/all windows).
+  const [completion, setCompletion] = useState<DailyCompletion | null>(null);
   // Each player's current daily-win streak (name → streak), shown as a flame.
   const [streaks, setStreaks] = useState<Record<string, number>>({});
 
@@ -97,15 +102,24 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
       return;
     }
     setRows(null);
+    setCompletion(null);
     if (locked) return;
-    Promise.all([fetchLeaderboard(period, group, 10, forDate), fetchStanding(period, group, forDate)]).then(([r, s]) => {
+    // Completion is per-day and Overall-only (the RPC isn't clade-filtered): today
+    // uses today's key; browsing a day uses that date; otherwise skip it.
+    const completionDate = oneDay && group === null ? (isToday ? today : dayDate) : null;
+    Promise.all([
+      fetchLeaderboard(period, group, 10, forDate),
+      fetchStanding(period, group, forDate),
+      completionDate ? fetchDailyCompletion("lineage", completionDate) : Promise.resolve(null),
+    ]).then(([r, s, c]) => {
       if (!live) return;
       setRows(r);
       setStanding(s);
       setTotal(s?.total_players ?? r.length);
+      setCompletion(c);
     });
     return () => { live = false; };
-  }, [period, group, previewing, groupLabelForDemo, reloadKey, forDate, locked]);
+  }, [period, group, previewing, groupLabelForDemo, reloadKey, forDate, locked, oneDay, isToday, today, dayDate]);
 
   // Live per-player daily-win streaks (name → streak), shown as a flame. Skipped in
   // the admin demo preview (its names are synthetic).
@@ -209,7 +223,13 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
 
           <div className="lb-foot">
             <span>
-              {total} player{total === 1 ? "" : "s"}
+              {completion && completion.played > 0 ? (
+                // Per-day (Overall): turnout + solve rate. The rows above are
+                // solvers only, so this is where "played / failed" surfaces.
+                <>{completion.played} played · {completion.solved} solved · {Math.round((completion.solved / completion.played) * 100)}%</>
+              ) : (
+                <>{total} player{total === 1 ? "" : "s"}</>
+              )}
               {standing?.avg_score != null && <> · avg {standing.avg_score} pts</>}
               {standing?.avg_guesses != null && <> · ⌀{standing.avg_guesses} guesses</>}
             </span>

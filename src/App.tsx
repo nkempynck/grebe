@@ -8,7 +8,7 @@ import { usePlayer } from "./hooks/usePlayer";
 import { recordGame, fetchPlayerBadges, recordGridGame, recordBranchesGame } from "./data/games";
 import { enqueuePendingSubmit, loadPendingSubmits, clearPendingSubmits } from "./data/pendingSubmits";
 import { newDailyWins } from "./data/badges";
-import { todayKey, dailyNumber } from "./core/daily";
+import { todayKey, dailyNumber, dailyLabel, isPreLaunch } from "./core/daily";
 import { dailyAnswerFor } from "./data/dailySchedule";
 import { loadStore } from "./data/stats";
 import { primePinnedPuzzles, pinnedPuzzleCached } from "./data/pinnedPuzzles";
@@ -299,12 +299,12 @@ export default function App() {
 
   const eyebrow =
     view === "home" ? "Daily games on the tree of life" :
-    view === "kinship" ? `Kinship · №${dailyNumber(today)}` :
-    view === "branches" ? `Branches · №${dailyNumber(today)}` :
+    view === "kinship" ? `Kinship · ${dailyLabel(today)}` :
+    view === "branches" ? `Branches · ${dailyLabel(today)}` :
     view === "leaderboard" ? "Leaderboard" :
     view === "account" ? "Your account" :
     view === "about" ? "About Grebe" :
-    daily ? `Lineage · №${dailyNumber(today)}` : "Lineage · free play";
+    daily ? `Lineage · ${dailyLabel(today)}` : "Lineage · free play";
 
   const subtitle =
     view === "home"
@@ -369,6 +369,7 @@ export default function App() {
           onWinWithin={g.setWinWithin}
           assist={g.assist}
           onAssist={g.setAssist}
+          onRandomize={g.randomizeSettings}
         />
       )}
 
@@ -479,10 +480,17 @@ export default function App() {
         <img className="masthead-logo" src={logoUrl} alt="" aria-hidden="true" />
       </header>
 
-      <div className="beta-banner" role="note">
-        <span className="beta-tag">Beta</span>
-        <span>In testing. Scores and leaderboards may reset before the full launch.</span>
-      </div>
+      {/* Pre-launch: announce the launch date + the reset. Auto-hides at the
+          epoch (isPreLaunch flips false on 2026-07-22), so no post-launch cleanup. */}
+      {isPreLaunch(today) && (
+        <div className="beta-banner" role="note">
+          <span className="beta-tag">Launching Wed</span>
+          <span>
+            Grebe goes live <b>Wednesday, July 22</b>. Everything’s open to try now —
+            all scores, stats and leaderboards <b>reset at launch</b>.
+          </span>
+        </div>
+      )}
 
       <nav className="topnav" role="tablist" aria-label="Sections">
         {(["home", "lineage", "kinship", "branches", "leaderboard", "account", "about"] as const).map((v) => {

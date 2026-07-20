@@ -239,7 +239,7 @@ function LineageBench({ tree }: { tree: Tree }) {
         <button className="playtest-btn" onClick={g.giveUp} disabled={over}>Reveal answer</button>
         <span className="playtest-note">Not recorded</span>
       </div>
-      <SettingsPanel config={g.config} onScope={g.setScope} onWinWithin={g.setWinWithin} assist={g.assist} onAssist={g.setAssist} />
+      <SettingsPanel config={g.config} onScope={g.setScope} onWinWithin={g.setWinWithin} assist={g.assist} onAssist={g.setAssist} onRandomize={g.randomizeSettings} />
       {g.guesses.length === 0 && g.hintIds.length === 0 && !over ? (
         <p className="empty">Guess a species, or a group like <em>owls</em> to scout. Autosolve jumps to the win.</p>
       ) : (

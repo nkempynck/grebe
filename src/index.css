@@ -219,6 +219,21 @@ body {
 
 /* ---- Settings: clickable option chips instead of dropdowns ---- */
 .settings { display: flex; flex-direction: column; gap: 18px; margin-bottom: 26px; }
+.settings-bar { display: flex; justify-content: flex-end; }
+.dice-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px;
+  background: var(--bg-2); color: var(--ink-soft);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+.dice-btn:hover { border-color: var(--brass); color: var(--ink); }
+.dice-btn:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.dice-btn:active .dice-ico { transform: rotate(-18deg) scale(1.1); }
+.dice-ico { font-size: 15px; line-height: 1; transition: transform 0.14s ease; }
 .optgroup { border: none; margin: 0; padding: 0; min-width: 0; }
 .optgroup legend {
   padding: 0; margin-bottom: 8px;
