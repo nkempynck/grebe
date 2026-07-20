@@ -95,9 +95,14 @@ interface Resolver<G extends Game> {
 const lineageResolver: Resolver<"lineage"> = {
   game: "lineage",
   // v2: the in-set tree was rebuilt Wikipedia-first (different species set, names, and
-  // pageview prominence), so the daily answer a date resolves to changed. Re-pin un-played
-  // future dates (Admin ▸ Pins ▸ Re-pin); past pins stay frozen.
-  version: 2,
+  // pageview prominence), so the daily answer a date resolves to changed.
+  //   v3: the daily is now a weekday RESOLUTION ramp (family Mon/Tue → genus Wed → species
+  //   Thu–Sun; assist off at the weekend), scope is a decoupled spaced variety draw, the
+  //   answer pick pre-filters to rank-eligible species on family/genus days, and winTargetId
+  //   no longer balloons past a mis-ranked ancestor (Sauria). Scope/winWithin/assist/answer
+  //   all moved for most dates. Re-pin un-played future dates (Admin ▸ Pins ▸ Re-pin, or
+  //   npm run pin -- --force); past pins stay frozen.
+  version: 3,
   compute(tree, date) {
     const rules = resolveDailyRules(date);
     return {

@@ -7,16 +7,48 @@ import { ancestryChain, edgeDistance, isAncestor, mrca } from "./tree";
  *  links, so an edge count doesn't map cleanly onto a rank. */
 export const WIN_RANK_LADDER = ["species", "genus", "family", "order"] as const;
 
+/** Relative height of the major Linnaean ranks, low → high. Only used to detect
+ *  when a rank match sits ABOVE where it belongs (see winTargetId). Ranks absent
+ *  here — chiefly the unranked "clade" that OTL leaves on most internal nodes —
+ *  are height-less: they're climbed through, never treated as a ceiling. */
+const RANK_HEIGHT: Record<string, number> = {
+  species: 0, subspecies: 0, subgenus: 1, genus: 2,
+  subtribe: 3, tribe: 3, subfamily: 3, family: 4,
+  superfamily: 5, parvorder: 6, infraorder: 6, suborder: 6, order: 7,
+  superorder: 8, magnorder: 8, cohort: 9, infraclass: 10, subclass: 10, class: 11,
+  superclass: 12, subphylum: 13, phylum: 14, subkingdom: 15, kingdom: 16, domain: 17,
+};
+
+/** Nearest ancestor of a given rank, searching up from the answer but STOPPING at
+ *  the first ancestor ranked strictly higher than the one we want. OTL doesn't tag
+ *  order/family on many lineages (they're plain "clade"), and it mislabels some
+ *  deep clades with a Linnaean rank (e.g. "Sauria" as an order, sitting above the
+ *  bird class). Without the ceiling, a search for the answer's order sails past
+ *  the real, unranked one and grabs that far-away bogus match — ballooning "same
+ *  order" for a tern into all of Sauropsida. The ceiling makes the search fail
+ *  cleanly instead, so winTargetId falls back to the nearest lower real rank. */
+function nearestAncestorOfRank(tree: Tree, chain: string[], rank: string): string | null {
+  const want = RANK_HEIGHT[rank];
+  for (const id of chain) {
+    const r = tree.byId.get(id)?.rank;
+    if (r === rank) return id;
+    const h = r != null ? RANK_HEIGHT[r] : undefined;
+    if (h !== undefined && want !== undefined && h > want) return null; // above where it belongs
+  }
+  return null;
+}
+
 /** The answer's ancestor a guess must fall inside to win at the given resolution.
  *  Broadens up the answer's lineage only as far as that rank actually EXISTS in
- *  the data — so "same family" never invents a family the tree doesn't have; it
- *  tightens to the nearest real grouping (genus, or exact) instead. */
+ *  the data (and sits below the answer's higher ranks) — so "same family" never
+ *  invents a family the tree doesn't have, nor borrows one from a mis-ranked clade
+ *  above the class; it tightens to the nearest real grouping (genus, or exact). */
 export function winTargetId(tree: Tree, answerId: string, winWithin: number): string {
   const maxIdx = Math.max(0, Math.min(winWithin, WIN_RANK_LADDER.length - 1));
   const chain = ancestryChain(tree, answerId); // answer → root
   let target = answerId; // exact species by default
   for (let i = 1; i <= maxIdx; i++) {
-    const hit = chain.find((id) => tree.byId.get(id)?.rank === WIN_RANK_LADDER[i]);
+    const hit = nearestAncestorOfRank(tree, chain, WIN_RANK_LADDER[i]);
     if (hit) target = hit;
   }
   return target;

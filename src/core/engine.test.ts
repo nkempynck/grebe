@@ -10,6 +10,7 @@ import {
   dailyNumber,
   DAILY_EPOCH,
   informedPar,
+  ancestryChain,
 } from "./index";
 
 const tree = buildTree((taxonomy as { nodes: Parameters<typeof buildTree>[0] }).nodes);
@@ -51,6 +52,23 @@ describe("winTargetId (rank ladder)", () => {
   it("looser tolerances target ancestors of the answer", () => {
     for (const k of [1, 2, 3]) {
       expect(isAncestor(tree, winTargetId(tree, answer, k), answer)).toBe(true);
+    }
+  });
+
+  it("never broadens above the answer's class, even when a rank is missing", () => {
+    // OTL leaves order/family untagged on many lineages and mislabels some deep
+    // clades (e.g. "Sauria" as an order, above Aves). A tern has no tagged order,
+    // so "same order" must fall back to a real lower rank, NOT grab Sauria and let
+    // every bird win. Regression for the "Tree swallow · found" on a Sooty tern board.
+    const sootyTern = [...tree.byId.values()].find((n) => n.sciName === "Onychoprion fuscatus");
+    expect(sootyTern).toBeDefined();
+    const classAnc = ancestryChain(tree, sootyTern!.id).find((id) => tree.byId.get(id)?.rank === "class");
+    for (const k of [2, 3]) {
+      const target = winTargetId(tree, sootyTern!.id, k);
+      // target stays inside (at or below) the class — the win clade never balloons
+      // past Aves into Sauropsida.
+      expect(isAncestor(tree, classAnc!, target) || target === classAnc).toBe(true);
+      expect(isAncestor(tree, target, sootyTern!.id)).toBe(true);
     }
   });
 });
