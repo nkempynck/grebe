@@ -51,8 +51,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       </p>
       <p className="about-p">
         Grebe was made purely as a personal project, coming from my interest in evolutionary biology
-        and love for daily puzzle games. It is not affiliated with Metazooa, the New York Times, or
-        their creators in any way. It is intended for fun and educational purposes, and I hope it
+        and love for daily puzzle games. It is intended for fun and educational purposes, and I hope it
         helps people learn more about the diversity of life on Earth.
       </p>
 
@@ -160,6 +159,10 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
           <p>Further tree-of-life games are in the works.</p>
         </div>
       </div>
+      <p className="about-p">
+        The games above are inspired by these existing games, not connected to them. Grebe is not
+        affiliated with Metazooa, the New York Times, or their creators in any way.
+      </p>
 
       {/* ---------- Data sources ---------- */}
       <h3 id="about-data" className="about-h">Data sources</h3>
@@ -197,6 +200,15 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             structure, the named clades (Amniota, Tetrapoda…), and the taxonomic ranks.
           </p>
         </div>
+      </div>
+      <div className="about-src is-teal about-src-full">
+        <div className="about-src-tag">Images · Wikimedia</div>
+        <p>
+          Every species picture is fetched live from Wikipedia and stays the property of its
+          respective photographer, author, and licensor. Grebe stores none of them and claims no
+          rights over them; each image is served straight from Wikimedia under its own licence, and
+          the full details for any picture are on its Wikipedia page.
+        </p>
       </div>
       <p className="about-p about-srcs-note">
         A stable per-species identifier from the{" "}

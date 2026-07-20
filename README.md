@@ -2,17 +2,17 @@
 
 # Grebe
 
-Grebe is a platform of daily puzzle games played on the **tree of life** — the
+Grebe is a platform of daily puzzle games played on the **tree of life**, the
 shared-ancestry tree that connects every living thing. Each game is new every day and the
 same for all players. Three games ship today:
 
-- **Lineage** — guess the hidden organism; every wrong guess is placed on a shared-ancestry
+- **Lineage**: guess the hidden organism; every wrong guess is placed on a shared-ancestry
   tree at the clade it has in common with the answer, so each miss narrows down where the
   answer sits. Inspired by [Metazooa](https://metazooa.com).
-- **Kinship** — sixteen species, four hidden groups of four, each group a real clade; sort
+- **Kinship**: sixteen species, four hidden groups of four, each group a real clade; sort
   them before four mistakes run out. A daily grid in the spirit of the New York Times'
   [Connections](https://www.nytimes.com/games/connections).
-- **Branches** — rebuild a slice of the tree: a labelled skeleton of clades (all from one
+- **Branches**: rebuild a slice of the tree: a labelled skeleton of clades (all from one
   class), some showing a worked-example species, and a tray of species to drag onto the branch
   they belong to. A Grebe original.
 
@@ -28,7 +28,7 @@ leaderboards.
 The player names organisms; each wrong guess is placed on the tree at the clade it shares
 with the hidden answer. Two controls are coordinates on the tree rather than difficulty dials:
 
-- **Scope** is where the tree is rooted (e.g. "Birds" roots it at `Aves`) — not only animals,
+- **Scope** is where the tree is rooted (e.g. "Birds" roots it at `Aves`), not only animals,
   but also chordates, plants, or all of life.
 - **Resolution** is how close a guess must land to count as a win. It indexes a rank ladder
   (`0` = exact species, `1` = same genus, `2` = family, `3` = order). Free play offers all four;
@@ -46,11 +46,11 @@ recognisable clade ("Owls", "Sandpipers"). Pick four tiles you think share a gro
 a correct group locks in and its clade name is revealed, a wrong one costs one of four
 mistakes.
 
-Difficulty is not the breadth of each group (groups are always tight and recognisable) — it is
+Difficulty is not the breadth of each group (groups are always tight and recognisable): it is
 the **separation** between the four groups, and it ramps by weekday in lock-step with Lineage's
 difficulty tier. An easy board draws its four groups from far-apart branches (a frog, a fern, a
 beetle, a crab); a hard board draws four sibling clades that all look alike (four kinds of
-perch). Within a board the yellow→purple colour ranks the groups by how confusable they are —
+perch). Within a board the yellow→purple colour ranks the groups by how confusable they are:
 the two clades sitting closest together on the tree get the hard colours, the "trap" pair.
 The board is deterministic per date, and Kinship has its own ranked daily leaderboard (scored
 by difficulty and mistakes).
@@ -101,7 +101,7 @@ nothing from React or the DOM; everything else is arranged around it.
 
 ```
 src/
-  core/              portable engine — no React, no DOM
+  core/              portable engine, no React, no DOM
     types.ts         shared shapes (TaxonNode, GameConfig, GuessResult)
     tree.ts          build/index the tree; ancestry, MRCA, descendants, distance
     game.ts          evaluateGuess + scope-relative warmth + rank-ladder win logic
@@ -110,7 +110,7 @@ src/
     grid.ts          Kinship board generator (pure, deterministic per date + tier)
     branches.ts      Branches board generator (pure, deterministic per date + tier)
     resolve.ts       typed name -> node
-    index.ts         public barrel — UI imports from "../core" only
+    index.ts         public barrel; UI imports from "../core" only
   data/
     taxonomy.json    the bundled tree (built by the scripts/ pipeline; see scripts/PIPELINE.md)
     loadTaxonomy.ts  the single source of the tree
@@ -147,12 +147,12 @@ puzzle without a server round-trip:
   **assist**: family + assist (Mon/Tue) → genus + assist (Wed) → exact species (Thu–Sun, assist
   off at the weekend). The weekday is also the leaderboard's point weight (fixed to the day) and
   the tier Kinship reuses for group-separation and Branches for its grain, look-alike-name floor
-  and label reveal — so all three games get harder across the week together.
+  and label reveal, so all three games get harder across the week together.
 - **Scope is decoupled from difficulty**: a per-day seeded draw over all scopes, with a short
   anti-repeat so no group clusters, purely for variety.
 - The **answer** is a prominence-weighted draw from the scope's leaves (famous species early in
-  the week, uniform by Sunday), skipping anything used within the anti-repeat window and — on
-  family/genus days — anything whose lineage lacks that rank, so the advertised win tolerance is
+  the week, uniform by Sunday), skipping anything used within the anti-repeat window and, on
+  family/genus days, anything whose lineage lacks that rank, so the advertised win tolerance is
   never silently downgraded.
 
 Because this is seeded rather than truly random, each puzzle is a pure function of the date and
@@ -164,12 +164,12 @@ is fully reproducible (and, with the source public, computable in advance).
 [scripts/PIPELINE.md](scripts/PIPELINE.md)). It is built **Wikipedia-first**: what a species *is*
 to the game comes from how many people read about it, not how often it's recorded in the field.
 
-- **Selection** — species are chosen by English-Wikipedia pageviews over a ~60-day window, so the
+- **Selection**: species are chosen by English-Wikipedia pageviews over a ~60-day window, so the
   pool skews toward organisms people actually recognise rather than the best-sampled ones. Capped
   for balance (at most three species per genus, plus a prominence-scaled per-family cap).
-- **Topology** — the branching structure, named clades (Amniota, Tetrapoda…), and ranks come from
+- **Topology**: the branching structure, named clades (Amniota, Tetrapoda…), and ranks come from
   the [Open Tree of Life](https://tree.opentreeoflife.org) synthetic tree.
-- **Names** — each species' common name is its Wikipedia article title, falling back to the
+- **Names**: each species' common name is its Wikipedia article title, falling back to the
   Wikidata "common name" property (P1843); clade names come from that same Wikidata property, with
   a small hand-curated override table on top.
 - **[GBIF](https://www.gbif.org)** supplies only a stable per-species identifier. It's load-bearing
@@ -200,13 +200,14 @@ forfeits its whole point, and looking up a species you still have to place forfe
 - **Name matching is forgiving but bounded.** `resolve.ts` matches common/scientific names
   (case-, diacritic-, and hyphen-insensitive), a curated synonym table (`data/synonyms.ts`, e.g.
   "orca" → killer whale), and a conservative typo-tolerant fallback (unambiguous edit-distance ≤2,
-  never fuzzing very short words). Pulling the full alias set from each species' Wikipedia redirects
-  at build time is the remaining enhancement.
+  never fuzzing very short words). Pulling the full alias set from GBIF's vernacular-name lists at
+  build time is the remaining enhancement.
 - **Folk categories are not clades.** "Fish", "reptiles", and "bugs" are not monophyletic;
   where a scope follows folk intuition rather than strict cladistics that is a deliberate
   simplification.
-- **Kinship difficulty tracks tree-clustering**, which is a proxy for perceived hardness rather
-  than a measure of it — a mid-week board can land on an unusually tricky group.
+- **Kinship difficulty is a heuristic.** It weights groups by recognisability (species fame) and
+  ramps how closely the four groups sit on the tree by weekday, both proxies for perceived hardness
+  rather than a measure of it, so a mid-week board can still land on an unusually tricky group.
 - **Accounts have no email**, so a forgotten password cannot be recovered.
 
 ## Testing
@@ -217,21 +218,21 @@ board generator (structure, determinism, difficulty ordering, one-away detection
 
 ## References
 
-- **[Metazooa](https://metazooa.com)** (and its plant counterpart Metaflora) — the daily
+- **[Metazooa](https://metazooa.com)** (and its plant counterpart Metaflora), the daily
   animal-guessing game that inspired **Lineage**.
-- **[Connections](https://www.nytimes.com/games/connections)** (The New York Times) — the
+- **[Connections](https://www.nytimes.com/games/connections)** (The New York Times), the
   grouping game that inspired **Kinship**.
-- **[Wikipedia](https://www.wikipedia.org)** — pageviews drive species selection and article
+- **[Wikipedia](https://www.wikipedia.org)**: pageviews drive species selection and article
   titles supply common names at build time; also the summary and thumbnail on the reveal card
   (the only third-party request during normal play). If Grebe's any fun, please
   [donate to Wikipedia](https://donate.wikimedia.org).
-- **[Wikidata](https://www.wikidata.org)** — the "common name" property (P1843) fills in names
+- **[Wikidata](https://www.wikidata.org)**: the "common name" property (P1843) fills in names
   Wikipedia titles don't cover, and names the clades.
-- **[Open Tree of Life](https://tree.opentreeoflife.org)** — synthetic phylogeny; the branching
+- **[Open Tree of Life](https://tree.opentreeoflife.org)**: synthetic phylogeny; the branching
   topology, named clades, and ranks behind the shared-ancestry hints.
-- **[GBIF](https://www.gbif.org)** — Global Biodiversity Information Facility; a stable
+- **[GBIF](https://www.gbif.org)**: Global Biodiversity Information Facility; a stable
   per-species identifier keying the tree.
-- **Fonts** — Bricolage Grotesque, Spectral, and Spline Sans Mono (SIL Open Font License),
+- **Fonts**: Bricolage Grotesque, Spectral, and Spline Sans Mono (SIL Open Font License),
   self-hosted and bundled with the app (no CDN).
 
 ## License

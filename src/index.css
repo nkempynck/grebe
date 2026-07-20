@@ -1306,6 +1306,7 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 }
 .about-src.is-teal .about-src-tag { color: var(--cold); }
 .about-src.is-brass .about-src-tag { color: var(--brass-bright); }
+.about-src-full { margin-top: 14px; }
 
 .about-build {
   margin: 0; padding: 0; list-style: none;
