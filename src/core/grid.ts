@@ -12,7 +12,7 @@
 // Pure: imports only the tree engine — no React, no DOM, no data layer.
 
 import type { Tree } from "./types";
-import { leavesUnder, mrca } from "./tree";
+import { leavesUnder, mrca, separationTierOf } from "./tree";
 import { DAILY_EPOCH } from "./daily";
 
 export const GRID_GROUPS = 4;
@@ -299,32 +299,12 @@ function containerFame(c: Container): number {
   return medianOf(c.themes.map((t) => t.fame));
 }
 
-// SEPARATION → difficulty tier (1 easy … 7 hard). What makes a board hard is how closely
-// related its four groups are — read off the rank of their most-recent common ancestor
-// (MRCA). Four genera inside one FAMILY (MRCA = family) are near-siblings, temptingly
-// cross-placeable, hard; four families spread across an ORDER (MRCA = order) are distinct
-// and easy; four groups spanning a whole CLASS are trivially separable. Deeper MRCA =
-// tighter = harder. This is the "sub-collection harder than super-collection" rule made
-// precise: a sub-collection's groups share a deeper ancestor than the super-collection's.
-const MRCA_TIER: Record<string, number> = {
-  subgenus: 7, "species group": 7, "species subgroup": 7, genus: 7,
-  subtribe: 6, tribe: 6, subfamily: 6, family: 6, section: 6,
-  superfamily: 5,
-  infraorder: 4, parvorder: 4, suborder: 4, infraclass: 4,
-  order: 3,
-  magnorder: 2, superorder: 2, cohort: 2, subcohort: 2,
-  subclass: 1, class: 1, subphylum: 1, phylum: 1, superclass: 1, subterclass: 1,
-};
-/** Separation tier of a node: its rank via MRCA_TIER, or — for the unranked junction
- *  nodes the flattened tree keeps — the nearest RANKED ancestor (a shallower node → an
- *  easier, conservative read; nothing is called hard just for lacking a rank label). */
-function separationTierOf(tree: Tree, id: string): number {
-  for (let c: string | null | undefined = id; c; c = tree.byId.get(c)?.parentId) {
-    const t = MRCA_TIER[tree.byId.get(c)?.rank ?? ""];
-    if (t !== undefined) return t;
-  }
-  return 1; // no ranked ancestor at all → a very high clade → easy
-}
+// SEPARATION → difficulty tier: see separationTierOf / MRCA_TIER in ./tree (shared with
+// Branches). What makes a board hard is how closely related its four groups are — read off
+// the rank of their MRCA. Four genera inside one FAMILY are near-siblings, temptingly
+// cross-placeable, hard; four families across an ORDER are distinct and easy; four groups
+// spanning a CLASS are trivially separable. This is the "sub-collection harder than
+// super-collection" rule made precise: a sub-collection's groups share a deeper ancestor.
 
 // Fame → tier (1 famous/easy … 7 obscure/hard): the ORIGINAL obscurity signal, preserved
 // so our existing hard boards (obscure but well-separated families) stay hard.

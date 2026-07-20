@@ -128,6 +128,21 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
     return null;
   };
   const rootAnnoId = rootId ? namedAncestorOf(rootId) : null;
+  // From Thursday on (tier ≥ 4) clade LABELS show the scientific name only. A common clade
+  // name ("Old World sparrows") shares a word with its answer tile ("House Sparrow") and
+  // hands the placement over; the Latin ("Passeridae") doesn't — the harder-half analogue
+  // of Kinship hiding names midweek. (Species tiles keep their common names via nameOf.)
+  const CLADE_LATIN_MIN_TIER = 4;
+  const cladeLatinOnly = g.tier >= CLADE_LATIN_MIN_TIER && !over; // reveal common names once solved
+  const cladeLabel = (id: string) => {
+    const n = tree.byId.get(id);
+    return (cladeLatinOnly ? n?.sciName ?? n?.common : n?.common ?? n?.sciName) ?? id;
+  };
+  // Brutal weekend (Sat/Sun, tier ≥ 6): also hide the rank subtitle ("GENUS"/"FAMILY").
+  // Knowing a group's rank narrows placement, so the final escalation removes it — you
+  // still have the Latin name, the tree shape and the pictures. Shown again once solved.
+  const HIDE_RANK_MIN_TIER = 6;
+  const hideRank = g.tier >= HIDE_RANK_MIN_TIER && !over;
   const points = g.result ? branchesPoints(g.tier, g.result.correct, g.result.total, g.result.hinted + 0.5 * g.result.peeked) : 0;
   // Shareable result grid: one square per slot in board order. The answer species
   // are never encoded — only whether each was placed right, and with what help —
@@ -264,8 +279,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
                 return (
                   <button key={n.id} type="button" className="clado-pt is-clade is-ancestor" style={{ left: n.x, top: n.y }} onClick={() => setWikiId(rootAnnoId)}>
                     <span className="pt-dot" />
-                    <span className="pt-name">{nameOf(tree, rootAnnoId)}</span>
-                    <span className="pt-rank">{anc?.rank}</span>
+                    <span className="pt-name">{cladeLabel(rootAnnoId)}</span>
+                    {!hideRank && <span className="pt-rank">{anc?.rank}</span>}
                   </button>
                 );
               }
@@ -279,8 +294,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, r
             return (
               <button key={n.id} type="button" className="clado-pt is-clade" style={{ left: n.x, top: n.y }} onClick={() => setWikiId(n.id)}>
                 <span className="pt-dot" />
-                <span className="pt-name">{nameOf(tree, n.id)}</span>
-                <span className="pt-rank">{node?.rank}</span>
+                <span className="pt-name">{cladeLabel(n.id)}</span>
+                {!hideRank && <span className="pt-rank">{node?.rank}</span>}
               </button>
             );
           })}

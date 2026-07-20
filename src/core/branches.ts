@@ -12,14 +12,19 @@
 // groups (a placed dolphin telling you which branch is the dolphins), and the
 // board contains ONLY the groups in play — no unrelated filler branches.
 //
-// Difficulty (shared weekday ramp): an easy board draws groups from far-apart
-// branches (owls vs. beetles vs. oaks) and anchors most of them; a hard board
-// draws sibling groups that look alike, with more slots and fewer anchors.
+// Difficulty (shared weekday ramp), stacked levers Monday → Sunday:
+//   • GROUP GRAIN — broad order-level groups (easy) → fine family/genus groups (hard).
+//   • GROUP SEPARATION — far-apart branches (owls vs. beetles vs. oaks, easy) → tight
+//     sibling groups that look alike (hard).
+//   • SLOT COUNT — 4 → 7, and ANCHORS — mostly anchored (easy) → few/none (hard).
+//   • SHARED-WORD FLOOR — the reverse of Kinship's cap: the tray must hold at least
+//     2 (Mon) rising to 4 (Sun) look-alike names (two "sparrows"), so a bare word-match
+//     stops being enough and you must place each species on its own clade.
 //
 // Pure: imports only the tree engine — no React, no DOM, no data layer.
 
 import type { Tree } from "./types";
-import { leavesUnder, mrca } from "./tree";
+import { leavesUnder, mrca, medianSeparationTier } from "./tree";
 import { DAILY_EPOCH } from "./daily";
 
 /** A frozen Branches board, stored by IDENTITY (ids only). Display labels and the
@@ -90,10 +95,6 @@ function shuffle<T>(arr: T[], rng: () => number): T[] {
   return arr;
 }
 
-function pickN<T>(arr: T[], n: number, rng: () => number): T[] {
-  return shuffle([...arr], rng).slice(0, n);
-}
-
 const isLeaf = (tree: Tree, id: string) => (tree.childrenOf.get(id) ?? []).length === 0;
 const hasName = (tree: Tree, id: string) => {
   const n = tree.byId.get(id);
@@ -109,6 +110,67 @@ const nameWords = (tree: Tree, id: string): Set<string> => {
   if (!c) return new Set();
   return new Set(c.toLowerCase().split(/[^a-z]+/).filter((t) => t.length >= 3));
 };
+
+/** The HEAD NOUN of a species' common name — its LAST significant word (≥3 letters). This
+ *  is the "kind" word that makes two tray tiles genuine look-alikes: "Java Sparrow" /
+ *  "House Sparrow" → "sparrow"; "Jumping spider" / "Crab spider" → "spider". Crucially it
+ *  is NOT a descriptive modifier: "Long-tailed chinchilla" / "Black-tailed jackrabbit"
+ *  have heads "chinchilla" / "jackrabbit" — their shared "tailed" is not a collision, and
+ *  an obvious chinchilla-vs-jackrabbit pair no longer counts toward the floor. In an
+ *  English animal name the head is (almost) always the last word; modifiers precede it, so
+ *  no hand-kept modifier list is needed. Null for a Latin-only species. */
+export const headWord = (tree: Tree, id: string): string | null => {
+  const c = tree.byId.get(id)?.common;
+  if (!c) return null;
+  const toks = c.toLowerCase().split(/[^a-z]+/).filter((t) => t.length >= 3);
+  return toks.length ? toks[toks.length - 1] : null;
+};
+
+/** Shared-word FLOOR — the reverse of Kinship's cap. How many of the day's tray species
+ *  must share a HEAD NOUN with another tray species (two "sparrows", three "terns").
+ *  Always ≥ 2, rising to 4 by Sunday, so hard days pack the tray with look-alike names
+ *  that a bare word-match can't tell apart — you must actually place each species on its
+ *  own clade. A soft target: a board whose groups genuinely can't collide is allowed
+ *  (its difficulty is carried by the separation band instead). */
+export function sharedWordFloor(tier: number): number {
+  return 2 + Math.round(((tier - 1) / 6) * 2); // 2 (Mon/Tue) … 3 (mid) … 4 (Sat/Sun)
+}
+
+// Per-tier window on a board's ACTUAL answer-group separation (median MRCA-rank tier over
+// the answer groups, via medianSeparationTier). This is the difficulty GATE — it scores
+// the real groups on the board, not the container's aggregate, so a spread cross-class
+// subset (butterfly + shark + gecko…) can never land on a hard day, and a tight genus
+// board can never land on Monday. Wide, overlapping windows: a lean, not a knife-edge,
+// with anti-repeat retry finding an in-band board. Index by weekday tier 1…7 (0 unused).
+const SEP_BAND: Array<[number, number]> = [
+  [0, 0], [1, 2], [1, 3], [2, 4], [2, 5], [3, 5], [3, 6], [4, 7],
+];
+
+// Broad "Lineage-style" groups a board must stay WITHIN — no board ever mixes two classes
+// (no chinchilla-and-cockatoo board), exactly as Kinship. A container node ABOVE every
+// class marker (Amniota, Tetrapoda, Bilateria…) maps to "other" and can never host a
+// board, so every board sits inside one class; a node BELOW a marker inherits that class.
+// Mirrors grid.ts's BROAD_GROUPS markers — keep the two lists in sync.
+const BROAD_MARKERS: Record<string, string> = {
+  Mammalia: "Mammals", Aves: "Birds",
+  Actinopterygii: "Fish", Elasmobranchii: "Fish", Chondrichthyes: "Fish",
+  Squamata: "Reptiles", Testudines: "Reptiles", Crocodylia: "Reptiles",
+  Amphibia: "Amphibians", Insecta: "Insects",
+  Arachnida: "Spiders", Araneae: "Spiders", // this tree has no Arachnida node; Araneae (order "Spiders") is the marker
+  Gastropoda: "Molluscs", Bivalvia: "Molluscs", Cephalopoda: "Molluscs",
+  Magnoliopsida: "Plants", Liliopsida: "Plants", Pinopsida: "Plants", Polypodiopsida: "Plants",
+};
+/** The broad group a node sits in: the OUTERMOST (broadest) marker ancestor's group, or
+ *  "other" if it sits above every class marker (→ can't host a board, so no board spans
+ *  two classes). */
+function broadGroupOf(tree: Tree, id: string): string {
+  let group = "other";
+  for (let c: string | null | undefined = id; c; c = tree.byId.get(c)?.parentId) {
+    const s = tree.byId.get(c)?.sciName;
+    if (s && BROAD_MARKERS[s]) group = BROAD_MARKERS[s];
+  }
+  return group;
+}
 
 // ---- discovery (tree-only, cached per tree) ----
 
@@ -132,16 +194,32 @@ function allGroups(tree: Tree, maxLeaves: number): Map<string, Group> {
 
 interface Container {
   id: string;
-  depth: number;
+  /** Broad class this container sits in (Mammals/Birds/…/Plants) — every board stays
+   *  within one, and the min-tier gate keeps the unfamiliar ones off the easy days. */
+  group: string;
+  /** Group SEPARATION as a difficulty tier (1 spread/easy … 7 tight/hard): the median
+   *  MRCA-rank separation of the container's groups (shared with Kinship, via
+   *  medianSeparationTier). Rank-based, not raw tree depth, so it reads consistently
+   *  across taxa resolved to different granularities. */
+  sepTier: number;
   /** Pairwise-disjoint groups under this node (the shallowest named clade in each
    *  branch — never nested, so their leaf sets can't overlap). */
   groups: Group[];
 }
 
+// Structurally-unfamiliar classes are barred from the easy early-week days (as Kinship's
+// GROUP_MIN_TIER): plants/molluscs surface from Thursday, spiders from the weekend. Every
+// vertebrate + insect group is allowed from Monday. Keeps easy days from flooding with the
+// most container-rich lineage (angiosperms) and reserves the niche groups for hard days.
+const GROUP_MIN_TIER: Record<string, number> = {
+  Mammals: 1, Birds: 1, Fish: 1, Reptiles: 1, Amphibians: 1, Insects: 1,
+  Plants: 4, Molluscs: 4, Spiders: 5,
+};
+
 /** For every node, the shallowest named group in each of its branches (one
  *  bottom-up pass). A node that is itself a group contributes only itself, so the
  *  list is always pairwise disjoint. A node with ≥MIN_GROUPS such groups can host
- *  a board; its depth sets the group separation (shallow = spread out = easy). */
+ *  a board; its groups' MRCA-rank separation sets the difficulty (spread = easy). */
 function containers(tree: Tree, groups: Map<string, Group>): Container[] {
   const top = new Map<string, Group[]>();
   const compute = (id: string): Group[] => {
@@ -161,7 +239,13 @@ function containers(tree: Tree, groups: Map<string, Group>): Container[] {
 
   const out: Container[] = [];
   for (const [id, list] of top) {
-    if (list.length >= MIN_GROUPS) out.push({ id, depth: tree.depthOf.get(id) ?? 0, groups: list });
+    if (list.length < MIN_GROUPS) continue;
+    const group = broadGroupOf(tree, id);
+    if (group === "other") continue; // spans ≥2 classes → never a board
+    // Separation over a bounded, deterministic sample of the groups (median-pairwise is
+    // O(g²); a big container's tier is well-estimated by a stable slice of its groups).
+    const sample = [...list].sort((a, b) => a.cladeId.localeCompare(b.cladeId)).slice(0, 12);
+    out.push({ id, group, sepTier: medianSeparationTier(tree, sample.map((g) => g.cladeId)), groups: list });
   }
   return out;
 }
@@ -185,27 +269,67 @@ function getContainers(tree: Tree, maxLeaves: number): Container[] {
   return c;
 }
 
-/** Containers at a tier's grain — widening the grain if that exact grain yields
- *  none, so every tier can always field a board. */
-function containersForTier(tree: Tree, tier: number): Container[] {
-  for (let mx = grainForTier(tier); mx <= MAX_GROUP_LEAVES; mx += 2) {
-    const c = getContainers(tree, mx);
+const ALL_GROUPS = Object.keys(GROUP_MIN_TIER);
+
+/** Containers of ONE broad class at a tier's grain. Starts at the tier's grain and widens
+ *  COARSER, then falls back FINER, so a class always yields a board when it's picked — even
+ *  a low-order class like amphibians (which only forms containers at a fine grain) can run
+ *  on an easy day. Grain sets group breadth; sepTier then sets the difficulty within. */
+function containersForGroupTier(tree: Tree, group: string, tier: number): Container[] {
+  const base = grainForTier(tier);
+  for (let mx = base; mx <= MAX_GROUP_LEAVES; mx += 2) {
+    const c = getContainers(tree, mx).filter((x) => x.group === group);
     if (c.length) return c;
   }
-  return getContainers(tree, MAX_GROUP_LEAVES);
+  for (let mx = base - 2; mx >= FINE_GROUP_LEAVES; mx -= 2) {
+    const c = getContainers(tree, mx).filter((x) => x.group === group);
+    if (c.length) return c;
+  }
+  return [];
 }
 
-/** Pick the day's container, biased by tier: easy tiers favour SHALLOW containers
- *  (their groups sit far apart across the tree — owls vs. beetles vs. oaks), hard
- *  tiers favour DEEP ones (tight sibling families — one squid family vs. another).
- *  A window around the tier's target keeps day-to-day variety and lets the
- *  anti-repeat layer still find alternatives. */
-function pickContainer(tree: Tree, tier: number, rng: () => number): Container {
-  const pool = containersForTier(tree, tier);
-  if (pool.length <= 1) return pool[0];
-  const sorted = [...pool].sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id));
-  const center = ((tier - 1) / 6) * (sorted.length - 1); // shallow (Mon) → deep (Sun)
-  const half = Math.max(1, Math.round(sorted.length * 0.2));
+// Per (tree, tier): each gated-in class → its containers. Cached so the epoch replay stays
+// cheap. Balancing over CLASSES (not the raw container pool) is what stops the most
+// container-rich lineages — mammal-dense augment on easy days, angiosperms/insects on hard
+// — from flooding a tier.
+const groupTierCache = new WeakMap<Tree, Map<number, Map<string, Container[]>>>();
+function groupContainers(tree: Tree, tier: number): Map<string, Container[]> {
+  let byTier = groupTierCache.get(tree);
+  if (!byTier) groupTierCache.set(tree, (byTier = new Map()));
+  const hit = byTier.get(tier);
+  if (hit) return hit;
+  const m = new Map<string, Container[]>();
+  for (const g of ALL_GROUPS) {
+    if ((GROUP_MIN_TIER[g] ?? 1) > tier) continue; // class gated off this tier
+    const cs = containersForGroupTier(tree, g, tier);
+    if (cs.length) m.set(g, cs);
+  }
+  byTier.set(tier, m);
+  return m;
+}
+
+/** The day's broad CLASS, chosen uniformly among those eligible this tier. Locked ONCE per
+ *  day (not per container attempt) so the class distribution stays balanced: the augment is
+ *  mammal-dense and only some classes can field a colliding board at a given grain, so if
+ *  the class were re-drawn each attempt the shared-word floor would quietly re-bias every
+ *  easy day toward mammals. Locking the class first makes the floor a best-effort WITHIN the
+ *  day's class instead of a lever that picks the class. Null if none eligible. */
+function pickGroup(tree: Tree, tier: number, rng: () => number): string | null {
+  const groups = [...groupContainers(tree, tier).keys()].sort();
+  return groups.length ? groups[Math.floor(rng() * groups.length)] : null;
+}
+
+/** Pick a container WITHIN the day's locked class, biased by tier: easy days favour
+ *  WELL-SEPARATED containers (low sepTier — different orders), hard days favour TIGHT ones
+ *  (high sepTier — sibling families). A window around the target keeps day-to-day variety
+ *  and lets the anti-repeat layer find alternatives. */
+function pickContainer(tree: Tree, group: string, tier: number, rng: () => number): Container | null {
+  const cs = groupContainers(tree, tier).get(group);
+  if (!cs || !cs.length) return null;
+  if (cs.length <= 1) return cs[0];
+  const sorted = [...cs].sort((a, b) => a.sepTier - b.sepTier || a.id.localeCompare(b.id));
+  const center = ((tier - 1) / 6) * (sorted.length - 1); // spread (Mon) → tight (Sun)
+  const half = Math.max(1, Math.round(sorted.length * 0.3));
   const lo = Math.max(0, Math.floor(center - half));
   const hi = Math.min(sorted.length - 1, Math.ceil(center + half));
   return sorted[lo + Math.floor(rng() * (hi - lo + 1))];
@@ -238,27 +362,114 @@ function otherBranchLeaves(tree: Tree, groupId: string, slot: string, groupLeave
   return groupLeaves.filter((id) => id !== slot && !slotSet.has(id));
 }
 
-/** The cheap per-day board selection over the tier's containers. */
-function selectBoard(tree: Tree, dateKey: string, tier: number, attempt: number): BranchesBoard {
+const viewsOf = (tree: Tree, id: string) => tree.byId.get(id)?.views ?? 0;
+/** Weighted-random order by pageviews (Efraimidis–Spirakis key u^(1/views), as Kinship's
+ *  pickMembers). Famous species usually come first — this is a RECOGNITION game, so the
+ *  tray should lean recognisable — but obscurer members still rotate in across days, so
+ *  the boards vary far more than a fixed top-N would. Deterministic given the rng. */
+function byViews(tree: Tree, ids: string[], rng: () => number): string[] {
+  return ids
+    .map((id) => ({ id, key: Math.pow(rng(), 1 / Math.max(viewsOf(tree, id), 1)) }))
+    .sort((a, b) => b.key - a.key || (a.id < b.id ? -1 : 1))
+    .map((x) => x.id);
+}
+
+/** Choose the day's k groups AND one slot species each, packing the tray with at least
+ *  `floor` species that share a distinctive name word (two "sparrows", …) so a bare
+ *  word-match can't solve the board. Greedy, best-effort and deterministic:
+ *   1. index every group by the words its members can field;
+ *   2. lock colliding groups to their shared word — biggest span first — until the floor
+ *      is met or the collision words run out (a word must span ≥2 groups to count);
+ *   3. fill the remaining slots with other groups, each a recognisable common-named pick.
+ *  Falls back gracefully when the container can't collide (few or no shared words) — it
+ *  simply returns k recognisable picks, as the pre-floor generator did. */
+function pickGroupSlots(
+  tree: Tree,
+  groups: Group[],
+  k: number,
+  floor: number,
+  rng: () => number
+): { grp: Group; slot: string }[] {
+  // Candidate members per group: COMMON-NAMED ONLY — a slot species must never be a bare
+  // Latin binomial (an unplaceable, un-collidable tray tile). Ordered weighted-random by
+  // pageviews so the tray leans recognisable. The filler pick is candidates[0]; a
+  // collision's representative is the most-famous member carrying the shared word. Groups
+  // with no common-named member are dropped (selectBoard passes only eligible groups, but
+  // guard anyway).
+  const cand = new Map<Group, string[]>();
+  for (const g of groups) {
+    const named = g.leaves.filter((id) => tree.byId.get(id)?.common);
+    if (named.length) cand.set(g, byViews(tree, named, rng));
+  }
+  groups = groups.filter((g) => cand.has(g));
+
+  // head noun → one representative (group, species) per group that can field it.
+  const byWord = new Map<string, { grp: Group; species: string }[]>();
+  for (const g of groups) {
+    const claimed = new Set<string>();
+    for (const id of cand.get(g)!) {
+      const h = headWord(tree, id);
+      if (!h || claimed.has(h)) continue; // one representative species per (head, group)
+      claimed.add(h);
+      (byWord.get(h) ?? byWord.set(h, []).get(h)!).push({ grp: g, species: id });
+    }
+  }
+  // Collision words span ≥2 groups; widest span first, seeded tiebreak so the day's
+  // shared word varies. Deterministic given the rng.
+  const collisions = [...byWord.values()]
+    .map((gs) => ({ gs, span: new Set(gs.map((x) => x.grp)).size, key: rng() }))
+    .filter((c) => c.span >= 2)
+    .sort((a, b) => b.span - a.span || a.key - b.key);
+
+  const slotOf = new Map<Group, string>(); // group → its locked slot species
+  // (1) Lock colliding groups until the floor is met (or we run out / fill k). Each word
+  // contributes only as many groups as still needed (≥2 to form a real collision), so a
+  // wide "…sparrow" word doesn't swallow the whole board when the floor is small.
+  for (const { gs } of collisions) {
+    if (slotOf.size >= floor || slotOf.size >= k) break;
+    const fresh = [...new Map(gs.filter((x) => !slotOf.has(x.grp)).map((x) => [x.grp, x])).values()];
+    if (fresh.length < 2) continue; // a collision needs a fresh pair
+    const take = Math.max(2, floor - slotOf.size);
+    for (const x of fresh.slice(0, Math.min(take, k - slotOf.size))) slotOf.set(x.grp, x.species);
+  }
+
+  // (2) Fill the rest with other groups (shuffled), each a recognisable common-named slot.
+  const chosen = [...slotOf.keys()];
+  for (const g of shuffle([...groups], rng)) {
+    if (chosen.length >= k) break;
+    if (slotOf.has(g)) continue;
+    slotOf.set(g, cand.get(g)![0]);
+    chosen.push(g);
+  }
+  return chosen.slice(0, k).map((g) => ({ grp: g, slot: slotOf.get(g)! }));
+}
+
+/** The cheap per-day board selection over the day's LOCKED class. Returns null when the
+ *  picked container can't field MIN_GROUPS groups that each have a common-named species to
+ *  place (every slot species must be common-named — never a bare Latin binomial). */
+function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, attempt: number): BranchesBoard | null {
   const seedKey = attempt === 0 ? `grebe:branches:${dateKey}:${tier}` : `grebe:branches:${dateKey}:${tier}:${attempt}`;
   const rng = mulberry32(xmur3(seedKey));
-  const container = pickContainer(tree, tier, rng);
+  const container = pickContainer(tree, group, tier, rng);
+  if (!container) return null;
 
-  const k = slotCount(tier, container.groups.length);
-  const chosen = pickN(container.groups, k, rng);
+  // Only groups with a common-named member can host a (common-named) slot; size the board
+  // from those, and bail if too few — a Latin-only region can't field this game.
+  const eligible = container.groups.filter((g) => g.leaves.some((id) => tree.byId.get(id)?.common));
+  if (eligible.length < MIN_GROUPS) return null;
+  const k = slotCount(tier, eligible.length);
+  // Pass 1: choose the k groups AND their slot species jointly, packing the tray with
+  // at least `floor` look-alike names (rising with the tier) so a bare word-match can't
+  // solve the board. Floor can't exceed the slot count.
+  const floor = Math.min(k, sharedWordFloor(tier));
+  const picks = pickGroupSlots(tree, eligible, k, floor, rng);
+  if (picks.length < MIN_GROUPS) return null;
 
   const slotIds: string[] = [];
   const anchorIds: string[] = [];
   const groupIds: string[] = [];
-  const usedGroupIds = new Set(chosen.map((g) => g.cladeId));
+  const usedGroupIds = new Set(picks.map((p) => p.grp.cladeId));
 
-  // Pass 1: each group's slot (the answer) + its group label. Prefer common-named
-  // members so the tray tile reads recognisably.
-  const picks = chosen.map((grp) => {
-    const named = grp.leaves.filter((id) => tree.byId.get(id)?.common);
-    const pool = shuffle(named.length >= 2 ? [...named] : [...grp.leaves], rng);
-    return { grp, slot: pool[0] };
-  });
   picks.forEach(({ grp, slot }) => {
     slotIds.push(slot);
     groupIds.push(grp.cladeId);
@@ -292,7 +503,7 @@ function selectBoard(tree: Tree, dateKey: string, tier: number, attempt: number)
   for (const cg of shuffle(container.groups.filter((g) => !usedGroupIds.has(g.cladeId)), rng)) {
     if (anchorIds.length >= target) break;
     const named = cg.leaves.filter((id) => tree.byId.get(id)?.common);
-    const rep = shuffle(named.length ? [...named] : [...cg.leaves], rng).find((id) => !used.has(id) && !clashesAnswer(id));
+    const rep = byViews(tree, named.length ? named : [...cg.leaves], rng).find((id) => !used.has(id) && !clashesAnswer(id));
     if (!rep) continue;
     anchorIds.push(rep);
     used.add(rep);
@@ -324,15 +535,69 @@ function selectBoard(tree: Tree, dateKey: string, tier: number, attempt: number)
 const boardSig = (b: BranchesBoard) =>
   b.slotIds.concat(b.anchorIds).map((id) => id).sort().join(",");
 
+/** How many of a board's tray species share a HEAD NOUN with another tray species — the
+ *  quantity the shared-word floor targets ("sparrow" ×2, not "-tailed" ×3). */
+function trayCollisions(tree: Tree, b: BranchesBoard): number {
+  const heads = b.slotIds.map((id) => headWord(tree, id));
+  const freq = new Map<string, number>();
+  for (const h of heads) if (h) freq.set(h, (freq.get(h) ?? 0) + 1);
+  let n = 0;
+  for (const h of heads) if (h && (freq.get(h) ?? 0) >= 2) n++;
+  return n;
+}
+/** True when a board hits its shared-word floor (capped by its slot count — a small
+ *  board can't collide more names than it has). */
+function meetsFloor(tree: Tree, b: BranchesBoard): boolean {
+  return trayCollisions(tree, b) >= Math.min(b.slotIds.length, sharedWordFloor(b.tier));
+}
+
+/** The board's ANSWER groups (the clades that actually own a slot) — groupIds stores them
+ *  first, before the labelled context clades. */
+const answerGroupIds = (b: BranchesBoard) => b.groupIds.slice(0, b.slotIds.length);
+
+/** True when the board's actual answer-group separation sits in the day's SEP_BAND — the
+ *  difficulty gate that keeps a spread cross-class board off a hard day (and a tight genus
+ *  board off Monday). */
+function inSepBand(tree: Tree, b: BranchesBoard): boolean {
+  const [lo, hi] = SEP_BAND[b.tier] ?? SEP_BAND[1];
+  const sep = medianSeparationTier(tree, answerGroupIds(b));
+  return sep >= lo && sep <= hi;
+}
+
 const BRANCHES_ANTI_REPEAT_WINDOW = 60;
 const BRANCHES_ATTEMPTS = 24;
 
-function boardForDay(tree: Tree, dateKey: string, tier: number, avoid: (s: string) => boolean): BranchesBoard {
-  let board = selectBoard(tree, dateKey, tier, 0);
-  for (let attempt = 1; attempt < BRANCHES_ATTEMPTS && avoid(boardSig(board)); attempt++) {
-    board = selectBoard(tree, dateKey, tier, attempt);
+/** The day's board. Surveys up to BRANCHES_ATTEMPTS containers (each attempt re-seeds
+ *  pickContainer, which balances broad classes) and returns the first that is fresh AND
+ *  meets the shared-word floor — the firm difficulty signal (meaningful head-noun
+ *  collisions, which naturally track how tight the groups are). The separation band is only
+ *  a SOFT preference: a hard per-tier band would admit only the classes whose natural
+ *  separation happens to match it (mammals on easy, amphibians midweek) and undo the class
+ *  balance, so it merely breaks ties. Falls back: fresh+floor → fresh+in-band → fresh →
+ *  any valid board (attempts are null when a container is too Latin-only to field a board).
+ *  Returns null only if NO attempt yields a valid board. */
+function boardForDay(tree: Tree, dateKey: string, tier: number, avoid: (s: string) => boolean): BranchesBoard | null {
+  // Lock the day's broad class ONCE (uniform over eligible classes) — every attempt stays
+  // within it, so the class distribution is balanced and the shared-word floor is a
+  // best-effort within the class, never the thing that picks the class.
+  const group = pickGroup(tree, tier, mulberry32(xmur3(`grebe:branches:${dateKey}:${tier}:group`)));
+  if (!group) return null;
+  let freshFloor: BranchesBoard | null = null;
+  let freshInBand: BranchesBoard | null = null;
+  let firstFresh: BranchesBoard | null = null;
+  let anyValid: BranchesBoard | null = null;
+  for (let attempt = 0; attempt < BRANCHES_ATTEMPTS; attempt++) {
+    const board = selectBoard(tree, group, dateKey, tier, attempt);
+    if (!board) continue;                            // Latin-only container — unusable
+    if (!anyValid) anyValid = board;                 // last-resort (may repeat)
+    if (avoid(boardSig(board))) continue;            // a recent repeat — skip
+    const floor = meetsFloor(tree, board);
+    if (floor && inSepBand(tree, board)) return board; // fresh, look-alikes, on-band → ideal
+    if (floor && !freshFloor) freshFloor = board;    // look-alikes (firm) → primary fallback
+    if (inSepBand(tree, board) && !freshInBand) freshInBand = board; // on-band → secondary
+    if (!firstFresh) firstFresh = board;             // any fresh → last fresh option
   }
-  return board;
+  return freshFloor ?? freshInBand ?? firstFresh ?? anyValid;
 }
 
 /**
@@ -354,6 +619,7 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
     const t = dk === dateKey ? tier : tierForDate(dk);
     const board = boardForDay(tree, dk, t, avoid);
     if (dk === dateKey) return board;
+    if (!board) continue; // a day with no valid board contributes nothing to anti-repeat
 
     const sig = boardSig(board);
     queue.push(sig);

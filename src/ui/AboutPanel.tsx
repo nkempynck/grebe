@@ -79,7 +79,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             Guess the hidden organism. Every wrong guess lands on the shared-ancestry tree at the
             clade it has in common with the answer, so each guess narrows where the target sits:
             closer guesses branch off lower down. You can re-root the tree to any scope (animals,
-            fungi, plants, all of life), pick how close counts as a win (from exact species out to
+            plants, birds, all of life), pick how close counts as a win (from exact species out to
             same order), and read a drawn cladogram of where each guess split off. It has a shared
             daily with a leaderboard, plus free play. Directly inspired by{" "}
             <a href="https://metazooa.com" target="_blank" rel="noreferrer">Metazooa</a> and its
@@ -132,12 +132,12 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             <span className="about-game-src">a Grebe original</span>
           </div>
           <p>
-            Rebuild a slice of the tree. You're handed a labelled skeleton: a few named clades, each
-            with one worked-example species already placed on it, and a tray of species to slot onto
-            the right branch. Drag each onto the group it belongs to. Difficulty sets the <i>grain</i>:
-            easy days group at broad, well-separated clades; harder days pit tight sibling clades that
-            look alike, with fewer worked examples to lean on. Read it as a top-down tree or a circular
-            fan, and tap any clade or anchor for its Wikipedia.
+            Rebuild a slice of the tree. You're handed a labelled skeleton of named clades, all from a
+            single class (all birds, or all spiders), some already showing a worked-example species,
+            plus a tray of species to slot onto the right branch. Drag each onto the group it belongs
+            to. It gets harder through the week: gentle days are broad and forgiving, the toughest pit
+            tight look-alike clades that reward knowing your groups. Read it as a top-down tree or a
+            circular fan, and tap any clade or anchor for its Wikipedia.
           </p>
           <details className="about-score">
             <summary>How scoring works</summary>

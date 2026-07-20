@@ -59,6 +59,48 @@ export function mrca(tree: Tree, a: string, b: string): string {
   return tree.rootId;
 }
 
+// SEPARATION → difficulty tier (1 easy … 7 hard), shared by Kinship and Branches. What
+// makes a set of groups hard is how closely related they are — read off the RANK of their
+// most-recent common ancestor. Groups whose MRCA is a genus/family are near-siblings,
+// temptingly confusable, hard; groups spanning an order are distinct and easy; groups
+// spanning a whole class are trivially separable. Deeper (finer-ranked) MRCA = tighter =
+// harder. Rank-based (not raw tree depth) so it reads consistently across taxa whose trees
+// are resolved to different granularities.
+export const MRCA_TIER: Record<string, number> = {
+  subgenus: 7, "species group": 7, "species subgroup": 7, genus: 7,
+  subtribe: 6, tribe: 6, subfamily: 6, family: 6, section: 6,
+  superfamily: 5,
+  infraorder: 4, parvorder: 4, suborder: 4, infraclass: 4,
+  order: 3,
+  magnorder: 2, superorder: 2, cohort: 2, subcohort: 2,
+  subclass: 1, class: 1, subphylum: 1, phylum: 1, superclass: 1, subterclass: 1,
+};
+
+/** Separation tier of a node: its rank via MRCA_TIER, or — for the unranked junction
+ *  nodes a flattened tree keeps — the nearest RANKED ancestor (a shallower node → an
+ *  easier, conservative read; nothing is called hard just for lacking a rank label). */
+export function separationTierOf(tree: Tree, id: string): number {
+  for (let c: string | null | undefined = id; c; c = tree.byId.get(c)?.parentId) {
+    const t = MRCA_TIER[tree.byId.get(c)?.rank ?? ""];
+    if (t !== undefined) return t;
+  }
+  return 1; // no ranked ancestor at all → a very high clade → easy
+}
+
+/** The MEDIAN over all pairs of `ids` of their MRCA-rank separation (separationTierOf of
+ *  each pair's MRCA). Median — not the single all-way MRCA — is robust to one distant
+ *  outlier among otherwise-tight groups. Returns 1 for fewer than two ids. */
+export function medianSeparationTier(tree: Tree, ids: string[]): number {
+  const pairs: number[] = [];
+  for (let i = 0; i < ids.length; i++)
+    for (let j = i + 1; j < ids.length; j++)
+      pairs.push(separationTierOf(tree, mrca(tree, ids[i], ids[j])));
+  if (pairs.length === 0) return 1;
+  pairs.sort((a, b) => a - b);
+  const m = Math.floor(pairs.length / 2);
+  return pairs.length % 2 ? pairs[m] : (pairs[m - 1] + pairs[m]) / 2;
+}
+
 /** Is `maybeAncestor` on the path from `id` to the root? (inclusive) */
 export function isAncestor(tree: Tree, maybeAncestor: string, id: string): boolean {
   let cur: string | null = id;

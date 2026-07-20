@@ -12,9 +12,9 @@ same for all players. Three games ship today:
 - **Kinship** — sixteen species, four hidden groups of four, each group a real clade; sort
   them before four mistakes run out. A daily grid in the spirit of the New York Times'
   [Connections](https://www.nytimes.com/games/connections).
-- **Branches** — rebuild a slice of the tree: a labelled skeleton of clades with one
-  worked-example species each, and a tray of species to drag onto the branch they belong to.
-  A Grebe original.
+- **Branches** — rebuild a slice of the tree: a labelled skeleton of clades (all from one
+  class), some showing a worked-example species, and a tray of species to drag onto the branch
+  they belong to. A Grebe original.
 
 All three run on one bundled taxonomy snapshot, built Wikipedia-first: the species are chosen by
 how widely they're read about on Wikipedia and connected by the Open Tree of Life. Grebe is
@@ -29,9 +29,10 @@ The player names organisms; each wrong guess is placed on the tree at the clade 
 with the hidden answer. Two controls are coordinates on the tree rather than difficulty dials:
 
 - **Scope** is where the tree is rooted (e.g. "Birds" roots it at `Aves`) — not only animals,
-  but also fungi, plants, or all of life.
+  but also chordates, plants, or all of life.
 - **Resolution** is how close a guess must land to count as a win. It indexes a rank ladder
-  (`0` = exact species, `1` = same genus, `2` = family, `3` = order).
+  (`0` = exact species, `1` = same genus, `2` = family, `3` = order). Free play offers all four;
+  the daily ramp uses only family → genus → species (order is too unevenly tagged to be fair).
 
 Alongside the shared-ancestry feedback, each guess carries a warmth score rescaled to the
 current scope, so the signal stays meaningful even in narrow modes (in a birds-only game every
@@ -56,19 +57,23 @@ by difficulty and mistakes).
 
 ### Branches
 
-You're given part of the tree: a skeleton of named clades, each with one species already
-placed on it as a worked example, plus a tray of species to slot onto the branch they belong
-to. Drag each species onto its group; get them all right to win, with partial credit for the
-ones you do place correctly.
+You're given part of the tree: a skeleton of named clades, all within a single class, some
+already showing a worked-example species, plus a tray of species to slot onto the branch they
+belong to. Drag each species onto its group; get them all right to win, with partial credit for
+the ones you place correctly.
 
-Difficulty sets the **grain** of the groups by weekday, in lock-step with the other games'
-tiers. Easy days present broad, well-separated clades with an anchor on every branch; hard days
-present tight sibling clades that look alike, with fewer anchors to lean on. The skeleton can be
-read two ways, as a top-down cladogram or a circular fan, sharing the same layout engine as
-Lineage. Tapping a clade or anchor for its Wikipedia is free; looking up a species you still
-have to place is a penalised peek (half a point), and the species-to-place tiles carry a
-Wikipedia thumbnail you can enlarge for free. Branches is an original, not modelled on an
-existing game.
+Difficulty builds by weekday, in lock-step with the other games' tiers, through several levers
+at once. Easy days present broad, well-separated clades with a worked example on most branches;
+harder days tighten the **grain** to sibling clades that look alike, pack the tray with look-alike
+names (two sparrows, four clams) so name-matching alone won't solve it, thin out the worked
+examples, and from Thursday label the clades scientifically (with the rank hidden on the
+weekend). Because every board stays within one class, placing a tile is always a which-of-these-groups
+question, never a cross-kingdom mix. The species to place are all common-named and lean toward the
+more recognisable members of each clade. The skeleton can be read two ways, as a top-down cladogram
+or a circular fan, sharing the same layout engine as Lineage. Tapping a clade or anchor for its
+Wikipedia is free; looking up a species you still have to place is a penalised peek (half a point),
+and the species-to-place tiles carry a Wikipedia thumbnail you can enlarge for free. Branches is an
+original, not modelled on an existing game.
 
 ## Stack
 
@@ -110,7 +115,7 @@ src/
     taxonomy.json    the bundled tree (built by the scripts/ pipeline; see scripts/PIPELINE.md)
     loadTaxonomy.ts  the single source of the tree
     presets.ts       scope + resolution presets
-    dailySchedule.ts weekday difficulty ramp + per-day seeded recipe pool (Lineage)
+    dailySchedule.ts weekday resolution/assist ramp + spaced scope draw + answer pick (Lineage)
     clades.ts        clade groupings for per-group stats/leaderboards
     cladeNames.ts    friendly common names for clades (group guesses + Kinship labels)
     score.ts         difficulty-weighted points per game
@@ -138,14 +143,17 @@ Because `core/` and `data/` have no UI dependencies, they are portable to a nati
 `dailySchedule.ts` turns a date into a puzzle deterministically, so every player gets the same
 puzzle without a server round-trip:
 
-- The **weekday** sets a difficulty tier (Monday gentlest, Sunday hardest). The tier is also
-  the leaderboard's point weight, so it is fixed to the weekday. Kinship reuses this tier for
-  its board's group-separation and Branches reuses it for its group grain, so all three games
-  get harder across the week together.
-- A **per-day seed** draws the specifics (Lineage's scope + resolution + assist; Kinship's
-  container and groups) from that day's options, so each puzzle is unpredictable but
-  reproducible from the date.
-- `daily.ts` selects Lineage's answer by hashing `date + scope` into the scope's leaves.
+- The **weekday** sets the difficulty. For Lineage that is a win-**resolution** ramp with
+  **assist**: family + assist (Mon/Tue) → genus + assist (Wed) → exact species (Thu–Sun, assist
+  off at the weekend). The weekday is also the leaderboard's point weight (fixed to the day) and
+  the tier Kinship reuses for group-separation and Branches for its grain, look-alike-name floor
+  and label reveal — so all three games get harder across the week together.
+- **Scope is decoupled from difficulty**: a per-day seeded draw over all scopes, with a short
+  anti-repeat so no group clusters, purely for variety.
+- The **answer** is a prominence-weighted draw from the scope's leaves (famous species early in
+  the week, uniform by Sunday), skipping anything used within the anti-repeat window and — on
+  family/genus days — anything whose lineage lacks that rank, so the advertised win tolerance is
+  never silently downgraded.
 
 Because this is seeded rather than truly random, each puzzle is a pure function of the date and
 is fully reproducible (and, with the source public, computable in advance).
@@ -175,8 +183,8 @@ Regenerating either is the only step that touches the network.
 
 ## Scoring
 
-All three games share a difficulty weight, the day's tier (`40 + 20 × tier`), so scores are
-comparable across the week.
+All three games share a difficulty weight, the day's tier (`90 + 10 × tier`, i.e. 100 on Monday
+to 160 on Sunday), so scores are comparable across the week.
 
 **Lineage:** `weight × efficiency × hint-factor`, zero for a loss. Efficiency decays gently
 with guess count and the hint factor drops with an escalating penalty per hint.

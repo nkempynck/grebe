@@ -148,9 +148,17 @@ const branchesResolver: Resolver<"branches"> = {
   //   v3: the shared Kinship/Branches rich tree was expanded (augment now adds out-of-set
   //   genera AND whole families via OTL topology), so the container/species pool — and
   //   thus which boards a date produces — changed.
+  //   v4: Kinship-parity + fairness overhaul. (a) NO CROSS-CLASS boards — a container
+  //   spanning ≥2 classes (Amniota/Bilateria) can't host a board (broadGroupOf), and the
+  //   day's class is LOCKED once & chosen uniformly so no lineage floods a tier (fixes the
+  //   plant/mammal bias); plants/molluscs gated to Thu+, spiders to the weekend. (b)
+  //   Difficulty by MRCA-RANK separation (shared medianSeparationTier), not raw depth. (c)
+  //   SHARED-WORD FLOOR on the tray (2→4) counted on HEAD NOUNS ("sparrow", not "-tailed").
+  //   (d) Slot/anchor species weighted-random by pageviews; slots are common-named only.
+  //   Board identity changed at every tier.
   // Board identity changed → re-pin un-played future dates (Admin ▸ Pins ▸ Re-pin,
   // or npm run pin -- --force); past pins stay frozen.
-  version: 3,
+  version: 4,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
