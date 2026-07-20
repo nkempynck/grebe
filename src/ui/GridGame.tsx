@@ -274,7 +274,7 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
                       role="button"
                       tabIndex={0}
                       title="Enlarge picture"
-                      aria-label={`Enlarge ${nameOf(id)} picture`}
+                      aria-label={nameShown ? `Enlarge ${nameOf(id)} picture` : "Enlarge picture"}
                       onClick={(e) => { e.stopPropagation(); setZoomId(id); }}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setZoomId(id); } }}
                     >
@@ -388,12 +388,19 @@ export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, 
 
       {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} />}
 
-      {zoomId && (fulls[zoomId] || thumbs[zoomId]) && (
-        <div className="grid-zoom" role="dialog" aria-label={`${nameOf(zoomId)} picture`} onClick={() => setZoomId(null)}>
-          <img src={fulls[zoomId] ?? thumbs[zoomId]} alt={nameOf(zoomId)} />
-          <span className="grid-zoom-cap">{nameOf(zoomId)} · tap to close</span>
-        </div>
-      )}
+      {zoomId && (fulls[zoomId] || thumbs[zoomId]) && (() => {
+        // In picture mode the name is the hidden thing: don't leak it in the
+        // enlarged view unless this tile's name has already been revealed (or
+        // the species has no image, so its name is shown as a fallback anyway).
+        const zoomNameShown = !pictureMode || flipped.has(zoomId) || noImg.has(zoomId);
+        const zoomName = zoomNameShown ? nameOf(zoomId) : "";
+        return (
+          <div className="grid-zoom" role="dialog" aria-label={zoomNameShown ? `${zoomName} picture` : "Enlarged picture"} onClick={() => setZoomId(null)}>
+            <img src={fulls[zoomId] ?? thumbs[zoomId]} alt={zoomName} />
+            <span className="grid-zoom-cap">{zoomNameShown ? `${zoomName} · tap to close` : "tap to close"}</span>
+          </div>
+        );
+      })()}
 
       {pendingReveal && (
         <div className="grid-confirm" role="alertdialog" aria-label="Confirm reveal" ref={confirmRef}>
