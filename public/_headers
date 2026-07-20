@@ -1,0 +1,25 @@
+# Cloudflare Pages security headers — applied to every response.
+# Vite copies this file from public/ into dist/ on build.
+#
+# NOTE: the CSP is currently in *Report-Only* mode (header name ends in
+# -Report-Only) — it LOGS violations to the browser console but blocks nothing,
+# so it's safe to ship while verifying. Once the live console is clean, rename
+# `Content-Security-Policy-Report-Only:` back to `Content-Security-Policy:` to
+# enforce it.
+#
+# The CSP allowlist covers the only external origins the app actually uses:
+#   • Supabase          — auth + RPC/REST            (connect-src *.supabase.co)
+#   • Cloudflare Turnstile — captcha script + iframe (script/frame/connect challenges.cloudflare.com)
+#   • Wikipedia         — REST summary API           (connect-src en.wikipedia.org)
+#                         + lead images              (img-src upload.wikimedia.org, *.wikipedia.org)
+# The single inline <script> (theme-before-paint in index.html) is allowed by its
+# sha256 hash, NOT 'unsafe-inline', so injected scripts stay blocked. If that
+# inline snippet is ever edited, recompute the hash or the theme flash returns.
+# 'unsafe-inline' in style-src is required for React inline style={} attributes.
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'sha256-pREEHP1tF4hnFjsGWhCxTHPIc2H7oIFfztRnZeIy1s8=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://upload.wikimedia.org https://*.wikipedia.org; connect-src 'self' https://*.supabase.co https://en.wikipedia.org https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
