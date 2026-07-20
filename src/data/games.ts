@@ -40,6 +40,48 @@ export async function fetchTodayDaily(puzzleDate: string): Promise<TodayDaily | 
   }
 }
 
+export interface TodayGrid { won: boolean; mistakes: number; reveals: number }
+
+/** The signed-in player's Kinship row for a date, or null (RLS scopes it to the
+ *  caller). Lets a board lock as already-played on any device — the row stores
+ *  only summary stats, so a restore can lock + show the terminal board, not the
+ *  exact attempt sequence. */
+export async function fetchTodayGrid(puzzleDate: string): Promise<TodayGrid | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("grid_games")
+      .select("won, mistakes, reveals")
+      .eq("puzzle_date", puzzleDate)
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as TodayGrid;
+  } catch {
+    return null;
+  }
+}
+
+export interface TodayBranches { won: boolean; correct: number; total: number; hinted: number; peeked: number }
+
+/** The signed-in player's Branches row for a date, or null (RLS scopes it to the
+ *  caller). Same purpose and limits as fetchTodayGrid. */
+export async function fetchTodayBranches(puzzleDate: string): Promise<TodayBranches | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("branches_games")
+      .select("won, correct, total, hinted, peeked")
+      .eq("puzzle_date", puzzleDate)
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as TodayBranches;
+  } catch {
+    return null;
+  }
+}
+
 export interface LeaderboardEntry {
   display_name: string;
   total_score: number;

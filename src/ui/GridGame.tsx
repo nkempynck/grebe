@@ -23,6 +23,9 @@ interface Props {
   onComplete?: (r: GridComplete) => void;
   /** Leaderboard name to highlight (null when signed out). */
   me?: string | null;
+  /** Signed-in player's id (null when signed out) — restores/locks an
+   *  already-played board from the server on any device. */
+  userId?: string | null;
   /** True when a backend is configured — gates the post-game board. */
   configured?: boolean;
   /** Bump to refetch the post-game board after the result is submitted. */
@@ -68,10 +71,10 @@ function GroupBar({ tree, group, dimmed, onPick }: { tree: Tree; group: GridGrou
   );
 }
 
-export function GridGame({ tree, streak, onComplete, me, configured, reloadKey, onHowItWorks, sandbox }: Props) {
+export function GridGame({ tree, streak, onComplete, me, userId, configured, reloadKey, onHowItWorks, sandbox }: Props) {
   const devSettings = useDev();
   const dev = sandbox ? { tier: devSettings.tier, nonce: devSettings.nonce } : null;
-  const g = useGridGame(tree, onComplete, dev);
+  const g = useGridGame(tree, onComplete, dev, userId);
   const [copied, setCopied] = useState(false);
   // Picture reveals: fetched thumbnails per species, and which tiles show them.
   const [thumbs, setThumbs] = useState<Record<string, string>>({});

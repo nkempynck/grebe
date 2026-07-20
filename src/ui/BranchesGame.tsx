@@ -22,6 +22,9 @@ interface Props {
   onHowItWorks?: () => void;
   /** Leaderboard name to highlight (null when signed out). */
   me?: string | null;
+  /** Signed-in player's id (null when signed out) — restores/locks an
+   *  already-played board from the server on any device. */
+  userId?: string | null;
   /** True when a backend is configured — gates the post-game board. */
   configured?: boolean;
   /** Bump to refetch the post-game board after the result is submitted. */
@@ -97,10 +100,10 @@ const readDrag = (e: React.DragEvent): DragData | null => {
   }
 };
 
-export function BranchesGame({ tree, onComplete, onHowItWorks, me, configured, reloadKey, streak, sandbox }: Props) {
+export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, configured, reloadKey, streak, sandbox }: Props) {
   const devSettings = useDev();
   const dev = sandbox ? { tier: devSettings.tier, nonce: devSettings.nonce } : null;
-  const g = useBranchesGame(tree, onComplete, dev);
+  const g = useBranchesGame(tree, onComplete, dev, userId);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [trayOver, setTrayOver] = useState(false);
   const [wikiId, setWikiId] = useState<string | null>(null);

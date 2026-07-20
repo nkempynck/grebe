@@ -4,6 +4,7 @@ import { todayKey } from "../core/daily";
 import { branchesBoardFor } from "../data/branchesDaily";
 import { fetchPinnedPuzzle, branchesBoard as rebuildBranches } from "../data/pinnedPuzzles";
 import { loadBranchesProgress, saveBranchesProgress } from "../data/branchesProgress";
+import { fetchTodayBranches } from "../data/games";
 
 export type BranchesStatus = "playing" | "done";
 
@@ -88,7 +89,11 @@ function boardSig(b: BranchesBoard | null): string {
 export function useBranchesGame(
   tree: Tree | null,
   onComplete?: (r: BranchesComplete) => void,
-  dev?: BranchesDevOpts | null
+  dev?: BranchesDevOpts | null,
+  /** The signed-in player's id, or null. When set, an already-played board is
+   *  restored (locked) from the server, so playing one device/domain blocks a
+   *  replay on another — matching Lineage. */
+  userId?: string | null
 ): UseBranchesGame {
   const date = todayKey();
   const devActive = !!dev;
@@ -170,6 +175,36 @@ export function useBranchesGame(
     }
     saveBranchesProgress({ date, placements, hints, peeked, status });
   }, [board, date, devActive, placements, hints, peeked, status, hydratedSig]);
+
+  // Signed-in players: restore an already-played board from the server (works on
+  // any device/domain, where localStorage is empty). Runs once per (user, date),
+  // only after local hydration so it can't be clobbered. The row stores only
+  // summary stats, so we lock the board in its DONE state showing the solved tree
+  // and the recorded tally, not the exact placements. onComplete is NOT re-fired.
+  const cloudRestored = useRef<string | null>(null);
+  useEffect(() => {
+    if (devActive || !board || !userId) return;
+    if (hydratedSig !== boardSig(board)) return; // wait for local hydration
+    const key = `${userId}:${date}`;
+    if (cloudRestored.current === key) return;
+    // Local storage already has a finished board (same-device replay): keep it —
+    // it carries the real placements/help used, richer than the server summary.
+    if (status !== "playing") { cloudRestored.current = key; return; }
+    let live = true;
+    fetchTodayBranches(date).then((row) => {
+      if (!live || !row) return;
+      cloudRestored.current = key;
+      const solvedPlacements: Record<string, string> = {};
+      for (const s of board.slotIds) solvedPlacements[s] = s;
+      setPlacements(solvedPlacements);
+      setHints([]);
+      setPeeked([]);
+      setHeld(null);
+      setResult({ correct: row.correct, total: row.total, hinted: row.hinted, peeked: row.peeked });
+      setStatus("done");
+    });
+    return () => { live = false; };
+  }, [devActive, board, userId, date, hydratedSig, status]);
 
   // Tray = board species not yet placed anywhere.
   const tray = useMemo(() => {

@@ -5,6 +5,7 @@ import { todayKey } from "../core/daily";
 import { gridBoardFor } from "../data/gridDaily";
 import { fetchPinnedPuzzle, kinshipBoard } from "../data/pinnedPuzzles";
 import { loadGridProgress, saveGridProgress } from "../data/gridProgress";
+import { fetchTodayGrid } from "../data/games";
 
 /** Wrong guesses allowed before the board is lost (matches Connections). */
 export const GRID_MAX_MISTAKES = 4;
@@ -81,7 +82,11 @@ function boardSig(b: GridBoard | null): string {
 export function useGridGame(
   tree: Tree | null,
   onComplete?: (r: GridComplete) => void,
-  dev?: GridDevOpts | null
+  dev?: GridDevOpts | null,
+  /** The signed-in player's id, or null. When set, an already-played board is
+   *  restored (locked) from the server, so playing one device/domain blocks a
+   *  replay on another — matching Lineage. */
+  userId?: string | null
 ): UseGridGame {
   const date = todayKey();
   const devActive = !!dev;
@@ -178,6 +183,36 @@ export function useGridGame(
     }
     saveGridProgress({ date, solved, mistakes, attempts, revealed, status });
   }, [board, date, devActive, solved, mistakes, attempts, revealed, status, hydratedSig]);
+
+  // Signed-in players: restore an already-played board from the server (works on
+  // any device/domain, where localStorage is empty). Runs once per (user, date),
+  // only after the local restore has hydrated this board so it can't be clobbered.
+  // The row stores only summary stats, so we reconstruct a TERMINAL board (a win
+  // reveals every group; a loss just locks) rather than the exact attempts — enough
+  // to block a replay and show the finished state. onComplete is NOT re-fired.
+  const cloudRestored = useRef<string | null>(null);
+  useEffect(() => {
+    if (devActive || !board || !userId) return;
+    if (hydratedSig !== boardSig(board)) return; // wait for local hydration
+    const key = `${userId}:${date}`;
+    if (cloudRestored.current === key) return;
+    // Local storage already has a finished board (same-device replay): keep it —
+    // it carries the real attempts/reveals, richer than the server summary.
+    if (status !== "playing") { cloudRestored.current = key; return; }
+    let live = true;
+    fetchTodayGrid(date).then((row) => {
+      if (!live || !row) return;
+      cloudRestored.current = key;
+      setSolved(row.won ? board.groups.map((_, i) => i) : []);
+      setMistakes(row.mistakes);
+      // Only the reveal COUNT is stored; a right-length sentinel array keeps the
+      // score/share ("N reveals") correct without needing the real tile ids.
+      setRevealed(Array.from({ length: row.reveals }, (_, i) => `__cloud_${i}__`));
+      setStatus(row.won ? "won" : "lost");
+      setSelected([]);
+    });
+    return () => { live = false; };
+  }, [devActive, board, userId, date, hydratedSig, status]);
 
   const solvedTiles = useMemo(() => {
     const s = new Set<string>();

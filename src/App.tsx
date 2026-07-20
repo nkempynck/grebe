@@ -532,6 +532,7 @@ export default function App() {
               streak={stats.kinship.currentStreak}
               onComplete={recordKinshipResult}
               me={boardName}
+              userId={userId}
               configured={player.configured}
               reloadKey={kinBoardReload}
               onHowItWorks={() => openAbout("about-kinship")}
@@ -549,6 +550,7 @@ export default function App() {
               onComplete={recordBranchesResult}
               onHowItWorks={() => openAbout("about-branches")}
               me={boardName}
+              userId={userId}
               configured={player.configured}
               reloadKey={branchBoardReload}
               streak={stats.branches.currentStreak}
