@@ -1,5 +1,7 @@
 <p align="center"><img src="logo.png" alt="Grebe" width="120" /></p>
 
+<p align="center"><strong>Play at <a href="https://grebegames.com">grebegames.com</a></strong></p>
+
 # Grebe
 
 Grebe is a platform of daily puzzle games played on the **tree of life**, the
