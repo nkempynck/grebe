@@ -225,23 +225,25 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   // still have the Latin name, the tree shape and the pictures. Shown again once solved.
   const HIDE_RANK_MIN_TIER = 6;
   const hideRank = g.tier >= HIDE_RANK_MIN_TIER && !over;
-  const points = g.result ? branchesPoints(g.tier, g.result.correct, g.result.total, g.result.hinted + 0.5 * g.result.peeked) : 0;
+  const won = g.won;
+  const points = g.result ? branchesPoints(g.tier, won, g.result.total, g.result.correct, g.result.mistakes, g.result.hinted, g.result.peeked) : 0;
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
   // Shareable result grid: one square per slot in board order. The answer species
   // are never encoded — only whether each was placed right, and with what help —
   // so the grid is safe to post. Clean correct 🟩, hint-revealed 🟨, peeked 🟦,
-  // wrong ⬛.
-  const won = !!g.result && g.result.correct === g.result.total;
+  // never-placed (on a loss) ⬛.
   const shareSquare = (s: string) =>
     g.placements[s] !== s ? "⬛" : g.hints.includes(s) ? "🟨" : g.peeked.includes(s) ? "🟦" : "🟩";
   const shareText = (() => {
     const head = `🌿 Grebe Branches · №${dailyNumber(g.date)}${rules.difficulty ? ` · ${rules.difficulty}` : ""}`;
     const grid = board.slotIds.map(shareSquare).join("");
-    const help = [
-      g.result?.hinted ? `${g.result.hinted} hint${g.result.hinted > 1 ? "s" : ""}` : "",
-      g.result?.peeked ? `${g.result.peeked} peek${g.result.peeked > 1 ? "s" : ""}` : "",
+    const tags = [
+      g.result?.mistakes ? plural(g.result.mistakes, "mistake") : "",
+      g.result?.hinted ? plural(g.result.hinted, "hint") : "",
+      g.result?.peeked ? plural(g.result.peeked, "peek") : "",
     ].filter(Boolean).join(", ");
     const streakLine = won && streak != null && streak > 0 ? ` · 🔥${streak}` : "";
-    const verdict = `${won ? "Solved" : "Missed it"} · ${g.result?.correct}/${g.result?.total} placed${help ? ` · ${help}` : ""} · ${points} pts${streakLine}`;
+    const verdict = `${won ? "Solved" : "Missed it"} · ${g.result?.correct}/${g.result?.total} placed${tags ? ` · ${tags}` : ""} · ${points} pts${streakLine}`;
     return `${head}\n${grid}\n${verdict}\n${gameUrl()}`;
   })();
   const copyShare = async () => {
@@ -273,43 +275,50 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         </div>
       );
     }
+    // Tiles are rearranged freely; only submitting grades them. A slot CONFIRMED
+    // correct (by a correct submit or a hint) is locked green and can't be moved.
+    // A slot left empty at game-over was never solved (a loss) — reveal its species.
     const placed = g.placements[id];
     const hinted = g.hints.includes(id);
+    const locked = g.lockedSlots.includes(id);
     const correct = over && placed === id;
-    const wrong = over && placed !== id;
+    const revealAnswer = over && placed !== id;
     const cls = [
       "branches-leaf is-slot",
       placed ? "is-filled" : "is-empty",
+      locked ? "is-locked" : "",
+      correct ? "is-correct" : "",
       hinted ? "is-hint" : "",
       dragOver === id ? "is-drop" : "",
-      correct ? "is-correct" : "",
-      wrong ? "is-wrong" : "",
+      g.wrongSlots.includes(id) ? "is-wrongflash" : "",
+      revealAnswer ? "is-wrong" : "",
     ].join(" ");
     return (
       <div
         className={cls}
         title={placed ? sciOf(tree, placed) : "Drop a species here"}
-        onClick={() => g.placeAt(id)}
-        onDragOver={(e) => { if (!over && !hinted) { e.preventDefault(); setDragOver(id); } }}
+        onClick={() => { if (!over && !locked) g.placeAt(id); }}
+        onDragOver={(e) => { if (!over && !locked) { e.preventDefault(); setDragOver(id); } }}
         onDragLeave={() => setDragOver((d) => (d === id ? null : d))}
-        onDrop={(e) => { e.preventDefault(); setDragOver(null); const d = readDrag(e); if (d?.speciesId) g.place(id, d.speciesId); }}
+        onDrop={(e) => { e.preventDefault(); setDragOver(null); if (over || locked) return; const d = readDrag(e); if (d?.speciesId) g.place(id, d.speciesId); }}
       >
         {placed ? (
           <span className="branches-leaf-line">
             <span
               className="branches-leaf-name"
-              draggable={!over && !hinted}
+              draggable={!over && !locked}
               onDragStart={(e) => e.dataTransfer.setData("text/plain", JSON.stringify({ from: "slot", speciesId: placed, slotId: id }))}
             >
               {nameOf(tree, placed)}
             </span>
+            {locked && !hinted && <span className="branches-lock-tag" aria-hidden="true">✓</span>}
             {hinted && <span className="branches-hint-tag">hint</span>}
             {info(placed)}
           </span>
         ) : (
           <span className="branches-leaf-blank">place species</span>
         )}
-        {wrong && <span className="branches-leaf-answer">= {nameOf(tree, id)} {info(id)}</span>}
+        {revealAnswer && <span className="branches-leaf-answer">= {nameOf(tree, id)} {info(id)}</span>}
       </div>
     );
   }
@@ -322,7 +331,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         dayName={rules.dayName}
         difficulty={rules.difficulty}
         onHowItWorks={onHowItWorks}
-        blurb="Rebuild the tree: drag each species onto the group it belongs to. Each group is one labelled clade; where a species is already placed, it's a worked example. Tapping a clade or anchor for its Wikipedia is free; looking up a species you must place costs half its point."
+        blurb="Rebuild the tree: drag each species onto the group it belongs to, then Submit to check. Correct slots lock in; a wrong board costs a mistake and the misplaced tiles come back. You can miss once (Mon–Wed) or twice (Thu–Sun) and still win — but for far fewer points — and one more than that ends the board. Each group is one labelled clade; where a species is already placed, it's a worked example. Tapping a clade or anchor for its Wikipedia is free; looking up a species you must place costs half its point."
       >
         <div className="branches-viewtoggle" role="tablist" aria-label="Tree view">
           <button role="tab" aria-selected={!radial} className={`branches-viewseg${!radial ? " is-on" : ""}`} onClick={() => setMode("tree")}>Tree</button>
@@ -403,6 +412,27 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
 
       {!over && (
         <div className="branches-dock">
+          <div className={`branches-budget${g.oneAway ? " is-lastchance" : ""}`} aria-label={`${g.allowance + 1 - g.mistakes} mistakes left`}>
+            <span className="branches-budget-lbl">Mistakes left</span>
+            <span className="branches-dots">
+              {Array.from({ length: g.allowance + 1 }, (_, i) => {
+                const used = i < g.mistakes;
+                const danger = !used && g.oneAway; // the final remaining pip
+                return (
+                  <span
+                    key={i}
+                    className={`branches-dot${used ? " is-used" : ""}${danger ? " is-danger" : ""}`}
+                    aria-hidden="true"
+                  />
+                );
+              })}
+            </span>
+            {g.oneAway ? (
+              <span className="branches-budget-warn">One mistake away: a wrong board ends it</span>
+            ) : (
+              <span className="branches-budget-hint">Submit to check: a wrong board costs one.</span>
+            )}
+          </div>
           <div className="branches-tray-cap">
             {g.tray.length === 0 ? "All placed" : `Species to place · ${g.tray.length} left`}
           </div>
@@ -449,7 +479,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
             )}
           </div>
           <div className="branches-actions">
-            <button className="linkbtn" onClick={g.hint} disabled={g.hints.length === board.slotIds.length}>
+            <button className="linkbtn" onClick={g.hint} disabled={board.slotIds.every((s) => g.placements[s] === s)}>
               Hint: reveal one
             </button>
             <button className="branches-submit" onClick={g.submit} disabled={!g.canSubmit}>
@@ -460,19 +490,23 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
       )}
 
       {over && g.result && (
-        <div className="branches-result">
+        <div className={`branches-result${won ? " is-won" : " is-lost"}`}>
           <div className="branches-score">
-            <b>{g.result.correct}/{g.result.total}</b> placed correctly
-            {(g.result.hinted > 0 || g.result.peeked > 0) && (
-              <span className="branches-score-hints"> · {[
+            <b>{won ? "Solved" : "Missed it"}</b>
+            <span className="branches-score-detail"> · {g.result.correct}/{g.result.total} placed
+              {[
+                g.result.mistakes && `${g.result.mistakes} mistake${g.result.mistakes > 1 ? "s" : ""}`,
                 g.result.hinted && `${g.result.hinted} hint${g.result.hinted > 1 ? "s" : ""}`,
                 g.result.peeked && `${g.result.peeked} peek${g.result.peeked > 1 ? "s" : ""}`,
-              ].filter(Boolean).join(", ")}</span>
-            )}
+              ].filter(Boolean).map((t) => <span key={t as string}> · {t}</span>)}
+            </span>
           </div>
           <div className="branches-points">{points} points</div>
-          {g.result.correct < g.result.total && (
-            <p className="branches-result-note">Each miss shows its correct species.</p>
+          {won && g.result.mistakes > 0 && g.result.mistakes === g.allowance && (
+            <p className="branches-result-note">Right at the limit — one more would have ended it.</p>
+          )}
+          {!won && (
+            <p className="branches-result-note">Over the {g.allowance}-mistake limit for today. You keep the slots you locked, at half credit; each unsolved slot shows its species.</p>
           )}
           <div className="share">
             <div className="share-head">🌿 Grebe Branches <span>· №{dailyNumber(g.date)}{rules.difficulty ? ` · ${rules.difficulty}` : ""}</span></div>
@@ -481,6 +515,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
             </div>
             <div className="share-verdict">
               {won ? "Solved" : "Missed it"} · {g.result.correct}/{g.result.total} placed
+              {g.result.mistakes > 0 && <> · {g.result.mistakes} mistake{g.result.mistakes > 1 ? "s" : ""}</>}
               <span className="share-score"> · {points} pts</span>
               {won && streak != null && streak > 0 && <span className="share-streak"> · 🔥{streak}</span>}
             </div>

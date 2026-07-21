@@ -50,13 +50,57 @@ export function kinshipPoints(won: boolean, tier: number, mistakes: number, reve
   return Math.max(Math.round(w * KINSHIP_WIN_FLOOR), Math.round(raw));
 }
 
-/** Branches per-game points: partial credit for correctly-placed species, scaled
- *  by the day's weight. `penalty` is the help charged against the correct count —
- *  1 per hinted slot, ½ per peeked slot (a peek only hints, and the summary may
- *  not even name the family). MUST match public.branches_game_points in
- *  supabase/branches.sql. */
-export function branchesPoints(tier: number, correct: number, total: number, penalty: number): number {
+/** Wrong placements Branches forgives before the board is lost: one on the gentle
+ *  half (Mon/Tue/Wed, tier ≤ 3), two on the hard half (Thu–Sun). Finishing WITHIN
+ *  this budget still wins — just for far fewer points; going over ends the board as
+ *  a loss. Keyed on the weekday tier so it matches the difficulty ramp. */
+export function branchesAllowance(tier: number): number {
+  return (tier || 1) <= 3 ? 1 : 2;
+}
+
+/** Fraction of the day's weight each surviving mistake burns off a Branches WIN.
+ *  Steepish on purpose (a mistake-board should sting) but a shade gentler than a
+ *  hard wipe: 1 mistake → 65% of the weight, 2 → 30%. */
+export const BRANCHES_MISTAKE_PENALTY = 0.35;
+
+/** A Branches WIN never scores zero: however many mistakes or hints were spent, a
+ *  completed board floors at this fraction of the day's weight. */
+export const BRANCHES_WIN_FLOOR = 0.1;
+
+/** Going OVER the mistake budget ends the board as a loss, but it isn't a hard 0:
+ *  the slots you did lock still score, at this heavy discount. A blown board with
+ *  nothing locked is still 0. A loser locks at most (slots−2)/slots (≤ 5/7 on the
+ *  biggest boards), so at 0.35 a max loss pays under the worst (2-mistake) win for
+ *  normal no-hint play — a winner always has base 1. */
+export const BRANCHES_LOSS_FACTOR = 0.35;
+
+/** Branches per-game points, scaled by the day's weight. Help is charged against
+ *  the locked slots first — a hinted slot forfeits its whole share, a peeked slot
+ *  half (the summary may not even name the family) — giving a help-adjusted
+ *  fraction `base = max(0, correct − hinted − ½·peeked) / total`. Then:
+ *   • a WIN (every slot placed within budget) pays `w · base · (1 − 0.35·mistakes)`,
+ *     never below BRANCHES_WIN_FLOOR of the weight;
+ *   • a LOSS (over budget) pays `w · base · BRANCHES_LOSS_FACTOR` for whatever was
+ *     locked before the board ended — no floor, so locking nothing is 0.
+ *  For normal no-hint play a win always out-scores a loss (a winner has base 1; a
+ *  loser locks at most (slots−2)/slots, and 0.35 keeps that under the worst win).
+ *  MUST match public.branches_game_points in supabase/branches.sql. */
+export function branchesPoints(
+  tier: number,
+  won: boolean,
+  total: number,
+  correct: number,
+  mistakes: number,
+  hinted: number,
+  peeked: number
+): number {
   if (total <= 0) return 0;
-  const earned = Math.max(0, correct - Math.max(0, penalty));
-  return Math.max(0, Math.round(tierWeight(tier) * (earned / total)));
+  const w = tierWeight(tier);
+  const help = Math.max(0, hinted + 0.5 * peeked);
+  const base = Math.max(0, correct - help) / total;
+  if (won) {
+    const mistakeFactor = Math.max(0, 1 - BRANCHES_MISTAKE_PENALTY * Math.max(0, mistakes));
+    return Math.max(Math.round(w * BRANCHES_WIN_FLOOR), Math.round(w * base * mistakeFactor));
+  }
+  return Math.round(w * base * BRANCHES_LOSS_FACTOR);
 }

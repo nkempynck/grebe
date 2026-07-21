@@ -3,12 +3,16 @@
  *  + status — never the board. A new day discards it. */
 export interface BranchesProgress {
   date: string;
-  /** slotId → the species id placed there (or absent/empty if unplaced). */
+  /** slotId → the species id currently placed there (free arrangement). */
   placements: Record<string, string>;
+  /** Slot ids confirmed correct and frozen (correct submits + hints). */
+  locked?: string[];
   /** Slot ids revealed by a hint. */
   hints: string[];
   /** Species (slot) ids looked up on Wikipedia while playing. */
   peeked?: string[];
+  /** Wrong placements committed so far (against the day's mistake budget). */
+  mistakes?: number;
   status: "playing" | "done";
 }
 

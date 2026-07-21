@@ -88,32 +88,49 @@ describe("kinshipPoints", () => {
   });
 });
 
-// branchesPoints() MUST stay byte-identical to public.branches_game_points in
-// supabase/branches.sql: weight * max(0, correct - penalty) / total, rounded,
-// floored at 0, where the client folds the SQL's (hinted + 0.5*peeked) into the
-// single `penalty` argument at the call sites (BranchesGame.tsx, stats.ts).
+// branchesPoints(tier, won, total, correct, mistakes, hinted, peeked) MUST stay
+// byte-identical to public.branches_game_points in supabase/branches.sql:
+//   base = max(0, correct - hinted - 0.5*peeked) / total
+//   win  = max(0.1*w, w * base * max(0, 1 - 0.35*mistakes))
+//   loss = w * base * 0.5   (no floor)
 describe("branchesPoints", () => {
   it("is zero for a blank/empty board (total <= 0)", () => {
-    expect(branchesPoints(7, 0, 0, 0)).toBe(0);
-    expect(branchesPoints(1, 0, 0, 0)).toBe(0);
+    expect(branchesPoints(7, true, 0, 0, 0, 0, 0)).toBe(0);
+    expect(branchesPoints(1, false, 0, 0, 0, 0, 0)).toBe(0);
   });
 
-  it("is the full tier weight for a perfect, penalty-free board", () => {
-    expect(branchesPoints(1, 8, 8, 0)).toBe(100);
-    expect(branchesPoints(7, 10, 10, 0)).toBe(160);
+  it("is the full tier weight for a clean, mistake-free win", () => {
+    expect(branchesPoints(1, true, 8, 8, 0, 0, 0)).toBe(100);
+    expect(branchesPoints(7, true, 10, 10, 0, 0, 0)).toBe(160);
   });
 
-  it("scales by the fraction placed correctly", () => {
-    expect(branchesPoints(5, 3, 6, 0)).toBe(70); // 140 * 3/6
-    expect(branchesPoints(5, 1, 3, 0)).toBe(47); // 140 * 1/3 = 46.7 -> 47
+  it("docks 35% of the weight per surviving mistake on a win", () => {
+    expect(branchesPoints(5, true, 6, 6, 1, 0, 0)).toBe(91); // 140 * 1 * 0.65
+    expect(branchesPoints(5, true, 6, 6, 2, 0, 0)).toBe(42); // 140 * 1 * 0.30
   });
 
   it("docks a full point per hint and half per species peek", () => {
-    expect(branchesPoints(5, 6, 6, 1)).toBe(117);   // 140 * 5/6  = 116.7 -> 117
-    expect(branchesPoints(5, 6, 6, 0.5)).toBe(128);  // 140 * 5.5/6 = 128.3 -> 128
+    expect(branchesPoints(5, true, 6, 6, 0, 1, 0)).toBe(117);  // 140 * 5/6   = 116.7 -> 117
+    expect(branchesPoints(5, true, 6, 6, 0, 0, 1)).toBe(128);  // 140 * 5.5/6 = 128.3 -> 128
   });
 
-  it("floors at zero when penalties exceed correct placements", () => {
-    expect(branchesPoints(3, 2, 4, 3)).toBe(0);
+  it("floors a win at 10% of the weight, never zero", () => {
+    expect(branchesPoints(1, true, 8, 8, 0, 8, 0)).toBe(10); // base 0 -> win floor 100*0.1
+  });
+
+  it("pays a losing (over-budget) board partial credit at 0.35, no floor", () => {
+    expect(branchesPoints(1, false, 4, 3, 2, 0, 0)).toBe(26); // 100 * 0.75 * 0.35 = 26.25 -> 26
+    expect(branchesPoints(1, false, 4, 0, 2, 0, 0)).toBe(0);  // nothing locked -> 0
+    expect(branchesPoints(5, false, 6, 4, 3, 0, 0)).toBe(33); // 140 * (4/6) * 0.35 = 32.7 -> 33
+  });
+
+  it("a loss never out-scores the worst (2-mistake) win at the same weight", () => {
+    // Winner has base 1; a loser locks at most (slots-2)/slots. Check the tightest
+    // days (7 slots, budget 2): max loss must stay under the 2-mistake win.
+    for (const tier of [4, 5, 6, 7]) {
+      const worstWin = branchesPoints(tier, true, 7, 7, 2, 0, 0);   // all correct, 2 mistakes
+      const maxLoss = branchesPoints(tier, false, 7, 5, 3, 0, 0);   // locked 5/7, busted
+      expect(maxLoss).toBeLessThan(worstWin);
+    }
   });
 });

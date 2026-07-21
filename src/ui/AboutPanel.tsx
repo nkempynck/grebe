@@ -135,19 +135,24 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             Rebuild a slice of the tree. You're handed a labelled skeleton of named clades, all from a
             single class (all birds, or all spiders), some already showing a worked-example species,
             plus a tray of species to slot onto the right branch. Drag each onto the group it belongs
-            to. It gets harder through the week: gentle days are broad and forgiving, the toughest pit
-            tight look-alike clades that reward knowing your groups. Read it as a top-down tree or a
-            circular fan, and tap any clade or anchor for its Wikipedia.
+            to, then <b>Submit</b> to check: correct slots <b>lock in</b>, and a wrong board <b>costs a
+            mistake</b> (the misplaced tiles come back to try again). You can miss once
+            (Mon–Wed) or twice (Thu–Sun) and still win, and one more than that ends the board. It gets
+            harder through the week: gentle days are broad and forgiving, the toughest pit tight
+            look-alike clades that reward knowing your groups. Read it as a top-down tree or a circular
+            fan, and tap any clade or anchor for its Wikipedia.
           </p>
           <details className="about-score">
             <summary>How scoring works</summary>
             <p>
-              You earn <b>the day's weight × (correct − penalties) ⁄ slots</b>. A full placement is one
-              point. A <b>hint</b> that reveals a slot forfeits that whole point. Looking a to-place
-              species up on Wikipedia forfeits <b>half</b>, since the article usually names its family
-              and so is only a soft nudge. Enlarging a species' picture is free. It shares the weekday
-              weight (<code>100–160 by day</code>) with Lineage and Kinship, so scores line up across
-              all three.
+              A win starts at <b>the day's weight × (correct − penalties) ⁄ slots</b>, then each
+              surviving <b>mistake</b> knocks off <b>35%</b> (so one mistake keeps 65%, two keep 30%),
+              never dropping below a tenth of the weight. A <b>hint</b> that reveals a slot forfeits its
+              whole point; looking a to-place species up on Wikipedia forfeits <b>half</b>, since the
+              article usually names its family and so is only a soft nudge. Enlarging a species' picture
+              is free. Going <b>over the mistake limit</b> ends the board as a loss: you still keep the
+              slots you'd locked, at half credit, but the streak resets. It shares the weekday weight
+              (<code>100–160 by day</code>) with Lineage and Kinship, so scores line up across all three.
             </p>
           </details>
         </div>

@@ -10,7 +10,7 @@ import type { GameRow } from "./games";
 export type PendingSubmit =
   | { game: "lineage"; args: GameRow }
   | { game: "kinship"; args: { puzzleDate: string; won: boolean; mistakes: number; reveals: number } }
-  | { game: "branches"; args: { puzzleDate: string; won: boolean; correct: number; total: number; hinted: number; peeked: number } };
+  | { game: "branches"; args: { puzzleDate: string; won: boolean; correct: number; total: number; hinted: number; peeked: number; mistakes: number } };
 
 const KEY = "cladensis.pendingSubmits";
 

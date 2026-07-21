@@ -152,7 +152,7 @@ export default function App() {
       if (board) {
         const total = board.slotIds.length;
         const correct = board.slotIds.filter((s) => bp.placements[s] === s).length;
-        recordBranches({ won: correct === total, correct, total, hinted: bp.hints.length, peeked: (bp.peeked ?? []).length, tier });
+        recordBranches({ won: correct === total, correct, total, hinted: bp.hints.length, peeked: (bp.peeked ?? []).length, mistakes: bp.mistakes ?? 0, tier });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -212,8 +212,8 @@ export default function App() {
   // player also gets a durable leaderboard row, then the post-game board refetches.
   const recordBranchesResult = useCallback(
     (r: BranchesComplete) => {
-      recordBranches({ won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, tier: r.tier });
-      const args = { puzzleDate: r.date, won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked };
+      recordBranches({ won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, mistakes: r.mistakes, tier: r.tier });
+      const args = { puzzleDate: r.date, won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, mistakes: r.mistakes };
       if (player.session) {
         void recordBranchesGame(args).then((ok) => {
           if (ok) setBranchBoardReload((c) => c + 1);

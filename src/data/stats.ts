@@ -36,14 +36,18 @@ export interface KinshipEntry {
   points?: number;
 }
 
-/** One finished Branches daily. Partial credit for correct placements; a hint
- *  forfeits a whole one, a peek half. `won` = every slot correct. Added v5. */
+/** One finished Branches daily. `won` = every slot placed within the day's mistake
+ *  budget (1 Mon–Wed, 2 Thu–Sun); over budget is a loss. A hint forfeits a whole
+ *  point, a peek half, and each surviving mistake trims the win too. Added v5;
+ *  `mistakes` added later (older entries default 0). */
 export interface BranchesEntry {
   won: boolean;
   correct: number;
   total: number;
   hinted: number;
   peeked: number;
+  /** Wrong placements committed (older entries lack it → treated as 0). */
+  mistakes?: number;
   tier: number;
   /** Points FROZEN at play time (added v6); see DailyEntry.points. */
   points?: number;
@@ -167,7 +171,7 @@ const KEY = "cladensis.stats.v1"; // key kept stable; payload is versioned insid
 // games.points is frozen at submit. Backfilled onto pre-v6 entries on migrate.
 const dailyPts = (e: DailyEntry) => e.points ?? gamePoints(e.status === "won", e.tier, e.guesses, e.hints);
 const kinshipPts = (e: KinshipEntry) => e.points ?? kinshipPoints(e.status === "won", e.tier, e.mistakes, e.reveals ?? 0);
-const branchesPts = (e: BranchesEntry) => e.points ?? branchesPoints(e.tier, e.correct, e.total, e.hinted + 0.5 * e.peeked);
+const branchesPts = (e: BranchesEntry) => e.points ?? branchesPoints(e.tier, e.won, e.total, e.correct, e.mistakes ?? 0, e.hinted, e.peeked);
 
 const emptyStore = (): StatsStore => ({ version: 6, history: {}, clades: {}, kinship: {}, branches: {} });
 
@@ -538,13 +542,15 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
   };
 }
 
-/** Branches daily stats. Like Kinship: a plain run of consecutive full-correct
- *  wins (there's no give-up in Branches). "flawless" = won with no hint or peek. */
+/** Branches daily stats. Like Kinship: a plain run of consecutive wins (a win =
+ *  solved within the day's mistake budget). "flawless" = won with no mistake, hint
+ *  or peek. */
 function deriveBranches(branches: Record<string, BranchesEntry>, todayKey: string): BranchesStats {
   const dates = Object.keys(branches);
   const played = dates.length;
   const isWin = (d: string) => branches[d].won;
-  const isFlawless = (d: string) => branches[d].won && branches[d].hinted === 0 && branches[d].peeked === 0;
+  const isFlawless = (d: string) =>
+    branches[d].won && branches[d].hinted === 0 && branches[d].peeked === 0 && (branches[d].mistakes ?? 0) === 0;
   const wins = dates.filter(isWin).length;
   const flawless = dates.filter(isFlawless).length;
 
