@@ -503,10 +503,10 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
           </div>
           <div className="branches-points">{points} points</div>
           {won && g.result.mistakes > 0 && g.result.mistakes === g.allowance && (
-            <p className="branches-result-note">Right at the limit — one more would have ended it.</p>
+            <p className="branches-result-note">Right at the limit, one more would have ended it!</p>
           )}
           {!won && (
-            <p className="branches-result-note">Over the {g.allowance}-mistake limit for today. You keep the slots you locked, at half credit; each unsolved slot shows its species.</p>
+            <p className="branches-result-note">Over the {g.allowance}-mistake limit for today. You keep the slots you locked, at 35% credit; each unsolved slot shows its species.</p>
           )}
           <div className="share">
             <div className="share-head">🌿 Grebe Branches <span>· №{dailyNumber(g.date)}{rules.difficulty ? ` · ${rules.difficulty}` : ""}</span></div>

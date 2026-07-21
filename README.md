@@ -59,8 +59,10 @@ by difficulty and mistakes).
 
 You're given part of the tree: a skeleton of named clades, all within a single class, some
 already showing a worked-example species, plus a tray of species to slot onto the branch they
-belong to. Drag each species onto its group; get them all right to win, with partial credit for
-the ones you place correctly.
+belong to. Drag each species onto its group, then **Submit** to check: correct slots lock in and
+a wrong board costs a mistake (the misplaced tiles return to try again). You may submit one wrong
+board Mon–Wed, two Thu–Sun; get every slot right within that budget to win, with partial credit
+for the slots you locked if you go over.
 
 Difficulty builds by weekday, in lock-step with the other games' tiers, through several levers
 at once. Easy days present broad, well-separated clades with a worked example on most branches;
@@ -192,8 +194,10 @@ with guess count and the hint factor drops with an escalating penalty per hint.
 **Kinship:** `weight × (1 − mistakes/4)`, zero for a loss. A clean board earns the full weight
 and each mistake shaves a quarter.
 
-**Branches:** `weight × (correct − penalties) / slots`, zero for a blank board. A revealed slot
-forfeits its whole point, and looking up a species you still have to place forfeits half.
+**Branches:** `weight × (correct − penalties) / slots × (1 − 0.35 × mistakes)`, floored at a
+tenth of the weight for a win. A revealed slot forfeits its whole point, and looking up a species
+you still have to place forfeits half. You may submit one wrong board (Mon–Wed) or two (Thu–Sun);
+going over the budget ends the board as a loss, which keeps the slots you'd locked at 35% credit.
 
 ## Limitations
 

@@ -151,7 +151,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
               whole point; looking a to-place species up on Wikipedia forfeits <b>half</b>, since the
               article usually names its family and so is only a soft nudge. Enlarging a species' picture
               is free. Going <b>over the mistake limit</b> ends the board as a loss: you still keep the
-              slots you'd locked, at half credit, but the streak resets. It shares the weekday weight
+              slots you'd locked, at 35% credit, but the streak resets. It shares the weekday weight
               (<code>100–160 by day</code>) with Lineage and Kinship, so scores line up across all three.
             </p>
           </details>
