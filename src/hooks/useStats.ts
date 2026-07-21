@@ -8,6 +8,7 @@ import {
   derive,
   fetchCloudStats,
   loadStore,
+  mergeMissingDailies,
   pushCloudStats,
   recordDaily,
   recordFree,
@@ -79,16 +80,22 @@ export function useStats(userId: string | null, groupForDate?: DailyGroupResolve
       let base: ReturnType<typeof loadStore>;
       let needsPush: boolean;
       if (cloud && !isEmptyStore(cloud)) {
-        // Cloud is authoritative — but replay anything recorded while it was in
-        // flight so it isn't lost, then push only if we actually added to it.
+        // Cloud is authoritative, but two kinds of local record must still be
+        // folded in or they'd be lost when it overwrites the device:
+        //  1. Dailies finished while SIGNED OUT (persisted locally before this
+        //     sign-in) — mirrors the pendingSubmits leaderboard replay, so a
+        //     returning account's stats don't lag its board rows.
+        //  2. Records made DURING the in-flight cloud pull (pending.current).
+        // Cloud wins on any date collision, so nothing already-synced is rewritten.
         base = cloud;
+        const carried = mergeMissingDailies(base, loadStore());
         for (const p of pending.current) {
           if (p.kind === "kinship") base = applyKinship(base, p.date, p.entry);
           else if (p.kind === "branches") base = applyBranches(base, p.date, p.entry);
           else if (p.kind === "daily") base = applyDaily(base, p.date, p.entry, p.groupId);
           else base = applyFree(base, p.entry, p.groupId);
         }
-        needsPush = pending.current.length > 0;
+        needsPush = carried > 0 || pending.current.length > 0;
       } else {
         // No cloud yet — seed it from local (which already includes any window
         // records, since those were saved locally as they happened).

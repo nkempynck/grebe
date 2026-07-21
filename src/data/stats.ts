@@ -323,6 +323,25 @@ export function recordBranches(dateKey: string, entry: BranchesEntry): StatsStor
   return store;
 }
 
+/** Fold any dated daily results present in `local` but missing from `base` into
+ *  `base` (mutated in place), for all three games. Cloud wins on a date collision,
+ *  so it never rewrites an already-synced result. Returns the number of entries
+ *  carried over (0 = nothing new).
+ *
+ *  Used on sign-in to a RETURNING account (non-empty cloud): a daily finished
+ *  while signed out is saved locally but, without this, would be dropped when the
+ *  authoritative cloud store overwrites the device — leaving personal stats (and
+ *  the "played today" gate) behind the leaderboard, which carries the same result
+ *  over separately via pendingSubmits. Free-play (clades) is intentionally left
+ *  out: it's unranked, gates nothing, and an additive merge could double-count. */
+export function mergeMissingDailies(base: StatsStore, local: StatsStore): number {
+  let added = 0;
+  for (const [d, e] of Object.entries(local.history)) if (!base.history[d]) { base.history[d] = e; added++; }
+  for (const [d, e] of Object.entries(local.kinship)) if (!base.kinship[d]) { base.kinship[d] = e; added++; }
+  for (const [d, e] of Object.entries(local.branches)) if (!base.branches[d]) { base.branches[d] = e; added++; }
+  return added;
+}
+
 function prevDay(dateKey: string): string {
   const d = new Date(`${dateKey}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
