@@ -38,7 +38,11 @@ export function ResultCard({ tree, answer, won, guessCount, streak, par }: Props
   return (
     <div className="result">
       <div className="verdict">
-        {won ? `Solved in ${guessCount} ${guessCount === 1 ? "guess" : "guesses"}` : "Revealed"}
+        {won
+          ? guessCount === 1
+            ? "One guess ace is quite crazy. Too crazy one might think…"
+            : `Solved in ${guessCount} guesses. You're doing great. `
+          : "Revealed 😵‍💫 Next time maybe."}
         {won && streak != null && streak > 0 && (
           <span className="verdict-streak">🔥 {streak}-day streak</span>
         )}
@@ -53,7 +57,7 @@ export function ResultCard({ tree, answer, won, guessCount, streak, par }: Props
           🤖 Solver's par: {par}
           {won && guessCount <= par && (
             <span className="par-beat">
-              {guessCount < par ? " · you beat it!" : " · you matched it"}
+              {guessCount < par ? " · you beat it! 😎" : " · you matched it 🦭"}
             </span>
           )}
         </div>
@@ -66,7 +70,7 @@ export function ResultCard({ tree, answer, won, guessCount, streak, par }: Props
         {wiki?.thumbnail && <img src={wiki.thumbnail} alt={answer.common ?? answer.sciName} />}
         <div>
           <p className="extract">
-            {loading ? "Fetching field notes…" : wiki?.extract || "No Wikipedia summary found for this one."}
+            {loading ? "Fetching field notes…" : wiki?.extract || "No Wikipedia summary found for this one. 🧐"}
           </p>
           <a href={wiki?.pageUrl ?? wikiUrlFor(answer)} target="_blank" rel="noreferrer">
             Read on Wikipedia →

@@ -176,8 +176,8 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
     const head = `🧩 Grebe Kinship · №${dailyNumber(g.date)}${rules.difficulty ? ` · ${rules.difficulty}` : ""}`;
     const rows = g.attempts.map((r) => r.map((l) => LEVEL_SQUARE[l]).join("")).join("\n");
     const verdict = won
-      ? `Solved · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}${revealLine} · ${pts} pts${streakLine}`
-      : `Missed it · ${g.solvedGroups.length}/4 groups${revealLine} · ${pts} pts`;
+      ? `Solved. Nice. · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}${revealLine} · ${pts} pts${streakLine}`
+      : `Missed it 🐡 · ${g.solvedGroups.length}/4 groups${revealLine} · ${pts} pts`;
     return `${head}\n${rows}\n${verdict}\n${gameUrl()}`;
   })();
 
@@ -354,8 +354,8 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         <div className="grid-result">
           <div className="grid-verdict">
             {g.status === "won"
-              ? `Solved with ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}`
-              : `Out of guesses. Found ${g.solvedGroups.length}/4`}
+              ? `Solved with ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}. Good game 😎`
+              : `Out of guesses. Sad. Found ${g.solvedGroups.length}/4`}
           </div>
           <div className="grid-scoreline">
             🧬 {kinshipPoints(g.status === "won", g.tier, g.mistakes, g.revealed.length)} pts
@@ -371,7 +371,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
               ))}
             </div>
             <div className="share-verdict">
-              {g.status === "won" ? `Solved · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}` : `Missed it · ${g.solvedGroups.length}/4 groups`}
+              {g.status === "won" ? `Solved. Nice. · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}` : `Missed it 🐡 · ${g.solvedGroups.length}/4 groups`}
               {g.revealed.length > 0 && ` · ${g.revealed.length} reveal${g.revealed.length === 1 ? "" : "s"}`}
               <span className="share-score"> · {kinshipPoints(g.status === "won", g.tier, g.mistakes, g.revealed.length)} pts</span>
               {g.status === "won" && streak != null && streak > 0 && <span className="share-streak"> · 🔥{streak}</span>}

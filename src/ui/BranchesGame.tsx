@@ -243,7 +243,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
       g.result?.peeked ? plural(g.result.peeked, "peek") : "",
     ].filter(Boolean).join(", ");
     const streakLine = won && streak != null && streak > 0 ? ` · 🔥${streak}` : "";
-    const verdict = `${won ? "Solved" : "Missed it"} · ${g.result?.correct}/${g.result?.total} placed${tags ? ` · ${tags}` : ""} · ${points} pts${streakLine}`;
+    const verdict = `${won ? "Solved 😎" : "Missed it"} · ${g.result?.correct}/${g.result?.total} placed${tags ? ` · ${tags}` : ""} · ${points} pts${streakLine}`;
     return `${head}\n${grid}\n${verdict}\n${gameUrl()}`;
   })();
   const copyShare = async () => {
@@ -492,7 +492,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
       {over && g.result && (
         <div className={`branches-result${won ? " is-won" : " is-lost"}`}>
           <div className="branches-score">
-            <b>{won ? "Solved" : "Missed it"}</b>
+            <b>{won ? "Solved 😎" : "Missed it"}</b>
             <span className="branches-score-detail"> · {g.result.correct}/{g.result.total} placed
               {[
                 g.result.mistakes && `${g.result.mistakes} mistake${g.result.mistakes > 1 ? "s" : ""}`,
@@ -503,7 +503,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
           </div>
           <div className="branches-points">{points} points</div>
           {won && g.result.mistakes > 0 && g.result.mistakes === g.allowance && (
-            <p className="branches-result-note">Right at the limit, one more would have ended it!</p>
+            <p className="branches-result-note">Right at the limit, one more would have ended it! A close call one could say. 🦫 </p>
           )}
           {!won && (
             <p className="branches-result-note">Over the {g.allowance}-mistake limit for today. You keep the slots you locked, at 35% credit; each unsolved slot shows its species.</p>
@@ -514,14 +514,14 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
               {board.slotIds.map(shareSquare).join("")}
             </div>
             <div className="share-verdict">
-              {won ? "Solved" : "Missed it"} · {g.result.correct}/{g.result.total} placed
+              {won ? "Solved 😎" : "Missed it"} · {g.result.correct}/{g.result.total} placed
               {g.result.mistakes > 0 && <> · {g.result.mistakes} mistake{g.result.mistakes > 1 ? "s" : ""}</>}
               <span className="share-score"> · {points} pts</span>
               {won && streak != null && streak > 0 && <span className="share-streak"> · 🔥{streak}</span>}
             </div>
             <button className="share-btn" onClick={copyShare}>{copied ? "Copied ✓" : "Copy result"}</button>
           </div>
-          {g.locked && <p className="daily-lock">✓ You’ve played today’s Branches. Come back tomorrow for a new board.</p>}
+          {g.locked && <p className="daily-lock">✓ You’ve played today’s Branches. Come back tomorrow for a new board. Fun will be had.</p>}
         </div>
       )}
 
