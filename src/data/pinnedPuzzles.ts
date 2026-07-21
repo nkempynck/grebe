@@ -166,9 +166,16 @@ const branchesResolver: Resolver<"branches"> = {
   //   SHARED-WORD FLOOR on the tray (2→4) counted on HEAD NOUNS ("sparrow", not "-tailed").
   //   (d) Slot/anchor species weighted-random by pageviews; slots are common-named only.
   //   Board identity changed at every tier.
+  //   v5: worked-example anchors are placed FIRST (before context-clade decoys) and now
+  //   sit in the slot's OWN final branch (slotBranchLeaves) — the strongest recognition
+  //   hint — so slots are placeable by recognition instead of a cold guess; the anchor
+  //   budget is bumped ×1.1 (capped one per slot) to lift easy/mid coverage. The
+  //   distinctive-word give-away guard is unchanged. Fixes the near-zero in-group anchor
+  //   coverage that made gentle/tricky boards (incl. Daily #1) too hard. Board identity
+  //   changed at most tiers → re-pin un-played future dates.
   // Board identity changed → re-pin un-played future dates (Admin ▸ Pins ▸ Re-pin,
   // or npm run pin -- --force); past pins stay frozen.
-  version: 4,
+  version: 5,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;

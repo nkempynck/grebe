@@ -70,12 +70,22 @@ async function main() {
   const treeFor = (game: Game): Tree => (game === "lineage" ? tree : richTree);
   const client = createClient(url, key, { auth: { persistSession: false } });
 
+  // Optional per-game filter, e.g. `--game branches`, so a single generator can be
+  // re-pinned after a version bump without recomputing (and, under --force,
+  // overwriting) the other games' pins. Defaults to all games.
+  const only = arg("game");
+  if (only && !GAMES.includes(only as Game)) {
+    console.error(`--game must be one of ${GAMES.join(", ")} (got ${only}).`);
+    process.exit(1);
+  }
+  const games = only ? GAMES.filter((g) => g === only) : GAMES;
+
   // Build every (game, date) row from the shared registry.
   const rows: { game: string; puzzle_date: string; payload: unknown; version: number }[] = [];
   let skipped = 0;
   for (let i = 0; i < days; i++) {
     const date = shiftDate(from, i);
-    for (const game of GAMES) {
+    for (const game of games) {
       const puzzle = computePuzzle(game, treeFor(game), date);
       if (!puzzle) { skipped++; continue; } // tree can't field this puzzle — rare
       rows.push({ game, puzzle_date: date, payload: encodePuzzle(game, puzzle), version: puzzleVersion(game) });
@@ -83,7 +93,7 @@ async function main() {
   }
 
   console.log(
-    `Pinning ${rows.length} rows (${GAMES.join(", ")}) from ${from} for ${days} days` +
+    `Pinning ${rows.length} rows (${games.join(", ")}) from ${from} for ${days} days` +
       `${skipped ? `, ${skipped} skipped (no puzzle)` : ""}, mode=${force ? "OVERWRITE future" : "insert-if-absent"}.`
   );
 

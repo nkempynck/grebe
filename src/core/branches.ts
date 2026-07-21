@@ -362,6 +362,17 @@ function otherBranchLeaves(tree: Tree, groupId: string, slot: string, groupLeave
   return groupLeaves.filter((id) => id !== slot && !slotSet.has(id));
 }
 
+/** Leaves in the SAME direct branch as the slot — its own final sub-clade — excluding
+ *  the slot itself. A sibling here sits right beside the answer: the strongest
+ *  recognition hint. Empty when the slot's final clade holds only the slot. */
+function slotBranchLeaves(tree: Tree, groupId: string, slot: string, groupLeaves: string[]): string[] {
+  const kids = tree.childrenOf.get(groupId) ?? [];
+  const slotBranch = kids.find((k) => leavesUnder(tree, k).includes(slot));
+  if (!slotBranch) return [];
+  const slotSet = new Set(leavesUnder(tree, slotBranch));
+  return groupLeaves.filter((id) => id !== slot && slotSet.has(id));
+}
+
 const viewsOf = (tree: Tree, id: string) => tree.byId.get(id)?.views ?? 0;
 /** Weighted-random order by pageviews (Efraimidis–Spirakis key u^(1/views), as Kinship's
  *  pickMembers). Famous species usually come first — this is a RECOGNITION game, so the
@@ -491,15 +502,43 @@ function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, a
     return false;
   };
 
-  // Pre-filled context (never draggable) to make the tree fuller and teach the
-  // neighbourhood. Amount tapers with the tier — about one per slot on Monday down
-  // to none on Sunday.
-  const target = Math.round(slotIds.length * (1 - (tier - 1) / 6));
+  // Pre-filled leaves (never draggable) to make the tree fuller and give a recognition
+  // hint. Budget tapers with the tier — roughly one per slot on Monday down to none on
+  // Sunday. The ×1.1 is a small, deliberate ease: slightly more of the board comes
+  // pre-anchored across the easy/mid tiers (capped at one per slot).
+  const target = Math.min(slotIds.length, Math.round(slotIds.length * (1 - (tier - 1) / 6) * 1.1));
   const used = new Set(slotIds);
 
-  // (a) CONTEXT CLADES: other labelled families/orders in the region that hold NONE
-  // of the answers, each shown with one representative species — decoys that fill
-  // the tree and teach by elimination ("your species don't go here").
+  // (a) WORKED EXAMPLES inside the answer groups, FIRST — one per slot while the budget
+  // lasts. Prefer a species in the slot's OWN final branch (a sibling sitting right
+  // beside the answer: the strongest recognition hint), else elsewhere in the same
+  // group; prefer common-named (recognisable) picks. `clashesAnswer` still bars any word
+  // DISTINCTIVE to one answer, so a helpful sibling can never become a word give-away —
+  // a shared "kind" noun (e.g. every slot is a beetle) points nowhere and is allowed.
+  const workedFor = (grp: Group, slot: string): string | null => {
+    const ok = (id: string) => !used.has(id) && !clashesAnswer(id);
+    const rank = (ids: string[]) => {
+      const named = ids.filter((id) => tree.byId.get(id)?.common);
+      return byViews(tree, named.length ? named : ids, rng);
+    };
+    for (const pool of [
+      rank(slotBranchLeaves(tree, grp.cladeId, slot, grp.leaves)),
+      rank(otherBranchLeaves(tree, grp.cladeId, slot, grp.leaves)),
+    ]) {
+      const hit = pool.find(ok);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  for (const { grp, slot } of picks) {
+    if (anchorIds.length >= target) break;
+    const w = workedFor(grp, slot);
+    if (w) { anchorIds.push(w); used.add(w); } // group already labelled by its slot
+  }
+
+  // (b) CONTEXT CLADES: if budget remains, other labelled families/orders in the region
+  // that hold NONE of the answers, each with one representative — decoys that fill the
+  // tree and teach by elimination ("your species don't go here").
   for (const cg of shuffle(container.groups.filter((g) => !usedGroupIds.has(g.cladeId)), rng)) {
     if (anchorIds.length >= target) break;
     const named = cg.leaves.filter((id) => tree.byId.get(id)?.common);
@@ -508,20 +547,6 @@ function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, a
     anchorIds.push(rep);
     used.add(rep);
     groupIds.push(cg.cladeId); // label the context clade too
-  }
-
-  // (b) WORKED EXAMPLES inside answer groups, from a DIFFERENT branch than the slot
-  // (never the answer's own final clade), if the target isn't met yet.
-  const primary = picks.map(({ grp, slot }) =>
-    shuffle(otherBranchLeaves(tree, grp.cladeId, slot, grp.leaves), rng).filter((id) => !used.has(id) && !clashesAnswer(id))
-  );
-  for (let more = true; more && anchorIds.length < target; ) {
-    more = false;
-    for (const list of primary) {
-      if (anchorIds.length >= target) break;
-      const next = list.find((id) => !used.has(id));
-      if (next) { anchorIds.push(next); used.add(next); more = true; }
-    }
   }
 
   const leafIds = [...anchorIds, ...slotIds];
