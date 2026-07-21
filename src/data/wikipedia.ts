@@ -58,12 +58,17 @@ const imgCache = new Map<string, WikiImage | null>();
 
 // A page's lead image is often not a photo of the organism: range/distribution
 // maps, IUCN-status icons, and old line-drawing plates all commonly sit at the
-// top of a taxon infobox. Two cheap signals separate a photo from those:
-//   1. File type — photographs are virtually always JPEG, whereas maps and
-//      diagrams are SVG/PNG (Wikipedia renders SVGs to a *.svg.png thumbnail, so
-//      we test the ORIGINAL file's extension, not the thumb's).
+// top of a taxon infobox. Two cheap signals separate those from a usable image:
+//   1. File type — SVG/GIF are vector diagrams, cladograms and range maps, never
+//      a subject image (we test the ORIGINAL file's extension, not the thumb's,
+//      since Wikipedia renders SVGs to a *.svg.png thumbnail).
 //   2. Filename — maps/icons carry tell-tale words.
-// Neither is perfect (a colour-plate illustration saved as JPEG still slips
+// PNG is NOT rejected on type alone: many legitimate species lead images are PNGs
+// (colour illustrations, or photos re-saved as PNG). Rejecting every PNG made us
+// throw away a correct fish plate (Sebastes alutus) and grab the biggest JPEG on
+// the page instead — which was a food-dish photo (a "…perch sandwich"). A PNG
+// range map still gets caught by its filename (signal 2).
+// Neither signal is perfect (a colour-plate illustration saved as JPEG still slips
 // through), but together they catch the common cases.
 const NON_PHOTO_NAME =
   /(\bmap\b|range|distribution|locator|_area|_world\b|iucn|status[_ ]|wikispecies|commons-logo|question_book|disambig|_icon\b|\bicon\b|\blogo\b|ambox|silhouette)/i;
@@ -73,7 +78,7 @@ const NON_PHOTO_NAME =
 function looksNonPhoto(url: string | undefined): boolean {
   if (!url) return true;
   const path = decodeURIComponent(url.split("?")[0]);
-  if (/\.(svg|png|gif)$/i.test(path)) return true; // photos are JPEG; these are diagrams/maps
+  if (/\.(svg|gif)$/i.test(path)) return true; // vector diagrams / cladograms / range maps, never a subject image
   return NON_PHOTO_NAME.test(path.split("/").pop() ?? path);
 }
 

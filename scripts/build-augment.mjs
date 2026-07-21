@@ -41,6 +41,15 @@ const NEW_GENUS_MIN = 4;
 // a group (matches MAX_THEME_LEAVES in grid.ts) but can still host genus groups.
 const MAX_THEME_LEAVES = 25;
 
+// Junk taxa (by scientific name) to keep OUT of the augment. The Wikidata/GBIF pool
+// carries a few cryptids and disputed "species" that have Wikipedia articles but aren't
+// valid — as tiles they read as real organisms and pad a genus to a fake group. Add a
+// line here whenever one surfaces.
+const EXCLUDE_SCI = new Set([
+  "Trichechus hydropithecus", // "Steller's sea ape" — a cryptid, never a valid species
+  "Trichechus pygmaeus",      // "Dwarf manatee" — disputed; widely held to be juvenile Amazonian manatees
+]);
+
 const tax = JSON.parse(readFileSync(resolve(ROOT, "src/data/taxonomy.json"), "utf8"));
 const pool = JSON.parse(readFileSync(resolve(C, "sel-pool.json"), "utf8"));
 const classify = JSON.parse(readFileSync(resolve(C, "sel-classify-otl.json"), "utf8")).byName;
@@ -76,6 +85,7 @@ const genusBuckets = new Map(); // genus sci -> { isNew, parentId, species: [] }
 const famBuckets = new Map();   // family sci -> { ott, genera: Map(genus->[]) }   (BREADTH-family)
 for (const s of pool) {
   if (inSetSci.has(s.sci)) continue;
+  if (EXCLUDE_SCI.has(s.sci)) continue; // cryptid / disputed non-species
   if (!named(s)) continue;
   if (genusNodeBySci.has(s.genus)) {
     let b = genusBuckets.get(s.genus);

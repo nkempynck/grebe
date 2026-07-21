@@ -95,7 +95,7 @@ export function useGridGame(
   // was pinned), the pinned board takes over — the pin is the authoritative record.
   // Under a playtest override the board is generated fresh from the override seed
   // instead (no pin, no saved progress).
-  const devOpts = dev ? { tier: dev.tier, seed: dev.nonce > 0 ? `n${dev.nonce}` : "" } : undefined;
+  const devOpts = dev ? { tier: dev.tier, reshuffle: dev.nonce } : undefined;
   const computed = useMemo(
     () => (tree ? gridBoardFor(tree, date, devOpts) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps

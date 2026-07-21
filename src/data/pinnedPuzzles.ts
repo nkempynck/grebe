@@ -124,7 +124,12 @@ const kinshipResolver: Resolver<"kinship"> = {
   // the pool was expanded (augment adds out-of-set genera + whole families) and members
   // are now sampled weighted by pageviews. Board identity changed → re-pin un-played
   // future dates (Admin ▸ Pins ▸ Re-pin); past pins stay frozen.
-  version: 5,
+  //   v6: anti-repeat now bars any INDIVIDUAL group (clade) from recurring within a week
+  //   — not just the exact four-category SET — so back-to-back boards no longer share 3 of
+  //   4 groups (and their famous species); and the anti-repeat replay is anchored before
+  //   the pre-launch days (was DAILY_EPOCH, which gave pre-launch previews empty history).
+  //   The board sequence shifted for most dates → re-pin un-played future dates.
+  version: 6,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;

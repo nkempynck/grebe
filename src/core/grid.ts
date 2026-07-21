@@ -13,7 +13,6 @@
 
 import type { Tree } from "./types";
 import { leavesUnder, mrca, separationTierOf } from "./tree";
-import { DAILY_EPOCH } from "./daily";
 
 export const GRID_GROUPS = 4;
 export const GRID_GROUP_SIZE = 4;
@@ -126,7 +125,12 @@ function nameWords(tree: Tree, id: string): string[] {
  *  across days, so far more distinct species surface over time than a deterministic top-4.
  *  Deterministic given the seeded rng. Greedily takes the first `n` that fit the word cap;
  *  RETURNS FEWER than `n` when the theme genuinely can't avoid a giveaway (a whole genus
- *  sharing one vernacular, "…junglefowl" ×4) so the caller drops it. */
+ *  sharing one vernacular, "…junglefowl" ×4) so the caller drops it.
+ *
+ *  Also skips a candidate whose FULL common name is already on the board's group: the tree
+ *  carries a few distinct taxa under one vernacular ("Pitcher plant" ×3 Nepenthes) and even
+ *  true synonym duplicates (Alpaca = Lama pacos & Vicugna pacos), and two tiles with the
+ *  identical label is a confusing, unsolvable giveaway. */
 function pickMembers(tree: Tree, pool: string[], n: number, rng: () => number, wordCap: number): string[] {
   const views = (id: string) => tree.byId.get(id)?.views ?? 0;
   // Weighted-random order: higher views → key nearer 1 → earlier, but not deterministic.
@@ -136,11 +140,15 @@ function pickMembers(tree: Tree, pool: string[], n: number, rng: () => number, w
     .map((x) => x.id);
   const chosen: string[] = [];
   const wordCount = new Map<string, number>();
+  const usedNames = new Set<string>();
   for (const id of seq) {
     if (chosen.length >= n) break;
+    const common = tree.byId.get(id)?.common?.trim().toLowerCase();
+    if (common && usedNames.has(common)) continue; // no two tiles with the identical label
     const words = nameWords(tree, id);
     if (words.some((w) => (wordCount.get(w) ?? 0) >= wordCap)) continue;
     chosen.push(id);
+    if (common) usedNames.add(common);
     for (const w of words) wordCount.set(w, (wordCount.get(w) ?? 0) + 1);
   }
   return chosen; // may be < n → theme is a giveaway at this cap, caller skips it
@@ -347,10 +355,13 @@ const WEEKDAY_BAND = [0, 0, 0, 0, 1, 1, 2, 2]; // index by weekday tier 1…7 (i
 // the band is a lean, not a gate; the reveal mode does the real work. Easy days lean to
 // well-separated super-collections; hard days to tight sub-collections + obscure groups,
 // but each can still run the other since the picture/name aids recognition.
+// Floors are one above the easy band's so a board that's easy on BOTH axes — famous AND
+// loosely separated (a Deer/Pig/Oryx-style diff-3 board) — can't land on a medium/hard
+// day; it belongs Mon–Wed. The tops stay wide so pools remain large and varied.
 const BAND_TIER_WINDOW: Array<[number, number]> = [
   [1, 4], // easy  (Mon–Wed, name + picture)
-  [3, 6], // medium (Thu–Fri, name only)
-  [4, 7], // hard  (Sat–Sun, picture only)
+  [4, 6], // medium (Thu–Fri, name only)
+  [5, 7], // hard  (Sat–Sun, picture only)
 ];
 // A GROUP whose four shown species have a median below this is never used — so no board
 // ever contains a brutally obscure, unplaceable group (e.g. an obscure salamander
@@ -492,11 +503,26 @@ function buildBoard(tree: Tree, container: Container, dateKey: string, tier: num
 /** A board's four categories, order-independent — the anti-repeat key. */
 const groupSig = (b: GridBoard) => b.groups.map((g) => g.cladeId).sort().join(",");
 
-/** Days a board's group-set should stay clear of its recent predecessors (member
- *  species vary daily regardless). Some tiers have only a handful of on-difficulty
- *  category-sets, so a repeat inside the window is sometimes unavoidable — when it is,
- *  we repeat the LEAST-recently-used set, never a recent one. */
+/** Days a board's group-SET should stay clear of its recent predecessors. */
 const GRID_ANTI_REPEAT_WINDOW = 90;
+
+/** Days an INDIVIDUAL group (clade) should stay clear of its recent predecessors —
+ *  the dominant anti-repeat rule. The set-level window above only forbids the exact
+ *  same four categories; on its own it let a board swap ONE of four groups and read
+ *  as "fresh" while the other three groups — and their famous member species — recurred
+ *  from the day before (a Mon/Tue board sharing Drums, Billfish and Rockcods). Barring
+ *  any single group from reappearing within a week stops that: consecutive boards no
+ *  longer echo yesterday's categories. Graceful — if a tier genuinely can't avoid a
+ *  group repeat, boardForDay picks the board with the FEWEST recent groups. */
+const GRID_GROUP_ANTI_REPEAT_WINDOW = 8;
+
+/** The anti-repeat replay anchor: a fixed date safely BEFORE any viewable (pre-launch
+ *  preview) day, so consecutive days — including the pre-launch shakedown ones the app
+ *  serves today — always have real history to avoid. Deliberately DECOUPLED from
+ *  DAILY_EPOCH (the display-number origin, which "only shifts the puzzle number, never
+ *  which puzzle a date resolves to"): anchoring the replay at DAILY_EPOCH short-circuited
+ *  every date at-or-before it to EMPTY history, so back-to-back pre-launch days repeated. */
+const ANTIREPEAT_ANCHOR = "2026-06-22";
 
 /** Board fame: the median across the four groups of each group's shown-member fame. */
 function boardFame(tree: Tree, board: GridBoard): number {
@@ -504,63 +530,88 @@ function boardFame(tree: Tree, board: GridBoard): number {
 }
 
 /** One day's board. Surveys EVERY eligible container that day (tierPool) in a stable
- *  per-date order and returns the first that (a) matches the day's BAND — its own
- *  difficulty (boardDiffTier over the four groups) sits in the band window — and (b) is
- *  fresh (category-set unused within the window). Containers that can't field a
- *  giveaway-free board today (buildBoard → null) are skipped. Falls back, in order, to:
- *  the first fresh OUT-of-band board (variety over exact difficulty), then the globally
- *  least-recently-used set. `seenAt` maps a category-set to the day index it last
- *  appeared. Returns null only if no container can field a clean board at all. */
-function boardForDay(tree: Tree, d: Discovered, dateKey: string, tier: number, seenAt: Map<string, number>, dayIdx: number): GridBoard | null {
+ *  per-date order and scores each buildable board, lowest-is-best, on three ordered
+ *  criteria — then returns the best (breaking ties by the stable survey order):
+ *    1. RECENT-GROUP overlap — how many of the four groups appeared in the last
+ *       GRID_GROUP_ANTI_REPEAT_WINDOW days. This dominates: a board must not echo the
+ *       previous days' categories, even at the cost of the two criteria below.
+ *    2. SET staleness — the exact four-category set reused within GRID_ANTI_REPEAT_WINDOW.
+ *    3. OFF-BAND — its own difficulty (boardDiffTier over the four groups) outside the
+ *       day's band window (variety/freshness beats hitting the exact difficulty; the
+ *       reveal mode carries most of the difficulty anyway).
+ *  Containers that can't field a giveaway-free board today (buildBoard → null) are
+ *  skipped. `seenAt` maps a category-set, and `groupSeenAt` an individual clade id, to
+ *  the day index it last appeared. Returns null only if no container fields a clean
+ *  board at all. An ideal board (score 0) short-circuits the survey. */
+function boardForDay(
+  tree: Tree,
+  pool: Container[],
+  dateKey: string,
+  tier: number,
+  seenAt: Map<string, number>,
+  groupSeenAt: Map<string, number>,
+  dayIdx: number
+): GridBoard | null {
   const [lo, hi] = BAND_TIER_WINDOW[WEEKDAY_BAND[tier] ?? 0];
-  const pool = d.tierPool.get(tier) ?? [...d.byGroup.values()].flat();
   // Stable per-date survey order, so the pick varies day to day.
   const order = shuffle([...pool], mulberry32(xmur3(`grebe:grid:${dateKey}:${tier}:order`)));
-  let freshOffBand: GridBoard | null = null;
-  let lru: GridBoard | null = null;
-  let lruSeen = Infinity;
+  let best: GridBoard | null = null;
+  let bestScore = Infinity;
   for (const c of order) {
     const board = buildBoard(tree, c, dateKey, tier);
     if (!board) continue; // container can't avoid a giveaway today
+    const recentGroups = board.groups.reduce((n, g) => {
+      const s = groupSeenAt.get(g.cladeId);
+      return n + (s !== undefined && dayIdx - s < GRID_GROUP_ANTI_REPEAT_WINDOW ? 1 : 0);
+    }, 0);
     const seen = seenAt.get(groupSig(board));
-    const fresh = seen === undefined || dayIdx - seen >= GRID_ANTI_REPEAT_WINDOW;
-    if (fresh) {
-      const bd = boardDiffTier(tree, board.groups.map((g) => g.cladeId), boardFame(tree, board));
-      if (bd >= lo && bd <= hi) return board;    // fresh AND on-band → ideal
-      if (!freshOffBand) freshOffBand = board;   // fresh but wrong difficulty → fallback
-    } else if (seen! < lruSeen) {
-      lruSeen = seen!; lru = board;              // oldest-seen, last-resort repeat
-    }
+    const setStale = seen !== undefined && dayIdx - seen < GRID_ANTI_REPEAT_WINDOW;
+    const bd = boardDiffTier(tree, board.groups.map((g) => g.cladeId), boardFame(tree, board));
+    const offBand = bd < lo || bd > hi;
+    // Weighted so recent-group overlap outranks set staleness outranks off-band.
+    const score = recentGroups * 4 + (setStale ? 2 : 0) + (offBand ? 1 : 0);
+    if (score < bestScore) { best = board; bestScore = score; }
+    if (score === 0) break; // fresh groups, fresh set, on-band → nothing beats it
   }
-  return freshOffBand ?? lru;
+  return best;
 }
 
 /**
  * Build the grid board for a date at a difficulty tier (1 gentle … 7 brutal).
- * Deterministic pure function of (tree, date, tier). Skips any group-set used in
- * the previous GRID_ANTI_REPEAT_WINDOW days so nearby boards don't reuse the same
- * four categories (member species always vary regardless). Returns null only if
- * the tree can't field a board.
+ * Deterministic pure function of (tree, date, tier). Avoids reusing any individual
+ * group within GRID_GROUP_ANTI_REPEAT_WINDOW days (and any four-category SET within
+ * GRID_ANTI_REPEAT_WINDOW), so nearby boards don't echo yesterday's categories or
+ * their famous species. Returns null only if the tree can't field a board.
  *
- * Replays the boards from DAILY_EPOCH up to the target date, keeping a rolling
- * window of the group-sets actually shown. Anchoring at the fixed epoch (not the
- * target minus a window) makes every date resolve identically no matter which is
- * asked for, so a board shown on one day is visible to the days that follow it —
- * a solid guarantee, not an approximation. Cheap: discovery is cached per tree
- * and each replayed day is O(1).
+ * Replays the boards from ANTIREPEAT_ANCHOR up to the target date, keeping rolling
+ * windows of the group-sets AND the individual groups actually shown. Anchoring at a
+ * fixed date BEFORE any viewable day (not the target minus a window) makes every date
+ * resolve identically no matter which is asked for, so a board shown on one day is
+ * visible to the days that follow it — including the pre-launch preview days. Cheap:
+ * discovery is cached per tree and each replayed day is O(1).
  */
+/** The containers eligible at a tier (structurally hard groups gated off the easy
+ *  days), or the whole set if a tier somehow has no pool. */
+function tierPoolOf(d: Discovered, tier: number): Container[] {
+  return d.tierPool.get(tier) ?? [...d.byGroup.values()].flat();
+}
+
 export function generateGridBoard(tree: Tree, dateKey: string, tier: number): GridBoard | null {
   const d = getDiscovered(tree);
   if (!d) return null;
-  if (dateKey <= DAILY_EPOCH) return boardForDay(tree, d, dateKey, tier, new Map(), 0);
+  if (dateKey < ANTIREPEAT_ANCHOR) return boardForDay(tree, tierPoolOf(d, tier), dateKey, tier, new Map(), new Map(), 0);
 
-  const seenAt = new Map<string, number>(); // category-set → day index last shown
+  const seenAt = new Map<string, number>();      // category-set → day index last shown
+  const groupSeenAt = new Map<string, number>(); // clade id → day index last shown
   let idx = 0;
-  for (let dk = DAILY_EPOCH; ; dk = shiftDate(dk, 1), idx++) {
+  for (let dk = ANTIREPEAT_ANCHOR; ; dk = shiftDate(dk, 1), idx++) {
     const t = dk === dateKey ? tier : tierForDate(dk);
-    const board = boardForDay(tree, d, dk, t, seenAt, idx);
+    const board = boardForDay(tree, tierPoolOf(d, t), dk, t, seenAt, groupSeenAt, idx);
     if (dk === dateKey) return board;
-    if (board) seenAt.set(groupSig(board), idx);
+    if (board) {
+      seenAt.set(groupSig(board), idx);
+      for (const g of board.groups) groupSeenAt.set(g.cladeId, idx);
+    }
   }
 }
 
@@ -571,7 +622,7 @@ export function generateGridBoard(tree: Tree, dateKey: string, tier: number): Gr
  *  (seed, tier); the seed is used purely to drive the RNG. */
 export function gridBoardForSeed(tree: Tree, seed: string, tier: number): GridBoard | null {
   const d = getDiscovered(tree);
-  return d ? boardForDay(tree, d, seed, tier, new Map(), 0) : null;
+  return d ? boardForDay(tree, tierPoolOf(d, tier), seed, tier, new Map(), new Map(), 0) : null;
 }
 
 /** Which solution group a set of four selected tiles forms, plus a Connections

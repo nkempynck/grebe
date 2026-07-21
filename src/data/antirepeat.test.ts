@@ -69,19 +69,34 @@ describe("Lineage difficulty ramp", () => {
 });
 
 describe("Kinship anti-repeat", () => {
-  it("never repeats a group-set within 30 days", () => {
-    const sigs: string[] = [];
-    let d = DAILY_EPOCH;
-    for (let i = 0; i < 120; i++) {
-      const tier = resolveDailyRules(d).tier;
-      const board = generateGridBoard(tree, d, tier)!;
-      sigs.push(board.groups.map((g) => g.cladeId).sort().join(","));
-      d = shift(d, 1);
-    }
-    for (let i = 0; i < sigs.length; i++) {
-      for (let j = i + 1; j < Math.min(i + 31, sigs.length); j++) {
-        expect(sigs[i]).not.toBe(sigs[j]);
+  // Replay a run of real boards once, then assert both the set- and the per-group
+  // windows over it. Starts before the epoch so the pre-launch preview days (which
+  // used to run with empty history → repeats) are covered too.
+  const start = shift(DAILY_EPOCH, -10);
+  const boards: { sig: string; groups: string[] }[] = [];
+  let d = start;
+  for (let i = 0; i < 120; i++) {
+    const tier = resolveDailyRules(d).tier;
+    const b = generateGridBoard(tree, d, tier)!;
+    const groups = b.groups.map((g) => g.cladeId);
+    boards.push({ sig: [...groups].sort().join(","), groups });
+    d = shift(d, 1);
+  }
+
+  it("never repeats a group-SET within 30 days", () => {
+    for (let i = 0; i < boards.length; i++)
+      for (let j = i + 1; j < Math.min(i + 31, boards.length); j++)
+        expect(boards[i].sig).not.toBe(boards[j].sig);
+  });
+
+  // The bug this guards: swapping one of four groups made the SET "fresh" while 3/4
+  // groups (and their species) recurred from the day before. No individual group may
+  // reappear within a week — including on consecutive pre-launch days.
+  it("never repeats an INDIVIDUAL group within 7 days", () => {
+    for (let i = 0; i < boards.length; i++)
+      for (let j = i + 1; j < Math.min(i + 8, boards.length); j++) {
+        const shared = boards[i].groups.filter((g) => boards[j].groups.includes(g));
+        expect(shared, `days ${i}→${j} share ${shared.join(", ")}`).toEqual([]);
       }
-    }
-  }, 20000); // O(n²): 120 full epoch replays — heavy but deterministic
-});
+  });
+}, 30000); // O(n²) over 120 full anchored replays — heavy but deterministic
