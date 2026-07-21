@@ -1415,7 +1415,14 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   transition: opacity 0.12s;
 }
 .grid-tile-zoom:hover, .grid-tile-zoom:focus-visible { opacity: 1; }
-.grid-tile-img { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; }
+/* The organism image, shown whole (contain) so it's never cropped/zoomed. A blurred,
+   cover-fit copy of the same picture fills the letterbox behind it so the empty space
+   reads as intentional rather than a broken tile. */
+.grid-tile-img { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: contain; }
+.grid-tile-bg {
+  position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover;
+  filter: blur(14px) saturate(1.1); transform: scale(1.15); opacity: 0.5;
+}
 .grid-tile.is-flipped { color: #fff; border-color: var(--brass); }
 .grid-tile-cap {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
@@ -1621,7 +1628,13 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
    two games look identical; only the interactive leaf tiles below are bespoke. */
 /* Center the fan when it fits, but scroll (never clip the left edge) when it's wider than
    the stage. `safe center` avoids the margin:auto+overflow clipping trap. */
-.branches-stage { overflow-x: auto; margin-bottom: 0; background: transparent; display: flex; justify-content: safe center; }
+.branches-stage {
+  overflow: auto; margin-bottom: 0; background: transparent; display: flex; justify-content: safe center;
+  /* Grab-to-pan: a mouse drag on empty canvas scrolls the tree (see onStageDown);
+     a finger swipes it natively. contain stops the pan from scrolling the page. */
+  cursor: grab; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+}
+.branches-stage.is-panning { cursor: grabbing; user-select: none; }
 .branches-stage .clado-canvas { margin: 0; flex: none; }
 /* Lineage sets each branch's stroke inline (per warmth); Branches is uniform. */
 .branches-stage .clado-link { stroke: var(--clado-line); }

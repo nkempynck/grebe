@@ -270,6 +270,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
                   aria-pressed={on}
                   onClick={() => g.toggle(id)}
                 >
+                  {imgShown && <img className="grid-tile-bg" src={thumbs[id]} alt="" aria-hidden="true" />}
                   {imgShown && <img className="grid-tile-img" src={thumbs[id]} alt="" />}
                   {imgShown && (
                     <span

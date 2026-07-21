@@ -128,7 +128,38 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   // (or an earlier tile) outward along its own branch until it's clear. Tiles carry no
   // branch-anchored dot, so moving them along the ray reads naturally; labels stay put.
   const canvasRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const tileEls = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Grab-to-pan the tree with a mouse: dragging empty canvas scrolls the stage.
+  // Touch panning stays native (the stage scrolls under a finger), and species
+  // tiles keep their own drag-to-place, so we only hijack primary-button MOUSE
+  // drags that start on the background — not on a tile, clade, dot or button.
+  const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  const onStageDown = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    if ((e.target as HTMLElement).closest(".branches-node, .clado-pt, button, a")) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+    pan.current = { x: e.clientX, y: e.clientY, left: stage.scrollLeft, top: stage.scrollTop };
+    stage.setPointerCapture(e.pointerId);
+    stage.classList.add("is-panning");
+  };
+  const onStageMove = (e: React.PointerEvent) => {
+    const p = pan.current;
+    const stage = stageRef.current;
+    if (!p || !stage) return;
+    stage.scrollLeft = p.left - (e.clientX - p.x);
+    stage.scrollTop = p.top - (e.clientY - p.y);
+  };
+  const onStageUp = (e: React.PointerEvent) => {
+    const stage = stageRef.current;
+    if (pan.current && stage) {
+      stage.releasePointerCapture(e.pointerId);
+      stage.classList.remove("is-panning");
+    }
+    pan.current = null;
+  };
   const nodeById = useMemo(() => new Map((layout?.nodes ?? []).map((n) => [n.id, n])), [layout]);
   const placementSig = Object.entries(g.placements).sort().join("|");
   useLayoutEffect(() => {
@@ -301,7 +332,14 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
 
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
 
-      <div className="branches-stage">
+      <div
+        ref={stageRef}
+        className="branches-stage"
+        onPointerDown={onStageDown}
+        onPointerMove={onStageMove}
+        onPointerUp={onStageUp}
+        onPointerCancel={onStageUp}
+      >
         <div ref={canvasRef} className="clado-canvas" style={{ width: layout.width, height: layout.height }}>
           <svg className="clado-links" width={layout.width} height={layout.height} aria-hidden="true">
             {layout.links.map((l, i) => (
