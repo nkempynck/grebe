@@ -1,10 +1,36 @@
 import { describe, it, expect } from "vitest";
-import { derive, STREAK_SAVE_MIN_GUESSES, type DailyEntry, type StatsStore } from "./stats";
+import { derive, mergeMissingDailies, STREAK_SAVE_MIN_GUESSES, type DailyEntry, type StatsStore } from "./stats";
 
 const won = (): DailyEntry => ({ status: "won", guesses: 3, hints: 0, tier: 1 });
 const gaveUp = (guesses: number): DailyEntry => ({ status: "gaveup", guesses, hints: 0, tier: 1 });
 
 const store = (history: Record<string, DailyEntry>): StatsStore => ({ version: 6, history, clades: {}, kinship: {}, branches: {} });
+
+// Sign-in carryover: a daily finished while SIGNED OUT is saved locally, and its
+// leaderboard row replays via pendingSubmits — but a returning account's authoritative
+// cloud store would overwrite the device and drop the personal stat, leaving the
+// "played today" gate (stats.daily.playedDates) closed while the board shows the row.
+// mergeMissingDailies folds the local-only daily into the cloud store to close that gap.
+describe("signed-out daily carries into the played-today gate on sign-in", () => {
+  const TODAY = "2026-07-21";
+
+  it("folds a local-only daily into a returning account's stats", () => {
+    const cloud = store({ "2026-07-19": won(), "2026-07-20": won() }); // returning acct, no today yet
+    const local = store({ "2026-07-20": won(), [TODAY]: won() });      // signed-out play today
+    const carried = mergeMissingDailies(cloud, local);
+    expect(carried).toBe(1);
+    // The gate reads playedDates; today must now be in it.
+    expect(derive(cloud, TODAY).daily.playedDates).toContain(TODAY);
+  });
+
+  it("never overwrites a date the cloud already has (cloud wins)", () => {
+    const cloudToday = won();
+    const cloud = store({ [TODAY]: cloudToday });
+    const local = store({ [TODAY]: gaveUp(9) }); // a different local result for the same day
+    expect(mergeMissingDailies(cloud, local)).toBe(0);
+    expect(cloud.history[TODAY]).toBe(cloudToday); // untouched
+  });
+});
 
 // A well-fought give-up (>= STREAK_SAVE_MIN_GUESSES) keeps the streak but doesn't
 // add to it; a shorter give-up or a gap breaks it.

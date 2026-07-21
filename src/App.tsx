@@ -9,8 +9,12 @@ import { recordGame, fetchPlayerBadges, recordGridGame, recordBranchesGame } fro
 import { enqueuePendingSubmit, loadPendingSubmits, clearPendingSubmits } from "./data/pendingSubmits";
 import { newDailyWins } from "./data/badges";
 import { todayKey, dailyNumber, dailyLabel, isPreLaunch } from "./core/daily";
-import { dailyAnswerFor } from "./data/dailySchedule";
+import { dailyAnswerFor, resolveDailyRules } from "./data/dailySchedule";
 import { loadStore } from "./data/stats";
+import { loadDailyProgress } from "./data/dailyProgress";
+import { loadGridProgress } from "./data/gridProgress";
+import { loadBranchesProgress } from "./data/branchesProgress";
+import { branchesBoardFor } from "./data/branchesDaily";
 import { primePinnedPuzzles, pinnedPuzzleCached } from "./data/pinnedPuzzles";
 import { SettingsPanel } from "./ui/SettingsPanel";
 import { GuessInput } from "./ui/GuessInput";
@@ -117,6 +121,42 @@ export default function App() {
       loadRichTree().then(setRichTree).catch(() => setRichTree(g.tree));
     }
   }, [view, richTree, g.tree]);
+
+  // Recover a completed daily that's missing from stats — chiefly one finished while
+  // SIGNED OUT whose local stat a prior (pre-fix) sign-in overwrote with the cloud store
+  // before merging it. The per-game PROGRESS caches survive that (they're what still show
+  // the game as "played"), so rebuild the missing stat from them. The record* helpers are
+  // idempotent (apply* only add a missing date) and push to the cloud when signed in, so a
+  // normal restore is a no-op and the recovered day persists across devices. Guarded on
+  // playedDates so it fires only for a genuinely absent day.
+  useEffect(() => {
+    const t = todayKey();
+    const tier = resolveDailyRules(t).tier;
+    const lp = loadDailyProgress();
+    if (tree && lp && lp.date === t && lp.status !== "playing" && !stats.daily.playedDates.includes(t)) {
+      record("daily", groupOf(tree, lp.answerId), {
+        status: lp.status === "won" ? "won" : "gaveup",
+        guesses: lp.guessIds.length,
+        hints: lp.hintIds.length,
+        tier,
+      });
+    }
+    const kp = loadGridProgress();
+    if (kp && kp.date === t && kp.status !== "playing" && !stats.kinship.playedDates.includes(t)) {
+      recordKinship({ status: kp.status === "won" ? "won" : "lost", mistakes: kp.mistakes, tier, reveals: kp.revealed?.length ?? 0 });
+    }
+    // Branches needs the rich tree/board to score placements; runs once that's loaded.
+    const bp = loadBranchesProgress();
+    if (richTree && bp && bp.date === t && bp.status === "done" && !stats.branches.playedDates.includes(t)) {
+      const board = branchesBoardFor(richTree, t);
+      if (board) {
+        const total = board.slotIds.length;
+        const correct = board.slotIds.filter((s) => bp.placements[s] === s).length;
+        recordBranches({ won: correct === total, correct, total, hinted: bp.hints.length, peeked: (bp.peeked ?? []).length, tier });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tree, richTree, stats.daily.playedDates, stats.kinship.playedDates, stats.branches.playedDates, record, recordKinship, recordBranches]);
   // A section id for the About page to scroll to — set when a game page's
   // "How this works" link is clicked, cleared when About is opened from the nav.
   const [aboutFocus, setAboutFocus] = useState<string | null>(null);
