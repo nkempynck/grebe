@@ -532,6 +532,21 @@ export default function App() {
         </div>
       )}
 
+      {/* Just-launched: invite bug reports for the first two weeks, then auto-hides
+          (dailyNumber is 1 on launch day), so no post-launch cleanup. */}
+      {!isPreLaunch(today) && dailyNumber(today) <= 14 && (
+        <div className="beta-banner" role="note">
+          <span className="beta-tag">Just launched</span>
+          <span>
+            Grebe just launched, so you may still run into bugs. Reports are welcome on{" "}
+            <a href="https://github.com/nkempynck/grebe/issues" target="_blank" rel="noopener noreferrer">
+              GitHub
+            </a>
+            .
+          </span>
+        </div>
+      )}
+
       <nav className="topnav" role="tablist" aria-label="Sections">
         {(["home", "lineage", "kinship", "branches", "leaderboard", "account", "about"] as const).map((v) => {
           if (v === "account" && !player.configured) return null;
