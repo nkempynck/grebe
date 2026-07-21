@@ -62,7 +62,7 @@ export async function fetchTodayGrid(puzzleDate: string): Promise<TodayGrid | nu
   }
 }
 
-export interface TodayBranches { won: boolean; correct: number; total: number; hinted: number; peeked: number }
+export interface TodayBranches { won: boolean; correct: number; total: number; hinted: number; peeked: number; mistakes: number }
 
 /** The signed-in player's Branches row for a date, or null (RLS scopes it to the
  *  caller). Same purpose and limits as fetchTodayGrid. */
@@ -71,7 +71,7 @@ export async function fetchTodayBranches(puzzleDate: string): Promise<TodayBranc
   try {
     const { data, error } = await supabase
       .from("branches_games")
-      .select("won, correct, total, hinted, peeked")
+      .select("won, correct, total, hinted, peeked, mistakes")
       .eq("puzzle_date", puzzleDate)
       .limit(1)
       .maybeSingle();
@@ -214,7 +214,7 @@ export async function recordGridGame(g: { puzzleDate: string; won: boolean; mist
  *  is denied by RLS). The server pins `tier` from the date; the placement counts
  *  are client-reported. One row per player per day. Best-effort. */
 export async function recordBranchesGame(g: {
-  puzzleDate: string; won: boolean; correct: number; total: number; hinted: number; peeked: number;
+  puzzleDate: string; won: boolean; correct: number; total: number; hinted: number; peeked: number; mistakes: number;
 }): Promise<boolean> {
   if (!supabase) return false;
   try {
@@ -225,6 +225,7 @@ export async function recordBranchesGame(g: {
       p_total: g.total,
       p_hinted: g.hinted,
       p_peeked: g.peeked,
+      p_mistakes: g.mistakes,
     });
     if (error) { console.warn("submit_branches_game failed", error); return false; }
     return true;
@@ -388,6 +389,28 @@ export async function fetchDailyCompletion(game: GameId, date: string): Promise<
     if (error || !data || !data[0]) return null;
     const row = data[0] as { played: number | null; solved: number | null };
     return { played: Number(row.played ?? 0), solved: Number(row.solved ?? 0) };
+  } catch {
+    return null;
+  }
+}
+
+/** One row per (day, game) of daily play counts over an inclusive date range, for
+ *  the admin analytics view. Admin-gated server-side (daily_activity()), so a
+ *  non-admin caller just gets an empty list. Days with no plays are absent — the
+ *  caller fills the gaps. Null only when there's no backend or the analytics
+ *  migration hasn't been run yet (RPC missing), so the UI can hint to run it. */
+export interface ActivityRow { day: string; game: GameId; played: number; solved: number }
+export async function fetchDailyActivity(from: string, to: string): Promise<ActivityRow[] | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc("daily_activity", { p_from: from, p_to: to });
+    if (error) return null;
+    return ((data ?? []) as { day: string; game: string; played: number | null; solved: number | null }[]).map((r) => ({
+      day: r.day,
+      game: r.game as GameId,
+      played: Number(r.played ?? 0),
+      solved: Number(r.solved ?? 0),
+    }));
   } catch {
     return null;
   }

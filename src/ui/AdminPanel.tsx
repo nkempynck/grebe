@@ -30,6 +30,7 @@ import {
   type DayPlan,
 } from "../data/dailyPlan";
 import { isSupabaseConfigured, supabase } from "../data/supabase";
+import { fetchDailyActivity, type ActivityRow } from "../data/games";
 import {
   fetchPinnedIndex,
   fetchPinnedPuzzle,
@@ -99,6 +100,7 @@ const SCHEMA_CHECKS = [
   { rpc: "badges_schema_check", label: "Badges", file: "badges.sql" },
   { rpc: "streaks_schema_check", label: "Streaks", file: "streaks.sql" },
   { rpc: "taxon_index_schema_check", label: "Guess index", file: "taxon_index.sql" },
+  { rpc: "analytics_schema_check", label: "Analytics", file: "analytics.sql" },
 ];
 
 interface FileCheck {
@@ -626,6 +628,202 @@ function PinManager({ tree, richTree }: { tree: Tree; richTree: Tree }) {
   );
 }
 
+// Each game's chart colour matches its accent used across the app (see the
+// [data-game] rules in index.css): lineage green, kinship teal, branches gold.
+// These read fine as three SEPARATE single-series facets (identity also carried
+// by each facet's icon+label title); they deliberately are NOT drawn as three
+// overlapping lines, where green↔teal sit too close to tell apart.
+const GAME_COLOR: Record<Game, string> = {
+  lineage: "var(--brass)",
+  kinship: "var(--cold)",
+  branches: "var(--vermilion)",
+};
+
+const RANGES = [7, 30, 90] as const;
+type Range = (typeof RANGES)[number];
+
+const shortDate = (d: string) =>
+  new Date(`${d}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+/** One game's daily-plays sparkline: a 2px line over a faint area fill, baseline
+ *  at zero, a marker + direct label on the latest point, and a crosshair at the
+ *  hovered day. Shares its y-scale (`max`) and hovered index with its siblings so
+ *  the three facets are height-comparable and hover-aligned. */
+function MiniChart({
+  values, color, max, hover, onHover,
+}: {
+  values: number[]; color: string; max: number; hover: number | null; onHover: (i: number | null) => void;
+}) {
+  const W = 600, H = 60, PAD = 6;
+  const n = values.length;
+  const x = (i: number) => (n <= 1 ? W / 2 : PAD + (i / (n - 1)) * (W - 2 * PAD));
+  const y = (v: number) => H - PAD - (v / max) * (H - 2 * PAD);
+  const line = values.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  const area = `${line} L${x(n - 1).toFixed(1)} ${H - PAD} L${x(0).toFixed(1)} ${H - PAD} Z`;
+  const last = n - 1;
+  const active = hover ?? last;
+
+  return (
+    <svg className="an-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
+         role="img" aria-hidden="true" onMouseLeave={() => onHover(null)}>
+      <path d={area} fill={color} opacity={0.12} />
+      <path d={line} fill="none" stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke"
+            strokeLinejoin="round" strokeLinecap="round" />
+      {/* crosshair at the hovered (or latest) day */}
+      <line x1={x(active)} y1={PAD} x2={x(active)} y2={H - PAD}
+            stroke={color} strokeWidth={1} opacity={0.35} vectorEffect="non-scaling-stroke" />
+      <circle cx={x(active)} cy={y(values[active])} r={3.5} fill={color} vectorEffect="non-scaling-stroke" />
+      {/* invisible per-day hit targets driving the shared hover index */}
+      {values.map((_, i) => (
+        <rect key={i} x={x(i) - (W / n) / 2} y={0} width={W / n} height={H} fill="transparent"
+              onMouseEnter={() => onHover(i)} />
+      ))}
+    </svg>
+  );
+}
+
+/** Admin analytics: how many signed-in players played each daily over a window.
+ *  Reads daily_activity() (admin-gated), which counts only players on the public
+ *  boards — signed-out plays are never sent to the server, so these are floors,
+ *  not totals. Small multiples (one per game) + today's tiles + a data table. */
+function Analytics() {
+  const live = isSupabaseConfigured;
+  const today = todayKey();
+  const [range, setRange] = useState<Range>(30);
+  // undefined = still loading, null = RPC missing (migration not run), [] = no plays.
+  const [rows, setRows] = useState<ActivityRow[] | null | undefined>(undefined);
+  const [loading, setLoading] = useState(live);
+  const [hover, setHover] = useState<number | null>(null);
+  const [showTable, setShowTable] = useState(false);
+
+  // `range` calendar days ending today (inclusive), as YYYY-MM-DD in UTC — matches
+  // the pin calendar's date maths and puzzle_date's semantics.
+  const dates = useMemo(() => {
+    const out: string[] = [];
+    const end = new Date(`${today}T00:00:00Z`);
+    for (let i = range - 1; i >= 0; i--) {
+      const d = new Date(end);
+      d.setUTCDate(end.getUTCDate() - i);
+      out.push(d.toISOString().slice(0, 10));
+    }
+    return out;
+  }, [today, range]);
+
+  const load = useCallback(async () => {
+    if (!live) { setLoading(false); return; }
+    setLoading(true);
+    setRows(await fetchDailyActivity(dates[0], dates[dates.length - 1]));
+    setLoading(false);
+  }, [live, dates]);
+  useEffect(() => { void load(); }, [load]);
+
+  // Align returned rows onto the full date list (gaps → 0), per game.
+  const byGame = useMemo(() => {
+    const idx = new Map(dates.map((d, i) => [d, i]));
+    const out: Record<Game, { played: number[]; solved: number[] }> = {
+      lineage: { played: Array(dates.length).fill(0), solved: Array(dates.length).fill(0) },
+      kinship: { played: Array(dates.length).fill(0), solved: Array(dates.length).fill(0) },
+      branches: { played: Array(dates.length).fill(0), solved: Array(dates.length).fill(0) },
+    };
+    for (const r of rows ?? []) {
+      const i = idx.get(r.day);
+      if (i == null || !out[r.game]) continue;
+      out[r.game].played[i] = r.played;
+      out[r.game].solved[i] = r.solved;
+    }
+    return out;
+  }, [rows, dates]);
+
+  // Shared y-scale across the three facets so heights compare directly.
+  const max = useMemo(
+    () => Math.max(1, ...GAMES.flatMap((g) => byGame[g].played)),
+    [byGame]
+  );
+
+  const active = hover ?? dates.length - 1;
+  const activeDate = dates[active];
+  const rangeTotal = (g: Game) => byGame[g].played.reduce((a, b) => a + b, 0);
+
+  if (!live) {
+    return <div className="admin-activity"><p className="admin-testbench-hint">Backend not configured — no play data to show.</p></div>;
+  }
+
+  return (
+    <div className="admin-activity">
+      <div className="admin-activity-head">
+        <div>
+          <div className="admin-testbench-ttl">Daily plays</div>
+          <p className="admin-testbench-hint">
+            Signed-in players who show on the public boards. Signed-out plays aren’t tracked, so these are
+            floors — real totals run higher.
+          </p>
+        </div>
+        <div className="an-controls">
+          <div className="lb-seg-group" role="group" aria-label="Time range">
+            {RANGES.map((r) => (
+              <button key={r} className={`lb-seg${range === r ? " is-on" : ""}`} onClick={() => setRange(r)}>{r}d</button>
+            ))}
+          </div>
+          <button className="linkbtn" onClick={() => void load()} disabled={loading}>{loading ? "loading…" : "Refresh"}</button>
+        </div>
+      </div>
+
+      {rows === null ? (
+        <p className="admin-schema-hint">Analytics backend not found — run <code>analytics.sql</code> in the Supabase SQL editor, then Refresh.</p>
+      ) : loading && rows === undefined ? (
+        <p className="admin-testbench-hint">Loading…</p>
+      ) : (
+        <>
+          <div className="an-readout">
+            <span className="an-readout-date">{shortDate(activeDate)}{activeDate === today ? " · today" : ""}</span>
+            {GAMES.map((g) => (
+              <span key={g} className="an-readout-game">
+                <i className="an-dot" style={{ background: GAME_COLOR[g] }} />
+                {GAME_META[g].icon} <b>{byGame[g].played[active]}</b> played · {byGame[g].solved[active]} solved
+              </span>
+            ))}
+          </div>
+
+          <div className="an-facets">
+            {GAMES.map((g) => (
+              <div key={g} className="an-facet">
+                <div className="an-facet-head">
+                  <span className="an-facet-ttl">{GAME_META[g].icon} {GAME_META[g].label}</span>
+                  <span className="an-facet-total">{rangeTotal(g)} plays · {range}d</span>
+                </div>
+                <MiniChart values={byGame[g].played} color={GAME_COLOR[g]} max={max} hover={hover} onHover={setHover} />
+              </div>
+            ))}
+          </div>
+
+          <div className="an-foot">
+            <span className="an-foot-scale">peak {max}/day across window</span>
+            <button className="linkbtn" onClick={() => setShowTable((s) => !s)}>{showTable ? "hide data" : "show data"}</button>
+          </div>
+
+          {showTable && (
+            <div className="an-table-wrap">
+              <table className="an-table">
+                <thead>
+                  <tr><th>Date</th>{GAMES.map((g) => <th key={g}>{GAME_META[g].icon} played / solved</th>)}</tr>
+                </thead>
+                <tbody>
+                  {dates.map((d, i) => (
+                    <tr key={d} className={d === today ? "is-today" : ""}>
+                      <td>{shortDate(d)}</td>
+                      {GAMES.map((g) => <td key={g}>{byGame[g].played[i]} / {byGame[g].solved[i]}</td>)}
+                    </tr>
+                  )).reverse()}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function AdminPanel({ tree }: { tree: Tree }) {
   const live = isSupabaseConfigured;
   // Kinship/Branches generate from the rich tree (base + augment) — the admin bench,
@@ -681,7 +879,7 @@ export function AdminPanel({ tree }: { tree: Tree }) {
   };
 
   // ---- Draft / plan being edited ----
-  const [tab, setTab] = useState<"health" | "play" | "pins" | "schedule">("health");
+  const [tab, setTab] = useState<"health" | "analytics" | "play" | "pins" | "schedule">("health");
   const [draft, setDraft] = useState<DailyPlan>(live ? {} : loadLocalDraft);
   const [date, setDate] = useState(todayKey());
   const [q, setQ] = useState("");
@@ -841,12 +1039,15 @@ export function AdminPanel({ tree }: { tree: Tree }) {
 
       <div className="admin-tabs" role="tablist" aria-label="Admin sections">
         <button role="tab" aria-selected={tab === "health"} className={`admin-tab${tab === "health" ? " is-on" : ""}`} onClick={() => setTab("health")}>🩺 Health</button>
+        <button role="tab" aria-selected={tab === "analytics"} className={`admin-tab${tab === "analytics" ? " is-on" : ""}`} onClick={() => setTab("analytics")}>📈 Analytics</button>
         <button role="tab" aria-selected={tab === "play"} className={`admin-tab${tab === "play" ? " is-on" : ""}`} onClick={() => setTab("play")}>🎮 Test bench</button>
         <button role="tab" aria-selected={tab === "pins"} className={`admin-tab${tab === "pins" ? " is-on" : ""}`} onClick={() => setTab("pins")}>📌 Pins</button>
         <button role="tab" aria-selected={tab === "schedule"} className={`admin-tab${tab === "schedule" ? " is-on" : ""}`} onClick={() => setTab("schedule")}>🗓 Schedule</button>
       </div>
 
       {tab === "health" && <ErrorBoundary label="System health"><SystemHealth tree={tree} richTree={rich} /></ErrorBoundary>}
+
+      {tab === "analytics" && <ErrorBoundary label="Analytics"><Analytics /></ErrorBoundary>}
 
       {tab === "play" && <ErrorBoundary label="Test bench"><TestBench tree={tree} richTree={rich} /></ErrorBoundary>}
 

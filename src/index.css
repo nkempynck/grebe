@@ -648,6 +648,40 @@ body {
 .admin-tab:hover { border-color: var(--brass); color: var(--ink); }
 .admin-tab.is-on { border-color: var(--brass); background: color-mix(in srgb, var(--brass) 14%, transparent); color: var(--brass-bright); }
 
+/* Analytics: daily-plays small multiples. */
+.admin-activity {
+  margin-bottom: 20px; padding: 16px; border-radius: var(--radius);
+  border: 1px dashed var(--line); background: var(--bg-2);
+}
+.admin-activity-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.an-controls { display: flex; align-items: center; gap: 12px; }
+.lb-seg-group { display: inline-flex; gap: 4px; }
+.an-readout {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px;
+  margin: 14px 0 10px; padding: 8px 12px; border-radius: var(--radius);
+  background: var(--bg); border: 1px solid var(--line);
+  font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft);
+}
+.an-readout-date { font-weight: 700; color: var(--ink); min-width: 6.5em; }
+.an-readout-game { display: inline-flex; align-items: center; gap: 5px; }
+.an-readout-game b { color: var(--ink); }
+.an-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.an-facets { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 12px 0; }
+.an-facet { padding: 10px 12px; border-radius: var(--radius); background: var(--bg); border: 1px solid var(--line); }
+.an-facet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.an-facet-ttl { font-weight: 700; font-size: 13px; color: var(--ink); }
+.an-facet-total { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+.an-spark { display: block; width: 100%; height: 60px; overflow: visible; }
+.an-spark rect { cursor: crosshair; }
+.an-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+.an-foot-scale { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+.an-table-wrap { margin-top: 12px; max-height: 320px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.an-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
+.an-table th, .an-table td { padding: 5px 10px; text-align: left; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+.an-table th { position: sticky; top: 0; background: var(--bg-2); color: var(--ink-soft); font-weight: 700; }
+.an-table td { color: var(--ink-soft); }
+.an-table tr.is-today td { color: var(--ink); font-weight: 700; }
+
 /* Pin manager: coverage calendar + bulk re-pin. */
 .admin-pins {
   margin-bottom: 20px; padding: 16px; border-radius: var(--radius);
@@ -1679,13 +1713,60 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .branches-leaf.is-slot.is-filled .branches-leaf-name { cursor: grab; }
 .branches-leaf.is-slot:hover { border-color: var(--brass); }
 .branches-hint-tag { font-family: var(--font-mono); font-size: 8.5px; color: var(--ink-faint); text-transform: uppercase; }
+/* a slot CONFIRMED correct by a submit/hint: green, frozen, not draggable */
+.branches-leaf.is-slot.is-locked {
+  border-color: var(--brass-bright); background: color-mix(in srgb, var(--brass) 20%, var(--bg-3));
+}
+.branches-leaf.is-slot.is-locked .branches-leaf-name { cursor: default; }
+.branches-lock-tag { font-family: var(--font-mono); font-size: 9px; color: var(--brass-bright); font-weight: 700; }
 .branches-leaf.is-correct { border-color: var(--brass-bright); background: color-mix(in srgb, var(--brass) 18%, var(--bg-3)); }
 .branches-leaf.is-wrong { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--bg-3)); }
 .branches-leaf-answer { font-family: var(--font-mono); font-size: 9.5px; color: var(--danger); margin-top: 1px; }
+/* a wrong submit flashes the misplaced slots red before their tiles bounce back */
+.branches-leaf.is-slot.is-wrongflash { animation: branches-reject 0.75s ease-out; }
+@keyframes branches-reject {
+  0%, 40% { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 22%, var(--bg-3)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 30%, transparent); }
+  100% { box-shadow: none; }
+}
 
 /* ---- dock: the species-to-place shelf + actions, sitting under the tree ---- */
 .branches-dock {
   border-top: 1px solid var(--line); padding-top: 14px;
+}
+/* mistake budget: Kinship-style pips (one per tolerated miss + a red fatal pip)
+ * plus the live "one mistake away" warning */
+.branches-budget {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 12px;
+  padding: 8px 12px; border-radius: var(--radius);
+  border: 1px solid var(--line); background: var(--bg-2);
+  transition: border-color 0.15s, background 0.15s;
+}
+.branches-budget-lbl {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+/* filled = a mistake still in hand (like Kinship's "Mistakes left"); greys as spent,
+ * and the final remaining pip turns red when one wrong board would end it */
+.branches-dots { display: inline-flex; gap: 8px; align-items: center; }
+.branches-dot {
+  width: 11px; height: 11px; border-radius: 50%; background: var(--game, var(--vermilion));
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.branches-dot.is-used { background: var(--line); }
+.branches-dot.is-danger { background: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent); }
+.branches-budget-hint { font-size: 12px; color: var(--ink-faint); }
+.branches-budget-warn { font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--danger); }
+.branches-budget.is-lastchance {
+  border-color: var(--danger); background: color-mix(in srgb, var(--danger) 9%, var(--bg-2));
+  animation: branches-pulse 1.4s ease-in-out infinite;
+}
+@keyframes branches-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .branches-budget.is-lastchance { animation: none; }
+  .branches-leaf.is-slot.is-wrongflash { animation-duration: 0.01s; }
 }
 .branches-tray-cap {
   font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
@@ -1756,8 +1837,10 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   padding: 16px 18px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius);
 }
 .branches-score { font-family: var(--font-display); font-size: 18px; color: var(--ink); }
-.branches-score b { color: var(--brass-bright); font-weight: 800; }
-.branches-score-hints { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+.branches-score b { font-weight: 800; }
+.branches-result.is-won .branches-score b { color: var(--brass-bright); }
+.branches-result.is-lost .branches-score b { color: var(--danger); }
+.branches-score-detail { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
 .branches-points { font-family: var(--font-mono); font-size: 13px; color: var(--vermilion); font-weight: 700; margin-top: 4px; }
 .branches-result-note { font-size: 12.5px; color: var(--ink-soft); font-style: italic; margin: 8px 0 0; }
 
