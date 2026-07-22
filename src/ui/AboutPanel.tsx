@@ -59,8 +59,8 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       <h3 id="about-name" className="about-h">The name</h3>
       <p className="about-p">
         Grebes are a family of diving waterbirds (<i>Podicipedidae</i>) found on lakes and ponds
-        worldwide. Striking to watch, easy to overlook, and not closely related to the ducks and
-        loons they superficially resemble. They also have{" "}
+        worldwide. They have quite an interesting look and can be easy to overlook, and are not closely related to the duck
+        and loon species they superficially resemble. They also have{" "}
         <a href="https://www.youtube.com/watch?v=98ceB5SPRXI" target="_blank" rel="noreferrer">very interesting courtship displays</a>.
         I chose the name because the Great Crested Grebe was one of the first birds I observed and
         photographed closely in my birding journey. The logo is a drawing of a photo of that grebe,
