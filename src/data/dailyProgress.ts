@@ -15,7 +15,7 @@ export interface DailyProgress {
   grafts?: GraftTaxon[];
 }
 
-const KEY = "cladensis.daily.progress";
+const KEY = "grebe.daily.progress";
 
 export function loadDailyProgress(): DailyProgress | null {
   try {

@@ -16,7 +16,7 @@ export interface BranchesProgress {
   status: "playing" | "done";
 }
 
-const KEY = "cladensis.branches.progress";
+const KEY = "grebe.branches.progress";
 
 export function loadBranchesProgress(): BranchesProgress | null {
   try {

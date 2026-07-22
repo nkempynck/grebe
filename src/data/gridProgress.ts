@@ -15,7 +15,7 @@ export interface GridProgress {
   status: "playing" | "won" | "lost";
 }
 
-const KEY = "cladensis.grid.progress";
+const KEY = "grebe.grid.progress";
 
 export function loadGridProgress(): GridProgress | null {
   try {

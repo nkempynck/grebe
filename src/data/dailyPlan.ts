@@ -25,7 +25,7 @@ export type DailyPlan = Record<string, DayPlan>;
 export const DAILY_PLAN = plan as DailyPlan;
 
 /** localStorage key holding the curator's unpublished draft overrides. */
-export const DRAFT_KEY = "cladensis.dailyPlan.draft";
+export const DRAFT_KEY = "grebe.dailyPlan.draft";
 
 /** The plan the game actually resolves against: committed overrides with any
  *  local (unpublished) draft layered on top. The draft is per-browser, so a

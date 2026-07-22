@@ -163,7 +163,9 @@ export interface DerivedStats {
   branches: BranchesStats;
 }
 
-const KEY = "cladensis.stats.v1"; // key kept stable; payload is versioned inside
+const KEY = "grebe.stats.v1"; // renamed from cladensis.* at launch (2026-07-22): the
+// rename orphans every device's pre-launch local stats, so a returning beta tester can't
+// re-seed the freshly-truncated player_stats from their device. Payload versioned inside.
 
 // Frozen per-game points: the value stored on the entry if present (stamped at play
 // time), else recomputed from the entry's stored facts. Reading these everywhere means a

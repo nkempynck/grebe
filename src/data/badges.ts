@@ -42,7 +42,7 @@ export interface PlayerBadges {
   groups: Record<string, { rank: number; total: number }>;
 }
 
-const SEEN_WINS_KEY = "cladensis.seenWins";
+const SEEN_WINS_KEY = "grebe.seenWins";
 
 /** Compare the server's win dates against what we've already celebrated on this
  *  device, and return the newly-won dates (newest first). On the very first run
