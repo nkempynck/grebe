@@ -332,7 +332,11 @@ export default function App() {
   if (isAdminHash(hash)) return <ErrorBoundary label="Curator page"><AdminPanel tree={g.tree} /></ErrorBoundary>;
 
   const answer = g.tree.byId.get(g.answerId)!;
-  const today = new Date().toISOString().slice(0, 10);
+  // The active daily date — the 09:00 Europe/Brussels rollover, NOT the UTC calendar
+  // day. Using new Date().toISOString() here flips at 00:00 UTC (02:00 Brussels), so
+  // the eyebrow №, banners, and share card jumped a day ~7h before the board actually
+  // rolled. todayKey() keeps them in lockstep with the game hook and grebe_today().
+  const today = todayKey();
 
   const scopeLabel = SCOPE_PRESETS.find((s) => s.id === g.config.scopeRootId)?.label ?? "All life";
   const resLabel = RESOLUTION_PRESETS.find((r) => r.winWithin === g.config.winWithin)?.label ?? "";
