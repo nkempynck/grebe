@@ -331,7 +331,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         dayName={rules.dayName}
         difficulty={rules.difficulty}
         onHowItWorks={onHowItWorks}
-        blurb="Rebuild the tree: drag each species onto the group it belongs to, then Submit to check. Correct slots lock in; a wrong board costs a mistake and the misplaced tiles come back. You can miss once (Mon–Wed) or twice (Thu–Sun) and still win — but for far fewer points — and one more than that ends the board. Each group is one labelled clade; where a species is already placed, it's a worked example. Tapping a clade or anchor for its Wikipedia is free; looking up a species you must place costs half its point."
+        blurb="Rebuild the tree: drag each species onto the group it belongs to, then Submit to check. Correct slots lock in; a wrong board costs a mistake and the misplaced tiles come back. You can miss once (Mon–Wed) or twice (Thu–Sun) and still win (but for far fewer points) and one more than that ends the board. Each group is one labelled clade; where a species is already placed, it's a worked example. Tapping a clade or anchor for its Wikipedia is free; looking up a species you must place costs half its point."
       >
         <div className="branches-viewtoggle" role="tablist" aria-label="Tree view">
           <button role="tab" aria-selected={!radial} className={`branches-viewseg${!radial ? " is-on" : ""}`} onClick={() => setMode("tree")}>Tree</button>
