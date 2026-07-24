@@ -190,8 +190,8 @@ export default function App() {
       // Wrong guesses and reveals are scored separately (reveals are gentler than a
       // whole mistake), so both are reported; the server scores on both.
       const mistakes = Math.min(4, r.mistakes);
-      recordKinship({ status: r.won ? "won" : "lost", mistakes, tier: r.tier, reveals: r.reveals });
-      const args = { puzzleDate: r.date, won: r.won, mistakes, reveals: r.reveals };
+      recordKinship({ status: r.won ? "won" : "lost", mistakes, tier: r.tier, reveals: r.reveals, paidReveals: r.paidReveals });
+      const args = { puzzleDate: r.date, won: r.won, mistakes, reveals: r.reveals, paidReveals: r.paidReveals };
       if (player.session) {
         // On failure (transient network / RPC hiccup) queue it so the next load
         // retries — the submit is idempotent, so a signed-in board never silently

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Tree } from "../core";
 import { dailyNumber } from "../core";
-import { useGridGame, type GridComplete } from "../hooks/useGridGame";
+import { useGridGame, PRESHOW_MAX_TIER, type GridComplete } from "../hooks/useGridGame";
 import { resolveDailyRules } from "../data/dailySchedule";
 import { kinshipPoints, KINSHIP_FREE_REVEALS } from "../data/score";
 import { fetchWikiImage } from "../data/wikipedia";
@@ -42,9 +42,6 @@ interface Props {
  *  matching the colour classes in CSS, like Connections. */
 const LEVEL_SQUARE = ["🟨", "🟩", "🟦", "🟪"];
 
-/** Up to this tier (Mon–Wed) every tile shows its picture AND name from the start,
- *  free. On Thu (tier 4) and above pictures stay hidden behind the reveal penalty. */
-const PRESHOW_MAX_TIER = 3;
 /** From this tier (Sat–Sun) the board is picture-only: pictures are shown and the
  *  NAME is the hidden thing you reveal — sort the organisms by sight. */
 const PICTURE_MODE_MIN_TIER = 6;
@@ -130,8 +127,13 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   // Points a NEW reveal costs right now: 0 within the free three (and on the "free"
   // reveal of each pair past it), about a mistake's worth on the others. Measured as
   // the points a clean win would lose by taking one more reveal at this tier.
-  const revealCostOf = (usedBefore: number) =>
-    kinshipPoints(true, g.tier, 0, usedBefore) - kinshipPoints(true, g.tier, 0, usedBefore + 1);
+  const revealCostOf = (usedBefore: number) => {
+    // Free-peek balance at `usedBefore` peeks: 3 + one per solved group, minus peeks
+    // spent, plus those already billed. Above zero → the next peek is free.
+    const balance = KINSHIP_FREE_REVEALS + g.solvedGroups.length + g.paidReveals - usedBefore;
+    if (balance > 0) return 0;
+    return kinshipPoints(true, g.tier, 0, g.paidReveals) - kinshipPoints(true, g.tier, 0, g.paidReveals + 1);
+  };
 
   // Actually flip a tile to its picture (reveal on first flip, then just toggle).
   function doFlip(id: string) {
@@ -171,7 +173,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
     const won = g.status === "won";
     const reveals = g.revealed.length;
     const revealLine = reveals > 0 ? ` · ${reveals} reveal${reveals === 1 ? "" : "s"}` : "";
-    const pts = kinshipPoints(won, g.tier, g.mistakes, reveals);
+    const pts = kinshipPoints(won, g.tier, g.mistakes, g.paidReveals);
     const streakLine = won && streak != null && streak > 0 ? ` · 🔥${streak}` : "";
     const head = `🧩 Grebe Kinship · №${dailyNumber(g.date)}${rules.difficulty ? ` · ${rules.difficulty}` : ""}`;
     const rows = g.attempts.map((r) => r.map((l) => LEVEL_SQUARE[l]).join("")).join("\n");
@@ -204,13 +206,17 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   // the score it's costing (a deduction, NOT a board-ending mistake). The cost is
   // the points a clean win loses to the reveal penalty at this tier.
   const usedReveals = g.revealed.length;
-  const revealCost = kinshipPoints(true, g.tier, 0, 0) - kinshipPoints(true, g.tier, 0, usedReveals);
+  // Free-peek balance now: 3 + one per solved group, minus peeks spent, plus those
+  // already billed. The score cost so far is the penalty on the PAID peeks.
+  const freeBalance = KINSHIP_FREE_REVEALS + g.solvedGroups.length + g.paidReveals - usedReveals;
+  const revealCost = kinshipPoints(true, g.tier, 0, 0) - kinshipPoints(true, g.tier, 0, g.paidReveals);
+  const earned = g.solvedGroups.length > 0 ? ` (+${g.solvedGroups.length} earned)` : "";
   const revealStatus =
-    revealCost > 0
+    freeBalance > 0
+      ? `${usedReveals} · ${freeBalance} free left${earned}`
+      : revealCost > 0
       ? `${usedReveals} · −${revealCost} pts`
-      : usedReveals < KINSHIP_FREE_REVEALS
-      ? `${usedReveals} · ${KINSHIP_FREE_REVEALS - usedReveals} free left`
-      : `${usedReveals} · still free`;
+      : `${usedReveals} · still free${earned}`;
 
   return (
     <div className="grid-game">
@@ -220,8 +226,16 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         dayName={rules.dayName}
         difficulty={rules.difficulty}
         onHowItWorks={onHowItWorks}
-        blurb={`Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess. Four wrong guesses allowed. ${revealHint}`}
+        blurb={`Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess. Four wrong guesses allowed. ${revealHint} Solve a group to earn another free peek. No lookups. The fun is working out the groups from what you already know.`}
       />
+
+      {/* New-rule highlight — shown through the launch weekend, hides Monday 2026-07-27. */}
+      {g.date < "2026-07-27" && (
+        <div className="beta-banner" role="note">
+          <span className="beta-tag">New</span>
+          <span>Solving a group now earns a free peek 🔑. Peeks you already paid for stay paid.</span>
+        </div>
+      )}
 
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
 
@@ -358,7 +372,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
               : `Out of guesses. Sad. Found ${g.solvedGroups.length}/4`}
           </div>
           <div className="grid-scoreline">
-            🧬 {kinshipPoints(g.status === "won", g.tier, g.mistakes, g.revealed.length)} pts
+            🧬 {kinshipPoints(g.status === "won", g.tier, g.mistakes, g.paidReveals)} pts
             {g.status === "won" && streak != null && streak > 0 && (
               <span className="grid-streak"> · 🔥 {streak}-day streak</span>
             )}
@@ -373,7 +387,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
             <div className="share-verdict">
               {g.status === "won" ? `Solved. Nice. · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}` : `Missed it 🐡 · ${g.solvedGroups.length}/4 groups`}
               {g.revealed.length > 0 && ` · ${g.revealed.length} reveal${g.revealed.length === 1 ? "" : "s"}`}
-              <span className="share-score"> · {kinshipPoints(g.status === "won", g.tier, g.mistakes, g.revealed.length)} pts</span>
+              <span className="share-score"> · {kinshipPoints(g.status === "won", g.tier, g.mistakes, g.paidReveals)} pts</span>
               {g.status === "won" && streak != null && streak > 0 && <span className="share-streak"> · 🔥{streak}</span>}
             </div>
             <button className="share-btn" onClick={copy}>{copied ? "Copied ✓" : "Copy result"}</button>

@@ -10,8 +10,11 @@ export interface GridProgress {
   mistakes: number;
   /** Each submitted guess as its four tiles' true group levels (for the share). */
   attempts: number[][];
-  /** Species whose Wikipedia image was revealed (first free, rest cost a mistake). */
+  /** Species whose Wikipedia image was revealed (first few free, rest a score cost). */
   revealed?: string[];
+  /** Reveals billed as PAID so far — tracked live because the free-peek balance
+   *  (3 + one per solved group, spent in order) makes it order-dependent. */
+  paidReveals?: number;
   status: "playing" | "won" | "lost";
 }
 

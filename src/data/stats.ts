@@ -32,6 +32,9 @@ export interface KinshipEntry {
   /** Picture/name reveals used (scored separately from mistakes). Optional so
    *  entries saved before this field default to none. */
   reveals?: number;
+  /** How many of those reveals were PAID (billed while the free-peek balance — 3 plus
+   *  one per solved group — was empty). Optional; pre-existing entries default to none. */
+  paidReveals?: number;
   /** Points FROZEN at play time (added v6); see DailyEntry.points. */
   points?: number;
 }
@@ -172,7 +175,16 @@ const KEY = "grebe.stats.v1"; // renamed from cladensis.* at launch (2026-07-22)
 // scoring-formula change never moves a game already recorded — mirrors the server, whose
 // games.points is frozen at submit. Backfilled onto pre-v6 entries on migrate.
 const dailyPts = (e: DailyEntry) => e.points ?? gamePoints(e.status === "won", e.tier, e.guesses, e.hints);
-const kinshipPts = (e: KinshipEntry) => e.points ?? kinshipPoints(e.status === "won", e.tier, e.mistakes, e.reveals ?? 0);
+const kinshipPts = (e: KinshipEntry) =>
+  e.points ??
+  kinshipPoints(
+    e.status === "won",
+    e.tier,
+    e.mistakes,
+    // kinshipPoints' 4th arg is the PAID count; legacy entries only stored the total,
+    // so approximate their paid share from the end state (a win earns 4 solves' peeks).
+    e.paidReveals ?? Math.max(0, (e.reveals ?? 0) - (KINSHIP_FREE_REVEALS + (e.status === "won" ? 4 : 0)))
+  );
 const branchesPts = (e: BranchesEntry) => e.points ?? branchesPoints(e.tier, e.won, e.total, e.correct, e.mistakes ?? 0, e.hinted, e.peeked);
 
 const emptyStore = (): StatsStore => ({ version: 6, history: {}, clades: {}, kinship: {}, branches: {} });
@@ -494,7 +506,10 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
   const wins = dates.filter((d) => kinship[d].status === "won").length;
   const flawless = dates.filter((d) => {
     const e = kinship[d];
-    return e.status === "won" && e.mistakes === 0 && (e.reveals ?? 0) <= KINSHIP_FREE_REVEALS;
+    // No PAID peeks: a won board's free budget is 3 + one per group (all four solved),
+    // so legacy entries (total only) are flawless up to KINSHIP_FREE_REVEALS + 4.
+    const paid = e.paidReveals ?? Math.max(0, (e.reveals ?? 0) - (KINSHIP_FREE_REVEALS + 4));
+    return e.status === "won" && e.mistakes === 0 && paid === 0;
   }).length;
 
   let total = 0;

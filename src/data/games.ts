@@ -40,7 +40,7 @@ export async function fetchTodayDaily(puzzleDate: string): Promise<TodayDaily | 
   }
 }
 
-export interface TodayGrid { won: boolean; mistakes: number; reveals: number }
+export interface TodayGrid { won: boolean; mistakes: number; reveals: number; paidReveals: number }
 
 /** The signed-in player's Kinship row for a date, or null (RLS scopes it to the
  *  caller). Lets a board lock as already-played on any device — the row stores
@@ -51,12 +51,13 @@ export async function fetchTodayGrid(puzzleDate: string): Promise<TodayGrid | nu
   try {
     const { data, error } = await supabase
       .from("grid_games")
-      .select("won, mistakes, reveals")
+      .select("won, mistakes, reveals, paid_reveals")
       .eq("puzzle_date", puzzleDate)
       .limit(1)
       .maybeSingle();
     if (error || !data) return null;
-    return data as TodayGrid;
+    const row = data as { won: boolean; mistakes: number; reveals: number; paid_reveals: number | null };
+    return { won: row.won, mistakes: row.mistakes, reveals: row.reveals, paidReveals: row.paid_reveals ?? 0 };
   } catch {
     return null;
   }
@@ -191,7 +192,7 @@ export async function recordGame(g: GameRow): Promise<boolean> {
 /** Record one finished Kinship daily via submit_grid_game() (direct INSERT is
  *  denied by RLS). The server pins `tier` from the date; `won`/`mistakes` are
  *  client-reported. One row per player per day. Best-effort. */
-export async function recordGridGame(g: { puzzleDate: string; won: boolean; mistakes: number; reveals: number }): Promise<boolean> {
+export async function recordGridGame(g: { puzzleDate: string; won: boolean; mistakes: number; reveals: number; paidReveals: number }): Promise<boolean> {
   if (!supabase) return false;
   try {
     const { error } = await supabase.rpc("submit_grid_game", {
@@ -199,6 +200,7 @@ export async function recordGridGame(g: { puzzleDate: string; won: boolean; mist
       p_won: g.won,
       p_mistakes: g.mistakes,
       p_reveals: g.reveals,
+      p_paid: g.paidReveals,
     });
     if (error) { console.warn("submit_grid_game failed", error); return false; }
     return true;

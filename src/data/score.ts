@@ -21,7 +21,8 @@ export function gamePoints(won: boolean, tier: number, guesses: number, hints: n
   return Math.max(0, Math.round(weight * efficiency * hintFactor));
 }
 
-/** Free Kinship picture/name reveals before any score penalty kicks in. */
+/** Free Kinship picture/name reveals to START with. The free budget then grows by
+ *  one for every group solved (earned as you play, spent in order). */
 export const KINSHIP_FREE_REVEALS = 3;
 
 /** Each reveal past the free ones deducts this fraction of the day's weight — a
@@ -36,16 +37,18 @@ export const KINSHIP_REVEAL_PENALTY = 0.15;
 export const KINSHIP_WIN_FLOOR = 0.1;
 
 /** Kinship (grid) per-game points: the day's weight scaled down by mistakes, minus
- *  a flat penalty per reveal past the free three, zero for a loss. Four mistakes
- *  ends the board (a loss), so a win carries 0–3 mistakes → 100/75/50/25% of the
- *  weight; each paid reveal then shaves another 15% of the weight, down to a small
- *  floor a win always keeps. MUST match public.grid_game_points(won, tier, mistakes,
- *  reveals) in supabase/kinship.sql. */
-export function kinshipPoints(won: boolean, tier: number, mistakes: number, reveals = 0): number {
+ *  a flat penalty per PAID reveal, zero for a loss. Four mistakes ends the board (a
+ *  loss), so a win carries 0–3 mistakes → 100/75/50/25% of the weight; each paid
+ *  reveal then shaves another 15% of the weight, down to a small floor a win always
+ *  keeps. The 4th arg is the count of PAID reveals — the caller decides which reveals
+ *  were free: KINSHIP_FREE_REVEALS to start plus one earned per group solved, spent
+ *  in order (a peek already paid for stays paid; see useGridGame). MUST match the
+ *  scoring in public.submit_grid_game() in supabase/kinship.sql. */
+export function kinshipPoints(won: boolean, tier: number, mistakes: number, paidReveals = 0): number {
   if (!won) return 0;
   const w = tierWeight(tier);
   const m = Math.min(Math.max(mistakes, 0), 4);
-  const paid = Math.max(0, reveals - KINSHIP_FREE_REVEALS);
+  const paid = Math.max(0, paidReveals);
   const raw = w * (1 - m / 4) - w * KINSHIP_REVEAL_PENALTY * paid;
   return Math.max(Math.round(w * KINSHIP_WIN_FLOOR), Math.round(raw));
 }

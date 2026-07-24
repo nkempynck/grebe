@@ -6,9 +6,14 @@ import { gridBoardFor } from "../data/gridDaily";
 import { fetchPinnedPuzzle, kinshipBoard } from "../data/pinnedPuzzles";
 import { loadGridProgress, saveGridProgress } from "../data/gridProgress";
 import { fetchTodayGrid } from "../data/games";
+import { KINSHIP_FREE_REVEALS } from "../data/score";
 
 /** Wrong guesses allowed before the board is lost (matches Connections). */
 export const GRID_MAX_MISTAKES = 4;
+
+/** Up to this tier (Mon–Wed) every tile shows its picture AND name for free, so there
+ *  are no reveals to spend the free-peek balance on. Thu (tier 4)+ hide something. */
+export const PRESHOW_MAX_TIER = 3;
 
 export type GridStatus = "playing" | "won" | "lost";
 
@@ -16,8 +21,10 @@ export type GridStatus = "playing" | "won" | "lost";
 export interface GridComplete {
   won: boolean;
   mistakes: number;
-  /** How many species pictures were revealed (drives the gentle score penalty). */
+  /** How many species pictures were revealed (total, for display/share). */
   reveals: number;
+  /** How many of those were PAID (billed while the free-peek balance was empty). */
+  paidReveals: number;
   tier: number;
   date: string;
 }
@@ -50,8 +57,11 @@ export interface UseGridGame {
   feedback: string | null;
   /** Each past guess as its four tiles' true group levels — drives the share. */
   attempts: number[][];
-  /** Species whose picture has been revealed this game (first free, rest a mistake). */
+  /** Species whose picture has been revealed this game (total, for the count shown). */
   revealed: string[];
+  /** How many reveals were billed as PAID — the free-peek balance (3 + one per solved
+   *  group, spent in order) makes this order-dependent, so it's tracked live. */
+  paidReveals: number;
   /** The group level (0–3) a tile belongs to — for colouring. */
   levelOf: (id: string) => number;
   toggle: (id: string) => void;
@@ -126,6 +136,11 @@ export function useGridGame(
   const [mistakes, setMistakes] = useState(0);
   const [attempts, setAttempts] = useState<number[][]>([]);
   const [revealed, setRevealed] = useState<string[]>([]);
+  // Reveals billed as PAID (spent while the free-peek balance was empty). The balance
+  // is KINSHIP_FREE_REVEALS + one per solved group, spent in order; a peek already
+  // billed stays billed even if a later solve tops the balance up. Tracked live
+  // because it's order-dependent — see reveal().
+  const [paidReveals, setPaidReveals] = useState(0);
   const [status, setStatus] = useState<GridStatus>("playing");
   const [feedback, setFeedback] = useState<string | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -154,12 +169,15 @@ export function useGridGame(
       setMistakes(prog.mistakes);
       setAttempts(prog.attempts);
       setRevealed(prog.revealed ?? []);
+      // Older saves predate paidReveals — fall back to the end-state minimum.
+      setPaidReveals(prog.paidReveals ?? Math.max(0, (prog.revealed?.length ?? 0) - (KINSHIP_FREE_REVEALS + prog.solved.length)));
       setStatus(prog.status);
     } else {
       setSolved([]);
       setMistakes(0);
       setAttempts([]);
       setRevealed([]);
+      setPaidReveals(0);
       setStatus("playing");
     }
     setSelected([]);
@@ -181,8 +199,8 @@ export function useGridGame(
       const saved = loadGridProgress();
       if (saved && saved.date === date && saved.status !== "playing") return;
     }
-    saveGridProgress({ date, solved, mistakes, attempts, revealed, status });
-  }, [board, date, devActive, solved, mistakes, attempts, revealed, status, hydratedSig]);
+    saveGridProgress({ date, solved, mistakes, attempts, revealed, paidReveals, status });
+  }, [board, date, devActive, solved, mistakes, attempts, revealed, paidReveals, status, hydratedSig]);
 
   // Signed-in players: restore an already-played board from the server (works on
   // any device/domain, where localStorage is empty). Runs once per (user, date),
@@ -208,6 +226,8 @@ export function useGridGame(
       // Only the reveal COUNT is stored; a right-length sentinel array keeps the
       // score/share ("N reveals") correct without needing the real tile ids.
       setRevealed(Array.from({ length: row.reveals }, (_, i) => `__cloud_${i}__`));
+      // Exact paid count stored on the row (0 for rows written before the column).
+      setPaidReveals(row.paidReveals);
       setStatus(row.won ? "won" : "lost");
       setSelected([]);
     });
@@ -260,9 +280,13 @@ export function useGridGame(
   const reveal = useCallback(
     (id: string) => {
       if (!board || status !== "playing" || revealed.includes(id)) return;
+      // Free-peek balance BEFORE this peek: 3 (+1 per solved group) minus peeks already
+      // spent, plus those already billed. At or below zero means this peek is paid.
+      const balance = KINSHIP_FREE_REVEALS + solved.length + paidReveals - revealed.length;
+      if (balance <= 0) setPaidReveals((p) => p + 1);
       setRevealed((r) => [...r, id]);
     },
-    [board, status, revealed]
+    [board, status, revealed, solved, paidReveals]
   );
 
   const submit = useCallback(() => {
@@ -278,7 +302,11 @@ export function useGridGame(
       if (nextSolved.length === GRID_GROUPS) {
         setStatus("won");
         // A playtest board is never recorded (it would corrupt real standings).
-        if (!devActive) onCompleteRef.current?.({ won: true, mistakes, reveals: revealed.length, tier: board.tier, date });
+        if (!devActive) onCompleteRef.current?.({ won: true, mistakes, reveals: revealed.length, paidReveals, tier: board.tier, date });
+      } else if (board.tier > PRESHOW_MAX_TIER) {
+        // Only announce it on days that actually have reveals (Thu+); Mon–Wed show
+        // every tile free, so there's nothing to spend a free peek on.
+        flash("+1 free peek 🔑");
       }
       return;
     }
@@ -287,11 +315,11 @@ export function useGridGame(
     if (nextMistakes >= GRID_MAX_MISTAKES) {
       setStatus("lost");
       setSelected([]);
-      if (!devActive) onCompleteRef.current?.({ won: false, mistakes: nextMistakes, reveals: revealed.length, tier: board.tier, date });
+      if (!devActive) onCompleteRef.current?.({ won: false, mistakes: nextMistakes, reveals: revealed.length, paidReveals, tier: board.tier, date });
     } else {
       flash(oneAway ? "One away…" : "Not a group");
     }
-  }, [board, status, selected, solved, mistakes, revealed, levelOf, flash, date, devActive]);
+  }, [board, status, selected, solved, mistakes, revealed, paidReveals, levelOf, flash, date, devActive]);
 
   return {
     board,
@@ -307,6 +335,7 @@ export function useGridGame(
     feedback,
     attempts,
     revealed,
+    paidReveals,
     levelOf,
     toggle,
     reveal,

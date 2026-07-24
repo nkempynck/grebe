@@ -61,27 +61,26 @@ describe("kinshipPoints", () => {
     expect(kinshipPoints(true, 7, 3)).toBe(40);
   });
 
-  it("the first three reveals are free", () => {
+  it("no penalty when zero reveals are paid (4th arg is the PAID count)", () => {
     expect(kinshipPoints(true, 7, 0, 0)).toBe(160);
-    expect(kinshipPoints(true, 7, 0, 3)).toBe(160);
   });
 
-  it("each reveal past the free three deducts a flat 15% of the day's weight", () => {
+  it("each PAID reveal deducts a flat 15% of the day's weight", () => {
     // tier 7 weight = 160; 15% = 24 per paid reveal.
-    expect(kinshipPoints(true, 7, 0, 4)).toBe(136); // 160 − 24
-    expect(kinshipPoints(true, 7, 0, 5)).toBe(112); // 160 − 48
-    expect(kinshipPoints(true, 7, 0, 6)).toBe(88);  // 160 − 72
+    expect(kinshipPoints(true, 7, 0, 1)).toBe(136); // 160 − 24
+    expect(kinshipPoints(true, 7, 0, 2)).toBe(112); // 160 − 48
+    expect(kinshipPoints(true, 7, 0, 3)).toBe(88);  // 160 − 72
   });
 
-  it("reveal penalty stacks with mistakes", () => {
-    expect(kinshipPoints(true, 7, 2, 4)).toBe(56); // 80 − 24
+  it("paid-reveal penalty stacks with mistakes", () => {
+    expect(kinshipPoints(true, 7, 2, 1)).toBe(56); // 80 − 24
   });
 
-  it("a win never scores zero — reveals floor at 10% of the day's weight", () => {
+  it("a win never scores zero — paid reveals floor at 10% of the day's weight", () => {
     // tier 1 weight = 100; the raw score goes negative, so a win floors at
     // 100×0.1 = 10 instead of collapsing to zero.
-    expect(kinshipPoints(true, 1, 0, 12)).toBe(10);
-    // Worst case still positive: max mistakes for a win (3) plus every tile flipped.
+    expect(kinshipPoints(true, 1, 0, 9)).toBe(10);
+    // Worst case still positive: max mistakes for a win (3) plus every peek paid.
     expect(kinshipPoints(true, 7, 3, 16)).toBe(16); // floor 160×0.1
     // A loss is still a flat zero, floor or not.
     expect(kinshipPoints(false, 7, 3, 16)).toBe(0);
