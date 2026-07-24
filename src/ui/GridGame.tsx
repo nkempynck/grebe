@@ -233,7 +233,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       {g.date < "2026-07-27" && (
         <div className="beta-banner" role="note">
           <span className="beta-tag">New</span>
-          <span>Solving a group now earns a free peek 🔑. Peeks you already paid for stay paid.</span>
+          <span>Solving a group now earns a free tile reveal 🔑. Reveals you already paid a score penalty for stay paid.</span>
         </div>
       )}
 
