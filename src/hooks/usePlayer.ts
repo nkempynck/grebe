@@ -24,6 +24,8 @@ export interface UsePlayer {
   updateDisplayName: (name: string) => Promise<{ error: string | null }>;
   /** Opt in/out of appearing on the public leaderboards. */
   setShowOnLeaderboard: (on: boolean) => Promise<{ error: string | null }>;
+  /** Change the signed-in account's own password (via the active session). */
+  changePassword: (newPassword: string) => Promise<{ error: string | null }>;
 }
 
 // An account is just a NAME. Supabase Auth still needs an identifier in email
@@ -120,6 +122,19 @@ export function usePlayer(): UsePlayer {
     [session, showOnLeaderboard]
   );
 
+  // Change the signed-in account's own password via the active session (no admin key).
+  // There's no recovery email, so a FORGOTTEN password still needs an admin reset; this
+  // only rotates a password the player still knows (they're signed in to reach it).
+  const changePassword = useCallback(
+    async (newPassword: string) => {
+      if (!supabase || !session) return { error: "not signed in" };
+      if (newPassword.length < 6) return { error: "Password must be at least 6 characters." };
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      return { error: error?.message ?? null };
+    },
+    [session]
+  );
+
   const signIn = useCallback(async (username: string, password: string, captchaToken?: string) => {
     if (!supabase || !username.trim() || !password) return false;
     const { error } = await supabase.auth.signInWithPassword({
@@ -176,5 +191,6 @@ export function usePlayer(): UsePlayer {
     signOut,
     updateDisplayName,
     setShowOnLeaderboard,
+    changePassword,
   };
 }

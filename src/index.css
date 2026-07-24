@@ -949,6 +949,17 @@ button.pin-cell:hover { outline: 1px solid var(--brass); outline-offset: 1px; }
   gap: 18px; padding-top: 16px; border-top: 1px solid var(--line);
 }
 .acct-sub { font-family: var(--font-body); font-size: 12.5px; color: var(--ink-soft); max-width: 44ch; }
+/* No-recovery reminder — a subtle full-width callout under the account settings. */
+.acct-note {
+  flex-basis: 100%;
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 11px 13px;
+  background: var(--bg-3); border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--vermilion); border-radius: var(--radius);
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5; color: var(--ink-soft);
+}
+.acct-note::before { content: "🔑"; flex: none; font-size: 14px; line-height: 1.2; }
+.acct-note b { color: var(--ink); font-weight: 700; }
 .acct-switch {
   flex: none; width: 44px; height: 26px; padding: 0; border-radius: 999px;
   background: var(--bg); border: 1px solid var(--line); cursor: pointer;
