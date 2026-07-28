@@ -418,6 +418,30 @@ export async function fetchDailyActivity(from: string, to: string): Promise<Acti
   }
 }
 
+/** One row per (day, game) of ANONYMOUS play counts over an inclusive date range
+ *  (supabase/plays.sql) — every finished daily, signed in or not, unlike
+ *  fetchDailyActivity() which can only see signed-in players. Counters only: there
+ *  is no per-play row and no identifier behind these numbers. `signedIn` is the
+ *  subset sent while signed in, for cross-checking against the boards.
+ *  Admin-gated server-side; null when there's no backend or plays.sql hasn't run. */
+export interface PlayCountRow { day: string; game: GameId; plays: number; solves: number; signedIn: number }
+export async function fetchDailyPlays(from: string, to: string): Promise<PlayCountRow[] | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc("daily_plays", { p_from: from, p_to: to });
+    if (error) return null;
+    return ((data ?? []) as { day: string; game: string; plays: number | null; solves: number | null; signed_in: number | null }[]).map((r) => ({
+      day: r.day,
+      game: r.game as GameId,
+      plays: Number(r.plays ?? 0),
+      solves: Number(r.solves ?? 0),
+      signedIn: Number(r.signed_in ?? 0),
+    }));
+  } catch {
+    return null;
+  }
+}
+
 /** The caller's overall (combined-board) champion record: how many past days they
  *  topped the combined leaderboard, and the winning dates. Null when there's no
  *  backend or the streaks migration hasn't been run. */

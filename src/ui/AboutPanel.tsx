@@ -259,13 +259,14 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       {/* ---------- Privacy ---------- */}
       <h3 id="about-privacy" className="about-h">Privacy</h3>
       <p className="about-p">
-        Grebe collects as little as possible. Nothing about your games leaves your device unless you
-        create an account.
+        Grebe collects as little as possible. Your stats, guesses and history stay on your device
+        unless you create an account. The only exception is an anonymous count when you finish a
+        daily.
       </p>
       <ul className="about-privacy">
         <li>
           <b>Playing signed out.</b> Your stats live only in this browser (local storage). Nothing
-          about your games leaves your device.
+          about your games leaves your device except the anonymous count.
         </li>
         <li>
           <b>Accounts are optional.</b> If you create one, it's just a name and a password. Your
@@ -281,10 +282,15 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
           from <a href="https://www.wikipedia.org" target="_blank" rel="noreferrer">Wikipedia</a>, which is
           the only third-party service Grebe uses. While you're online, the day's puzzle and the
           leaderboards load from Grebe's own backend. Fonts are bundled with the app, not loaded from
-          a CDN. Nothing about your play is uploaded unless you've signed in.
+          a CDN. Apart from the count below, nothing about your play is uploaded unless you've
+          signed in.
         </li>
         <li>
-          <b>No tracking.</b> No analytics, no ads, no third-party trackers.
+          <b>The anonymous count.</b> When you finish a daily, Grebe sends the game, the date, and
+          whether you won. That's added to a daily total, with nothing linking it to you.
+        </li>
+        <li>
+          <b>No tracking.</b> No analytics service, no ads, no third-party trackers.
         </li>
       </ul>
 

@@ -7,6 +7,7 @@ import { useStats } from "./hooks/useStats";
 import { usePlayer } from "./hooks/usePlayer";
 import { recordGame, fetchPlayerBadges, recordGridGame, recordBranchesGame } from "./data/games";
 import { enqueuePendingSubmit, loadPendingSubmits, clearPendingSubmits } from "./data/pendingSubmits";
+import { countPlay } from "./data/playCount";
 import { newDailyWins } from "./data/badges";
 import { todayKey, dailyNumber, dailyLabel, isPreLaunch } from "./core/daily";
 import { dailyAnswerFor, resolveDailyRules } from "./data/dailySchedule";
@@ -191,6 +192,7 @@ export default function App() {
       // whole mistake), so both are reported; the server scores on both.
       const mistakes = Math.min(4, r.mistakes);
       recordKinship({ status: r.won ? "won" : "lost", mistakes, tier: r.tier, reveals: r.reveals, paidReveals: r.paidReveals });
+      void countPlay("kinship", r.date, r.won); // anonymous count; Kinship is daily-only
       const args = { puzzleDate: r.date, won: r.won, mistakes, reveals: r.reveals, paidReveals: r.paidReveals };
       if (player.session) {
         // On failure (transient network / RPC hiccup) queue it so the next load
@@ -213,6 +215,7 @@ export default function App() {
   const recordBranchesResult = useCallback(
     (r: BranchesComplete) => {
       recordBranches({ won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, mistakes: r.mistakes, tier: r.tier });
+      void countPlay("branches", r.date, r.won); // anonymous count; Branches is daily-only
       const args = { puzzleDate: r.date, won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, mistakes: r.mistakes };
       if (player.session) {
         void recordBranchesGame(args).then((ok) => {
@@ -261,6 +264,9 @@ export default function App() {
     // only). Descriptive detail (answer, assist, resolution, par) rides along but
     // never affects scoring. On resolve, bump boardReload to refetch the board.
     if (daily) {
+      // Anonymous play count (no identifier of any kind, see data/playCount.ts).
+      // Inside the `daily` gate on purpose: free-play rounds aren't counted.
+      void countPlay("lineage", todayKey(), g.status === "won");
       const args = {
         userId: player.session?.user.id ?? "",
         puzzleDate: todayKey(),

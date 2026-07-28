@@ -30,7 +30,8 @@ import {
   type DayPlan,
 } from "../data/dailyPlan";
 import { isSupabaseConfigured, supabase } from "../data/supabase";
-import { fetchDailyActivity, type ActivityRow } from "../data/games";
+import { fetchDailyActivity, fetchDailyPlays, type ActivityRow, type PlayCountRow } from "../data/games";
+import { PLAY_COUNT_SINCE } from "../data/playCount";
 import {
   fetchPinnedIndex,
   fetchPinnedPuzzle,
@@ -101,6 +102,7 @@ const SCHEMA_CHECKS = [
   { rpc: "streaks_schema_check", label: "Streaks", file: "streaks.sql" },
   { rpc: "taxon_index_schema_check", label: "Guess index", file: "taxon_index.sql" },
   { rpc: "analytics_schema_check", label: "Analytics", file: "analytics.sql" },
+  { rpc: "plays_schema_check", label: "Play counts", file: "plays.sql" },
 ];
 
 interface FileCheck {
@@ -650,16 +652,23 @@ const shortDate = (d: string) =>
  *  hovered day. Shares its y-scale (`max`) and hovered index with its siblings so
  *  the three facets are height-comparable and hover-aligned. */
 function MiniChart({
-  values, color, max, hover, onHover,
+  values, color, max, hover, onHover, startAt = 0,
 }: {
   values: number[]; color: string; max: number; hover: number | null; onHover: (i: number | null) => void;
+  /** Index before which there's no data (not zero data) — the line starts here and
+   *  a dashed marker shows the boundary. Used when a series began mid-window. */
+  startAt?: number;
 }) {
   const W = 600, H = 60, PAD = 6;
   const n = values.length;
+  const from = Math.max(0, Math.min(startAt, n - 1));
   const x = (i: number) => (n <= 1 ? W / 2 : PAD + (i / (n - 1)) * (W - 2 * PAD));
   const y = (v: number) => H - PAD - (v / max) * (H - 2 * PAD);
-  const line = values.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
-  const area = `${line} L${x(n - 1).toFixed(1)} ${H - PAD} L${x(0).toFixed(1)} ${H - PAD} Z`;
+  const line = values
+    .slice(from)
+    .map((v, k) => `${k === 0 ? "M" : "L"}${x(from + k).toFixed(1)} ${y(v).toFixed(1)}`)
+    .join(" ");
+  const area = `${line} L${x(n - 1).toFixed(1)} ${H - PAD} L${x(from).toFixed(1)} ${H - PAD} Z`;
   const last = n - 1;
   const active = hover ?? last;
 
@@ -672,7 +681,12 @@ function MiniChart({
       {/* crosshair at the hovered (or latest) day */}
       <line x1={x(active)} y1={PAD} x2={x(active)} y2={H - PAD}
             stroke={color} strokeWidth={1} opacity={0.35} vectorEffect="non-scaling-stroke" />
-      <circle cx={x(active)} cy={y(values[active])} r={3.5} fill={color} vectorEffect="non-scaling-stroke" />
+      {active >= from && <circle cx={x(active)} cy={y(values[active])} r={3.5} fill={color} vectorEffect="non-scaling-stroke" />}
+      {/* where this series starts, when it began mid-window */}
+      {from > 0 && (
+        <line x1={x(from)} y1={0} x2={x(from)} y2={H} stroke={color} strokeWidth={1} strokeDasharray="2 3"
+              opacity={0.5} vectorEffect="non-scaling-stroke" />
+      )}
       {/* invisible per-day hit targets driving the shared hover index */}
       {values.map((_, i) => (
         <rect key={i} x={x(i) - (W / n) / 2} y={0} width={W / n} height={H} fill="transparent"
@@ -682,16 +696,23 @@ function MiniChart({
   );
 }
 
-/** Admin analytics: how many signed-in players played each daily over a window.
- *  Reads daily_activity() (admin-gated), which counts only players on the public
- *  boards — signed-out plays are never sent to the server, so these are floors,
- *  not totals. Small multiples (one per game) + today's tiles + a data table. */
+/** Admin analytics: how many dailies were finished over a window.
+ *  Two sources, deliberately kept apart:
+ *   • daily_plays() (plays.sql) — EVERY finished daily, signed in or not, from the
+ *     anonymous counters. The headline number, but spoofable by anyone.
+ *   • daily_activity() (analytics.sql) — the signed-in players the boards can see.
+ *     A floor, but auth-gated and trustworthy, so it's the sanity check.
+ *  Small multiples (one per game) + today's tiles + a data table. */
 function Analytics() {
   const live = isSupabaseConfigured;
   const today = todayKey();
   const [range, setRange] = useState<Range>(30);
   // undefined = still loading, null = RPC missing (migration not run), [] = no plays.
   const [rows, setRows] = useState<ActivityRow[] | null | undefined>(undefined);
+  const [playRows, setPlayRows] = useState<PlayCountRow[] | null | undefined>(undefined);
+  // Which population to chart: every finished daily (anonymous counters) or just
+  // the signed-in players the boards can see.
+  const [source, setSource] = useState<"all" | "signed">("all");
   const [loading, setLoading] = useState(live);
   const [hover, setHover] = useState<number | null>(null);
   const [showTable, setShowTable] = useState(false);
@@ -712,7 +733,13 @@ function Analytics() {
   const load = useCallback(async () => {
     if (!live) { setLoading(false); return; }
     setLoading(true);
-    setRows(await fetchDailyActivity(dates[0], dates[dates.length - 1]));
+    const from = dates[0];
+    const to = dates[dates.length - 1];
+    // Independent: plays.sql may not be run yet while analytics.sql is (or vice
+    // versa), and each side renders whatever it has.
+    const [act, plays] = await Promise.all([fetchDailyActivity(from, to), fetchDailyPlays(from, to)]);
+    setRows(act);
+    setPlayRows(plays);
     setLoading(false);
   }, [live, dates]);
   useEffect(() => { void load(); }, [load]);
@@ -734,15 +761,52 @@ function Analytics() {
     return out;
   }, [rows, dates]);
 
-  // Shared y-scale across the three facets so heights compare directly.
-  const max = useMemo(
-    () => Math.max(1, ...GAMES.flatMap((g) => byGame[g].played)),
-    [byGame]
+  // Anonymous counters, aligned onto the same date list. Kept separate from
+  // `byGame` because the two sources measure different populations.
+  const playsByGame = useMemo(() => {
+    const idx = new Map(dates.map((d, i) => [d, i]));
+    const zero = () => Array(dates.length).fill(0) as number[];
+    const out: Record<Game, { plays: number[]; solves: number[]; signedIn: number[] }> = {
+      lineage: { plays: zero(), solves: zero(), signedIn: zero() },
+      kinship: { plays: zero(), solves: zero(), signedIn: zero() },
+      branches: { plays: zero(), solves: zero(), signedIn: zero() },
+    };
+    for (const r of playRows ?? []) {
+      const i = idx.get(r.day);
+      if (i == null || !out[r.game]) continue;
+      out[r.game].plays[i] = r.plays;
+      out[r.game].solves[i] = r.solves;
+      out[r.game].signedIn[i] = r.signedIn;
+    }
+    return out;
+  }, [playRows, dates]);
+
+  const hasPlays = !!playRows?.length;
+  // Which population the chart shows. "all" needs the anonymous counters, so it
+  // falls back to "signed" until plays.sql has recorded something.
+  const mode = hasPlays && source === "all" ? "all" : "signed";
+  const series = useCallback(
+    (g: Game) => (mode === "all" ? playsByGame[g].plays : byGame[g].played),
+    [mode, playsByGame, byGame]
   );
+  const solvedSeries = (g: Game) => (mode === "all" ? playsByGame[g].solves : byGame[g].solved);
+
+  // Anonymous counting started mid-history, so in "all" mode the days before it
+  // hold no data rather than zero plays. Index into `dates`, or 0 if the whole
+  // window is after the start.
+  const startAt = useMemo(() => {
+    if (mode !== "all") return 0;
+    const i = dates.findIndex((d) => d >= PLAY_COUNT_SINCE);
+    return i <= 0 ? 0 : i;
+  }, [mode, dates]);
+
+  // Shared y-scale across the three facets so heights compare directly.
+  const max = useMemo(() => Math.max(1, ...GAMES.flatMap((g) => series(g))), [series]);
 
   const active = hover ?? dates.length - 1;
   const activeDate = dates[active];
-  const rangeTotal = (g: Game) => byGame[g].played.reduce((a, b) => a + b, 0);
+  const noDataYet = mode === "all" && active < startAt;
+  const rangeTotal = (g: Game) => series(g).reduce((a, b) => a + b, 0);
 
   if (!live) {
     return <div className="admin-activity"><p className="admin-testbench-hint">Backend not configured — no play data to show.</p></div>;
@@ -754,11 +818,22 @@ function Analytics() {
         <div>
           <div className="admin-testbench-ttl">Daily plays</div>
           <p className="admin-testbench-hint">
-            Signed-in players who show on the public boards. Signed-out plays aren’t tracked, so these are
-            floors — real totals run higher.
+            {playRows === null
+              ? "Signed-in players who show on the public boards. Run plays.sql in the Supabase SQL editor to also count signed-out plays."
+              : !hasPlays
+                ? "Anonymous counters are live but haven’t recorded a finish yet. Showing signed-in players meanwhile."
+                : mode === "all"
+                  ? `Every finished daily, from the anonymous counters, which start ${shortDate(PLAY_COUNT_SINCE)}. No identifier behind them, so these are finishes rather than people (one player on two devices counts twice) and anyone can inflate them.`
+                  : "Signed-in players who show on the public boards. Auth-gated, so this is the trustworthy floor under the “All” number."}
           </p>
         </div>
         <div className="an-controls">
+          {hasPlays && (
+            <div className="lb-seg-group" role="group" aria-label="Which plays to count">
+              <button className={`lb-seg${mode === "all" ? " is-on" : ""}`} onClick={() => setSource("all")}>All</button>
+              <button className={`lb-seg${mode === "signed" ? " is-on" : ""}`} onClick={() => setSource("signed")}>Signed in</button>
+            </div>
+          )}
           <div className="lb-seg-group" role="group" aria-label="Time range">
             {RANGES.map((r) => (
               <button key={r} className={`lb-seg${range === r ? " is-on" : ""}`} onClick={() => setRange(r)}>{r}d</button>
@@ -768,8 +843,8 @@ function Analytics() {
         </div>
       </div>
 
-      {rows === null ? (
-        <p className="admin-schema-hint">Analytics backend not found — run <code>analytics.sql</code> in the Supabase SQL editor, then Refresh.</p>
+      {rows === null && playRows === null ? (
+        <p className="admin-schema-hint">Analytics backend not found — run <code>analytics.sql</code> (and <code>plays.sql</code>) in the Supabase SQL editor, then Refresh.</p>
       ) : loading && rows === undefined ? (
         <p className="admin-testbench-hint">Loading…</p>
       ) : (
@@ -779,7 +854,14 @@ function Analytics() {
             {GAMES.map((g) => (
               <span key={g} className="an-readout-game">
                 <i className="an-dot" style={{ background: GAME_COLOR[g] }} />
-                {GAME_META[g].icon} <b>{byGame[g].played[active]}</b> played · {byGame[g].solved[active]} solved
+                {noDataYet ? (
+                  <>{GAME_META[g].icon} <span className="sys-detail">not counted yet</span></>
+                ) : (
+                  <>
+                    {GAME_META[g].icon} <b>{series(g)[active]}</b> played · {solvedSeries(g)[active]} solved
+                    {mode === "all" && <>{" · "}<span className="sys-detail">{byGame[g].played[active]} signed in</span></>}
+                  </>
+                )}
               </span>
             ))}
           </div>
@@ -791,13 +873,16 @@ function Analytics() {
                   <span className="an-facet-ttl">{GAME_META[g].icon} {GAME_META[g].label}</span>
                   <span className="an-facet-total">{rangeTotal(g)} plays · {range}d</span>
                 </div>
-                <MiniChart values={byGame[g].played} color={GAME_COLOR[g]} max={max} hover={hover} onHover={setHover} />
+                <MiniChart values={series(g)} color={GAME_COLOR[g]} max={max} hover={hover} onHover={setHover} startAt={startAt} />
               </div>
             ))}
           </div>
 
           <div className="an-foot">
-            <span className="an-foot-scale">peak {max}/day across window</span>
+            <span className="an-foot-scale">
+              peak {max}/day across window
+              {mode === "all" && startAt > 0 && ` · counting since ${shortDate(PLAY_COUNT_SINCE)}`}
+            </span>
             <button className="linkbtn" onClick={() => setShowTable((s) => !s)}>{showTable ? "hide data" : "show data"}</button>
           </div>
 
@@ -805,13 +890,21 @@ function Analytics() {
             <div className="an-table-wrap">
               <table className="an-table">
                 <thead>
-                  <tr><th>Date</th>{GAMES.map((g) => <th key={g}>{GAME_META[g].icon} played / solved</th>)}</tr>
+                  <tr><th>Date</th>{GAMES.map((g) => <th key={g}>{GAME_META[g].icon} {mode === "all" ? "played / solved / signed in" : "played / solved"}</th>)}</tr>
                 </thead>
                 <tbody>
                   {dates.map((d, i) => (
                     <tr key={d} className={d === today ? "is-today" : ""}>
                       <td>{shortDate(d)}</td>
-                      {GAMES.map((g) => <td key={g}>{byGame[g].played[i]} / {byGame[g].solved[i]}</td>)}
+                      {GAMES.map((g) => (
+                        <td key={g}>
+                          {mode === "all" && i < startAt
+                            ? "—" /* before counting started: no data, not zero plays */
+                            : mode === "all"
+                              ? `${series(g)[i]} / ${solvedSeries(g)[i]} / ${byGame[g].played[i]}`
+                              : `${series(g)[i]} / ${solvedSeries(g)[i]}`}
+                        </td>
+                      ))}
                     </tr>
                   )).reverse()}
                 </tbody>
