@@ -45,7 +45,9 @@ export interface UseGame {
   setWinWithin: (winWithin: number) => void;
   /** Free play: randomly set scope, resolution and difficulty at once. */
   randomizeSettings: () => void;
-  submit: (text: string) => void;
+  /** `id` is set when the guess came from a specific autocomplete row — it wins
+   *  over re-resolving the text (shared names are ambiguous). */
+  submit: (text: string, id?: string) => void;
   /** Guess an out-of-set organism by its graft payload (from GuessInput's DB
    *  suggestions) — grafts it onto the tree as an informative probe. */
   submitGraft: (graft: GraftTaxon) => void;
@@ -309,9 +311,15 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
   );
 
   const submit = useCallback(
-    (text: string) => {
+    (text: string, id?: string) => {
       if (!tree || !answerId || status !== "playing") return;
-      const node = resolveGuess(tree, text);
+      // An id means the player picked a specific autocomplete row — commit exactly
+      // that node. Names can be shared by a group and a species inside it, so
+      // re-resolving the row's text could land on the other one.
+      const node = (id ? tree.byId.get(id) : null)
+        // Typed text: rank shared-name matches so an already-guessed group doesn't
+        // block the species that shares its name (and vice versa).
+        ?? resolveGuess(tree, text, { guessed: new Set(guesses.map((g) => g.guess.id)) });
       if (!node) {
         // Not in the playable set — try the out-of-set index (curated + DB). It's
         // async (DB), so resolve then graft.

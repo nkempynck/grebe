@@ -14,7 +14,9 @@ interface Props {
   tree: Tree;
   config: GameConfig;
   disabled: boolean;
-  onSubmit: (text: string) => void;
+  /** `id` is passed when the player picked a suggestion row, so that exact node is
+   *  committed instead of being looked up again from its (possibly shared) name. */
+  onSubmit: (text: string, id?: string) => void;
   /** Picking an out-of-set organism from the suggestions: graft it in directly
    *  (no re-lookup). Absent → out-of-set hits aren't offered. */
   onOutOfSetGuess?: (graft: GraftTaxon) => void;
@@ -122,8 +124,17 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
         }
       }
     }
-    // Groups surface above species within each tier.
-    const order = (arr: Cand[]) => [...arr.filter((c) => c.kind === "group"), ...arr.filter((c) => c.kind === "species")];
+    // Groups surface above species within each tier — EXCEPT for a fully typed
+    // name, which goes to the top of its tier, species first. A genus and its one
+    // in-set species often share a common name ("Saguaro"); typing it out means
+    // the species, so that's what Enter should commit, with the group one row down.
+    const exact = (c: Cand) => [c.common, c.sci].some((n) => n?.toLowerCase() === q);
+    const order = (arr: Cand[]) => [
+      ...arr.filter((c) => exact(c) && c.kind === "species"),
+      ...arr.filter((c) => exact(c) && c.kind === "group"),
+      ...arr.filter((c) => !exact(c) && c.kind === "group"),
+      ...arr.filter((c) => !exact(c) && c.kind === "species"),
+    ];
     const inSet = [...order(pre), ...order(sub)].slice(0, 8);
     // Out-of-set organisms (fetched async into oosHits) fill any remaining slots,
     // always BELOW in-set matches — guessable answers are preferred. They graft in
@@ -165,7 +176,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
 
   const choose = (c: Cand) => {
     if (c.oos && c.graft && onOutOfSetGuess) onOutOfSetGuess(c.graft);
-    else onSubmit(label(c));
+    else onSubmit(label(c), c.id);
     setText("");
     setOpen(false);
     setActive(0);

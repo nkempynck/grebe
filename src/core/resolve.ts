@@ -44,26 +44,57 @@ function fuzzTolerance(len: number): number {
   return 2;
 }
 
+export interface ResolveOpts {
+  /** Ids already guessed. Only breaks a tie between equally exact matches — never
+   *  rejects a guess. */
+  guessed?: ReadonlySet<string>;
+}
+
 /**
  * Resolve a typed guess to a node. In order: exact common/scientific name, then a
  * synonym ("orca" → killer whale), then a conservative typo-tolerant fallback.
  * The fuzzy step only fires when nothing exact matched, is length-gated, and
  * rejects ties — so a typo never silently resolves to the wrong species.
+ *
+ * A name is often shared by a group and a species inside it — a genus with one
+ * in-set species inherits its common name ("Saguaro" is both Carnegiea and
+ * Carnegiea gigantea; likewise lychee, papaya, watermelon…). Both must stay
+ * guessable, in either order, so those matches are RANKED rather than taken in
+ * tree order (which always yielded the parent): a node not already guessed first,
+ * then the species over the group.
  */
-export function resolveGuess(tree: Tree, input: string): TaxonNode | null {
+export function resolveGuess(tree: Tree, input: string, opts?: ResolveOpts): TaxonNode | null {
+  const isLeaf = (n: TaxonNode) => (tree.childrenOf.get(n.id) ?? []).length === 0;
+  // Lower sorts first: unguessed before guessed, then species before group.
+  const rank = (n: TaxonNode) => (opts?.guessed?.has(n.id) ? 2 : 0) + (isLeaf(n) ? 0 : 1);
+  const pick = (matches: TaxonNode[]): TaxonNode | null =>
+    matches.length ? matches.reduce((a, b) => (rank(b) < rank(a) ? b : a)) : null;
+
   // Accept the "Common name (Scientific name)" form the autocomplete offers, as
   // well as either name on its own.
   const combined = input.match(/^\s*(.*?)\s*\(([^()]+)\)\s*$/);
   const queries = combined ? [combined[1], combined[2], input] : [input];
 
+  // The combined form names both halves, so a node matching BOTH is unambiguous
+  // and outranks one matching only the shared common name.
+  if (combined) {
+    const qc = norm(combined[1]);
+    const qs = norm(combined[2]);
+    const both = [...tree.byId.values()].filter(
+      (n) => n.common && norm(n.common) === qc && norm(n.sciName) === qs
+    );
+    if (both.length) return pick(both);
+  }
+
   for (const raw of queries) {
     const q = norm(raw);
     if (!q) continue;
     // 1) exact common / scientific name
+    const exact: TaxonNode[] = [];
     for (const node of tree.byId.values()) {
-      if (node.common && norm(node.common) === q) return node;
-      if (norm(node.sciName) === q) return node;
+      if ((node.common && norm(node.common) === q) || norm(node.sciName) === q) exact.push(node);
     }
+    if (exact.length) return pick(exact);
     // 2) synonym
     const synId = tree.synonyms?.get(q);
     if (synId) {

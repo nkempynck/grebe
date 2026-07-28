@@ -9,6 +9,8 @@ const N = (id: string, sciName: string, common: string | undefined, parentId: st
 
 // A tiny tree with a couple of deliberate near-collisions ("cats"/"bats") to test
 // the fuzzy tie-guard.
+// Plus a shared-name pair: a genus and its only species both called "Saguaro",
+// as GBIF-derived common names routinely produce.
 const nodes: TaxonNode[] = [
   N("root", "Life", undefined, null),
   N("kw", "Orcinus orca", "Killer whale", "root"),
@@ -17,6 +19,8 @@ const nodes: TaxonNode[] = [
   N("chick", "Poecile atricapillus", "Black-capped Chickadee", "root"),
   N("catsx", "Aaa aaa", "cats", "root"),
   N("batsx", "Bbb bbb", "bats", "root"),
+  { id: "carnegiea", sciName: "Carnegiea", common: "Saguaro", rank: "genus", parentId: "root" },
+  N("saguaro", "Carnegiea gigantea", "Saguaro", "carnegiea"),
 ];
 const tree: Tree = { ...buildTree(nodes), synonyms: new Map([[normalizeName("orca"), "kw"]]) };
 const id = (input: string) => resolveGuess(tree, input)?.id ?? null;
@@ -41,6 +45,29 @@ describe("resolveGuess — exact & forms", () => {
   it("matches through hyphen/diacritic normalization", () => {
     expect(id("black capped chickadee")).toBe("chick");
     expect(id("Black-Capped Chickadee")).toBe("chick");
+  });
+});
+
+describe("resolveGuess — a group and a species sharing a name", () => {
+  const withGuessed = (input: string, ...guessed: string[]) =>
+    resolveGuess(tree, input, { guessed: new Set(guessed) })?.id ?? null;
+
+  it("means the species when nothing has been guessed yet", () => {
+    expect(id("Saguaro")).toBe("saguaro");
+  });
+  it("still reaches the species after the group was guessed", () => {
+    expect(withGuessed("Saguaro", "carnegiea")).toBe("saguaro");
+  });
+  it("falls through to the group after the species was guessed", () => {
+    expect(withGuessed("Saguaro", "saguaro")).toBe("carnegiea");
+  });
+  it("keeps each reachable by its scientific name", () => {
+    expect(id("Carnegiea")).toBe("carnegiea");
+    expect(id("Carnegiea gigantea")).toBe("saguaro");
+  });
+  it("disambiguates the 'Common (Scientific)' form by both halves", () => {
+    expect(id("Saguaro (Carnegiea gigantea)")).toBe("saguaro");
+    expect(id("Saguaro (Carnegiea)")).toBe("carnegiea");
   });
 });
 
