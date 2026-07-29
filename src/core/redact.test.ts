@@ -23,8 +23,8 @@ const BEETLES = [
 ];
 
 /** How the card renders it: hidden runs become blocks, everything else stays. */
-const shown = (text: string, species: TaxonNode[]) =>
-  redactSpoilers(text, boardSpoilers(species)).map((s) => (s.hidden ? "[#]" : s.text)).join("");
+const shown = (text: string, species: TaxonNode[], spare?: Set<string>) =>
+  redactSpoilers(text, boardSpoilers(species, spare)).map((s) => (s.hidden ? "[#]" : s.text)).join("");
 
 describe("stem", () => {
   it("folds regular plurals onto the singular", () => {
@@ -58,6 +58,17 @@ describe("tellingWords / namesTell", () => {
   it("leaves a clade whose common name only shares a word with several tiles", () => {
     expect(namesTell("Colubrid snakes", telling)).toBe(false);
     expect(namesTell("Lizards", telling)).toBe(false);
+  });
+
+  it("spares a word that pads hundreds of names, in prose only", () => {
+    const board = [sp("Common raven", "Corvus corax"), sp("Black drongo", "Dicrurus macrocercus")];
+    const spare = new Set([stem("common")]);
+    // Ordinary English in an article, so no block…
+    expect(shown("It is common across Eurasia.", board, spare)).toBe("It is common across Eurasia.");
+    // …but the full name and the other telling words still go.
+    expect(shown("The common raven is a large corvid.", board, spare)).toBe("The [#] is a large corvid.");
+    // A label is not prose: it sits beside the tray, so nothing is spared there.
+    expect(namesTell("Common ravens", tellingWords(board))).toBe(true);
   });
 
   it("treats the reported Tursiops board the same way", () => {

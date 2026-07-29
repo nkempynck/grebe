@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DisplayTreeNode, Tree } from "../core";
-import { inducedSubtree, dailyNumber, boardSpoilers, namesTell, tellingWords } from "../core";
+import { inducedSubtree, dailyNumber, boardSpoilers, namesTell, tellingWords, widespreadWords } from "../core";
 import { resolveDailyRules } from "../data/dailySchedule";
 import { GameHeader } from "./GameHeader";
 import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame";
@@ -273,7 +273,12 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   // the board is done.
   const hiddenNames = over
     ? []
-    : boardSpoilers(board.slotIds.filter((id) => id !== wikiId && !g.lockedSlots.includes(id)).map((id) => tree.byId.get(id)));
+    : boardSpoilers(
+        board.slotIds.filter((id) => id !== wikiId && !g.lockedSlots.includes(id)).map((id) => tree.byId.get(id)),
+        // Words that pad hundreds of names ("common", "black") read as plain English
+        // in an article, so they aren't blocked in prose. Labels above still are.
+        widespreadWords(tree)
+      );
   const peekNode = pendingPeek ? tree.byId.get(pendingPeek) ?? null : null;
   // Looking up a species you still have to place forfeits its point, so it goes
   // through a confirm step; anchors + clade labels are free context and open at once.

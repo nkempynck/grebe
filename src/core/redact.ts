@@ -1,4 +1,4 @@
-import type { TaxonNode } from "./types";
+import type { TaxonNode, Tree } from "./types";
 
 /** Spoiler control for the Wikipedia reader.
  *
@@ -69,11 +69,43 @@ function stemCounts(species: TaxonNode[]): Map<string, number> {
 /** Every word that singles out one species on the board. A one-letter token is the
  *  "s" left by a possessive ("Cuvier's beaked whale"), never a name: treating it as
  *  telling would blank the "s" out of an unrelated "Baird's". It still counts
- *  inside a whole-name phrase. */
-export function tellingWords(species: Array<TaxonNode | undefined>): Set<string> {
+ *  inside a whole-name phrase.
+ *
+ *  `spare` exempts words that read as ordinary English in running prose, so the
+ *  Tursiops article can say "They are common, cosmopolitan members" without a
+ *  block over "common" just because the Common bottlenose dolphin is in the tray.
+ *  Pass `widespreadWords(tree)` for it. Labels don't spare anything: a clade
+ *  label sits right next to the tray, where even a filler word is decisive. */
+export function tellingWords(species: Array<TaxonNode | undefined>, spare?: Set<string>): Set<string> {
   const counts = stemCounts(species.filter((n): n is TaxonNode => !!n));
   const out = new Set<string>();
-  for (const [s, n] of counts) if (n === 1 && s.length > 1) out.add(s);
+  for (const [s, n] of counts) if (n === 1 && s.length > 1 && !spare?.has(s)) out.add(s);
+  return out;
+}
+
+/** Words appearing in at least `limit` of the tree's organism names.
+ *
+ *  Set high on purpose. Only a handful of words clear it ("common" is in 146 names,
+ *  "black" 88, "red" 81) and those are the ones an article is likely to use as
+ *  plain English. Dropping it far enough to also spare, say, "river" (14 names)
+ *  would start sparing group nouns — "moth" is in 54, "beetle" 56, "spider" 66 —
+ *  and a lone group noun IS the giveaway when only one tray species is one of
+ *  those. Measured over three weeks of boards, this threshold removes noise blocks
+ *  without letting a single identifying word back into visible prose. */
+export const WIDESPREAD_LIMIT = 80;
+
+const widespreadCache = new WeakMap<Tree, Set<string>>();
+
+export function widespreadWords(tree: Tree, limit = WIDESPREAD_LIMIT): Set<string> {
+  const hit = limit === WIDESPREAD_LIMIT ? widespreadCache.get(tree) : undefined;
+  if (hit) return hit;
+  const freq = new Map<string, number>();
+  for (const n of tree.byId.values()) {
+    for (const s of new Set(nameStems(n.common))) freq.set(s, (freq.get(s) ?? 0) + 1);
+  }
+  const out = new Set<string>();
+  for (const [s, n] of freq) if (n >= limit) out.add(s);
+  if (limit === WIDESPREAD_LIMIT) widespreadCache.set(tree, out);
   return out;
 }
 
@@ -83,11 +115,12 @@ export function namesTell(name: string | undefined, telling: Set<string>): boole
   return nameStems(name).some((s) => telling.has(s));
 }
 
-/** What to hide for a whole board: one spoiler per species still to place. */
-export function boardSpoilers(species: Array<TaxonNode | undefined>): Spoiler[] {
+/** What to hide for a whole board: one spoiler per species still to place. `spare`
+ *  is passed through to `tellingWords`. */
+export function boardSpoilers(species: Array<TaxonNode | undefined>, spare?: Set<string>): Spoiler[] {
   const live = species.filter((n): n is TaxonNode => !!n);
   const shared = stemCounts(live);
-  const telling = tellingWords(live);
+  const telling = tellingWords(live, spare);
   const singles = (s: string) => telling.has(s);
   return live.map((node) => {
     const phrases: string[][] = [];
