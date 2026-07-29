@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DisplayTreeNode, Tree } from "../core";
-import { inducedSubtree, dailyNumber, boardSpoilers, nameStems } from "../core";
+import { inducedSubtree, dailyNumber, boardSpoilers, namesTell, tellingWords } from "../core";
 import { resolveDailyRules } from "../data/dailySchedule";
 import { GameHeader } from "./GameHeader";
 import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame";
@@ -210,15 +210,24 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
     return null;
   };
   const rootAnnoId = rootId ? namedAncestorOf(rootId) : null;
-  // From Thursday on (tier ≥ 4) clade LABELS show the scientific name only. A common clade
-  // name ("Old World sparrows") shares a word with its answer tile ("House Sparrow") and
-  // hands the placement over; the Latin ("Passeridae") doesn't — the harder-half analogue
-  // of Kinship hiding names midweek. (Species tiles keep their common names via nameOf.)
+  // From Thursday on (tier ≥ 4) clade LABELS show the scientific name only — the
+  // harder-half analogue of Kinship hiding names midweek. (Species tiles keep their
+  // common names via nameOf.)
   const CLADE_LATIN_MIN_TIER = 4;
   const cladeLatinOnly = g.tier >= CLADE_LATIN_MIN_TIER && !over; // reveal common names once solved
+  // On EVERY tier, a clade goes Latin when its common name carries a word that
+  // singles out a species still to place: "Old World sparrows" over a tray holding
+  // the House Sparrow, or "Bottlenose Dolphin" over the Common bottlenose dolphin,
+  // hands the placement over before anything is opened. "Bottlenose" is decisive
+  // where "dolphin" — shared by three tiles — is not, so only the telling word
+  // forces the switch. The Latin ("Passeridae", "Tursiops") gives nothing away.
+  const unsolved = board.slotIds.filter((id) => !g.lockedSlots.includes(id)).map((id) => tree.byId.get(id));
+  const telling = over ? new Set<string>() : tellingWords(unsolved);
+  const cladeTells = (id: string) => namesTell(tree.byId.get(id)?.common, telling);
   const cladeLabel = (id: string) => {
     const n = tree.byId.get(id);
-    return (cladeLatinOnly ? n?.sciName ?? n?.common : n?.common ?? n?.sciName) ?? id;
+    const latin = cladeLatinOnly || cladeTells(id);
+    return (latin ? n?.sciName ?? n?.common : n?.common ?? n?.sciName) ?? id;
   };
   // Brutal weekend (Sat/Sun, tier ≥ 6): also hide the rank subtitle ("GENUS"/"FAMILY").
   // Knowing a group's rank narrows placement, so the final escalation removes it — you
@@ -264,10 +273,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   // the board is done.
   const hiddenNames = over
     ? []
-    : boardSpoilers(
-        board.slotIds.filter((id) => id !== wikiId && !g.lockedSlots.includes(id)).map((id) => tree.byId.get(id)),
-        { context: wikiNode ? [...nameStems(wikiNode.common), ...nameStems(wikiNode.sciName)] : [] }
-      );
+    : boardSpoilers(board.slotIds.filter((id) => id !== wikiId && !g.lockedSlots.includes(id)).map((id) => tree.byId.get(id)));
   const peekNode = pendingPeek ? tree.byId.get(pendingPeek) ?? null : null;
   // Looking up a species you still have to place forfeits its point, so it goes
   // through a confirm step; anchors + clade labels are free context and open at once.
@@ -566,7 +572,18 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         </div>
       )}
 
-      {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} hideImage={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0} redact={hiddenNames} />}
+      {wikiNode && (
+        <WikiCard
+          node={wikiNode}
+          tree={tree}
+          onClose={() => setWikiId(null)}
+          hideImage={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0}
+          redact={hiddenNames}
+          // Clades follow their board label: a common name that gives a tile away
+          // is not shown on the tree, so it can't be shown on the card either.
+          latinTitle={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0 && (cladeLatinOnly || cladeTells(wikiNode.id))}
+        />
+      )}
     </div>
   );
 }

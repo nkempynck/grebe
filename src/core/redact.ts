@@ -25,7 +25,13 @@ import type { TaxonNode } from "./types";
  *  "chameleon" each single out a tile and are hidden, while "snake" is shared by
  *  three and stays. Dataset-wide rarity gets this wrong in both directions —
  *  "chameleon" appears in 6 names and "snake" in 20, yet here the rare-looking one
- *  is harmless and the common one decisive. */
+ *  is harmless and the common one decisive.
+ *
+ *  `tellingWords` is also what Branches uses to LABEL its clades: a clade whose
+ *  common name carries one of these words is shown by its scientific name, since
+ *  "Bottlenose Dolphin" over a tray holding the Common bottlenose dolphin hands
+ *  the placement over before any article is opened. The two go together — the
+ *  label stops showing the word, so the prose can hide it. */
 
 /** Fold a word to a form shared by its singular and plural, so "beetles" matches
  *  "beetle". Deliberately crude: regular -s/-es/-ies only, no irregulars. */
@@ -51,25 +57,38 @@ export interface Spoiler {
   telling: Set<string>;
 }
 
-/** What to hide for a whole board: one spoiler per species still to place.
- *
- *  `context` holds the stems of the open article's OWN subject. A word the card
- *  already shows in its title can't be a giveaway, so hiding it would only shred
- *  the prose — a Chamaeleonidae page has to keep saying "chameleon". */
-export function boardSpoilers(
-  species: Array<TaxonNode | undefined>,
-  opts?: { context?: Iterable<string> }
-): Spoiler[] {
-  const live = species.filter((n): n is TaxonNode => !!n);
+/** How many of `species` carry each word of their common names. */
+function stemCounts(species: TaxonNode[]): Map<string, number> {
   const shared = new Map<string, number>();
-  for (const n of live) {
+  for (const n of species) {
     for (const s of new Set(nameStems(n.common))) shared.set(s, (shared.get(s) ?? 0) + 1);
   }
-  const context = new Set(opts?.context ?? []);
-  // A one-letter token is the "s" left by a possessive ("Cuvier's beaked whale"),
-  // never a name: treating it as telling blanks the "s" out of an unrelated
-  // "Baird's". It still counts inside a whole-name phrase.
-  const singles = (s: string) => s.length > 1 && shared.get(s) === 1 && !context.has(s);
+  return shared;
+}
+
+/** Every word that singles out one species on the board. A one-letter token is the
+ *  "s" left by a possessive ("Cuvier's beaked whale"), never a name: treating it as
+ *  telling would blank the "s" out of an unrelated "Baird's". It still counts
+ *  inside a whole-name phrase. */
+export function tellingWords(species: Array<TaxonNode | undefined>): Set<string> {
+  const counts = stemCounts(species.filter((n): n is TaxonNode => !!n));
+  const out = new Set<string>();
+  for (const [s, n] of counts) if (n === 1 && s.length > 1) out.add(s);
+  return out;
+}
+
+/** True when a name carries a word that singles out a species on the board — the
+ *  test Branches applies to a clade's common label before showing it. */
+export function namesTell(name: string | undefined, telling: Set<string>): boolean {
+  return nameStems(name).some((s) => telling.has(s));
+}
+
+/** What to hide for a whole board: one spoiler per species still to place. */
+export function boardSpoilers(species: Array<TaxonNode | undefined>): Spoiler[] {
+  const live = species.filter((n): n is TaxonNode => !!n);
+  const shared = stemCounts(live);
+  const telling = tellingWords(live);
+  const singles = (s: string) => telling.has(s);
   return live.map((node) => {
     const phrases: string[][] = [];
     const addPhrase = (name: string | undefined) => {

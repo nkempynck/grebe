@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { boardSpoilers, isFullyRedacted, nameStems, redactSpoilers, stem } from "./redact";
+import { boardSpoilers, isFullyRedacted, namesTell, redactSpoilers, stem, tellingWords } from "./redact";
 import type { TaxonNode } from "./types";
 
 const sp = (common: string, sciName: string): TaxonNode =>
@@ -23,10 +23,8 @@ const BEETLES = [
 ];
 
 /** How the card renders it: hidden runs become blocks, everything else stays. */
-const shown = (text: string, species: TaxonNode[], context?: string) =>
-  redactSpoilers(text, boardSpoilers(species, { context: context ? nameStems(context) : [] }))
-    .map((s) => (s.hidden ? "[#]" : s.text))
-    .join("");
+const shown = (text: string, species: TaxonNode[]) =>
+  redactSpoilers(text, boardSpoilers(species)).map((s) => (s.hidden ? "[#]" : s.text)).join("");
 
 describe("stem", () => {
   it("folds regular plurals onto the singular", () => {
@@ -46,9 +44,33 @@ describe("boardSpoilers", () => {
     expect([...whiptail.telling]).toEqual([stem("whiptail")]); // "western" is shared with the hognose
     expect([...corn.telling]).toEqual([stem("corn")]); // "snake" is shared with two others
   });
-  it("drops a word the open article's own title already shows", () => {
-    const [, , , , chameleon] = boardSpoilers(REPTILES, { context: nameStems("Chameleons") });
-    expect([...chameleon.telling]).toEqual([stem("panther")]);
+});
+
+describe("tellingWords / namesTell", () => {
+  const telling = tellingWords(REPTILES);
+
+  it("flags a clade whose common name carries a telling word", () => {
+    // The label would hand the tile over, so Branches shows the Latin instead.
+    expect(namesTell("Chameleons", telling)).toBe(true);
+    expect(namesTell("Whiptail lizards", telling)).toBe(true);
+  });
+
+  it("leaves a clade whose common name only shares a word with several tiles", () => {
+    expect(namesTell("Colubrid snakes", telling)).toBe(false);
+    expect(namesTell("Lizards", telling)).toBe(false);
+  });
+
+  it("treats the reported Tursiops board the same way", () => {
+    const cetaceans = [
+      sp("Common bottlenose dolphin", "Tursiops truncatus"),
+      sp("Irrawaddy dolphin", "Orcaella brevirostris"),
+      sp("Amazon river dolphin", "Inia geoffrensis"),
+      sp("Narwhal", "Monodon monoceros"),
+      sp("Vaquita", "Phocoena sinus"),
+    ];
+    const words = tellingWords(cetaceans);
+    expect(namesTell("Bottlenose Dolphin", words)).toBe(true); // "bottlenose" singles it out
+    expect(words.has(stem("dolphin"))).toBe(false); // shared by three tiles
   });
 });
 
@@ -106,11 +128,11 @@ describe("redactSpoilers", () => {
       .toBe("The dandelion and the lionfish are unrelated.");
   });
 
-  it("keeps a word the open article's own title already shows", () => {
-    // The card is Chamaeleonidae, so blanking "chameleon" everywhere would shred the
-    // page without hiding anything; the full name and "panther" still go.
-    expect(shown("Chameleons are a family of lizards; the panther chameleon is one.", REPTILES, "Chameleons"))
-      .toBe("Chameleons are a family of lizards; the [#] is one.");
+  it("hides a telling word even where it is the article's own subject", () => {
+    // The card for this clade is titled by its Latin name precisely because
+    // "chameleon" gives a tile away (see namesTell), so the prose hides it too.
+    expect(shown("Chameleons are a family of lizards; the panther chameleon is one.", REPTILES))
+      .toBe("[#] are a family of lizards; the [#] is one.");
   });
 
   it("does not blank a one-word name shared with another species on the board", () => {

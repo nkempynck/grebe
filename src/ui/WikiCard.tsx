@@ -9,8 +9,10 @@ import { fetchWikiImage, fetchWikiSummary, wikiUrlFor, type WikiImage, type Wiki
  *  clade's representative photo can be the very picture of a species you must
  *  still place, giving the answer away — species keep their own photo).
  *  `redact` blanks names out of the prose for the same reason: a clade summary
- *  listing its members can otherwise spell out a Branches tray. */
-export function WikiCard({ node, tree, onClose, hideImage, redact }: { node: TaxonNode; tree: Tree; onClose: () => void; hideImage?: boolean; redact?: Spoiler[] }) {
+ *  listing its members can otherwise spell out a Branches tray. `latinTitle` keeps
+ *  the header in step with the label on the board, which drops a clade's common
+ *  name when it shares a word with a species still to place. */
+export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle }: { node: TaxonNode; tree: Tree; onClose: () => void; hideImage?: boolean; redact?: Spoiler[]; latinTitle?: boolean }) {
   const [wiki, setWiki] = useState<WikiSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [img, setImg] = useState<WikiImage | null>(null);
@@ -50,8 +52,8 @@ export function WikiCard({ node, tree, onClose, hideImage, redact }: { node: Tax
       {!hideImage && img?.thumb && <img src={img.thumb} alt={node.common ?? node.sciName} />}
       <div className="clado-wiki-body">
         <div className="clado-wiki-rank">{node.rank} · {sub}</div>
-        <h3>{node.common ?? node.sciName}</h3>
-        {node.common && <div className="clado-wiki-sci">{node.sciName}</div>}
+        <h3>{latinTitle ? node.sciName ?? node.common : node.common ?? node.sciName}</h3>
+        {node.common && !latinTitle && <div className="clado-wiki-sci">{node.sciName}</div>}
         <p>{loading ? "Fetching field notes…" : wiki?.extract ? prose : "No Wikipedia summary found."}</p>
         <a href={wiki?.pageUrl ?? wikiUrlFor(node)} target="_blank" rel="noreferrer">Read on Wikipedia →</a>
       </div>
