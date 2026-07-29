@@ -1,4 +1,8 @@
 import { supabase } from "./supabase";
+import { loadDailyProgress } from "./dailyProgress";
+import { loadGridProgress } from "./gridProgress";
+import { loadBranchesProgress } from "./branchesProgress";
+import { loadStore } from "./stats";
 
 /** The three daily games, as bump_play() names them (see supabase/plays.sql). */
 export type CountedGame = "lineage" | "kinship" | "branches";
@@ -63,5 +67,32 @@ export async function countPlay(game: CountedGame, date: string, won: boolean): 
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Count any of today's finishes this device didn't manage to count at the time —
+ * a tab still running a bundle from before the counter shipped, a failed call, or
+ * being offline. Without this a missed count is permanent: the finish effect skips
+ * an already-finished daily on reload, so it never gets a second chance.
+ *
+ * Gated on THIS device's saved progress (which never syncs), so a daily finished
+ * on another device and restored from the cloud is not counted a second time.
+ * countPlay's own flag makes it a no-op once a day is counted.
+ */
+export async function catchUpCounts(today: string): Promise<void> {
+  const daily = loadDailyProgress();
+  if (daily?.date === today && daily.status !== "playing") {
+    await countPlay("lineage", today, daily.status === "won");
+  }
+  const grid = loadGridProgress();
+  if (grid?.date === today && grid.status !== "playing") {
+    await countPlay("kinship", today, grid.status === "won");
+  }
+  const branches = loadBranchesProgress();
+  if (branches?.date === today && branches.status === "done") {
+    // Branches progress stores no win flag (it's derived from the board), so take it
+    // from the stats entry this device wrote when the round finished.
+    await countPlay("branches", today, loadStore().branches?.[today]?.won ?? false);
   }
 }

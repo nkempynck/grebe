@@ -859,7 +859,12 @@ function Analytics() {
                 ) : (
                   <>
                     {GAME_META[g].icon} <b>{series(g)[active]}</b> played · {solvedSeries(g)[active]} solved
-                    {mode === "all" && <>{" · "}<span className="sys-detail">{byGame[g].played[active]} signed in</span></>}
+                    {/* The counter's OWN signed-in tally — a real subset of its plays.
+                        NOT daily_activity()'s number, which counts a different
+                        population (games rows) and can exceed the counter's total,
+                        which just reads as a contradiction. Use the toggle to compare
+                        the two sources. */}
+                    {mode === "all" && <>{" · "}<span className="sys-detail">{playsByGame[g].signedIn[active]} signed in</span></>}
                   </>
                 )}
               </span>
@@ -901,7 +906,7 @@ function Analytics() {
                           {mode === "all" && i < startAt
                             ? "—" /* before counting started: no data, not zero plays */
                             : mode === "all"
-                              ? `${series(g)[i]} / ${solvedSeries(g)[i]} / ${byGame[g].played[i]}`
+                              ? `${series(g)[i]} / ${solvedSeries(g)[i]} / ${playsByGame[g].signedIn[i]}`
                               : `${series(g)[i]} / ${solvedSeries(g)[i]}`}
                         </td>
                       ))}

@@ -14,7 +14,14 @@ vi.stubGlobal("localStorage", {
   removeItem: (k: string) => { store.delete(k); },
 });
 
-const { countPlay } = await import("./playCount");
+// Saved progress + stats, stubbed so the catch-up sweep can be driven directly.
+const progress = { daily: null as unknown, grid: null as unknown, branches: null as unknown, stats: {} as Record<string, unknown> };
+vi.mock("./dailyProgress", () => ({ loadDailyProgress: () => progress.daily }));
+vi.mock("./gridProgress", () => ({ loadGridProgress: () => progress.grid }));
+vi.mock("./branchesProgress", () => ({ loadBranchesProgress: () => progress.branches }));
+vi.mock("./stats", () => ({ loadStore: () => progress.stats }));
+
+const { countPlay, catchUpCounts } = await import("./playCount");
 
 describe("countPlay", () => {
   beforeEach(() => {
@@ -51,5 +58,52 @@ describe("countPlay", () => {
   it("never throws when the call blows up", async () => {
     rpc.mockRejectedValue(new Error("offline"));
     await expect(countPlay("lineage", "2026-07-28", true)).resolves.toBe(false);
+  });
+});
+
+describe("catchUpCounts", () => {
+  // A fixed date, not the real clock: catchUpCounts takes the day as an argument
+  // (App passes todayKey()), so pinning it keeps these deterministic.
+  const TODAY = "2026-07-29";
+  beforeEach(() => {
+    store.clear();
+    rpc.mockReset();
+    rpc.mockResolvedValue({ error: null });
+    progress.daily = null; progress.grid = null; progress.branches = null; progress.stats = {};
+  });
+
+  it("counts a finish this device made but never counted", async () => {
+    progress.daily = { date: TODAY, status: "won" };
+    await catchUpCounts(TODAY);
+    expect(rpc).toHaveBeenCalledWith("bump_play", { p_game: "lineage", p_date: TODAY, p_won: true });
+  });
+
+  it("carries the result through, including a give-up", async () => {
+    progress.daily = { date: TODAY, status: "gaveup" };
+    progress.grid = { date: TODAY, status: "lost" };
+    await catchUpCounts(TODAY);
+    expect(rpc).toHaveBeenCalledWith("bump_play", { p_game: "lineage", p_date: TODAY, p_won: false });
+    expect(rpc).toHaveBeenCalledWith("bump_play", { p_game: "kinship", p_date: TODAY, p_won: false });
+  });
+
+  it("takes the Branches result from stats, since its progress has no win flag", async () => {
+    progress.branches = { date: TODAY, status: "done" };
+    progress.stats = { branches: { [TODAY]: { won: true } } };
+    await catchUpCounts(TODAY);
+    expect(rpc).toHaveBeenCalledWith("bump_play", { p_game: "branches", p_date: TODAY, p_won: true });
+  });
+
+  it("ignores a round still in progress, and an older day", async () => {
+    progress.daily = { date: TODAY, status: "playing" };
+    progress.grid = { date: "2026-07-28", status: "won" };
+    await catchUpCounts(TODAY);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("doesn't double-count a day already counted at finish time", async () => {
+    progress.daily = { date: TODAY, status: "won" };
+    await countPlay("lineage", TODAY, true); // the finish effect
+    await catchUpCounts(TODAY);             // then a reload
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 });

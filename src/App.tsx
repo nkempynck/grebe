@@ -7,7 +7,7 @@ import { useStats } from "./hooks/useStats";
 import { usePlayer } from "./hooks/usePlayer";
 import { recordGame, fetchPlayerBadges, recordGridGame, recordBranchesGame } from "./data/games";
 import { enqueuePendingSubmit, loadPendingSubmits, clearPendingSubmits } from "./data/pendingSubmits";
-import { countPlay } from "./data/playCount";
+import { catchUpCounts, countPlay } from "./data/playCount";
 import { newDailyWins } from "./data/badges";
 import { todayKey, dailyNumber, dailyLabel, isPreLaunch } from "./core/daily";
 import { dailyAnswerFor, resolveDailyRules } from "./data/dailySchedule";
@@ -302,6 +302,10 @@ export default function App() {
     });
     return () => { live = false; };
   }, [player.session]);
+
+  // Count today's finishes this device missed at the time (a tab on a pre-counter
+  // bundle, a failed call, offline). Once per load; already-counted days are a no-op.
+  useEffect(() => { void catchUpCounts(todayKey()); }, []);
 
   // Carry over signed-out play: on sign-in, replay any dailies finished before the
   // player had an account onto the leaderboard. The submit RPCs are idempotent
