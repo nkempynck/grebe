@@ -541,6 +541,15 @@ body {
   line-height: 1; cursor: pointer; padding: 2px 6px;
 }
 .clado-wiki-close:hover { color: var(--brass); }
+/* A species you still have to place, named in a clade's summary: blanked out so a
+   free clade peek can't read the answer out of the prose. Fixed width, so the
+   length of the name isn't a clue either. */
+.clado-redact {
+  display: inline-block; width: 4.2em; height: 0.8em;
+  margin: 0 2px; vertical-align: -0.02em; border-radius: 3px;
+  background: var(--ink-faint); opacity: 0.38; filter: blur(2px);
+  cursor: help;
+}
 
 /* ---- Result: box-free, just a ruled block ---- */
 .result {

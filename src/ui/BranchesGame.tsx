@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DisplayTreeNode, Tree } from "../core";
-import { inducedSubtree, dailyNumber } from "../core";
+import { inducedSubtree, dailyNumber, boardSpoilers, nameStems } from "../core";
 import { resolveDailyRules } from "../data/dailySchedule";
 import { GameHeader } from "./GameHeader";
 import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame";
@@ -256,6 +256,18 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
     }
   };
   const wikiNode = wikiId ? tree.byId.get(wikiId) ?? null : null;
+  // A clade's summary names its members, and those members are routinely the tray
+  // species themselves — free clade peeks would otherwise read out the answers. So
+  // any species still unsolved has its name blanked out of whatever card is open,
+  // in full and word by word ("Hercules beetles" gives away the Eastern Hercules
+  // Beetle). The card's own subject keeps its wording, and nothing is hidden once
+  // the board is done.
+  const hiddenNames = over
+    ? []
+    : boardSpoilers(
+        board.slotIds.filter((id) => id !== wikiId && !g.lockedSlots.includes(id)).map((id) => tree.byId.get(id)),
+        { context: wikiNode ? [...nameStems(wikiNode.common), ...nameStems(wikiNode.sciName)] : [] }
+      );
   const peekNode = pendingPeek ? tree.byId.get(pendingPeek) ?? null : null;
   // Looking up a species you still have to place forfeits its point, so it goes
   // through a confirm step; anchors + clade labels are free context and open at once.
@@ -331,7 +343,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         dayName={rules.dayName}
         difficulty={rules.difficulty}
         onHowItWorks={onHowItWorks}
-        blurb="Drag each species onto the clade it belongs to, then Submit. Correct slots lock in. A wrong board costs a mistake and sends the misplaced tiles back. A species already placed is a worked example to build from. Peeking at a clade's Wikipedia is free, but looking up a species you have to place costs points."
+        blurb="Drag each species onto the clade it belongs to, then Submit. Correct slots lock in. A wrong board costs a mistake and sends the misplaced tiles back. A species already placed is a worked example to build from. Peeking at a clade's Wikipedia is free (species you still have to place are blanked out of the text), but looking up a species you have to place costs points."
       >
         <div className="branches-viewtoggle" role="tablist" aria-label="Tree view">
           <button role="tab" aria-selected={!radial} className={`branches-viewseg${!radial ? " is-on" : ""}`} onClick={() => setMode("tree")}>Tree</button>
@@ -554,7 +566,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         </div>
       )}
 
-      {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} hideImage={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0} />}
+      {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} hideImage={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0} redact={hiddenNames} />}
     </div>
   );
 }

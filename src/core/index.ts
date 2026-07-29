@@ -8,3 +8,4 @@ export * from "./graft";
 export * from "./solver";
 export * from "./grid";
 export * from "./branches";
+export * from "./redact";

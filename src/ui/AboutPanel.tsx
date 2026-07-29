@@ -140,7 +140,8 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             (Mon–Wed) or twice (Thu–Sun) and still win, and one more than that ends the board. It gets
             harder through the week: gentle days are broad and forgiving, the toughest pit tight
             look-alike clades that reward knowing your groups. Read it as a top-down tree or a circular
-            fan, and tap any clade or anchor for its Wikipedia.
+            fan, and tap any clade or anchor for its Wikipedia. Those articles often list their
+            members by name, so any species still waiting in the tray is blanked out of the text.
           </p>
           <details className="about-score">
             <summary>How scoring works</summary>
