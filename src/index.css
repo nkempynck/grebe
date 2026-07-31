@@ -530,11 +530,20 @@ body {
 .clado-wiki-body h3 { font-family: var(--font-display); font-weight: 800; font-size: 22px; margin: 2px 0 1px; }
 .clado-wiki-sci { font-family: var(--font-mono); font-size: 11px; font-style: italic; color: var(--ink-soft); }
 .clado-wiki-body p { font-size: 15px; margin: 8px 0 10px; color: var(--ink); }
-.clado-wiki-body a {
+.clado-wiki-body a,
+.clado-wiki-more {
   font-family: var(--font-mono); font-size: 12px; color: var(--brass);
   text-decoration: none; border-bottom: 1px solid var(--line);
 }
-.clado-wiki-body a:hover { border-color: var(--brass); }
+.clado-wiki-body a:hover,
+.clado-wiki-more:hover { border-color: var(--brass); }
+/* Branches charges for the unedited article, so the link out is a button there
+   (the host confirms and opens it). Looks exactly like the plain link. */
+.clado-wiki-more {
+  background: none; border: none; border-bottom: 1px solid var(--line);
+  padding: 0; cursor: pointer;
+}
+.clado-wiki-cost { color: var(--danger); }
 .clado-wiki-close {
   position: absolute; top: 12px; right: 0;
   background: none; border: none; color: var(--ink-soft); font-size: 22px;

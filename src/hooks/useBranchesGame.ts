@@ -15,7 +15,9 @@ export interface BranchesComplete {
   total: number;
   /** Correct slots revealed by a hint (each forfeits a full point). */
   hinted: number;
-  /** Correct slots whose species was peeked on Wikipedia (each forfeits half). */
+  /** Half-point lookups: correct slots whose species was peeked, plus full
+   *  Wikipedia articles opened from a card. Both forfeit half a point, so they
+   *  share one count (see `tally` and supabase/branches.sql). */
   peeked: number;
   /** Wrong submissions committed (each burns a point-slice; over budget = a loss). */
   mistakes: number;
@@ -55,8 +57,14 @@ export interface UseBranchesGame {
   /** Slot ids revealed via a hint (a subset of lockedSlots; count against score). */
   hints: string[];
   /** Species (slot) ids the player looked up on Wikipedia while playing — each
-   *  forfeits that slot's credit, like a hint. */
+   *  forfeits half that slot's credit. */
   peeked: string[];
+  /** Node ids whose FULL Wikipedia article was opened while playing. The in-app
+   *  card is free (species still to place are blanked out of its prose); the real
+   *  article blanks nothing, so opening one costs half a point, once per node.
+   *  Holds clades, anchors and the shared ancestor — a to-place species is charged
+   *  through `peeked` instead, since its card already cost half. */
+  reads: string[];
   /** Wrong submissions committed so far (against the budget). */
   mistakes: number;
   /** Wrong submissions allowed before the board is lost (1 Mon–Wed, 2 Thu–Sun). */
@@ -86,6 +94,10 @@ export interface UseBranchesGame {
   hint: () => void;
   /** Record that the player looked up a to-place species (penalises its slot). */
   peek: (speciesId: string) => void;
+  /** Record that the player opened a node's full Wikipedia article (half a point,
+   *  once per node). Routes a to-place species to `peek`, so a card already paid
+   *  for doesn't get charged twice for the link inside it. */
+  readFull: (nodeId: string) => void;
   /** Grade the full board: correct slots lock in, a wrong board costs a mistake,
    *  and going over the budget ends it as a loss. */
   submit: () => void;
@@ -96,8 +108,20 @@ export interface UseBranchesGame {
 
 /** Tally correct slots, split by help used: a hint forfeits the whole point, a
  *  Wikipedia peek only half (the summary may not even name the family). A slot
- *  that was both hinted and peeked counts as hinted (the stronger penalty). */
-function tally(board: BranchesBoard, placements: Record<string, string>, hints: string[], peeked: string[]) {
+ *  that was both hinted and peeked counts as hinted (the stronger penalty).
+ *
+ *  Full-article reads carry the same half-point charge as a species peek, so they
+ *  ride in the same count rather than a column of their own. Two consequences worth
+ *  knowing: a read is charged however the board ends up (it isn't tied to a slot the
+ *  way a peek is), and the sum is clamped to the slot count exactly as
+ *  submit_branches_game() clamps it, so the score shown equals the score recorded. */
+function tally(
+  board: BranchesBoard,
+  placements: Record<string, string>,
+  hints: string[],
+  peeked: string[],
+  reads: string[]
+) {
   const H = new Set(hints), P = new Set(peeked);
   let correct = 0, hinted = 0, peekedCorrect = 0;
   for (const s of board.slotIds) {
@@ -106,7 +130,8 @@ function tally(board: BranchesBoard, placements: Record<string, string>, hints: 
     if (H.has(s)) hinted++;
     else if (P.has(s)) peekedCorrect++;
   }
-  return { correct, total: board.slotIds.length, hinted, peeked: peekedCorrect };
+  const total = board.slotIds.length;
+  return { correct, total, hinted, peeked: Math.min(total, peekedCorrect + reads.length) };
 }
 
 function boardSig(b: BranchesBoard | null): string {
@@ -154,6 +179,7 @@ export function useBranchesGame(
   const [lockedSlots, setLockedSlots] = useState<string[]>([]);
   const [hints, setHints] = useState<string[]>([]);
   const [peeked, setPeeked] = useState<string[]>([]);
+  const [reads, setReads] = useState<string[]>([]);
   const [mistakes, setMistakes] = useState(0);
   const [held, setHeld] = useState<string | null>(null);
   const [status, setStatus] = useState<BranchesStatus>("playing");
@@ -178,16 +204,18 @@ export function useBranchesGame(
       setLockedSlots(prog.locked ?? []);
       setHints(prog.hints ?? []);
       setPeeked(prog.peeked ?? []);
+      setReads(prog.reads ?? []);
       setMistakes(prog.mistakes ?? 0);
       setStatus(prog.status ?? "playing");
       setResult(prog.status === "done"
-        ? { ...tally(board, p, prog.hints ?? [], prog.peeked ?? []), mistakes: prog.mistakes ?? 0 }
+        ? { ...tally(board, p, prog.hints ?? [], prog.peeked ?? [], prog.reads ?? []), mistakes: prog.mistakes ?? 0 }
         : null);
     } else {
       setPlacements({});
       setLockedSlots([]);
       setHints([]);
       setPeeked([]);
+      setReads([]);
       setMistakes(0);
       setStatus("playing");
       setResult(null);
@@ -211,8 +239,8 @@ export function useBranchesGame(
       const saved = loadBranchesProgress();
       if (saved && saved.date === date && saved.status === "done") return;
     }
-    saveBranchesProgress({ date, placements, locked: lockedSlots, hints, peeked, mistakes, status });
-  }, [board, date, devActive, placements, lockedSlots, hints, peeked, mistakes, status, hydratedSig]);
+    saveBranchesProgress({ date, placements, locked: lockedSlots, hints, peeked, reads, mistakes, status });
+  }, [board, date, devActive, placements, lockedSlots, hints, peeked, reads, mistakes, status, hydratedSig]);
 
   // Signed-in players: restore an already-played board from the server (works on
   // any device/domain, where localStorage is empty). Runs once per (user, date),
@@ -240,6 +268,7 @@ export function useBranchesGame(
       setLockedSlots(board.slotIds.slice());
       setHints([]);
       setPeeked([]);
+      setReads([]);
       setMistakes(row.mistakes);
       setHeld(null);
       setResult({ correct: row.correct, total: row.total, hinted: row.hinted, peeked: row.peeked, mistakes: row.mistakes });
@@ -331,14 +360,31 @@ export function useBranchesGame(
     setHeld(null);
   }, [board, status, placements, lockedSlots]);
 
-  // Looking up a to-place species while the game is live forfeits that slot. Only
-  // species that must be placed count (anchors and clade labels are free context).
+  // Looking up a to-place species while the game is live forfeits half that slot.
+  // Only species that must be placed count (anchors and clade labels are free
+  // context), and only while the slot is still open: a slot already locked by a
+  // correct submit or a hint has nothing left to give away, so reading it is free.
   const peek = useCallback(
     (speciesId: string) => {
       if (status !== "playing" || !board?.slotIds.includes(speciesId)) return;
+      if (lockedSlots.includes(speciesId)) return;
       setPeeked((p) => (p.includes(speciesId) ? p : [...p, speciesId]));
     },
-    [status, board]
+    [status, board, lockedSlots]
+  );
+
+  // Opening a node's full Wikipedia article. The card in the app blanks out every
+  // species still to place; the article itself blanks nothing, so this is where a
+  // clade stops being free. Charged once per node, at the same half point as a peek.
+  const readFull = useCallback(
+    (nodeId: string) => {
+      if (status !== "playing") return;
+      // A to-place species goes through peek(): its card already cost half, and the
+      // link inside it must not cost a second time.
+      if (board?.slotIds.includes(nodeId)) { peek(nodeId); return; }
+      setReads((r) => (r.includes(nodeId) ? r : [...r, nodeId]));
+    },
+    [status, board, peek]
   );
 
   const finish = useCallback(
@@ -346,13 +392,14 @@ export function useBranchesGame(
       finalPlacements: Record<string, string>,
       finalHints: string[],
       finalPeeked: string[],
+      finalReads: string[],
       finalMistakes: number,
       won: boolean
     ) => {
       if (!board) return;
       setStatus("done");
       setHeld(null);
-      const t = tally(board, finalPlacements, finalHints, finalPeeked);
+      const t = tally(board, finalPlacements, finalHints, finalPeeked, finalReads);
       setResult({ ...t, mistakes: finalMistakes });
       if (!devActive) {
         onCompleteRef.current?.({
@@ -378,7 +425,7 @@ export function useBranchesGame(
     if (!board || status !== "playing") return;
     const wrong = board.slotIds.filter((s) => placements[s] !== s);
     if (wrong.length === 0) {
-      finish(placements, hints, peeked, mistakes, true); // clean board
+      finish(placements, hints, peeked, reads, mistakes, true); // clean board
       return;
     }
     const nextMistakes = mistakes + 1;
@@ -388,7 +435,7 @@ export function useBranchesGame(
     if (wrongTimer.current) clearTimeout(wrongTimer.current);
     wrongTimer.current = setTimeout(() => setWrongSlots([]), 750);
     if (nextMistakes > allowance) {
-      finish(placements, hints, peeked, nextMistakes, false); // over budget — loss (partial credit)
+      finish(placements, hints, peeked, reads, nextMistakes, false); // over budget — loss (partial credit)
       return;
     }
     // Lock the slots that WERE correct; bounce the wrong tiles back to the tray.
@@ -403,7 +450,7 @@ export function useBranchesGame(
       return next;
     });
     setHeld(null);
-  }, [board, status, placements, hints, peeked, mistakes, allowance, finish]);
+  }, [board, status, placements, hints, peeked, reads, mistakes, allowance, finish]);
 
   // Test bench only: place every species on its correct slot and finish. onComplete
   // never fires from here, and a playtest board isn't recorded anyway.
@@ -415,10 +462,11 @@ export function useBranchesGame(
     setLockedSlots(board.slotIds.slice());
     setHints([]);
     setPeeked([]);
+    setReads([]);
     setMistakes(0);
     setHeld(null);
     setStatus("done");
-    setResult({ ...tally(board, correct, [], []), mistakes: 0 });
+    setResult({ ...tally(board, correct, [], [], []), mistakes: 0 });
   }, [board]);
 
   const canSubmit = Boolean(board) && status === "playing" && !!board && board.slotIds.every((s) => placements[s]);
@@ -434,6 +482,7 @@ export function useBranchesGame(
     lockedSlots,
     hints,
     peeked,
+    reads,
     mistakes,
     allowance,
     oneAway,
@@ -449,6 +498,7 @@ export function useBranchesGame(
     clearSlot,
     hint,
     peek,
+    readFull,
     submit,
     canSubmit,
     solve,

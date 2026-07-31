@@ -11,6 +11,10 @@ export interface BranchesProgress {
   hints: string[];
   /** Species (slot) ids looked up on Wikipedia while playing. */
   peeked?: string[];
+  /** Node ids (clades, anchors, the shared ancestor) whose full Wikipedia article
+   *  was opened while playing. Kept so a reload doesn't refund the half point.
+   *  Optional: attempts saved before full-article reads cost anything have none. */
+  reads?: string[];
   /** Wrong placements committed so far (against the day's mistake budget). */
   mistakes?: number;
   status: "playing" | "done";

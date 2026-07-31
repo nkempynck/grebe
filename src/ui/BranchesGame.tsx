@@ -108,6 +108,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   const [trayOver, setTrayOver] = useState(false);
   const [wikiId, setWikiId] = useState<string | null>(null);
   const [pendingPeek, setPendingPeek] = useState<string | null>(null);
+  const [pendingRead, setPendingRead] = useState<{ id: string; url: string } | null>(null);
   const [mode, setMode] = useState<BranchesView>("radial");
   const [copied, setCopied] = useState(false);
 
@@ -129,6 +130,19 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   // branch-anchored dot, so moving them along the ray reads naturally; labels stay put.
   const canvasRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  // The wiki card and the article confirm both open at the foot of the page, below a
+  // tree tall enough to fill the screen on its own. So bring each into view as it
+  // appears: an unseen card reads as a dead tap, an unseen confirm as a dead link.
+  // `nearest` scrolls only as far as it has to, and not at all when the card is
+  // already on screen — switching from one clade to the next stays still.
+  const wikiRef = useRef<HTMLDivElement>(null);
+  const readConfirmRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (wikiId) wikiRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [wikiId]);
+  useEffect(() => {
+    if (pendingRead) readConfirmRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [pendingRead]);
   const tileEls = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Grab-to-pan the tree with a mouse: dragging empty canvas scrolls the stage.
@@ -280,11 +294,27 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         widespreadWords(tree)
       );
   const peekNode = pendingPeek ? tree.byId.get(pendingPeek) ?? null : null;
-  // Looking up a species you still have to place forfeits its point, so it goes
+  // Looking up a species you still have to place forfeits half its point, so it goes
   // through a confirm step; anchors + clade labels are free context and open at once.
-  const willCost = (id: string) => !over && board.slotIds.includes(id) && !g.peeked.includes(id) && !g.hints.includes(id);
+  // A slot already locked (correct submit or hint) is free too: it has nothing left
+  // to give away.
+  const willCost = (id: string) =>
+    !over && board.slotIds.includes(id) && !g.lockedSlots.includes(id) && !g.peeked.includes(id);
   const askWiki = (id: string) => (willCost(id) ? setPendingPeek(id) : setWikiId(id));
   const confirmPeek = () => { if (pendingPeek) { g.peek(pendingPeek); setWikiId(pendingPeek); setPendingPeek(null); } };
+  // Reading the CARD is free for a clade — the prose above has every unplaced species
+  // blanked out of it. The article on Wikipedia blanks nothing, so following the link
+  // costs half a point, once per node, and only while a slot is still open. A node
+  // already paid for (a peeked species, a locked slot, a clade read once) is free.
+  const paidFor = (id: string) => g.reads.includes(id) || g.peeked.includes(id) || g.lockedSlots.includes(id);
+  const readCosts = (id: string) => !over && unsolved.length > 0 && !paidFor(id);
+  const confirmRead = () => {
+    if (!pendingRead) return;
+    g.readFull(pendingRead.id);
+    window.open(pendingRead.url, "_blank", "noopener,noreferrer");
+    setPendingRead(null);
+  };
+  const closeWiki = () => { setWikiId(null); setPendingRead(null); };
 
   const info = (id: string) => (
     <button className="branches-info" title={willCost(id) ? "Wikipedia (costs ½ point)" : "Wikipedia"} onClick={(e) => { e.stopPropagation(); askWiki(id); }}>ⓘ</button>
@@ -316,10 +346,16 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
       g.wrongSlots.includes(id) ? "is-wrongflash" : "",
       revealAnswer ? "is-wrong" : "",
     ].join(" ");
+    // A placed tile's scientific name is a giveaway while the board is live: the
+    // genus in "Nephila pilipes" is often the very clade label it belongs under, so
+    // a hover would settle the placement. Shown only once the slot is CONFIRMED
+    // (locked by a correct submit or a hint) or the board is done; until then the
+    // tooltip says what the tile does instead.
+    const showSci = locked || over;
     return (
       <div
         className={cls}
-        title={placed ? sciOf(tree, placed) : "Drop a species here"}
+        title={placed ? (showSci ? sciOf(tree, placed) : "Drag out to change") : "Drop a species here"}
         onClick={() => { if (!over && !locked) g.placeAt(id); }}
         onDragOver={(e) => { if (!over && !locked) { e.preventDefault(); setDragOver(id); } }}
         onDragLeave={() => setDragOver((d) => (d === id ? null : d))}
@@ -354,7 +390,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         dayName={rules.dayName}
         difficulty={rules.difficulty}
         onHowItWorks={onHowItWorks}
-        blurb="Drag each species onto the clade it belongs to, then Submit. Correct slots lock in. A wrong board costs a mistake and sends the misplaced tiles back. A species already placed is a worked example to build from. Peeking at a clade's Wikipedia is free (species you still have to place are blanked out of the text), but looking up a species you have to place costs points."
+        blurb="Drag each species onto the clade it belongs to, then Submit. Correct slots lock in. A wrong board costs a mistake and sends the misplaced tiles back. A species already placed is a worked example to build from. Reading a clade's card is free (species you still have to place are blanked out of the text). Looking up a species you have to place costs points, and so does opening the full Wikipedia article, where nothing is blanked out."
       >
         <div className="branches-viewtoggle" role="tablist" aria-label="Tree view">
           <button role="tab" aria-selected={!radial} className={`branches-viewseg${!radial ? " is-on" : ""}`} onClick={() => setMode("tree")}>Tree</button>
@@ -476,7 +512,10 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData("text/plain", JSON.stringify({ from: "tray", speciesId: id }))}
                     onClick={() => g.hold(id)}
-                    title={sciOf(tree, id)}
+                    // Same giveaway as a placed tile, and this is the commoner hover:
+                    // the tray is only rendered while the board is live, so the
+                    // scientific name never belongs here.
+                    title="Drag onto a clade, or tap to pick it up"
                   >
                     <span
                       className={`branches-chip-thumb${trayImgs[id] ? " is-clickable" : ""}`}
@@ -578,16 +617,34 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
       )}
 
       {wikiNode && (
-        <WikiCard
-          node={wikiNode}
-          tree={tree}
-          onClose={() => setWikiId(null)}
-          hideImage={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0}
-          redact={hiddenNames}
-          // Clades follow their board label: a common name that gives a tile away
-          // is not shown on the tree, so it can't be shown on the card either.
-          latinTitle={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0 && (cladeLatinOnly || cladeTells(wikiNode.id))}
-        />
+        <div ref={wikiRef}>
+          <WikiCard
+            node={wikiNode}
+            tree={tree}
+            onClose={closeWiki}
+            hideImage={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0}
+            redact={hiddenNames}
+            // Clades follow their board label: a common name that gives a tile away
+            // is not shown on the tree, so it can't be shown on the card either.
+            latinTitle={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0 && (cladeLatinOnly || cladeTells(wikiNode.id))}
+            // Only intercepted while it would cost: otherwise it stays a plain link.
+            onFollowLink={readCosts(wikiNode.id) ? (url) => setPendingRead({ id: wikiNode.id, url }) : undefined}
+            linkNote={readCosts(wikiNode.id) ? "(costs ½ point)" : undefined}
+          />
+        </div>
+      )}
+
+      {pendingRead && (
+        <div ref={readConfirmRef} className="branches-confirm" role="alertdialog" aria-label="Confirm full article">
+          <p>
+            Open the full Wikipedia article? The card above blanks out the species you still have
+            to place, the article itself doesn’t, so this <b>costs half a point</b>.
+          </p>
+          <div className="branches-confirm-actions">
+            <button className="linkbtn" onClick={() => setPendingRead(null)}>Cancel</button>
+            <button className="branches-submit" onClick={confirmRead}>Open article (−½ point)</button>
+          </div>
+        </div>
       )}
     </div>
   );

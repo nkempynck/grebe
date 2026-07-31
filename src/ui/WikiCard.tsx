@@ -11,8 +11,14 @@ import { fetchWikiImage, fetchWikiSummary, wikiUrlFor, type WikiImage, type Wiki
  *  `redact` blanks names out of the prose for the same reason: a clade summary
  *  listing its members can otherwise spell out a Branches tray. `latinTitle` keeps
  *  the header in step with the label on the board, which drops a clade's common
- *  name when it shares a word with a species still to place. */
-export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle }: { node: TaxonNode; tree: Tree; onClose: () => void; hideImage?: boolean; redact?: Spoiler[]; latinTitle?: boolean }) {
+ *  name when it shares a word with a species still to place.
+ *
+ *  Everything above only guards the card. The link out to Wikipedia leads to the
+ *  unedited article, where nothing is blanked, so a game that charges for that
+ *  passes `onFollowLink`: the link becomes a button and the host decides what to do
+ *  with the url (confirm, charge, then open). Left off — Lineage, Kinship, a
+ *  finished board — it stays an ordinary link. */
+export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, onFollowLink, linkNote }: { node: TaxonNode; tree: Tree; onClose: () => void; hideImage?: boolean; redact?: Spoiler[]; latinTitle?: boolean; onFollowLink?: (url: string) => void; linkNote?: string }) {
   const [wiki, setWiki] = useState<WikiSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [img, setImg] = useState<WikiImage | null>(null);
@@ -38,6 +44,7 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle }:
   // Hidden names are replaced by a fixed-width block, never by the text itself:
   // the word stays out of the DOM, and a constant width keeps the name's length
   // from being a clue.
+  const url = wiki?.pageUrl ?? wikiUrlFor(node);
   const segments = redactSpoilers(wiki?.extract ?? "", redact ?? []);
   const prose = isFullyRedacted(segments)
     ? "Summary hidden: it names species you still have to place."
@@ -55,7 +62,13 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle }:
         <h3>{latinTitle ? node.sciName ?? node.common : node.common ?? node.sciName}</h3>
         {node.common && !latinTitle && <div className="clado-wiki-sci">{node.sciName}</div>}
         <p>{loading ? "Fetching field notes…" : wiki?.extract ? prose : "No Wikipedia summary found."}</p>
-        <a href={wiki?.pageUrl ?? wikiUrlFor(node)} target="_blank" rel="noreferrer">Read on Wikipedia →</a>
+        {onFollowLink ? (
+          <button type="button" className="clado-wiki-more" onClick={() => onFollowLink(url)}>
+            Read on Wikipedia →{linkNote && <span className="clado-wiki-cost"> {linkNote}</span>}
+          </button>
+        ) : (
+          <a href={url} target="_blank" rel="noreferrer">Read on Wikipedia →</a>
+        )}
       </div>
     </div>
   );
