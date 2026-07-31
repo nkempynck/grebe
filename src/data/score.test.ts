@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gamePoints, kinshipPoints, branchesPoints } from "./score";
+import { gamePoints, kinshipPoints, branchesPoints, branchesAllowance } from "./score";
 
 // GOLDEN scoring values. gamePoints() MUST stay byte-identical to
 // public.game_points in supabase/schema.sql — if you change the formula here,
@@ -90,8 +90,8 @@ describe("kinshipPoints", () => {
 // branchesPoints(tier, won, total, correct, mistakes, hinted, peeked) MUST stay
 // byte-identical to public.branches_game_points in supabase/branches.sql:
 //   base = max(0, correct - hinted - 0.5*peeked) / total
-//   win  = max(0.1*w, w * base * max(0, 1 - 0.35*mistakes))
-//   loss = w * base * 0.5   (no floor)
+//   win  = w * base * max(0, 1 - 0.35*mistakes), floored at 0.1*w while base > 0
+//   loss = w * base * 0.35   (no floor)
 describe("branchesPoints", () => {
   it("is zero for a blank/empty board (total <= 0)", () => {
     expect(branchesPoints(7, true, 0, 0, 0, 0, 0)).toBe(0);
@@ -113,8 +113,10 @@ describe("branchesPoints", () => {
     expect(branchesPoints(5, true, 6, 6, 0, 0, 1)).toBe(128);  // 140 * 5.5/6 = 128.3 -> 128
   });
 
-  it("floors a win at 10% of the weight, never zero", () => {
-    expect(branchesPoints(1, true, 8, 8, 0, 8, 0)).toBe(10); // base 0 -> win floor 100*0.1
+  it("floors a win at 10% of the weight, but only while something was earned unaided", () => {
+    expect(branchesPoints(1, true, 8, 8, 0, 7, 0)).toBe(13); // 100 * 1/8 = 12.5 -> 13, above the floor
+    expect(branchesPoints(1, true, 8, 8, 1, 7, 0)).toBe(10); // 100 * 1/8 * 0.65 = 8.1 -> floored to 10
+    expect(branchesPoints(1, true, 8, 8, 0, 8, 0)).toBe(0);  // every slot hinted -> no floor, no points
   });
 
   it("pays a losing (over-budget) board partial credit at 0.35, no floor", () => {
@@ -123,13 +125,42 @@ describe("branchesPoints", () => {
     expect(branchesPoints(5, false, 6, 4, 3, 0, 0)).toBe(33); // 140 * (4/6) * 0.35 = 32.7 -> 33
   });
 
-  it("a loss never out-scores the worst (2-mistake) win at the same weight", () => {
-    // Winner has base 1; a loser locks at most (slots-2)/slots. Check the tightest
-    // days (7 slots, budget 2): max loss must stay under the 2-mistake win.
-    for (const tier of [4, 5, 6, 7]) {
-      const worstWin = branchesPoints(tier, true, 7, 7, 2, 0, 0);   // all correct, 2 mistakes
-      const maxLoss = branchesPoints(tier, false, 7, 5, 3, 0, 0);   // locked 5/7, busted
+  // ---- invariants, over the board shapes Branches actually deals ----
+  // Slots run MIN_GROUPS + round((tier-1)/6*3) = 4 (Mon) to 7 (Sat/Sun); see
+  // core/branches.ts. These guard RELATIONSHIPS rather than values, so a future tweak
+  // to a penalty can't quietly invert the incentives the way a changed constant would.
+  const SLOTS = [4, 5, 5, 6, 6, 7, 7];
+  const TIERS = [1, 2, 3, 4, 5, 6, 7];
+
+  it("one honest mistake always out-scores looking the whole board up", () => {
+    // Lookups saturate (`peeked` is clamped to the slot count), so peeking every slot
+    // is a guaranteed win worth exactly half the weight, with no streak risk. A mistake
+    // costing more than that would make reading the answers off Wikipedia the better
+    // play than committing to a placement, which is the opposite of the game.
+    for (const tier of TIERS) {
+      const n = SLOTS[tier - 1];
+      const lookEverythingUp = branchesPoints(tier, true, n, n, 0, 0, n);
+      const oneMistake = branchesPoints(tier, true, n, n, 1, 0, 0);
+      expect(oneMistake).toBeGreaterThan(lookEverythingUp);
+    }
+  });
+
+  it("a max loss never out-scores the worst win, on every day", () => {
+    // A loser locks at most slots-2: with slots-1 locked, the last tile is forced
+    // correct by elimination, so it can't be got wrong.
+    for (const tier of TIERS) {
+      const n = SLOTS[tier - 1];
+      const budget = branchesAllowance(tier);
+      const worstWin = branchesPoints(tier, true, n, n, budget, 0, 0);
+      const maxLoss = branchesPoints(tier, false, n, n - 2, budget + 1, 0, 0);
       expect(maxLoss).toBeLessThan(worstWin);
+    }
+  });
+
+  it("a fully hinted win scores nothing, so it can't be used to protect a streak", () => {
+    for (const tier of TIERS) {
+      const n = SLOTS[tier - 1];
+      expect(branchesPoints(tier, true, n, n, 0, n, 0)).toBe(0);
     }
   });
 });

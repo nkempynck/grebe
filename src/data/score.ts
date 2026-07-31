@@ -66,8 +66,13 @@ export function branchesAllowance(tier: number): number {
  *  hard wipe: 1 mistake → 65% of the weight, 2 → 30%. */
 export const BRANCHES_MISTAKE_PENALTY = 0.35;
 
-/** A Branches WIN never scores zero: however many mistakes or hints were spent, a
- *  completed board floors at this fraction of the day's weight. */
+/** A Branches WIN that earned SOMETHING unaided floors at this fraction of the day's
+ *  weight, however many mistakes or hints were spent.
+ *
+ *  A win with NO unaided credit at all (every slot hinted) gets no floor and scores
+ *  zero. With one, hinting the board out was the safe play on a day you couldn't
+ *  crack: a guaranteed win, a guaranteed 10–16 points, and above all a preserved
+ *  streak, against the risk of nothing and a broken streak for playing it honestly. */
 export const BRANCHES_WIN_FLOOR = 0.1;
 
 /** Going OVER the mistake budget ends the board as a loss, but it isn't a hard 0:
@@ -82,7 +87,8 @@ export const BRANCHES_LOSS_FACTOR = 0.35;
  *  half (the summary may not even name the family) — giving a help-adjusted
  *  fraction `base = max(0, correct − hinted − ½·peeked) / total`. Then:
  *   • a WIN (every slot placed within budget) pays `w · base · (1 − 0.35·mistakes)`,
- *     never below BRANCHES_WIN_FLOOR of the weight;
+ *     never below BRANCHES_WIN_FLOOR of the weight — unless `base` is 0, i.e. every
+ *     slot was hinted, which pays nothing at all;
  *   • a LOSS (over budget) pays `w · base · BRANCHES_LOSS_FACTOR` for whatever was
  *     locked before the board ended — no floor, so locking nothing is 0.
  *  For normal no-hint play a win always out-scores a loss (a winner has base 1; a
@@ -103,7 +109,11 @@ export function branchesPoints(
   const base = Math.max(0, correct - help) / total;
   if (won) {
     const mistakeFactor = Math.max(0, 1 - BRANCHES_MISTAKE_PENALTY * Math.max(0, mistakes));
-    return Math.max(Math.round(w * BRANCHES_WIN_FLOOR), Math.round(w * base * mistakeFactor));
+    const raw = Math.round(w * base * mistakeFactor);
+    // The floor rewards a board that was actually played, so it needs something earned
+    // unaided to stand on. With no such credit there is nothing to floor: an all-hinted
+    // win pays zero rather than a free tenth of the weight.
+    return base > 0 ? Math.max(Math.round(w * BRANCHES_WIN_FLOOR), raw) : raw;
   }
   return Math.round(w * base * BRANCHES_LOSS_FACTOR);
 }
