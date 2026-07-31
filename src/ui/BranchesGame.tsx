@@ -4,7 +4,7 @@ import { inducedSubtree, dailyNumber, boardSpoilers, namesTell, tellingWords, wi
 import { resolveDailyRules } from "../data/dailySchedule";
 import { GameHeader } from "./GameHeader";
 import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame";
-import { branchesPoints } from "../data/score";
+import { branchesPoints, tierWeight } from "../data/score";
 import { fetchWikiImage, type WikiImage } from "../data/wikipedia";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } from "./cladoLayout";
 import { WikiCard } from "./WikiCard";
@@ -308,6 +308,16 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   // already paid for (a peeked species, a locked slot, a clade read once) is free.
   const paidFor = (id: string) => g.reads.includes(id) || g.peeked.includes(id) || g.lockedSlots.includes(id);
   const readCosts = (id: string) => !over && unsolved.length > 0 && !paidFor(id);
+  // "Half a point" is the scoring formula's unit, not anything a player can price: it
+  // means half of one SLOT, and a slot is the day's weight split across the board. So
+  // say it in the currency on the leaderboard instead. It scales with the board — a
+  // 4-slot Friday charges 18 where a 7-slot Sunday charges 11 — so it has to be
+  // computed, not written into the copy.
+  //
+  // This is the price on a clean board, hence "up to": a surviving mistake scales the
+  // whole board down, which quietly makes a lookup cheaper. Not worth surfacing, since
+  // help getting cheaper because you already blundered is a strange thing to advertise.
+  const lookupCost = Math.round((tierWeight(g.tier) * 0.5) / board.slotIds.length);
   const confirmRead = () => {
     if (!pendingRead) return;
     g.readFull(pendingRead.id);
@@ -317,7 +327,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   const closeWiki = () => { setWikiId(null); setPendingRead(null); };
 
   const info = (id: string) => (
-    <button className="branches-info" title={willCost(id) ? "Wikipedia (costs ½ point)" : "Wikipedia"} onClick={(e) => { e.stopPropagation(); askWiki(id); }}>ⓘ</button>
+    <button className="branches-info" title={willCost(id) ? `Wikipedia (costs up to ${lookupCost} pts)` : "Wikipedia"} onClick={(e) => { e.stopPropagation(); askWiki(id); }}>ⓘ</button>
   );
 
   function LeafTile({ id }: { id: string }) {
@@ -531,7 +541,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
                   </button>
                   <button
                     className="branches-chip-info"
-                    title={willCost(id) ? "Wikipedia (costs ½ point)" : "Wikipedia"}
+                    title={willCost(id) ? `Wikipedia (costs up to ${lookupCost} pts)` : "Wikipedia"}
                     onClick={(e) => { e.stopPropagation(); askWiki(id); }}
                   >
                     ⓘ
@@ -600,11 +610,11 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         <div className="branches-confirm" role="alertdialog" aria-label="Confirm lookup">
           <p>
             Look up <b>{peekNode.common ?? peekNode.sciName}</b>? Its Wikipedia usually names the family,
-            which points to the answer, so this <b>costs half that point</b>.
+            which points to the answer, so it forfeits half that slot: <b>up to {lookupCost} points</b>.
           </p>
           <div className="branches-confirm-actions">
             <button className="linkbtn" onClick={() => setPendingPeek(null)}>Cancel</button>
-            <button className="branches-submit" onClick={confirmPeek}>Look it up (−½ point)</button>
+            <button className="branches-submit" onClick={confirmPeek}>Look it up (−{lookupCost} pts)</button>
           </div>
         </div>
       )}
@@ -629,7 +639,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
             latinTitle={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0 && (cladeLatinOnly || cladeTells(wikiNode.id))}
             // Only intercepted while it would cost: otherwise it stays a plain link.
             onFollowLink={readCosts(wikiNode.id) ? (url) => setPendingRead({ id: wikiNode.id, url }) : undefined}
-            linkNote={readCosts(wikiNode.id) ? "(costs ½ point)" : undefined}
+            linkNote={readCosts(wikiNode.id) ? `(up to ${lookupCost} pts)` : undefined}
           />
         </div>
       )}
@@ -638,11 +648,12 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         <div ref={readConfirmRef} className="branches-confirm" role="alertdialog" aria-label="Confirm full article">
           <p>
             Open the full Wikipedia article? The card above blanks out the species you still have
-            to place, the article itself doesn’t, so this <b>costs half a point</b>.
+            to place, the article itself doesn’t, so it forfeits half a slot:{" "}
+            <b>up to {lookupCost} points</b>.
           </p>
           <div className="branches-confirm-actions">
             <button className="linkbtn" onClick={() => setPendingRead(null)}>Cancel</button>
-            <button className="branches-submit" onClick={confirmRead}>Open article (−½ point)</button>
+            <button className="branches-submit" onClick={confirmRead}>Open article (−{lookupCost} pts)</button>
           </div>
         </div>
       )}

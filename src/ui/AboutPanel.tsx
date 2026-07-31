@@ -149,12 +149,14 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             <p>
               A win starts at <b>the day's weight × (correct − penalties) ⁄ slots</b>, then each
               surviving <b>mistake</b> knocks off <b>35%</b> (so one mistake keeps 65%, two keep 30%),
-              never dropping below a tenth of the weight. A <b>hint</b> that reveals a slot forfeits its
-              whole point; looking a to-place species up on Wikipedia forfeits <b>half</b>, since the
-              article usually names its family and so is only a soft nudge. Opening the full Wikipedia
-              article of anything on the board, where nothing is blanked out, forfeits <b>half</b> as
-              well, once per clade or species. Reading the card in the app, and enlarging a species'
-              picture, is free. Going <b>over the mistake limit</b> ends the board as a loss: you still keep the
+              never dropping below a tenth of the weight so long as one slot was earned unaided. A{" "}
+              <b>hint</b> that reveals a slot forfeits that whole slot; looking a to-place species up on
+              Wikipedia forfeits <b>half</b> of one, since the article usually names its family and so is
+              only a soft nudge. Opening the full article, where nothing is blanked out, costs the same
+              half, once per clade or species. A slot is the day's weight split across the board, so half
+              of one runs <b>11 to 20 points</b> depending on the day and how many slots it deals. Reading
+              the card in the app, and enlarging a species' picture, is free. Going{" "}
+              <b>over the mistake limit</b> ends the board as a loss: you still keep the
               slots you'd locked, at 35% credit, but the streak resets. It shares the weekday weight
               (<code>100–160 by day</code>) with Lineage and Kinship, so scores line up across all three.
             </p>
