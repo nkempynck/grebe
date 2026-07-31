@@ -126,19 +126,29 @@ describe("branchesPoints", () => {
   });
 
   // ---- invariants, over the board shapes Branches actually deals ----
-  // Slots run MIN_GROUPS + round((tier-1)/6*3) = 4 (Mon) to 7 (Sat/Sun); see
-  // core/branches.ts. These guard RELATIONSHIPS rather than values, so a future tweak
-  // to a penalty can't quietly invert the incentives the way a changed constant would.
-  const SLOTS = [4, 5, 5, 6, 6, 7, 7];
+  // These guard RELATIONSHIPS rather than values, so a future tweak to a penalty can't
+  // quietly invert the incentives the way a changed constant would.
+  //
+  // Slot count is min(eligible groups, MIN_GROUPS + round((tier-1)/6*3)) — see
+  // slotCount() in core/branches.ts — so the tier sets a CEILING of 4 (Mon) to 7
+  // (Sat/Sun), and a thin container legitimately gives fewer, never below MIN_GROUPS.
+  // A tier-5 Friday board of 4 slots is a real board. So every invariant is checked
+  // across the whole range a day can produce, not just its ceiling.
+  const CEILING = [4, 5, 5, 6, 6, 7, 7];
   const TIERS = [1, 2, 3, 4, 5, 6, 7];
+  const boards = () =>
+    TIERS.flatMap((tier) => {
+      const sizes: number[] = [];
+      for (let n = 4; n <= CEILING[tier - 1]; n++) sizes.push(n);
+      return sizes.map((n) => ({ tier, n }));
+    });
 
   it("one honest mistake always out-scores looking the whole board up", () => {
     // Lookups saturate (`peeked` is clamped to the slot count), so peeking every slot
     // is a guaranteed win worth exactly half the weight, with no streak risk. A mistake
     // costing more than that would make reading the answers off Wikipedia the better
     // play than committing to a placement, which is the opposite of the game.
-    for (const tier of TIERS) {
-      const n = SLOTS[tier - 1];
+    for (const { tier, n } of boards()) {
       const lookEverythingUp = branchesPoints(tier, true, n, n, 0, 0, n);
       const oneMistake = branchesPoints(tier, true, n, n, 1, 0, 0);
       expect(oneMistake).toBeGreaterThan(lookEverythingUp);
@@ -148,8 +158,7 @@ describe("branchesPoints", () => {
   it("a max loss never out-scores the worst win, on every day", () => {
     // A loser locks at most slots-2: with slots-1 locked, the last tile is forced
     // correct by elimination, so it can't be got wrong.
-    for (const tier of TIERS) {
-      const n = SLOTS[tier - 1];
+    for (const { tier, n } of boards()) {
       const budget = branchesAllowance(tier);
       const worstWin = branchesPoints(tier, true, n, n, budget, 0, 0);
       const maxLoss = branchesPoints(tier, false, n, n - 2, budget + 1, 0, 0);
@@ -158,8 +167,7 @@ describe("branchesPoints", () => {
   });
 
   it("a fully hinted win scores nothing, so it can't be used to protect a streak", () => {
-    for (const tier of TIERS) {
-      const n = SLOTS[tier - 1];
+    for (const { tier, n } of boards()) {
       expect(branchesPoints(tier, true, n, n, 0, n, 0)).toBe(0);
     }
   });
