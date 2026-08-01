@@ -12,6 +12,13 @@ export type CountedGame = "lineage" | "kinship" | "branches";
  *  chart marks the boundary instead of drawing zeros. */
 export const PLAY_COUNT_SINCE = "2026-07-28";
 
+/** The day a cloud-restored board stopped being counted a second time (see
+ *  markCountedElsewhere). Signed-in counts BEFORE this date read high: a player who
+ *  opened the site on a second device had that day counted again. The surplus can't be
+ *  identified after the fact (no identifiers, by design), so earlier days are left as
+ *  recorded and the readout says so. */
+export const PLAY_DEDUPE_SINCE = "2026-08-01";
+
 /**
  * Anonymous daily play counter.
  *
@@ -50,6 +57,28 @@ function markCounted(game: CountedGame, date: string): void {
 }
 
 /**
+ * Claim this game+date as counted WITHOUT counting it: the board was finished on
+ * another device and has just been restored here from the server, so the play has
+ * already been counted by whichever device actually played it.
+ *
+ * Call this from a cloud-restore path. Without it the day gets counted twice, because
+ * a restored board is written into this device's progress by the game's own persist
+ * effect, and from then on it is indistinguishable from a board played here: catchUp
+ * below sees a finished daily with no counted flag and adds a second one. One refresh
+ * on a second device is enough to trigger it.
+ *
+ * Ordering is safe either way round. If the device that really played it failed to
+ * count (offline), it still counts on a later visit; this only ever suppresses the
+ * device that didn't play the board.
+ *
+ * Stores nothing but the same local "seen this day" flag countPlay writes — no id, no
+ * identifier of any kind, and nothing leaves the device.
+ */
+export function markCountedElsewhere(game: CountedGame, date: string): void {
+  markCounted(game, date);
+}
+
+/**
  * Count one finished DAILY puzzle. Call sites are the finish paths in App.tsx;
  * free-play rounds are deliberately not counted.
  *
@@ -76,9 +105,12 @@ export async function countPlay(game: CountedGame, date: string, won: boolean): 
  * being offline. Without this a missed count is permanent: the finish effect skips
  * an already-finished daily on reload, so it never gets a second chance.
  *
- * Gated on THIS device's saved progress (which never syncs), so a daily finished
- * on another device and restored from the cloud is not counted a second time.
- * countPlay's own flag makes it a no-op once a day is counted.
+ * Gated on THIS device's saved progress, and countPlay's own flag makes it a no-op
+ * once a day is counted. Note that progress being local is NOT by itself enough to
+ * keep a board played elsewhere out of this count: a cloud restore writes that board
+ * into local progress too, and from then on it looks like a board played here.
+ * markCountedElsewhere is what actually holds that line, so every cloud-restore path
+ * has to call it.
  */
 export async function catchUpCounts(today: string): Promise<void> {
   const daily = loadDailyProgress();

@@ -21,7 +21,7 @@ vi.mock("./gridProgress", () => ({ loadGridProgress: () => progress.grid }));
 vi.mock("./branchesProgress", () => ({ loadBranchesProgress: () => progress.branches }));
 vi.mock("./stats", () => ({ loadStore: () => progress.stats }));
 
-const { countPlay, catchUpCounts } = await import("./playCount");
+const { countPlay, catchUpCounts, markCountedElsewhere } = await import("./playCount");
 
 describe("countPlay", () => {
   beforeEach(() => {
@@ -58,6 +58,12 @@ describe("countPlay", () => {
   it("never throws when the call blows up", async () => {
     rpc.mockRejectedValue(new Error("offline"));
     await expect(countPlay("lineage", "2026-07-28", true)).resolves.toBe(false);
+  });
+
+  it("skips a day a cloud restore has claimed", async () => {
+    markCountedElsewhere("kinship", "2026-07-28");
+    expect(await countPlay("kinship", "2026-07-28", true)).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
 
@@ -105,5 +111,17 @@ describe("catchUpCounts", () => {
     await countPlay("lineage", TODAY, true); // the finish effect
     await catchUpCounts(TODAY);             // then a reload
     expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("doesn't count a board restored from the cloud — the device that played it did", async () => {
+    // The regression this exists for: a cloud restore calls markCountedElsewhere, and
+    // then the game's own persist effect writes that finished board into THIS device's
+    // progress. From that point it is indistinguishable from a board played here, which
+    // is what used to earn the day a second count on the next mount.
+    markCountedElsewhere("branches", TODAY);
+    progress.branches = { date: TODAY, status: "done" };
+    progress.stats = { branches: { [TODAY]: { won: true } } };
+    await catchUpCounts(TODAY);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

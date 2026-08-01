@@ -31,7 +31,7 @@ import {
 } from "../data/dailyPlan";
 import { isSupabaseConfigured, supabase } from "../data/supabase";
 import { fetchDailyActivity, fetchDailyPlays, type ActivityRow, type PlayCountRow } from "../data/games";
-import { PLAY_COUNT_SINCE } from "../data/playCount";
+import { PLAY_COUNT_SINCE, PLAY_DEDUPE_SINCE } from "../data/playCount";
 import {
   fetchPinnedIndex,
   fetchPinnedPuzzle,
@@ -823,7 +823,7 @@ function Analytics() {
               : !hasPlays
                 ? "Anonymous counters are live but haven’t recorded a finish yet. Showing signed-in players meanwhile."
                 : mode === "all"
-                  ? `Every finished daily, from the anonymous counters, which start ${shortDate(PLAY_COUNT_SINCE)}. No identifier behind them, so these are finishes rather than people (one player on two devices counts twice) and anyone can inflate them.`
+                  ? `Every finished daily, from the anonymous counters, which start ${shortDate(PLAY_COUNT_SINCE)}. No identifier behind them, so these are finishes rather than people (a signed-out player on two devices counts twice) and anyone can inflate them. Signed-in finishes are deduplicated per device from ${shortDate(PLAY_DEDUPE_SINCE)}; before that a second device counted again, so earlier signed-in counts read high.`
                   : "Signed-in players who show on the public boards. Auth-gated, so this is the trustworthy floor under the “All” number."}
           </p>
         </div>

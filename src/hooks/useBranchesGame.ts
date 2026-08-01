@@ -6,6 +6,7 @@ import { branchesBoardFor } from "../data/branchesDaily";
 import { fetchPinnedPuzzle, branchesBoard as rebuildBranches } from "../data/pinnedPuzzles";
 import { loadBranchesProgress, saveBranchesProgress } from "../data/branchesProgress";
 import { fetchTodayBranches } from "../data/games";
+import { markCountedElsewhere } from "../data/playCount";
 
 export type BranchesStatus = "playing" | "done";
 
@@ -260,6 +261,10 @@ export function useBranchesGame(
     fetchTodayBranches(date).then((row) => {
       if (!live || !row) return;
       cloudRestored.current = key;
+      // Played on another device, so it has already been counted there. Claim the day
+      // locally without counting, or the save effect below hands this board to
+      // catchUpCounts on the next mount as if it had been played here.
+      markCountedElsewhere("branches", date);
       // We don't keep which slots were left; show the board solved and let the
       // recorded tally drive the verdict.
       const solvedPlacements: Record<string, string> = {};

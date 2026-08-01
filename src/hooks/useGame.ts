@@ -23,6 +23,7 @@ import { effectivePlan, fetchRemotePlan, type DailyPlan } from "../data/dailyPla
 import { isSupabaseConfigured } from "../data/supabase";
 import { fetchTodayDaily } from "../data/games";
 import { loadDailyProgress, saveDailyProgress } from "../data/dailyProgress";
+import { markCountedElsewhere } from "../data/playCount";
 import { todayKey } from "../core/daily";
 
 /** Daily = the shared puzzle: everyone gets the same specimen under the day's
@@ -227,6 +228,10 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     fetchTodayDaily(today).then((row) => {
       if (!live || !row) return;
       cloudRestored.current = key;
+      // Played on another device, so it has already been counted there. Claim the day
+      // locally without counting, or the persist effect below hands this board to
+      // catchUpCounts on the next mount as if it had been played here.
+      markCountedElsewhere("lineage", today);
       // The cloud row stores only ids; re-graft this device's out-of-set guesses
       // (saved locally) so grafted ids in guess_ids still resolve after a reload.
       applyGrafts(tree, loadDailyProgress()?.grafts ?? []);

@@ -5,6 +5,7 @@ import { todayKey } from "../core/daily";
 import { gridBoardFor } from "../data/gridDaily";
 import { fetchPinnedPuzzle, kinshipBoard } from "../data/pinnedPuzzles";
 import { loadGridProgress, saveGridProgress } from "../data/gridProgress";
+import { markCountedElsewhere } from "../data/playCount";
 import { fetchTodayGrid } from "../data/games";
 import { KINSHIP_FREE_REVEALS } from "../data/score";
 
@@ -221,6 +222,10 @@ export function useGridGame(
     fetchTodayGrid(date).then((row) => {
       if (!live || !row) return;
       cloudRestored.current = key;
+      // Played on another device, so it has already been counted there. Claim the day
+      // locally without counting, or the persist effect above hands this board to
+      // catchUpCounts on the next mount as if it had been played here.
+      markCountedElsewhere("kinship", date);
       setSolved(row.won ? board.groups.map((_, i) => i) : []);
       setMistakes(row.mistakes);
       // Only the reveal COUNT is stored; a right-length sentinel array keeps the
