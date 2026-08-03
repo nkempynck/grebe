@@ -31,6 +31,20 @@ import { todayKey } from "../core/daily";
  *  the settings and reroll at will. */
 export type GameMode = "daily" | "free";
 
+/** Token identifying which (mode, date, answer) the in-memory round was hydrated
+ *  for. The MODE is part of it deliberately — see `hydratedFor` below. */
+export const hydrationToken = (mode: GameMode, date: string, answerId: string) =>
+  `${mode}:${date}:${answerId}`;
+
+/** Whether the current render's state actually belongs to the live daily, and may
+ *  therefore be written to the daily's storage key. Extracted so the free-play
+ *  leak it prevents stays covered by a test; the hook has no test harness. */
+export const isLiveDailyState = (
+  hydratedFor: string | null,
+  date: string,
+  answerId: string | null,
+): boolean => !!answerId && hydratedFor === hydrationToken("daily", date, answerId);
+
 export interface UseGame {
   tree: Tree | null;
   mode: GameMode;
@@ -89,11 +103,23 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
   const [error, setError] = useState<string | null>(null);
   const [hintIds, setHintIds] = useState<string[]>([]);
   const [dailyLocked, setDailyLocked] = useState(false);
-  // Identity (date + answer) the current daily state has been restored for. The
+  // Identity (MODE + date + answer) the current state has been restored for. The
   // save effect refuses to persist until this matches the live daily, so a render
   // carrying the previous day's finished state (e.g. an open tab crossing the
   // 09:00 rollover) can't write that stale result under the new day's key before
   // the restore effect resets it.
+  //
+  // The mode is part of the token, and load-bearing. Without it, switching free →
+  // daily wrote FREE-PLAY guesses into the daily's storage: on that commit `mode`
+  // has already flipped to "daily", while answerId/guesses/hydratedFor are still
+  // the free-play values from the closure — and a date+answer-only token matched
+  // its own stale answerId, so both guards passed. Usually the restore effect
+  // (declared earlier, so it reads storage first) papered over it on the next
+  // render; it did not when free play happened to draw the same answer as the
+  // daily, which is likely whenever someone points free play at the daily's scope.
+  // Reported 2026-08-03: a daily that opened already "completed", holding the
+  // player's free-play guesses, still accepting more because the carried-over
+  // status was "playing".
   const [hydratedFor, setHydratedFor] = useState<string | null>(null);
 
   // The plan the daily resolves against. Starts from the local (committed +
@@ -214,7 +240,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
       setStatus("playing");
       setDailyLocked(false);
     }
-    setHydratedFor(`${today}:${ans}`);
+    setHydratedFor(hydrationToken(mode, today, ans));
   }, [tree, mode, config.scopeRootId, daily.answerId, pinnedDaily]);
 
   // Signed-in players restore an already-played daily from the cloud (works on
@@ -251,7 +277,9 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     // has run for this (date, answer), the state may still be the previous day's
     // (a stale tab crossing the daily rollover), which must not be written under
     // the new day's key.
-    if (hydratedFor !== `${today}:${answerId}`) return;
+    // A free-play render can never satisfy this, however its answer or date happens
+    // to line up, because the token carries the mode.
+    if (!isLiveDailyState(hydratedFor, today, answerId)) return;
     // Belt-and-braces: don't let a pre-restore "playing" render clobber a day
     // already finished in storage (which would silently unlock it).
     if (status === "playing") {
