@@ -608,17 +608,16 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         />
       )}
 
-      {/* Same reusable board as Lineage and Kinship, different key. */}
-      {over && (
-        <DiscussionPanel
-          board="branches"
-          date={todayKey()}
-          configured={!!configured}
-          signedIn={!!userId}
-          played={over}
-          label="today’s Branches"
-        />
-      )}
+      {/* Same reusable board as Lineage and Kinship, different key. Not gated on
+          `over` so an unfinished board can still show the one-line nudge. */}
+      <DiscussionPanel
+        board="branches"
+        date={todayKey()}
+        configured={!!configured}
+        signedIn={!!userId}
+        played={over}
+        label="today’s Branches"
+      />
 
       {peekNode && (
         <div className="branches-confirm" role="alertdialog" aria-label="Confirm lookup">

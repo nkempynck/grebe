@@ -4,6 +4,7 @@ import {
   postComment,
   deleteComment,
   voteComment,
+  fetchCommentCount,
   toThreads,
   type BoardKey,
   type Comment,
@@ -37,6 +38,9 @@ const MAX = 1000;
  *  page's own end, whereas a busy day should simply not push the rest of the page
  *  off screen until asked. The server caps a board at 200 rows regardless. */
 const VISIBLE_THREADS = 5;
+/** Below this, an unfinished puzzle shows no nudge at all. One comment reads as an
+ *  empty room, and there's no point advertising a conversation that isn't there. */
+const MIN_TEASER = 2;
 
 /** Compact relative time: the board only ever shows one day, so hours suffice. */
 function ago(iso: string): string {
@@ -65,6 +69,9 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
   const [showAll, setShowAll] = useState(false);
+  // Comment count for the not-yet-finished nudge. Only fetched in that state, so a
+  // finished board (which already has every row) never asks for it.
+  const [teaser, setTeaser] = useState(0);
 
   const load = useCallback(async () => {
     const r = await fetchComments(board, date, sort);
@@ -78,6 +85,13 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
   }, [board, date, sort]);
 
   useEffect(() => {
+    if (!configured || played) return;
+    let live = true;
+    void fetchCommentCount(board, date).then((n) => { if (live) setTeaser(n ?? 0); });
+    return () => { live = false; };
+  }, [board, date, configured, played]);
+
+  useEffect(() => {
     if (!configured || !played) return;
     let live = true;
     setRows(null);
@@ -89,15 +103,17 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
     return () => { live = false; };
   }, [board, date, sort, configured, played]);
 
-  // No backend, or the puzzle isn't finished: nothing to show. The lock is why the
-  // board can't spoil an unfinished puzzle for the player reading it.
+  // Not finished yet: no board (it would spoil the puzzle), just a one-line nudge —
+  // and only when there is actually a conversation to come back for. A COUNT is not
+  // a spoiler, which is why comment_counts() is ungated; the comments themselves
+  // stay behind the completion gate.
   if (!configured) return null;
   if (!played) {
+    if (teaser < MIN_TEASER) return null;
     return (
-      <div className="disc">
-        <div className="stats-sub">Discussion</div>
-        <p className="stats-empty">Finish today’s puzzle to read the discussion.</p>
-      </div>
+      <p className="disc-teaser">
+        💬 {teaser} comments on today’s puzzle. Finish it to read them.
+      </p>
     );
   }
 

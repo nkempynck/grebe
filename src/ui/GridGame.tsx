@@ -403,17 +403,19 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
               note="Score rewards harder days and fewer mistakes. A clean board earns the full weight."
             />
           )}
-          {/* Same reusable board as Lineage and Branches, different key. */}
-          <DiscussionPanel
-            board="kinship"
-            date={todayKey()}
-            configured={!!configured}
-            signedIn={!!userId}
-            played={over}
-            label="today’s Kinship"
-          />
         </div>
       )}
+
+      {/* Same reusable board as Lineage and Branches, different key. Outside the
+          `over` guard so an unfinished board can still show the one-line nudge. */}
+      <DiscussionPanel
+        board="kinship"
+        date={todayKey()}
+        configured={!!configured}
+        signedIn={!!userId}
+        played={over}
+        label="today’s Kinship"
+      />
 
       {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} />}
 

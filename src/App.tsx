@@ -470,17 +470,6 @@ export default function App() {
           {/* Show where you landed among everyone right after a daily. */}
           {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} reloadKey={boardReload} streak={stats.daily.currentStreak} />}
           {daily && <LeaderboardNudge show={player.configured && !player.session} />}
-          {/* One reusable board per surface: same component, different key. */}
-          {daily && (
-            <DiscussionPanel
-              board="lineage"
-              date={today}
-              configured={player.configured}
-              signedIn={!!player.session}
-              played={roundOver}
-              label="today’s Lineage"
-            />
-          )}
         </>
       )}
 
@@ -536,6 +525,20 @@ export default function App() {
           {!daily && <button className="linkbtn" onClick={g.newRandom}>New random specimen</button>}
         </div>
       </div>
+
+      {/* One reusable board per surface: same component, different key. Mounted
+          during play too, not just after: while unfinished it shows nothing but a
+          one-line nudge, and only when the board already has a conversation. */}
+      {daily && (
+        <DiscussionPanel
+          board="lineage"
+          date={today}
+          configured={player.configured}
+          signedIn={!!player.session}
+          played={roundOver}
+          label="today’s Lineage"
+        />
+      )}
     </>
   );
 
