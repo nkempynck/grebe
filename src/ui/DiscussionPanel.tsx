@@ -32,6 +32,11 @@ interface Props {
 }
 
 const MAX = 1000;
+/** Threads shown before the board collapses behind a "show all". Chosen over a
+ *  fixed-height scroll box: a nested scroller is awkward on a phone and hides the
+ *  page's own end, whereas a busy day should simply not push the rest of the page
+ *  off screen until asked. The server caps a board at 200 rows regardless. */
+const VISIBLE_THREADS = 5;
 
 /** Compact relative time: the board only ever shows one day, so hours suffice. */
 function ago(iso: string): string {
@@ -59,6 +64,7 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
     const r = await fetchComments(board, date, sort);
@@ -168,6 +174,11 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
   }
 
   const threads = rows ? toThreads(rows) : [];
+  const shownThreads = showAll ? threads : threads.slice(0, VISIBLE_THREADS);
+  // Tombstones aren't comments, so they don't count toward what's hidden.
+  const hiddenCount = threads
+    .slice(shownThreads.length)
+    .reduce((n, t) => n + (t.root.isRemoved ? 0 : 1) + t.replies.length, 0);
 
   function renderBody(c: Comment) {
     if (c.isRemoved) return <p className="disc-body is-gone">Comment removed.</p>;
@@ -245,7 +256,7 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
         <div className="stats-sub">Discussion</div>
         <div className="lb-segs">
           {(["top", "new"] as CommentSort[]).map((s) => (
-            <button key={s} className={`lb-seg${sort === s ? " is-on" : ""}`} onClick={() => setSort(s)}>
+            <button key={s} className={`lb-seg${sort === s ? " is-on" : ""}`} onClick={() => { setSort(s); setShowAll(false); }}>
               {s === "top" ? "Top" : "New"}
             </button>
           ))}
@@ -282,14 +293,26 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
       ) : threads.length === 0 ? (
         <p className="stats-empty">No comments yet. Be the first.</p>
       ) : (
-        <div className="disc-list">
-          {threads.map(({ root, replies }) => (
-            <div className="disc-thread" key={root.id}>
-              {renderComment(root, false)}
-              {replies.map((r) => renderComment(r, true))}
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="disc-list">
+            {shownThreads.map(({ root, replies }) => (
+              <div className="disc-thread" key={root.id}>
+                {renderComment(root, false)}
+                {replies.map((r) => renderComment(r, true))}
+              </div>
+            ))}
+          </div>
+          {hiddenCount > 0 && (
+            <button className="disc-btn disc-more" onClick={() => setShowAll(true)}>
+              Show {hiddenCount} more comment{hiddenCount === 1 ? "" : "s"}
+            </button>
+          )}
+          {showAll && threads.length > VISIBLE_THREADS && (
+            <button className="disc-btn disc-more" onClick={() => setShowAll(false)}>
+              Show fewer
+            </button>
+          )}
+        </>
       )}
 
       <p className="lb-note">

@@ -1978,3 +1978,6 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 @media (max-width: 480px) {
   .disc-item.is-reply { margin-left: 10px; padding-left: 10px; }
 }
+/* "Show N more comments" / "Show fewer" — full width so it reads as the end of
+   the list rather than a stray control. */
+.disc-more { display: block; width: 100%; margin-top: 10px; text-align: center; }
