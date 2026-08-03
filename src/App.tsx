@@ -47,11 +47,18 @@ import logoUrl from "../logo.png";
 // protection is is_admin() + the admin password; the value is still present in
 // the compiled bundle, just not in git.
 const ADMIN_HASH = `#${import.meta.env.VITE_ADMIN_ROUTE ?? "admin"}`;
+
 // The real protection is is_admin() + the admin password; the route is just
 // obscurity. So in DEV builds we also honour plain "#admin" — a rotated or
 // mistyped VITE_ADMIN_ROUTE can't lock you out of local testing. Production
 // builds match ONLY the configured route.
 const isAdminHash = (h: string) => h === ADMIN_HASH || (import.meta.env.DEV && h === "#admin");
+
+/** The discussion-board announcement stops showing on this date (exclusive). A
+ *  plain YYYY-MM-DD compare against todayKey(), which is the 09:00-Brussels day,
+ *  so the banner disappears at a rollover rather than mid-session. Shipped
+ *  2026-08-03; nothing to remove afterwards. */
+const DISCUSSION_BANNER_UNTIL = "2026-08-11";
 
 export default function App() {
   const player = usePlayer();
@@ -574,6 +581,20 @@ export default function App() {
               GitHub
             </a>
             .
+          </span>
+        </div>
+      )}
+
+      {/* Discussion boards, announced for the first week. Date-bounded like the two
+          banners above, so it removes itself and there's no cleanup to remember. */}
+      {today < DISCUSSION_BANNER_UNTIL && (
+        <div className="beta-banner" role="note">
+          <span className="beta-tag">New</span>
+          <span>
+            Every daily puzzle now has a <b>discussion board</b>, for discussion (obviously), feedback, potentially
+            some banter, and maybe some laughs. Finish the day’s puzzle to read it;
+            posting needs an account. Each board is for that puzzle only and closes when the
+            day rolls over.
           </span>
         </div>
       )}
