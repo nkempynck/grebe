@@ -108,9 +108,15 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
     await load();
   }
 
-  async function submitReply(parentId: number) {
+  /** `clickedId` is the comment the box is sitting under, which is not necessarily
+   *  what we post to: replying to a reply attaches to that thread's root, since
+   *  there is only one level. The server enforces the same thing, so this only
+   *  keeps the client's optimism honest. */
+  async function submitReply(clickedId: number) {
     const body = replyDraft.trim();
     if (!body || busy) return;
+    const clicked = (rows ?? []).find((r) => r.id === clickedId);
+    const parentId = clicked ? clicked.parentId ?? clicked.id : clickedId;
     setBusy(true);
     setActionError(null);
     const r = await postComment(board, date, parentId, body);
@@ -226,12 +232,14 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
             <span className="disc-name">{c.displayName ?? "—"}</span>
             {c.isMine && <span className="lb-youtag">you</span>}
             <span className="disc-time">{ago(c.createdAt)}</span>
-            {c.editedAt && <span className="disc-time">· edited</span>}
+            {/* Not on a tombstone: "edited" next to "Comment removed." reads oddly
+                and says nothing useful about a body nobody can see. */}
+            {c.editedAt && !c.isRemoved && <span className="disc-time">· edited</span>}
           </div>
           {renderBody(c)}
           {!c.isRemoved && editId !== c.id && (
             <div className="disc-actions">
-              {signedIn && !isReply && (
+              {signedIn && (
                 <button
                   className="disc-link"
                   onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyDraft(""); }}
