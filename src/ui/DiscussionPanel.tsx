@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   fetchComments,
   postComment,
-  editComment,
   deleteComment,
   voteComment,
   toThreads,
@@ -55,11 +54,11 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // No editing, deliberately: a posted comment is final, and delete-and-repost
+  // covers the typo case without a mutable-history problem to reason about.
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
-  const [editId, setEditId] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState("");
 
   const load = useCallback(async () => {
     const r = await fetchComments(board, date, sort);
@@ -127,18 +126,6 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
     await load();
   }
 
-  async function saveEdit(id: number) {
-    const body = editDraft.trim();
-    if (!body || busy) return;
-    setBusy(true);
-    setActionError(null);
-    const r = await editComment(id, body);
-    setBusy(false);
-    if (!r.ok) { setActionError(r.error); return; }
-    setEditId(null);
-    await load();
-  }
-
   async function remove(id: number) {
     if (busy) return;
     setBusy(true);
@@ -184,26 +171,6 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
 
   function renderBody(c: Comment) {
     if (c.isRemoved) return <p className="disc-body is-gone">Comment removed.</p>;
-    if (editId === c.id) {
-      return (
-        <div className="disc-compose is-inline">
-          <textarea
-            className="disc-input"
-            value={editDraft}
-            maxLength={MAX}
-            rows={3}
-            onChange={(e) => setEditDraft(e.target.value)}
-          />
-          <div className="disc-compose-foot">
-            <span className="disc-count">{editDraft.length}/{MAX}</span>
-            <button className="disc-btn" onClick={() => setEditId(null)}>Cancel</button>
-            <button className="disc-btn is-primary" disabled={busy || !editDraft.trim()} onClick={() => void saveEdit(c.id)}>
-              Save
-            </button>
-          </div>
-        </div>
-      );
-    }
     return <p className="disc-body">{c.body}</p>;
   }
 
@@ -232,12 +199,9 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
             <span className="disc-name">{c.displayName ?? "—"}</span>
             {c.isMine && <span className="lb-youtag">you</span>}
             <span className="disc-time">{ago(c.createdAt)}</span>
-            {/* Not on a tombstone: "edited" next to "Comment removed." reads oddly
-                and says nothing useful about a body nobody can see. */}
-            {c.editedAt && !c.isRemoved && <span className="disc-time">· edited</span>}
           </div>
           {renderBody(c)}
-          {!c.isRemoved && editId !== c.id && (
+          {!c.isRemoved && (
             <div className="disc-actions">
               {signedIn && (
                 <button
@@ -248,12 +212,7 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
                 </button>
               )}
               {c.isMine && (
-                <>
-                  <button className="disc-link" onClick={() => { setEditId(c.id); setEditDraft(c.body ?? ""); }}>
-                    Edit
-                  </button>
-                  <button className="disc-link" onClick={() => void remove(c.id)}>Delete</button>
-                </>
+                <button className="disc-link" onClick={() => void remove(c.id)}>Delete</button>
               )}
             </div>
           )}

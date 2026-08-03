@@ -35,7 +35,6 @@ export interface Comment {
   myVote: Vote;
   replyCount: number;
   createdAt: string;
-  editedAt: string | null;
   isMine: boolean;
   isRemoved: boolean;
 }
@@ -54,7 +53,6 @@ interface CommentRow {
   my_vote: number;
   reply_count: number;
   created_at: string;
-  edited_at: string | null;
   is_mine: boolean;
   is_removed: boolean;
 }
@@ -71,7 +69,6 @@ function toComment(r: CommentRow): Comment {
     myVote: (r.my_vote === 1 ? 1 : r.my_vote === -1 ? -1 : 0) as Vote,
     replyCount: r.reply_count ?? 0,
     createdAt: r.created_at,
-    editedAt: r.edited_at,
     isMine: !!r.is_mine,
     isRemoved: !!r.is_removed,
   };
@@ -128,17 +125,9 @@ export async function postComment(
   }
 }
 
-/** Author-only, and only within the server's 15-minute window. */
-export async function editComment(id: number, body: string): Promise<Result<true>> {
-  if (!supabase) return { ok: false, error: NO_BACKEND };
-  try {
-    const { error } = await supabase.rpc("edit_comment", { p_id: id, p_body: body });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true, value: true };
-  } catch (e) {
-    return failed(e);
-  }
-}
+// There is deliberately no editComment: a posted comment is final. Delete and
+// repost covers a typo, and it keeps voting honest (nobody can rewrite a comment
+// after it has been upvoted).
 
 /** Author-only soft delete. The row survives so its replies keep their shape. */
 export async function deleteComment(id: number): Promise<Result<true>> {

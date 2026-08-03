@@ -25,7 +25,6 @@ function c(over: Partial<Comment> & { id: number }): Comment {
     myVote: 0,
     replyCount: 0,
     createdAt: "2026-08-03T10:00:00Z",
-    editedAt: null,
     isMine: false,
     isRemoved: false,
     ...over,
@@ -72,7 +71,7 @@ describe("fetchComments", () => {
         {
           id: 7, parent_id: null, display_name: "kestrel", body: "nice one",
           up: 3, down: 1, score: 2, my_vote: 7, reply_count: 1,
-          created_at: "2026-08-03T09:00:00Z", edited_at: null, is_mine: true, is_removed: false,
+          created_at: "2026-08-03T09:00:00Z", is_mine: true, is_removed: false,
         },
       ],
       error: null,
