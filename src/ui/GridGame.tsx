@@ -9,6 +9,8 @@ import { GameHeader } from "./GameHeader";
 import { WikiCard } from "./WikiCard";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
+import { DiscussionPanel } from "./DiscussionPanel";
+import { todayKey } from "../core/daily";
 import { KinshipTree } from "./KinshipTree";
 import { PlaytestBar } from "./PlaytestBar";
 import { gameUrl } from "./share";
@@ -401,6 +403,15 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
               note="Score rewards harder days and fewer mistakes. A clean board earns the full weight."
             />
           )}
+          {/* Same reusable board as Lineage and Branches, different key. */}
+          <DiscussionPanel
+            board="kinship"
+            date={todayKey()}
+            configured={!!configured}
+            signedIn={!!userId}
+            played={over}
+            label="today’s Kinship"
+          />
         </div>
       )}
 

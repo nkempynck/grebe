@@ -1888,3 +1888,93 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 }
 .grid-confirm p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: var(--ink); }
 .grid-confirm-actions { display: flex; gap: 10px; align-items: center; }
+
+/* ---------- Discussion board (one sheet for every board) ----------
+   Reuses the leaderboard's visual language (.lb, .stats-sub, .lb-seg, .lb-nudge,
+   .lb-note, .lb-youtag) so a board reads as part of the same post-game surface
+   rather than a bolted-on widget. Both themes come from the shared tokens. */
+.disc {
+  margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--line-soft);
+}
+.disc-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.disc-head .stats-sub { margin: 0; }
+
+/* Composer, shared by the root box and the inline reply/edit boxes. */
+.disc-compose { margin-bottom: 14px; }
+.disc-compose.is-inline { margin: 10px 0 4px; }
+.disc-input {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 62px;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--bg-2); color: var(--ink);
+  font-family: var(--font-body); font-size: 14px; line-height: 1.5;
+}
+.disc-input:focus { outline: none; border-color: var(--brass); }
+.disc-input::placeholder { color: var(--ink-faint); font-style: italic; }
+.disc-compose-foot {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 7px;
+}
+.disc-count {
+  margin-right: auto; font-family: var(--font-mono); font-size: 10px;
+  color: var(--ink-faint); font-variant-numeric: tabular-nums;
+}
+.disc-btn {
+  padding: 6px 13px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--bg-2); color: var(--ink-soft); cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px;
+}
+.disc-btn:hover:not(:disabled) { border-color: var(--brass); color: var(--ink); }
+.disc-btn.is-primary { border-color: var(--brass); background: var(--brass); color: var(--on-accent); }
+.disc-btn.is-primary:hover:not(:disabled) { background: var(--brass-bright); }
+.disc-btn:disabled { opacity: 0.4; cursor: default; }
+
+.disc-error {
+  margin: 0 0 12px; padding: 8px 12px; border-radius: var(--radius);
+  border: 1px solid var(--danger); background: color-mix(in srgb, var(--danger) 7%, var(--bg-2));
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--ink);
+}
+
+/* Threads. A reply is indented once; there is no deeper level by design. */
+.disc-list { display: flex; flex-direction: column; }
+.disc-thread { padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.disc-thread:last-child { border-bottom: none; }
+.disc-item { display: flex; gap: 11px; align-items: flex-start; }
+.disc-item.is-reply {
+  margin: 10px 0 0 22px; padding-left: 13px; border-left: 2px solid var(--line);
+}
+
+.disc-votes { display: flex; flex-direction: column; align-items: center; gap: 1px; flex: none; padding-top: 1px; }
+.disc-vote {
+  background: none; border: none; padding: 0 2px; cursor: pointer; line-height: 1;
+  font-size: 11px; color: var(--ink-faint);
+}
+.disc-vote:hover:not(:disabled) { color: var(--brass); }
+.disc-vote.is-on { color: var(--brass); }
+.disc-vote:disabled { opacity: 0.3; cursor: default; }
+.disc-score {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.disc-main { min-width: 0; flex: 1; }
+.disc-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 3px; }
+.disc-name { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink); }
+.disc-time { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+.disc-body {
+  margin: 0; font-family: var(--font-body); font-size: 14px; line-height: 1.55; color: var(--ink);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.disc-body.is-gone { color: var(--ink-faint); font-style: italic; }
+.disc-actions { display: flex; gap: 12px; margin-top: 5px; }
+.disc-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--cold);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.disc-link:hover { color: var(--brass); }
+
+@media (max-width: 480px) {
+  .disc-item.is-reply { margin-left: 10px; padding-left: 10px; }
+}

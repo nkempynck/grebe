@@ -24,6 +24,7 @@ import { Cladogram } from "./ui/Cladogram";
 import { ShareCard } from "./ui/ShareCard";
 import { LeaderboardNudge } from "./ui/LeaderboardNudge";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
+import { DiscussionPanel } from "./ui/DiscussionPanel";
 import { AccountPanel } from "./ui/AccountPanel";
 import { AboutPanel } from "./ui/AboutPanel";
 import { AdminPanel } from "./ui/AdminPanel";
@@ -462,6 +463,17 @@ export default function App() {
           {/* Show where you landed among everyone right after a daily. */}
           {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} reloadKey={boardReload} streak={stats.daily.currentStreak} />}
           {daily && <LeaderboardNudge show={player.configured && !player.session} />}
+          {/* One reusable board per surface: same component, different key. */}
+          {daily && (
+            <DiscussionPanel
+              board="lineage"
+              date={today}
+              configured={player.configured}
+              signedIn={!!player.session}
+              played={roundOver}
+              label="today’s Lineage"
+            />
+          )}
         </>
       )}
 

@@ -280,8 +280,16 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
           leaderboard. (There's no password recovery, so pick one you'll remember.)
         </li>
         <li>
-          <b>What others can see.</b> Only your leaderboard display name and your aggregate scores.
-          Your individual guesses are never shared; the leaderboard shows totals, not your rows.
+          <b>What others can see.</b> Your leaderboard display name, your aggregate scores, and
+          anything you post in a discussion. Your individual guesses are never shared; the
+          leaderboard shows totals, not your rows.
+        </li>
+        <li>
+          <b>Discussions.</b> Each daily puzzle has a discussion you can read once you've finished
+          it, and post in with an account. A comment is public under your display name. Discussions
+          are per puzzle and per day: once the day rolls over, that discussion is no longer shown.
+          Comments you delete, and comments removed for breaking the rules, are kept out of sight but
+          not erased from the database.
         </li>
         <li>
           <b>Network requests.</b> When a round ends, the reveal card fetches a summary and thumbnail

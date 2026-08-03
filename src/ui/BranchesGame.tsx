@@ -10,6 +10,8 @@ import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } 
 import { WikiCard } from "./WikiCard";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
+import { DiscussionPanel } from "./DiscussionPanel";
+import { todayKey } from "../core/daily";
 import { gameUrl } from "./share";
 import { PlaytestBar } from "./PlaytestBar";
 import { useDev } from "../data/devMode";
@@ -603,6 +605,18 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         <Leaderboard
           game="branches" label="Branches" variant="today" me={me ?? null} reloadKey={reloadKey} streak={streak}
           note="Score rewards harder days and correct placements. Hints and peeks trim it."
+        />
+      )}
+
+      {/* Same reusable board as Lineage and Kinship, different key. */}
+      {over && (
+        <DiscussionPanel
+          board="branches"
+          date={todayKey()}
+          configured={!!configured}
+          signedIn={!!userId}
+          played={over}
+          label="today’s Branches"
         />
       )}
 
