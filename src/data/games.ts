@@ -143,19 +143,9 @@ export async function fetchLeaderboard(
   }
 }
 
-/** The caller's live badge inputs: daily-win count + rank/total overall and per
- *  clade group. All computed server-side; the client maps them to badge tiers.
- *  Returns null when Supabase isn't configured or the call fails. */
-export async function fetchPlayerBadges(): Promise<import("./badges").PlayerBadges | null> {
-  if (!supabase) return null;
-  try {
-    const { data, error } = await supabase.rpc("player_badges");
-    if (error || !data) return null;
-    return data as import("./badges").PlayerBadges;
-  } catch {
-    return null;
-  }
-}
+// The caller's live badge inputs (daily-win count + rank/total, overall and per
+// clade group) come from the game-parameterised fetchGameBadges() below, which
+// covers Lineage through the same player_badges() RPC.
 
 /** Record one finished DAILY game via the submit_game() RPC (direct INSERT is
  *  denied by RLS; free play isn't stored server-side). The server pins `tier`
@@ -453,6 +443,38 @@ export async function fetchOverallBadges(): Promise<{ daily_wins: number; win_da
     return data as { daily_wins: number; win_dates: string[] };
   } catch {
     return null;
+  }
+}
+
+/** One day's FIELD average for one game: the mean score among that day's scoring
+ *  games (see supabase/field.sql), and how many went into it. */
+export interface DayAverage { day: string; game: GameId; avg: number; players: number }
+
+/** Per-day field averages for every game over an inclusive date range, in one
+ *  round-trip — the denominator behind "you scored N% above the field". Public, so
+ *  it works signed out (your own scores are local). Empty when there's no backend
+ *  or field.sql hasn't been run yet, in which case the UI hides the comparison. */
+export async function fetchDailyAverages(from: string, to: string): Promise<DayAverage[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase.rpc("daily_averages", { p_from: from, p_to: to });
+    // Log rather than swallow: a missing migration and a broken function look
+    // identical from the UI (no vs-field numbers), and the difference matters.
+    if (error) { console.warn("daily_averages failed", error); return []; }
+    if (!data) return [];
+    // The mean column was renamed avg → avg_points (it collided with the aggregate's
+    // own name inside the function). Accept either, so a client and a database on
+    // different sides of that migration still produce numbers instead of silently
+    // reading undefined and treating every day as unscored.
+    return (data as { day: string; game: string; avg_points?: number | null; avg?: number | null; players: number | null }[]).map((r) => ({
+      day: r.day,
+      game: r.game as GameId,
+      avg: Number(r.avg_points ?? r.avg ?? 0),
+      players: Number(r.players ?? 0),
+    }));
+  } catch (e) {
+    console.warn("daily_averages threw", e);
+    return [];
   }
 }
 

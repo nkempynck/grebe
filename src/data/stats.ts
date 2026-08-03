@@ -6,6 +6,7 @@
  *               so it has no score; we track only games + win-rate per clade.
  *  No accounts, no network — all from localStorage (optionally synced). */
 
+import { DAILY_EPOCH } from "../core/daily";
 import { CLADE_GROUPS, cladeGroup, OTHER_GROUP } from "./clades";
 import { gamePoints, kinshipPoints, branchesPoints, KINSHIP_FREE_REVEALS } from "./score";
 import { supabase } from "./supabase";
@@ -108,7 +109,9 @@ export interface DailyStats {
   playedDates: string[];
   /** Win dates ascending — index N-1 is when the "N solved" badge was earned. */
   solvedDates: string[];
-  /** Last winning day of the best streak — when that streak badge was earned. */
+  /** First and last winning day of the best streak ever. The start dates each
+   *  streak badge: the N-day tier was reached on start + (N−1) days. */
+  bestStreakStart: string | null;
   bestStreakEnd: string | null;
   /** Leaderboard points (mirrors the server): lifetime total, per-game avg, best. */
   points: { total: number; avg: number; best: number };
@@ -129,7 +132,7 @@ export interface PracticeStats {
 export interface KinshipStats {
   played: number;
   wins: number;
-  /** Wins with zero mistakes (perfect boards) — drives the ✨ flawless badge. */
+  /** Wins with no mistake and no paid peek (perfect boards) — drives the ✨ badge. */
   flawless: number;
   winPct: number;
   currentStreak: number;
@@ -138,12 +141,12 @@ export interface KinshipStats {
   playedDates: string[];
   solvedDates: string[];
   flawlessDates: string[];
+  bestStreakStart: string | null;
   bestStreakEnd: string | null;
   points: { total: number; avg: number; best: number };
 }
 
-/** Branches daily performance — ranked, score-based. Streak is a plain run of
- *  consecutive full-correct days (no give-up in Branches). */
+/** Branches daily performance — ranked, score-based. */
 export interface BranchesStats {
   played: number;
   wins: number;
@@ -155,6 +158,7 @@ export interface BranchesStats {
   playedDates: string[];
   solvedDates: string[];
   flawlessDates: string[];
+  bestStreakStart: string | null;
   bestStreakEnd: string | null;
   points: { total: number; avg: number; best: number };
 }
@@ -186,6 +190,17 @@ const kinshipPts = (e: KinshipEntry) =>
     e.paidReveals ?? Math.max(0, (e.reveals ?? 0) - (KINSHIP_FREE_REVEALS + (e.status === "won" ? 4 : 0)))
   );
 const branchesPts = (e: BranchesEntry) => e.points ?? branchesPoints(e.tier, e.won, e.total, e.correct, e.mistakes ?? 0, e.hinted, e.peeked);
+
+/** One day's frozen points per game, or null if that game wasn't played that day.
+ *  For code that needs a single day's score rather than an aggregate (the vs-field
+ *  comparison in ./field), reading the same frozen values every other stat uses. */
+export function pointsByDate(store: StatsStore) {
+  return {
+    lineage: (d: string) => (store.history?.[d] ? dailyPts(store.history[d]) : null),
+    kinship: (d: string) => (store.kinship?.[d] ? kinshipPts(store.kinship[d]) : null),
+    branches: (d: string) => (store.branches?.[d] ? branchesPts(store.branches[d]) : null),
+  };
+}
 
 const emptyStore = (): StatsStore => ({ version: 6, history: {}, clades: {}, kinship: {}, branches: {} });
 
@@ -360,30 +375,72 @@ export function mergeMissingDailies(base: StatsStore, local: StatsStore): number
   return added;
 }
 
-function prevDay(dateKey: string): string {
+/** `dateKey` shifted by n days (negative = back). Dates are handled as UTC
+ *  midnights so the 09:00 rollover can't drift a key by a day. */
+export function addDays(dateKey: string, n: number): string {
   const d = new Date(`${dateKey}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 1);
+  d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
-function nextDay(dateKey: string): string {
-  const d = new Date(`${dateKey}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
+const prevDay = (dateKey: string) => addDays(dateKey, -1);
+const nextDay = (dateKey: string) => addDays(dateKey, 1);
 
 const pct = (wins: number, played: number) => (played ? Math.round((wins / played) * 100) : 0);
 const orderedIds = [...CLADE_GROUPS.map((g) => g.id), OTHER_GROUP.id];
 
-/** A give-up keeps (doesn't break) the daily streak once the player has made a
- *  real attempt — this many guesses. Some dailies are genuinely hard, so a
- *  well-fought give-up shouldn't wipe a long streak. Tunable in one place. */
-export const STREAK_SAVE_MIN_GUESSES = 5;
+/** Daily games a clade needs before its average can be called a strength. One
+ *  lucky Amphibians day would otherwise out-rank a clade you've actually played,
+ *  and the UI says so where the winner is named (see StatsPanel). */
+export const STRENGTH_MIN_GAMES = 3;
 
-/** Does this day keep the streak alive? A win always does; a give-up does only
- *  after a real attempt. Either way it doesn't *add* to the streak (only wins
- *  do) — a qualifying give-up just bridges the run instead of breaking it. */
-const keepsStreak = (e: DailyEntry) =>
-  e.status === "won" || (e.status === "gaveup" && e.guesses >= STREAK_SAVE_MIN_GUESSES);
+/** THE streak rule, shared by all three games: a streak is a run of consecutive
+ *  days WON. Anything else on a played day (a give-up, a lost board) ends it — no
+ *  bridges, no partial credit. Lineage used to forgive a well-fought give-up,
+ *  which made its streak mean something different from Kinship's and Branches'
+ *  and diverged from the server's flame; one rule everywhere is worth the harshness.
+ *
+ *  The walk starts at TODAY if the day has been played, else at YESTERDAY: not
+ *  having played yet leaves yesterday's run standing, but losing today ends it
+ *  immediately (there's no replay, so the day is already decided).
+ *
+ *  MUST match public.game_streaks() in supabase/streaks.sql, which computes the
+ *  same number for the flame shown beside a player's name on the leaderboard.
+ *
+ *  @param dates  every played date (any order)
+ *  @param won    did the player win that date? */
+function deriveStreaks(
+  dates: string[],
+  todayKey: string,
+  won: (date: string) => boolean
+): Pick<DailyStats, "currentStreak" | "maxStreak" | "bestStreakStart" | "bestStreakEnd"> {
+  const played = new Set(dates);
+  const wonSet = new Set(dates.filter(won));
+
+  let currentStreak = 0;
+  let cursor = played.has(todayKey) ? todayKey : prevDay(todayKey);
+  while (wonSet.has(cursor)) {
+    currentStreak++;
+    cursor = prevDay(cursor);
+  }
+
+  let maxStreak = 0;
+  let bestStreakStart: string | null = null;
+  let bestStreakEnd: string | null = null;
+  for (const d of wonSet) {
+    if (wonSet.has(prevDay(d))) continue; // only start at a run's first day
+    let len = 0;
+    let end: string | null = null;
+    let c: string = d;
+    while (wonSet.has(c)) {
+      len++;
+      end = c;
+      c = nextDay(c);
+    }
+    if (len > maxStreak) { maxStreak = len; bestStreakStart = d; bestStreakEnd = end; }
+  }
+
+  return { currentStreak, maxStreak, bestStreakStart, bestStreakEnd };
+}
 
 /** Resolve a daily's clade group from its date (the daily is deterministic, so
  *  this recovers the group for history entries recorded before groups were
@@ -419,29 +476,9 @@ function deriveDaily(
     }
   }
 
-  // Walk back over an unbroken run of streak-keeping days; only wins add to the
-  // count, so a qualifying give-up bridges the run without inflating it.
-  let currentStreak = 0;
-  let cursor = history[todayKey] ? todayKey : prevDay(todayKey);
-  while (history[cursor] && keepsStreak(history[cursor])) {
-    if (history[cursor].status === "won") currentStreak++;
-    cursor = prevDay(cursor);
-  }
-
-  let maxStreak = 0;
-  let bestStreakEnd: string | null = null;
-  const keptSet = new Set(dates.filter((d) => keepsStreak(history[d])));
-  for (const d of keptSet) {
-    if (keptSet.has(prevDay(d))) continue; // only start at a run's first day
-    let len = 0;
-    let lastWin: string | null = null;
-    let c: string = d;
-    while (keptSet.has(c)) {
-      if (history[c].status === "won") { len++; lastWin = c; }
-      c = nextDay(c);
-    }
-    if (len > maxStreak) { maxStreak = len; bestStreakEnd = lastWin; }
-  }
+  const { currentStreak, maxStreak, bestStreakStart, bestStreakEnd } = deriveStreaks(
+    dates, todayKey, (d) => history[d].status === "won"
+  );
 
   const groups: GroupScore[] = orderedIds
     .filter((id) => tally[id]?.played)
@@ -460,11 +497,11 @@ function deriveDaily(
       };
     });
 
-  // Strength = highest average points among groups with at least 3 daily games.
+  // Strength = highest average points among groups with enough games to mean it.
   let strengthId: string | null = null;
   let bestAvg = -1;
   for (const g of groups) {
-    if (g.played >= 3 && g.avgPoints > bestAvg) {
+    if (g.played >= STRENGTH_MIN_GAMES && g.avgPoints > bestAvg) {
       bestAvg = g.avgPoints;
       strengthId = g.id;
     }
@@ -478,6 +515,7 @@ function deriveDaily(
     maxStreak,
     playedDates: [...dates].sort(),
     solvedDates: dates.filter((d) => history[d].status === "won").sort(),
+    bestStreakStart,
     bestStreakEnd,
     points: { total, avg: played ? Math.round(total / played) : 0, best },
     groups,
@@ -498,19 +536,23 @@ function derivePractice(clades: Record<string, CladeFree>): PracticeStats {
   return { played, wins, winPct: pct(wins, played), groups };
 }
 
-/** Kinship (grid) daily stats. Streak is a plain run of consecutive daily wins —
- *  there's no give-up in Kinship, so no streak-save nuance. */
+/** Kinship (grid) daily stats. */
 function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string): KinshipStats {
   const dates = Object.keys(kinship);
   const played = dates.length;
   const wins = dates.filter((d) => kinship[d].status === "won").length;
-  const flawless = dates.filter((d) => {
+  // ONE definition of flawless, used for both the count and the dates behind the
+  // badge: won, no mistake, no PAID peek. (They used to disagree — the dates
+  // ignored peeks — so a board bought with paid peeks earned the ✨ badge without
+  // being counted flawless.) A won board's free budget is 3 plus one per group
+  // (all four solved), so legacy entries storing only a total are flawless up to
+  // KINSHIP_FREE_REVEALS + 4.
+  const isFlawless = (d: string) => {
     const e = kinship[d];
-    // No PAID peeks: a won board's free budget is 3 + one per group (all four solved),
-    // so legacy entries (total only) are flawless up to KINSHIP_FREE_REVEALS + 4.
     const paid = e.paidReveals ?? Math.max(0, (e.reveals ?? 0) - (KINSHIP_FREE_REVEALS + 4));
     return e.status === "won" && e.mistakes === 0 && paid === 0;
-  }).length;
+  };
+  const flawless = dates.filter(isFlawless).length;
 
   let total = 0;
   let best = 0;
@@ -521,28 +563,9 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
     if (p > best) best = p;
   }
 
-  let currentStreak = 0;
-  let cursor = kinship[todayKey] ? todayKey : prevDay(todayKey);
-  while (kinship[cursor]?.status === "won") {
-    currentStreak++;
-    cursor = prevDay(cursor);
-  }
-
-  let maxStreak = 0;
-  let bestStreakEnd: string | null = null;
-  const wonSet = new Set(dates.filter((d) => kinship[d].status === "won"));
-  for (const d of wonSet) {
-    if (wonSet.has(prevDay(d))) continue;
-    let len = 0;
-    let end: string | null = null;
-    let c: string = d;
-    while (wonSet.has(c)) {
-      len++;
-      end = c;
-      c = nextDay(c);
-    }
-    if (len > maxStreak) { maxStreak = len; bestStreakEnd = end; }
-  }
+  const { currentStreak, maxStreak, bestStreakStart, bestStreakEnd } = deriveStreaks(
+    dates, todayKey, (d) => kinship[d].status === "won"
+  );
 
   return {
     played,
@@ -553,7 +576,8 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
     maxStreak,
     playedDates: [...dates].sort(),
     solvedDates: dates.filter((d) => kinship[d].status === "won").sort(),
-    flawlessDates: dates.filter((d) => kinship[d].status === "won" && kinship[d].mistakes === 0).sort(),
+    flawlessDates: dates.filter(isFlawless).sort(),
+    bestStreakStart,
     bestStreakEnd,
     points: { total, avg: played ? Math.round(total / played) : 0, best },
   };
@@ -580,28 +604,7 @@ function deriveBranches(branches: Record<string, BranchesEntry>, todayKey: strin
     if (p > best) best = p;
   }
 
-  let currentStreak = 0;
-  let cursor = branches[todayKey] ? todayKey : prevDay(todayKey);
-  while (branches[cursor]?.won) {
-    currentStreak++;
-    cursor = prevDay(cursor);
-  }
-
-  let maxStreak = 0;
-  let bestStreakEnd: string | null = null;
-  const wonSet = new Set(dates.filter(isWin));
-  for (const d of wonSet) {
-    if (wonSet.has(prevDay(d))) continue;
-    let len = 0;
-    let end: string | null = null;
-    let c: string = d;
-    while (wonSet.has(c)) {
-      len++;
-      end = c;
-      c = nextDay(c);
-    }
-    if (len > maxStreak) { maxStreak = len; bestStreakEnd = end; }
-  }
+  const { currentStreak, maxStreak, bestStreakStart, bestStreakEnd } = deriveStreaks(dates, todayKey, isWin);
 
   return {
     played,
@@ -613,18 +616,34 @@ function deriveBranches(branches: Record<string, BranchesEntry>, todayKey: strin
     playedDates: [...dates].sort(),
     solvedDates: dates.filter(isWin).sort(),
     flawlessDates: dates.filter(isFlawless).sort(),
+    bestStreakStart,
     bestStreakEnd,
     points: { total, avg: played ? Math.round(total / played) : 0, best },
   };
 }
 
+/** Days before the public launch (DAILY_EPOCH) were a shakedown: their server rows
+ *  were wiped at launch (supabase/launch-reset.sql), so counting them locally would
+ *  inflate streaks, totals and badges past anything the boards can corroborate.
+ *  They're filtered out of every derivation rather than deleted — the entries stay
+ *  in the store, they just don't count. */
+export const countsForStats = (dateKey: string) => dateKey >= DAILY_EPOCH;
+
+const sinceLaunch = <T,>(rows: Record<string, T>): Record<string, T> => {
+  const out: Record<string, T> = {};
+  for (const [d, e] of Object.entries(rows)) if (countsForStats(d)) out[d] = e;
+  return out;
+};
+
 export function derive(store: StatsStore, todayKey: string, groupForDate?: DailyGroupResolver): DerivedStats {
   // Tolerate partial stores (older shapes / hand-built test fixtures): a missing
-  // section just derives as empty.
+  // section just derives as empty. Practice carries no dates (it's a per-clade
+  // tally), so it can't be filtered by launch date and simply counts everything;
+  // it's unranked and scoreless, so nothing hangs on it.
   return {
-    daily: deriveDaily(store.history ?? {}, todayKey, groupForDate),
+    daily: deriveDaily(sinceLaunch(store.history ?? {}), todayKey, groupForDate),
     practice: derivePractice(store.clades ?? {}),
-    kinship: deriveKinship(store.kinship ?? {}, todayKey),
-    branches: deriveBranches(store.branches ?? {}, todayKey),
+    kinship: deriveKinship(sinceLaunch(store.kinship ?? {}), todayKey),
+    branches: deriveBranches(sinceLaunch(store.branches ?? {}), todayKey),
   };
 }

@@ -1075,6 +1075,17 @@ button.pin-cell:hover { outline: 1px solid var(--brass); outline-offset: 1px; }
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px;
 }
+/* Section title with the metric toggle beside it (clade bars: avg score / vs field). */
+.stats-dist-hd {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 8px;
+}
+.stats-dist-hd .stats-dist-ttl { margin-bottom: 0; }
+.stats-dist-hd .lb-seg { font-size: 10px; padding: 4px 9px; }
+.stats-dist-note {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
 .stats-empty { font-family: var(--font-body); font-style: italic; font-size: 14px; color: var(--ink-faint); margin: 0; }
 .stats-dist { display: flex; flex-direction: column; gap: 4px; }
 .dist-row { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 8px; }
@@ -1098,13 +1109,26 @@ button.pin-cell:hover { outline: 1px solid var(--brass); outline-offset: 1px; }
 .clade-name { font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--ink); }
 .clade-star { color: var(--vermilion); margin-left: 5px; }
 .clade-track { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
-.clade-bar { height: 100%; background: var(--cold); border-radius: 4px; transition: width 0.3s ease; }
+.clade-bar { height: 100%; background: var(--cold); border-radius: 4px; transition: width 0.3s ease, margin-left 0.3s ease; }
 .clade-row.is-strength .clade-bar { background: var(--brass); }
+/* Signed (vs-field) bars diverge from the middle of the track: above the field grows
+   right, below grows left, so the sign is legible before the number is read. */
+.stats-clades.is-signed .clade-track {
+  background: linear-gradient(to right, var(--line) 0 calc(50% - 0.5px), var(--ink-faint) calc(50% - 0.5px) calc(50% + 0.5px), var(--line) calc(50% + 0.5px) 100%);
+}
+.stats-clades.is-signed .clade-bar.is-neg { background: var(--ink-faint); }
 .clade-pct { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
 .clade-unit { font-size: 9px; font-weight: 400; color: var(--ink-faint); margin-left: 2px; }
 .clade-meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink-soft); text-align: right; font-variant-numeric: tabular-nums; }
 .stats-strength { font-family: var(--font-body); font-style: italic; font-size: 14px; color: var(--ink-soft); margin: 10px 0 0; }
 .stats-strength b { color: var(--brass-bright); font-style: normal; }
+/* The qualifier behind a "strongest clade" line: what it measures, and why a
+   higher-average clade can be skipped. */
+.stats-strength-note { font-style: normal; font-size: 12px; color: var(--ink-faint); }
+/* Above or below the day's field average. Colour carries the sign, but the printed
+   +/− carries it too, so it never depends on colour alone. */
+.vs-field.is-up { color: var(--brass-bright); }
+.vs-field.is-down { color: var(--ink-soft); }
 
 /* ---- Daily-winner banner ---- */
 .winbanner {
@@ -1113,7 +1137,14 @@ button.pin-cell:hover { outline: 1px solid var(--brass); outline-offset: 1px; }
   border: 1px solid var(--brass); background: rgba(217, 154, 91, 0.09);
   box-shadow: 0 0 14px rgba(217, 154, 91, 0.15);
 }
+/* Topping the combined board beats topping one game, so its banner reads brighter. */
+.winbanner.is-overall {
+  border-color: var(--brass-bright);
+  background: rgba(217, 154, 91, 0.16);
+  box-shadow: 0 0 22px rgba(217, 154, 91, 0.28);
+}
 .winbanner-ico { font-size: 22px; line-height: 1; }
+.winbanner.is-overall .winbanner-ico { font-size: 26px; }
 .winbanner-txt { flex: 1; font-family: var(--font-body); font-size: 14px; color: var(--ink); line-height: 1.4; }
 .winbanner-txt b { color: var(--brass-bright); }
 .winbanner-x {
@@ -1180,13 +1211,26 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.04em;
   color: var(--ink-faint); margin-top: -3px;
 }
-/* The winning-dates panel shown when a champion badge is clicked. */
-.badge-dates {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
-  margin-top: 14px; padding: 10px 12px;
+/* The detail panel shown when ANY badge is clicked: what it means, what you did
+   for it, then the dates behind it when there are any. */
+.badge-info {
+  margin-top: 14px; padding: 12px 14px;
   background: var(--bg-soft, color-mix(in srgb, var(--brass) 6%, transparent));
   border: 1px solid var(--line-soft); border-radius: var(--radius);
 }
+.badge-info-hd { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.badge-info-ico { font-size: 16px; line-height: 1; }
+.badge-info-ttl { font-family: var(--font-display); font-weight: 800; font-size: 15px; color: var(--ink); }
+.badge-info-tier {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.badge-info p {
+  font-family: var(--font-body); font-size: 13px; line-height: 1.45;
+  color: var(--ink-soft); margin: 0 0 4px;
+}
+.badge-info p.badge-info-you { color: var(--ink); margin-bottom: 0; }
+.badge-info-dates { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
 .badge-dates-lbl { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-right: 2px; }
 .badge-date {
   font-family: var(--font-mono); font-size: 11px; color: var(--ink);

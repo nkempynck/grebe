@@ -103,6 +103,7 @@ const SCHEMA_CHECKS = [
   { rpc: "taxon_index_schema_check", label: "Guess index", file: "taxon_index.sql" },
   { rpc: "analytics_schema_check", label: "Analytics", file: "analytics.sql" },
   { rpc: "plays_schema_check", label: "Play counts", file: "plays.sql" },
+  { rpc: "field_schema_check", label: "Field averages", file: "field.sql" },
 ];
 
 interface FileCheck {

@@ -22,6 +22,7 @@ import {
   type BranchesEntry,
   type DailyGroupResolver,
   type DerivedStats,
+  type StatsStore,
 } from "../data/stats";
 
 // A record made while the cloud pull was still in flight, replayed once it lands.
@@ -32,6 +33,9 @@ type PendingRecord =
 
 export interface UseStats {
   stats: DerivedStats;
+  /** The raw store behind `stats`, for the few consumers that need a single day's
+   *  numbers rather than an aggregate (see useFieldStats). */
+  store: StatsStore;
   /** True while the initial cloud pull is in flight (signed-in only). */
   syncing: boolean;
   record: (mode: "daily" | "free", groupId: string, entry: DailyEntry) => void;
@@ -164,5 +168,5 @@ export function useStats(userId: string | null, groupForDate?: DailyGroupResolve
     [today, userId]
   );
 
-  return { stats, syncing, record, recordKinship, recordBranches };
+  return { stats, store, syncing, record, recordKinship, recordBranches };
 }

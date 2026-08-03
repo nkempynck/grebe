@@ -18,7 +18,7 @@ export interface BranchesComplete {
   hinted: number;
   /** Half-point lookups: correct slots whose species was peeked, plus full
    *  Wikipedia articles opened from a card. Both forfeit half a point, so they
-   *  share one count (see `tally` and supabase/branches.sql). */
+   *  share one count (see `branchesTally` and supabase/branches.sql). */
   peeked: number;
   /** Wrong submissions committed (each burns a point-slice; over budget = a loss). */
   mistakes: number;
@@ -116,7 +116,7 @@ export interface UseBranchesGame {
  *  knowing: a read is charged however the board ends up (it isn't tied to a slot the
  *  way a peek is), and the sum is clamped to the slot count exactly as
  *  submit_branches_game() clamps it, so the score shown equals the score recorded. */
-function tally(
+export function branchesTally(
   board: BranchesBoard,
   placements: Record<string, string>,
   hints: string[],
@@ -209,7 +209,7 @@ export function useBranchesGame(
       setMistakes(prog.mistakes ?? 0);
       setStatus(prog.status ?? "playing");
       setResult(prog.status === "done"
-        ? { ...tally(board, p, prog.hints ?? [], prog.peeked ?? [], prog.reads ?? []), mistakes: prog.mistakes ?? 0 }
+        ? { ...branchesTally(board, p, prog.hints ?? [], prog.peeked ?? [], prog.reads ?? []), mistakes: prog.mistakes ?? 0 }
         : null);
     } else {
       setPlacements({});
@@ -404,7 +404,7 @@ export function useBranchesGame(
       if (!board) return;
       setStatus("done");
       setHeld(null);
-      const t = tally(board, finalPlacements, finalHints, finalPeeked, finalReads);
+      const t = branchesTally(board, finalPlacements, finalHints, finalPeeked, finalReads);
       setResult({ ...t, mistakes: finalMistakes });
       if (!devActive) {
         onCompleteRef.current?.({
@@ -471,7 +471,7 @@ export function useBranchesGame(
     setMistakes(0);
     setHeld(null);
     setStatus("done");
-    setResult({ ...tally(board, correct, [], [], []), mistakes: 0 });
+    setResult({ ...branchesTally(board, correct, [], [], []), mistakes: 0 });
   }, [board]);
 
   const canSubmit = Boolean(board) && status === "playing" && !!board && board.slotIds.every((s) => placements[s]);

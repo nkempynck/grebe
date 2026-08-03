@@ -172,6 +172,11 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         </div>
       </div>
       <p className="about-p">
+        Each game keeps its own streak: how many days in a row you've won it. Only a win extends a
+        streak, and only a win keeps one. A give-up, a lost board or a day left unplayed ends the
+        run, whichever game it was.
+      </p>
+      <p className="about-p">
         The games above are inspired by these existing games, not connected to them. Grebe is not
         affiliated with Metazooa, the New York Times, or their creators in any way.
       </p>

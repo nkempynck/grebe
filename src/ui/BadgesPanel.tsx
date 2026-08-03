@@ -3,6 +3,7 @@ import type { DerivedStats } from "../data/stats";
 import type { UsePlayer } from "../hooks/usePlayer";
 import { fetchGameBadges, fetchGameStanding, type GameId, type GameStanding } from "../data/games";
 import { competitiveBadges, lineageBadges, kinshipBadges, branchesBadges, nextPlayMilestone, type Badge, type PlayerBadges } from "../data/badges";
+import { BadgeGrid } from "./BadgeGrid";
 
 interface Props {
   stats: DerivedStats;
@@ -19,8 +20,6 @@ export function BadgesPanel({ stats, player, game }: Props) {
   // This game's all-time competitive standing (rank + score), shown per game so
   // each panel carries its own — the profile header no longer singles out Lineage.
   const [standing, setStanding] = useState<GameStanding | null>(null);
-  // The champion badge whose winning dates are expanded (click to toggle).
-  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!player.session) { setServer(null); setStanding(null); return; }
@@ -37,7 +36,6 @@ export function BadgesPanel({ stats, player, game }: Props) {
   const noun = NOUN[game];
   const played = game === "lineage" ? stats.daily.played : game === "kinship" ? stats.kinship.played : stats.branches.played;
   const nextUp = nextPlayMilestone(played, noun);
-  const open = badges.find((b) => b.id === openId && b.occurrences?.length);
 
   return (
     <div className="stats badges">
@@ -59,38 +57,7 @@ export function BadgesPanel({ stats, player, game }: Props) {
           No badges yet. Play signed-in dailies, top the board, and go flawless to earn them.
         </p>
       ) : (
-        <div className="badge-grid">
-          {badges.map((b) => {
-            const clickable = !!b.occurrences?.length;
-            const inner = (
-              <>
-                <span className="badge-medal"><span className="badge-ico" aria-hidden="true">{b.icon}</span></span>
-                <span className="badge-label">{b.label}</span>
-                {clickable && b.occurrences!.length > 1 && <span className="badge-count">×{b.occurrences!.length}</span>}
-              </>
-            );
-            return clickable ? (
-              <button
-                type="button"
-                className={`badge badge-${b.tier} is-clickable${openId === b.id ? " is-open" : ""}`}
-                key={b.id}
-                title={b.desc}
-                aria-expanded={openId === b.id}
-                onClick={() => setOpenId((id) => (id === b.id ? null : b.id))}
-              >
-                {inner}
-              </button>
-            ) : (
-              <div className={`badge badge-${b.tier}`} key={b.id} title={b.desc}>{inner}</div>
-            );
-          })}
-        </div>
-      )}
-      {open && (
-        <div className="badge-dates">
-          <span className="badge-dates-lbl">{open.label} · {open.occLabel ?? "won"}</span>
-          {open.occurrences!.map((o) => <span className="badge-date" key={o}>{o}</span>)}
-        </div>
+        <BadgeGrid badges={badges} />
       )}
       {nextUp && (
         <p className="badge-next">

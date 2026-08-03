@@ -7,7 +7,7 @@
  *  All thresholds live here so they can be tuned without a schema change. */
 
 import { cladeGroup } from "./clades";
-import type { DerivedStats } from "./stats";
+import { addDays, type DerivedStats } from "./stats";
 
 export type BadgeTier = "bronze" | "silver" | "gold" | "diamond" | "crown" | "plain";
 
@@ -15,15 +15,24 @@ export interface Badge {
   id: string;
   icon: string;
   label: string;
+  /** What YOU did for it, in numbers ("27 puzzles completed"). */
   desc: string;
+  /** How the badge is earned, in general ("Awarded at 25 puzzles played"). Every
+   *  badge carries one: they're all clickable, and a medal nobody can explain is
+   *  just decoration. */
+  criteria: string;
   tier: BadgeTier;
   /** Formatted dates behind the badge — a champion's winning periods (newest
-   *  first) or a one-time badge's single earned-on date. Present → the UI makes
-   *  the badge clickable to reveal them. */
+   *  first) or a one-time badge's single earned-on date. */
   occurrences?: string[];
   /** Verb for the dates panel: champions were "won", milestones were "earned". */
   occLabel?: string;
 }
+
+/** Human name for a tier, shown in the badge's detail panel ("Gold"). */
+export const TIER_LABEL: Record<BadgeTier, string> = {
+  crown: "Crown", diamond: "Diamond", gold: "Gold", silver: "Silver", bronze: "Bronze", plain: "",
+};
 
 /** What player_badges()/grid_player_badges() return (live, no persistence). Both
  *  games share this shape; Kinship leaves `groups` empty (no persistent clades). */
@@ -42,17 +51,34 @@ export interface PlayerBadges {
   groups: Record<string, { rank: number; total: number }>;
 }
 
-const SEEN_WINS_KEY = "grebe.seenWins";
+/** Where a celebrated win came from: one of the three games, or the combined board. */
+export type WinSource = "lineage" | "kinship" | "branches" | "overall";
 
-/** Compare the server's win dates against what we've already celebrated on this
+/** Celebrated-wins storage, one key per source so each game's banner is tracked
+ *  independently. Lineage keeps the original un-suffixed key: it was the only
+ *  celebrated source before, and reusing it means a device that has already seen
+ *  its Lineage wins doesn't get them dumped again as new. */
+const SEEN_WINS_KEY: Record<WinSource, string> = {
+  lineage: "grebe.seenWins",
+  kinship: "grebe.seenWins.kinship",
+  branches: "grebe.seenWins.branches",
+  overall: "grebe.seenWins.overall",
+};
+
+/** Compare a source's win dates against what we've already celebrated on this
  *  device, and return the newly-won dates (newest first). On the very first run
  *  it records all existing wins as a baseline and returns none — so historical
- *  wins aren't dumped as "new". Best-effort; storage failures just skip the nudge. */
-export function newDailyWins(winDates: string[]): string[] {
+ *  wins aren't dumped as "new". Best-effort; storage failures just skip the nudge.
+ *
+ *  Only call this with dates the server actually returned: passing an empty list
+ *  because a fetch failed would write an EMPTY baseline, and every past win would
+ *  then be celebrated as new on the next successful load. */
+export function newDailyWins(source: WinSource, winDates: string[]): string[] {
+  const key = SEEN_WINS_KEY[source];
   try {
-    const raw = localStorage.getItem(SEEN_WINS_KEY);
+    const raw = localStorage.getItem(key);
     const merge = (all: string[]) =>
-      localStorage.setItem(SEEN_WINS_KEY, JSON.stringify([...new Set(all)]));
+      localStorage.setItem(key, JSON.stringify([...new Set(all)]));
     if (raw === null) {
       merge(winDates); // baseline — don't celebrate pre-existing wins
       return [];
@@ -69,6 +95,9 @@ export function newDailyWins(winDates: string[]): string[] {
 // ---- tunables ----
 /** A percentile pool smaller than this is too noisy to badge ("top 50% of 2"). */
 const MIN_POOL = 10;
+/** Entrants a period needs before topping it counts as a championship. Display
+ *  only — the gate itself lives server-side; MUST match supabase/badges.sql. */
+const MIN_DAY_PLAYERS = 3;
 /** Percentile tiers, best first. `max` is the inclusive top-percentile cutoff. */
 const PCT_TIERS: { max: number; icon: string; label: string; tier: BadgeTier }[] = [
   { max: 1, icon: "💎", label: "Top 1%", tier: "diamond" },
@@ -102,7 +131,8 @@ const earnedAt = (dates: string[], min: number): Pick<Badge, "occurrences" | "oc
  *  the winning periods attached as clickable occurrences. Null below tier 1. */
 function champBadge(
   id: string, icon: string, singular: string, periodNoun: string,
-  count: number, dates: string[], fmt: (d: string) => string
+  count: number, dates: string[], fmt: (d: string) => string,
+  criteria: string
 ): Badge | null {
   const t = highest(CHAMP_TIERS, count);
   if (!t) return null;
@@ -110,6 +140,7 @@ function champBadge(
     id, icon, tier: t.tier,
     label: t.min === 1 ? singular : `${t.min}× ${singular}`,
     desc: `Topped the ${periodNoun} board ${count}×`,
+    criteria,
     occurrences: dates.map(fmt),
   };
 }
@@ -117,8 +148,8 @@ function champBadge(
 // game's noun (puzzle/board), so Lineage and Kinship reuse the same thresholds.
 type CountTier = { min: number; icon: string; tier: BadgeTier };
 
-/** Puzzles/boards completed → collector tier (participation; a streak-saving
- *  give-up still counts as played). */
+/** Puzzles/boards completed → collector tier (participation; a give-up or a lost
+ *  board still counts as played, it just doesn't count as solved). */
 const PLAY_TIERS: CountTier[] = [
   { min: 250, icon: "🌍", tier: "diamond" },
   { min: 100, icon: "🌲", tier: "gold" },
@@ -134,17 +165,26 @@ const SOLVE_TIERS: CountTier[] = [
   { min: 10, icon: "🎯", tier: "silver" },
   { min: 1, icon: "🎯", tier: "plain" },
 ];
-/** Kinship-only: boards solved with zero mistakes. */
+/** Boards solved with no help at all — what counts as "no help" is the game's
+ *  business (Kinship: no mistake, no paid peek; Branches: no mistake, hint or peek),
+ *  so each game passes its own dates and its own wording. */
 const FLAWLESS_TIERS: CountTier[] = [
   { min: 25, icon: "✨", tier: "diamond" },
   { min: 10, icon: "✨", tier: "gold" },
   { min: 1, icon: "✨", tier: "plain" },
 ];
-/** Streak milestones (best streak ever). Shared; labelled in days. */
+/** Streak milestones (best streak ever). Shared by all three games; labelled in
+ *  days. A streak is now a run of days WON, with no give-up bridge and no
+ *  forgiveness for a lost board (see deriveStreaks in ./stats), so the ladder
+ *  starts low: three clean days in a row is a real result, and the long tiers are
+ *  correspondingly rarer than they were. */
 const STREAK_TIERS: { min: number; tier: BadgeTier }[] = [
+  { min: 365, tier: "crown" },
   { min: 100, tier: "diamond" },
   { min: 30, tier: "gold" },
+  { min: 14, tier: "silver" },
   { min: 7, tier: "silver" },
+  { min: 3, tier: "bronze" },
 ];
 /** Per-clade dedication: play this many games in one group (Lineage only). */
 const CLADE_PLAY_MIN = 25;
@@ -174,9 +214,13 @@ interface Milestone {
   playedDates: string[];
   solvedDates: string[];
   maxStreak: number;
-  bestStreakEnd: string | null;
-  /** Kinship-only: perfect (zero-mistake) win dates. */
+  /** First day of the best streak — every day of a streak is a win, so the N-day
+   *  tier was reached exactly N−1 days after it. */
+  bestStreakStart: string | null;
+  /** Perfect (unaided) win dates, for the games that have such a notion. */
   flawlessDates?: string[];
+  /** How this game words a flawless board, e.g. "no mistakes or paid peeks". */
+  flawlessDesc?: string;
 }
 
 /** Milestone badges common to every game: play-count (participation), solves
@@ -186,17 +230,22 @@ function milestoneBadges(m: Milestone): Badge[] {
   const out: Badge[] = [];
 
   const played = highest(PLAY_TIERS, m.playedDates.length);
-  if (played) out.push({ id: `${m.ns}-played`, icon: played.icon, tier: played.tier, label: playLabel(played.min, m.noun), desc: `${m.playedDates.length} ${m.noun}s completed`, ...earnedAt(m.playedDates, played.min) });
+  if (played) out.push({ id: `${m.ns}-played`, icon: played.icon, tier: played.tier, label: playLabel(played.min, m.noun), desc: `${m.playedDates.length} ${m.noun}s completed`, criteria: `Awarded for finishing ${played.min} daily ${m.noun}${played.min === 1 ? "" : "s"}. Any finish counts, solved or not.`, ...earnedAt(m.playedDates, played.min) });
 
   const solved = highest(SOLVE_TIERS, m.solvedDates.length);
-  if (solved) out.push({ id: `${m.ns}-solved`, icon: solved.icon, tier: solved.tier, label: solved.min === 1 ? "First solve" : `${solved.min} solved`, desc: `${m.solvedDates.length} ${m.noun}s solved`, ...earnedAt(m.solvedDates, solved.min) });
+  if (solved) out.push({ id: `${m.ns}-solved`, icon: solved.icon, tier: solved.tier, label: solved.min === 1 ? "First solve" : `${solved.min} solved`, desc: `${m.solvedDates.length} ${m.noun}s solved`, criteria: `Awarded for solving ${solved.min} daily ${m.noun}${solved.min === 1 ? "" : "s"}, at any rank.`, ...earnedAt(m.solvedDates, solved.min) });
 
   const streak = highest(STREAK_TIERS, m.maxStreak);
-  if (streak) out.push({ id: `${m.ns}-streak`, icon: "🔥", tier: streak.tier, label: `${streak.min}-day streak`, desc: `Best ${m.noun} streak: ${m.maxStreak}`, ...(m.bestStreakEnd ? { occurrences: [fmtDayY(m.bestStreakEnd)], occLabel: "earned" } : {}) });
+  if (streak) {
+    // The day the tier was actually reached, not the day the run ended: on a
+    // 40-day best run the 7-day badge was earned 33 days before the run finished.
+    const on = m.bestStreakStart ? addDays(m.bestStreakStart, streak.min - 1) : null;
+    out.push({ id: `${m.ns}-streak`, icon: "🔥", tier: streak.tier, label: `${streak.min}-day streak`, desc: `Best ${m.noun} streak: ${m.maxStreak}`, criteria: `Awarded for winning ${streak.min} days in a row. Any day not won ends a run, and only your best run ever counts here.`, ...(on ? { occurrences: [fmtDayY(on)], occLabel: "earned" } : {}) });
+  }
 
   if (m.flawlessDates) {
     const fl = highest(FLAWLESS_TIERS, m.flawlessDates.length);
-    if (fl) out.push({ id: `${m.ns}-flawless`, icon: fl.icon, tier: fl.tier, label: fl.min === 1 ? "First flawless" : `${fl.min} flawless`, desc: `${m.flawlessDates.length} boards solved with no mistakes`, ...earnedAt(m.flawlessDates, fl.min) });
+    if (fl) out.push({ id: `${m.ns}-flawless`, icon: fl.icon, tier: fl.tier, label: fl.min === 1 ? "First flawless" : `${fl.min} flawless`, desc: `${m.flawlessDates.length} ${m.noun}s solved with ${m.flawlessDesc ?? "no help"}`, criteria: `Awarded for solving ${fl.min} ${m.noun}${fl.min === 1 ? "" : "s"} with ${m.flawlessDesc ?? "no help"}.`, ...earnedAt(m.flawlessDates, fl.min) });
   }
 
   return out;
@@ -205,25 +254,25 @@ function milestoneBadges(m: Milestone): Badge[] {
 /** Lineage (guess-the-organism) milestones + per-clade dedication. */
 export function lineageBadges(stats: DerivedStats): Badge[] {
   const d = stats.daily;
-  const out = milestoneBadges({ ns: "lin", noun: "puzzle", playedDates: d.playedDates, solvedDates: d.solvedDates, maxStreak: d.maxStreak, bestStreakEnd: d.bestStreakEnd });
+  const out = milestoneBadges({ ns: "lin", noun: "puzzle", playedDates: d.playedDates, solvedDates: d.solvedDates, maxStreak: d.maxStreak, bestStreakStart: d.bestStreakStart });
   for (const g of d.groups) {
     if (g.played >= CLADE_PLAY_MIN) {
-      out.push({ id: `clade-${g.id}`, icon: g.icon, label: `${g.label} regular`, tier: "silver", desc: `${g.played} daily games in ${g.label}` });
+      out.push({ id: `clade-${g.id}`, icon: g.icon, label: `${g.label} regular`, tier: "silver", desc: `${g.played} daily games in ${g.label}`, criteria: `Awarded for playing ${CLADE_PLAY_MIN} daily puzzles whose answer was in ${g.label}. Which clade a day belongs to is set by its answer, not by you.` });
     }
   }
   return out;
 }
 
-/** Kinship (grid) milestones, including flawless (zero-mistake) boards. */
+/** Kinship (grid) milestones, including flawless (no mistake, no paid peek) boards. */
 export function kinshipBadges(stats: DerivedStats): Badge[] {
   const k = stats.kinship;
-  return milestoneBadges({ ns: "kin", noun: "board", playedDates: k.playedDates, solvedDates: k.solvedDates, maxStreak: k.maxStreak, bestStreakEnd: k.bestStreakEnd, flawlessDates: k.flawlessDates });
+  return milestoneBadges({ ns: "kin", noun: "board", playedDates: k.playedDates, solvedDates: k.solvedDates, maxStreak: k.maxStreak, bestStreakStart: k.bestStreakStart, flawlessDates: k.flawlessDates, flawlessDesc: "no mistakes or paid peeks" });
 }
 
-/** Branches milestones, including flawless (no hint, no peek) full rebuilds. */
+/** Branches milestones, including flawless (no mistake, hint or peek) full rebuilds. */
 export function branchesBadges(stats: DerivedStats): Badge[] {
   const b = stats.branches;
-  return milestoneBadges({ ns: "brn", noun: "board", playedDates: b.playedDates, solvedDates: b.solvedDates, maxStreak: b.maxStreak, bestStreakEnd: b.bestStreakEnd, flawlessDates: b.flawlessDates });
+  return milestoneBadges({ ns: "brn", noun: "board", playedDates: b.playedDates, solvedDates: b.solvedDates, maxStreak: b.maxStreak, bestStreakStart: b.bestStreakStart, flawlessDates: b.flawlessDates, flawlessDesc: "no mistakes, hints or peeks" });
 }
 
 /** Competitive badges from the server standing — day/week/month champions (with
@@ -234,23 +283,29 @@ export function competitiveBadges(server: PlayerBadges | null): Badge[] {
   if (!server) return [];
   const out: Badge[] = [];
 
-  const day = champBadge("champ-day", "👑", "daily winner", "daily", server.daily_wins, server.win_dates, fmtDay);
+  const day = champBadge("champ-day", "👑", "daily winner", "daily", server.daily_wins, server.win_dates, fmtDay,
+    `Awarded for the top score on a finished day with at least ${MIN_DAY_PLAYERS} players. Ties go to whoever submitted first.`);
   if (day) out.push(day);
-  const week = champBadge("champ-week", "🏆", "weekly champion", "weekly", server.week_wins, server.week_dates, fmtWeek);
+  const week = champBadge("champ-week", "🏆", "weekly champion", "weekly", server.week_wins, server.week_dates, fmtWeek,
+    `Awarded for the highest total across a finished week (Monday to Sunday) with at least ${MIN_DAY_PLAYERS} players.`);
   if (week) out.push(week);
-  const month = champBadge("champ-month", "🎖️", "monthly champion", "monthly", server.month_wins, server.month_dates, fmtMonth);
+  const month = champBadge("champ-month", "🎖️", "monthly champion", "monthly", server.month_wins, server.month_dates, fmtMonth,
+    `Awarded for the highest total across a finished calendar month with at least ${MIN_DAY_PLAYERS} players.`);
   if (month) out.push(month);
+
+  const pctCriteria = (max: number, where: string) =>
+    `Awarded for standing in the top ${max}% of ${where} by all-time score. Live: it moves as you and everyone else play, and needs a pool of ${MIN_POOL}+.`;
 
   const overall = pctTier(server.overall);
   if (overall && server.overall) {
-    out.push({ id: "pct-overall", icon: overall.icon, label: `${overall.label} overall`, tier: overall.tier, desc: `Rank ${server.overall.rank} of ${server.overall.total} by total score` });
+    out.push({ id: "pct-overall", icon: overall.icon, label: `${overall.label} overall`, tier: overall.tier, desc: `Rank ${server.overall.rank} of ${server.overall.total} by total score`, criteria: pctCriteria(overall.max, "every ranked player") });
   }
 
   for (const [id, standing] of Object.entries(server.groups)) {
     const t = pctTier(standing);
     if (t) {
       const g = cladeGroup(id);
-      out.push({ id: `pct-${id}`, icon: g.icon, label: `${t.label} · ${g.label}`, tier: t.tier, desc: `Rank ${standing.rank} of ${standing.total} in ${g.label}` });
+      out.push({ id: `pct-${id}`, icon: g.icon, label: `${t.label} · ${g.label}`, tier: t.tier, desc: `Rank ${standing.rank} of ${standing.total} in ${g.label}`, criteria: pctCriteria(t.max, `everyone who has played a ${g.label} daily`) });
     }
   }
 
@@ -262,7 +317,11 @@ export function competitiveBadges(server: PlayerBadges | null): Badge[] {
  *  dates attached. Empty until the first overall win. */
 export function overallBadges(server: { daily_wins: number; win_dates: string[] } | null): Badge[] {
   if (!server) return [];
-  const b = champBadge("champ-overall", "👑", "overall daily champion", "overall daily", server.daily_wins, server.win_dates, fmtDay);
+  const b = champBadge(
+    "champ-overall", "👑", "overall daily champion", "overall daily",
+    server.daily_wins, server.win_dates, fmtDay,
+    `Awarded for topping the combined daily board: each game's score scaled against that day's best, averaged over all three. Finished days with at least ${MIN_DAY_PLAYERS} players only.`
+  );
   return b ? [b] : [];
 }
 

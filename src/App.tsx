@@ -4,11 +4,12 @@ import { loadRichTree } from "./data/loadTaxonomy";
 import { informedPar, type Tree } from "./core";
 import { groupOf } from "./data/clades";
 import { useStats } from "./hooks/useStats";
+import { useFieldStats } from "./hooks/useFieldStats";
 import { usePlayer } from "./hooks/usePlayer";
-import { recordGame, fetchPlayerBadges, recordGridGame, recordBranchesGame } from "./data/games";
+import { recordGame, recordGridGame, recordBranchesGame, fetchGameBadges, fetchOverallBadges, type GameId } from "./data/games";
 import { enqueuePendingSubmit, loadPendingSubmits, clearPendingSubmits } from "./data/pendingSubmits";
 import { catchUpCounts, countPlay } from "./data/playCount";
-import { newDailyWins } from "./data/badges";
+import { newDailyWins, type WinSource } from "./data/badges";
 import { todayKey, dailyNumber, dailyLabel, isPreLaunch } from "./core/daily";
 import { dailyAnswerFor, resolveDailyRules } from "./data/dailySchedule";
 import { loadStore } from "./data/stats";
@@ -16,7 +17,9 @@ import { loadDailyProgress } from "./data/dailyProgress";
 import { loadGridProgress } from "./data/gridProgress";
 import { loadBranchesProgress } from "./data/branchesProgress";
 import { branchesBoardFor } from "./data/branchesDaily";
-import { primePinnedPuzzles, pinnedPuzzleCached } from "./data/pinnedPuzzles";
+import { branchesAllowance, KINSHIP_FREE_REVEALS } from "./data/score";
+import { branchesTally } from "./hooks/useBranchesGame";
+import { primePinnedPuzzles, pinnedPuzzleCached, fetchPinnedPuzzle, branchesBoard as rebuildBranchesBoard } from "./data/pinnedPuzzles";
 import { SettingsPanel } from "./ui/SettingsPanel";
 import { GuessInput } from "./ui/GuessInput";
 import { ResultCard } from "./ui/ResultCard";
@@ -26,6 +29,7 @@ import { LeaderboardNudge } from "./ui/LeaderboardNudge";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import { DiscussionPanel } from "./ui/DiscussionPanel";
 import { AccountPanel } from "./ui/AccountPanel";
+import { StatsTabs } from "./ui/StatsTabs";
 import { AboutPanel } from "./ui/AboutPanel";
 import { AdminPanel } from "./ui/AdminPanel";
 import { GridGame } from "./ui/GridGame";
@@ -59,6 +63,27 @@ const isAdminHash = (h: string) => h === ADMIN_HASH || (import.meta.env.DEV && h
  *  so the banner disappears at a rollover rather than mid-session. Shipped
  *  2026-08-03; nothing to remove afterwards. */
 const DISCUSSION_BANNER_UNTIL = "2026-08-11";
+
+const WIN_GAME_LABEL: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches" };
+
+/** The celebration line for one source's newly-seen wins. Topping the combined
+ *  board beats topping any single game, so it says so in its own words (and gets
+ *  the 🏆 and the brighter banner); the three games share one wording, named. */
+function winBannerText(source: WinSource, dates: string[]) {
+  if (source === "overall") {
+    return dates.length === 1 ? (
+      <>You topped the combined board across all three games: <b>№{dailyNumber(dates[0])}</b> ({dates[0]}). Overall champion badge earned.</>
+    ) : (
+      <>You topped <b>{dates.length}</b> recent combined boards, across all three games. Overall champion badge earned.</>
+    );
+  }
+  const label = WIN_GAME_LABEL[source];
+  return dates.length === 1 ? (
+    <>You topped the <b>{label}</b> daily: <b>№{dailyNumber(dates[0])}</b> ({dates[0]}). Daily-winner badge earned.</>
+  ) : (
+    <>You topped <b>{dates.length}</b> recent <b>{label}</b> dailies. Daily-winner badge earned.</>
+  );
+}
 
 export default function App() {
   const player = usePlayer();
@@ -98,7 +123,10 @@ export default function App() {
     },
     [tree, answerIdFor]
   );
-  const { stats, record, recordKinship, recordBranches } = useStats(userId, dailyGroupOf);
+  const { stats, store, record, recordKinship, recordBranches } = useStats(userId, dailyGroupOf);
+  // How this player scored against the field on the days they scored (public
+  // per-day averages; null when there is no backend or field.sql has not run).
+  const field = useFieldStats(store);
 
   // Whether this device has played each of today's games (signed in or not) —
   // today's leaderboards are hidden until the viewer has played that game.
@@ -119,7 +147,7 @@ export default function App() {
     primePinnedPuzzles("lineage", [...dates]).then((added) => { if (live && added) setPinEpoch((v) => v + 1); });
     return () => { live = false; };
   }, [tree, stats]);
-  const [view, setView] = useState<"home" | "lineage" | "kinship" | "branches" | "leaderboard" | "account" | "about">("home");
+  const [view, setView] = useState<"home" | "lineage" | "kinship" | "branches" | "leaderboard" | "stats" | "account" | "about">("home");
   // Kinship/Branches generate boards from the RICH tree (base + a quality-filtered
   // augment). It's lazy-loaded the first time either tab opens — a separate chunk —
   // so the initial page and Lineage never download it. Falls back to the base tree
@@ -152,18 +180,36 @@ export default function App() {
     }
     const kp = loadGridProgress();
     if (kp && kp.date === t && kp.status !== "playing" && !stats.kinship.playedDates.includes(t)) {
-      recordKinship({ status: kp.status === "won" ? "won" : "lost", mistakes: kp.mistakes, tier, reveals: kp.revealed?.length ?? 0 });
+      // paidReveals is tracked live (the free budget is order-dependent), so take the
+      // saved count rather than letting the entry fall back to the legacy estimate.
+      recordKinship({
+        status: kp.status === "won" ? "won" : "lost",
+        mistakes: kp.mistakes,
+        tier,
+        reveals: kp.revealed?.length ?? 0,
+        paidReveals: kp.paidReveals ?? Math.max(0, (kp.revealed?.length ?? 0) - (KINSHIP_FREE_REVEALS + kp.solved.length)),
+      });
     }
-    // Branches needs the rich tree/board to score placements; runs once that's loaded.
+    // Branches needs the board to score placements, and the PINNED board is what was
+    // played whenever it differs from the freshly generated one (useBranchesGame does
+    // the same), so the pin has to be resolved before the slots can be graded.
+    let live = true;
     const bp = loadBranchesProgress();
     if (richTree && bp && bp.date === t && bp.status === "done" && !stats.branches.playedDates.includes(t)) {
-      const board = branchesBoardFor(richTree, t);
-      if (board) {
-        const total = board.slotIds.length;
-        const correct = board.slotIds.filter((s) => bp.placements[s] === s).length;
-        recordBranches({ won: correct === total, correct, total, hinted: bp.hints.length, peeked: (bp.peeked ?? []).length, mistakes: bp.mistakes ?? 0, tier });
-      }
+      void fetchPinnedPuzzle("branches", t).then((p) => {
+        if (!live) return;
+        const board = (p ? rebuildBranchesBoard(t, p) : null) ?? branchesBoardFor(richTree, t);
+        if (!board) return;
+        // Score it exactly as the live game does: help is charged per correct slot,
+        // and full-article reads carry the same half point as a peek.
+        const r = branchesTally(board, bp.placements, bp.hints, bp.peeked ?? [], bp.reads ?? []);
+        const mistakes = bp.mistakes ?? 0;
+        // A win is every slot placed AND within the day's mistake budget.
+        const won = r.correct === r.total && mistakes <= branchesAllowance(board.tier);
+        recordBranches({ won, ...r, mistakes, tier: board.tier });
+      });
     }
+    return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tree, richTree, stats.daily.playedDates, stats.kinship.playedDates, stats.branches.playedDates, record, recordKinship, recordBranches]);
   // A section id for the About page to scroll to — set when a game page's
@@ -181,8 +227,10 @@ export default function App() {
   // normalised into one daily total).
   const [lbGame, setLbGame] = useState<"combined" | "lineage" | "kinship" | "branches">("combined");
   // Daily-winner celebration: on sign-in, fetch the player's recent winning days
-  // and surface any not yet shown on this device (see newDailyWins for baseline).
-  const [winNudge, setWinNudge] = useState<string[]>([]);
+  // for every game AND the combined board, and surface any not yet shown on this
+  // device (see newDailyWins for the per-source baseline). One banner per source,
+  // so a day that swept two games says so twice.
+  const [winNudge, setWinNudge] = useState<{ source: WinSource; dates: string[] }[]>([]);
   const [hash, setHash] = useState(() => window.location.hash);
 
   useEffect(() => {
@@ -303,11 +351,25 @@ export default function App() {
   useEffect(() => {
     if (!player.session) { setWinNudge([]); return; }
     let live = true;
-    fetchPlayerBadges().then((b) => {
-      if (!live || !b) return;
-      const fresh = newDailyWins(b.win_dates ?? []);
+    void (async () => {
+      // All four sources at once: each of the three games, plus the combined board.
+      const [overall, lineage, kinship, branches] = await Promise.all([
+        fetchOverallBadges(),
+        fetchGameBadges("lineage"),
+        fetchGameBadges("kinship"),
+        fetchGameBadges("branches"),
+      ]);
+      if (!live) return;
+      const fetched: [WinSource, { win_dates?: string[] } | null][] =
+        [["overall", overall], ["lineage", lineage], ["kinship", kinship], ["branches", branches]];
+      const fresh = fetched
+        // A null result is a failed/missing RPC, not "no wins" — skip it, or
+        // newDailyWins would baseline that source as empty (see its doc comment).
+        .filter(([, b]) => b !== null)
+        .map(([source, b]) => ({ source, dates: newDailyWins(source, b!.win_dates ?? []) }))
+        .filter((n) => n.dates.length > 0);
       if (fresh.length) setWinNudge(fresh);
-    });
+    })();
     return () => { live = false; };
   }, [player.session]);
 
@@ -364,6 +426,7 @@ export default function App() {
     view === "kinship" ? `Kinship · ${dailyLabel(today)}` :
     view === "branches" ? `Branches · ${dailyLabel(today)}` :
     view === "leaderboard" ? "Leaderboard" :
+    view === "stats" ? "Your stats" :
     view === "account" ? "Your account" :
     view === "about" ? "About Grebe" :
     daily ? `Lineage · ${dailyLabel(today)}` : "Lineage · free play";
@@ -603,9 +666,9 @@ export default function App() {
       )}
 
       <nav className="topnav" role="tablist" aria-label="Sections">
-        {(["home", "lineage", "kinship", "branches", "leaderboard", "account", "about"] as const).map((v) => {
+        {(["home", "lineage", "kinship", "branches", "leaderboard", "stats", "account", "about"] as const).map((v) => {
           if (v === "account" && !player.configured) return null;
-          const labels = { home: "Home", lineage: "Lineage", kinship: "Kinship", branches: "Branches", leaderboard: "Leaderboard", account: "Account", about: "About" };
+          const labels = { home: "Home", lineage: "Lineage", kinship: "Kinship", branches: "Branches", leaderboard: "Leaderboard", stats: "Stats", account: "Account", about: "About" };
           return (
             <button
               key={v}
@@ -620,17 +683,19 @@ export default function App() {
         })}
       </nav>
 
-      {winNudge.length > 0 && (
-        <div className="winbanner" role="status">
-          <span className="winbanner-ico" aria-hidden="true">👑</span>
-          <span className="winbanner-txt">
-            {winNudge.length === 1
-              ? <>You topped the daily: <b>№{dailyNumber(winNudge[0])}</b> ({winNudge[0]}). Daily-winner badge earned.</>
-              : <>You topped <b>{winNudge.length}</b> recent dailies. Daily-winner badge earned.</>}
-          </span>
-          <button className="winbanner-x" onClick={() => setWinNudge([])} aria-label="Dismiss">×</button>
+      {winNudge.map(({ source, dates }) => (
+        <div className={`winbanner${source === "overall" ? " is-overall" : ""}`} role="status" key={source}>
+          <span className="winbanner-ico" aria-hidden="true">{source === "overall" ? "🏆" : "👑"}</span>
+          <span className="winbanner-txt">{winBannerText(source, dates)}</span>
+          <button
+            className="winbanner-x"
+            onClick={() => setWinNudge((n) => n.filter((x) => x.source !== source))}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
         </div>
-      )}
+      ))}
 
       {view === "home" && <HomePanel onPlay={(v) => setView(v)} />}
       {view === "lineage" && <div className="gameview" data-game="lineage">{play}</div>}
@@ -698,7 +763,8 @@ export default function App() {
           )}
         </>
       )}
-      {view === "account" && <AccountPanel stats={stats} player={player} />}
+      {view === "stats" && <StatsTabs stats={stats} field={field} player={player} />}
+      {view === "account" && <AccountPanel player={player} />}
       {view === "about" && <AboutPanel focus={aboutFocus} />}
     </div>
   );
