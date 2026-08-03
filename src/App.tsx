@@ -503,15 +503,20 @@ export default function App() {
       {/* Guess bar sits at the bottom, under the tree, and sticks to the viewport
           so it stays reachable as the tree grows above it. */}
       <div className="playbar">
-        <GuessInput
-          tree={g.tree}
-          config={g.config}
-          disabled={roundOver}
-          onSubmit={g.submit}
-          onOutOfSetGuess={g.submitGraft}
-          focusCladeId={g.assist ? g.focusCladeId : null}
-          guesses={g.guesses}
-        />
+        {/* Gone once the round is over, rather than sitting there disabled: there
+            is nothing left to guess, and it strands an inert box under the
+            result, share and discussion blocks. */}
+        {!roundOver && (
+          <GuessInput
+            tree={g.tree}
+            config={g.config}
+            disabled={roundOver}
+            onSubmit={g.submit}
+            onOutOfSetGuess={g.submitGraft}
+            focusCladeId={g.assist ? g.focusCladeId : null}
+            guesses={g.guesses}
+          />
+        )}
         <div className="errline">{g.error}</div>
 
         <div className="subactions">

@@ -40,6 +40,10 @@ interface Cand {
 
 const label = (c: Cand) => (c.common ? `${c.common} (${c.sci})` : c.sci);
 
+/** Out-of-set suggestions top a thin result list up to this many rows. In-set
+ *  matches themselves are never capped. */
+const OOS_TOPUP_TO = 8;
+
 export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses }: Props) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
@@ -135,11 +139,21 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
       ...arr.filter((c) => !exact(c) && c.kind === "group"),
       ...arr.filter((c) => !exact(c) && c.kind === "species"),
     ];
-    const inSet = [...order(pre), ...order(sub)].slice(0, 8);
-    // Out-of-set organisms (fetched async into oosHits) fill any remaining slots,
-    // always BELOW in-set matches — guessable answers are preferred. They graft in
-    // as informative probes when chosen.
-    if (inSet.length < 8) {
+    // NOT capped. This used to slice to 8, which silently threw matches away: "frog"
+    // hits enough clades that groups filled every slot and no frog SPECIES appeared
+    // at all. The dropdown scrolls (.gs-list bounds its height and overflows) and the
+    // empty-box browse list below has always rendered the whole scope uncapped, so
+    // there is nothing a cap here protects — it only hid results.
+    const inSet = [...order(pre), ...order(sub)];
+    // Out-of-set organisms (fetched async into oosHits) top the list up to
+    // OOS_TOPUP_TO, always BELOW in-set matches — guessable answers are preferred.
+    // They graft in as informative probes when chosen.
+    //
+    // This bound survived removing the in-set cap because it is a RELEVANCE
+    // threshold, not a display one: the long tail is worth offering when a query
+    // barely matches anything playable, and worth staying out of the way when it
+    // matches plenty. oosHits is separately bounded by its fetch (12).
+    if (inSet.length < OOS_TOPUP_TO) {
       const seenName = new Set(inSet.map((c) => (c.common ?? c.sci).toLowerCase()));
       // An out-of-set organism is in play iff its shipped connection point (the
       // last lineage entry) is at or below the current search root — the scope
@@ -151,7 +165,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
         return !!conn && (conn === searchRoot || isAncestor(tree, searchRoot, conn));
       };
       for (const h of oosHits) {
-        if (inSet.length >= 8) break;
+        if (inSet.length >= OOS_TOPUP_TO) break;
         if (!inScope(h)) continue;
         const nm = (h.common ?? h.sci).toLowerCase();
         if (seenName.has(nm)) continue;
