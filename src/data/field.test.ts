@@ -20,11 +20,11 @@ describe("vs-field comparison", () => {
     // 120 vs a field of 100 (+20%), then 90 vs 100 (−10%) → mean ratio 1.05.
     const s = store({ history: { [D1]: day(120), [D2]: day(90) } });
     const f = deriveField(s, [avg("lineage", D1, 100), avg("lineage", D2, 100)]);
-    expect(f.byGame.lineage).toEqual({ pct: 5, days: 2 });
+    expect(f.byGame.lineage).toEqual({ pct: 5, games: 2 });
     // A big day and a small day count the same, since the ratio divides the weight out.
     const s2 = store({ history: { [D1]: day(240), [D2]: day(45) } });
     const f2 = deriveField(s2, [avg("lineage", D1, 200), avg("lineage", D2, 50)]);
-    expect(f2.byGame.lineage).toEqual({ pct: 5, days: 2 });
+    expect(f2.byGame.lineage).toEqual({ pct: 5, games: 2 });
   });
 
   it("counts a day you failed as the zero it scored", () => {
@@ -36,7 +36,7 @@ describe("vs-field comparison", () => {
     });
     const f = deriveField(s, [avg("lineage", D1, 100), avg("lineage", D2, 100)]);
     // (1.5 + 0) / 2 = 0.75 → −25%. Both days counted.
-    expect(f.byGame.lineage).toEqual({ pct: -25, days: 2 });
+    expect(f.byGame.lineage).toEqual({ pct: -25, games: 2 });
   });
 
   it("skips days with too thin a field to compare against", () => {
@@ -45,7 +45,7 @@ describe("vs-field comparison", () => {
       avg("lineage", D1, 100),
       avg("lineage", D2, 200, MIN_FIELD_PLAYERS - 1), // one short of a field
     ]);
-    expect(f.byGame.lineage).toEqual({ pct: 0, days: 1 });
+    expect(f.byGame.lineage).toEqual({ pct: 0, games: 1 });
   });
 
   it("pools every game into overall, weighted by days played", () => {
@@ -59,7 +59,7 @@ describe("vs-field comparison", () => {
     expect(f.byGame.lineage?.pct).toBe(50);
     expect(f.byGame.kinship?.pct).toBe(-50);
     // Three days pooled: (1.5 + 1.5 + 0.5) / 3 = 1.167 → +17%.
-    expect(f.overall).toEqual({ pct: 17, days: 3 });
+    expect(f.overall).toEqual({ pct: 17, games: 3 });
     expect(f.byGame.branches).toBeNull();
   });
 
@@ -74,8 +74,8 @@ describe("vs-field comparison", () => {
       avg("lineage", D1, 100), avg("lineage", D2, 100), avg("lineage", D3, 100),
       avg("lineage", "2026-08-04", 100), avg("lineage", "2026-08-05", 100), avg("lineage", "2026-08-06", 100),
     ]);
-    expect(f.byClade.birds).toEqual({ pct: 40, days: 3 });
-    expect(f.byClade.plants).toEqual({ pct: -10, days: 3 });
+    expect(f.byClade.birds).toEqual({ pct: 40, games: 3 });
+    expect(f.byClade.plants).toEqual({ pct: -10, games: 3 });
     expect(f.bestCladeId).toBe("birds");
   });
 
@@ -89,14 +89,14 @@ describe("vs-field comparison", () => {
     const f = deriveField(s, [
       avg("lineage", D1, 100), avg("lineage", D2, 100), avg("lineage", D3, 100), avg("lineage", "2026-08-04", 100),
     ]);
-    expect(f.byClade.fish).toEqual({ pct: 200, days: 1 }); // still reported…
+    expect(f.byClade.fish).toEqual({ pct: 200, games: 1 }); // still reported…
     expect(f.bestCladeId).toBe("birds");                   // …but not the "best"
   });
 
   it("drops pre-launch days", () => {
     const s = store({ history: { "2026-07-20": day(300), [D1]: day(100) } });
     const f = deriveField(s, [avg("lineage", "2026-07-20", 100), avg("lineage", D1, 100)]);
-    expect(f.byGame.lineage).toEqual({ pct: 0, days: 1 });
+    expect(f.byGame.lineage).toEqual({ pct: 0, games: 1 });
   });
 
   it("is null with no field data at all", () => {

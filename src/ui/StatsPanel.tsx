@@ -141,7 +141,7 @@ function GroupBars({ groups, metric, strengthId, field }: {
               <>
                 <span className={`clade-pct ${fieldClass(f?.pct ?? 0)}`}>{f ? fmtFieldPct(f.pct) : "—"}</span>
                 <span className="clade-meta">
-                  {f ? `${f.days} ${f.days === 1 ? "day" : "days"} compared` : "no field yet"}
+                  {f ? `${f.games} ${f.games === 1 ? "game" : "games"}` : "no field"}
                 </span>
               </>
             ) : (
@@ -162,12 +162,17 @@ const fieldClass = (pct: number) => `vs-field${pct > 0 ? " is-up" : pct < 0 ? " 
 
 /** The vs-field tile: how this player scored against everyone who played, over the
  *  days they played. Absent (not zero) when there's no field data to compare to. */
-function FieldTile({ stat, label = "Vs field" }: { stat: FieldStat | null; label?: string }) {
+function FieldTile({ stat, played, label = "Vs field" }: { stat: FieldStat | null; played: number; label?: string }) {
   if (!stat) return null;
+  // No count normally: the Played tile sits right beside this one and says the same
+  // thing. It's printed only when the two DIFFER, which happens when a day's field
+  // was too thin to compare — otherwise the figure would silently cover fewer games
+  // than the tile next door implies.
+  const skipped = stat.games < played;
   return (
     <div className="stat">
       <b className={fieldClass(stat.pct)}>{fmtFieldPct(stat.pct)}</b>
-      <span>{label} · {stat.days} {stat.days === 1 ? "day" : "days"}</span>
+      <span>{label}{skipped ? ` · ${stat.games} of ${played}` : ""}</span>
     </div>
   );
 }
@@ -209,7 +214,7 @@ function DailyNums({ s, flawless, field }: {
     <div className="stats-nums">
       <div className="stat"><b>{s.points.total}</b><span>Total points</span></div>
       <div className="stat"><b>{s.points.avg}</b><span>Avg / game</span></div>
-      <FieldTile stat={field ?? null} />
+      <FieldTile stat={field ?? null} played={s.played} />
       <div className="stat"><b>{s.points.best}</b><span>Best game</span></div>
       <div className="stat"><b>{s.currentStreak}</b><span>Streak</span></div>
       <div className="stat"><b>{s.maxStreak}</b><span>Max streak</span></div>
@@ -254,7 +259,7 @@ function BestClade({ daily, field }: { daily: DerivedStats["daily"]; field: Fiel
   const most = [...daily.groups].sort((a, b) => b.played - a.played)[0];
   return (
     <p className="stats-strength">
-      No strongest clade yet
+      No strongest clade yet.
       <span className="stats-strength-note">
         {" "}It needs {STRENGTH_MIN_GAMES} dailies in one clade
         {most ? `; your most played is ${most.label} with ${most.played}.` : "."}
@@ -281,7 +286,7 @@ export function OverallStatsPanel({ stats, field }: { stats: DerivedStats; field
         <div className="stats-nums">
           <div className="stat"><b>{points}</b><span>Total points</span></div>
           <div className="stat"><b>{played}</b><span>Played · {Math.round((wins / played) * 100)}% won</span></div>
-          <FieldTile stat={field?.overall ?? null} />
+          <FieldTile stat={field?.overall ?? null} played={played} />
           <div className="stat"><b>{stats.daily.currentStreak}</b><span>Lineage streak</span></div>
           <div className="stat"><b>{stats.kinship.currentStreak}</b><span>Kinship streak</span></div>
           <div className="stat"><b>{stats.branches.currentStreak}</b><span>Branches streak</span></div>

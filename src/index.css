@@ -1125,6 +1125,31 @@ button.pin-cell:hover { outline: 1px solid var(--brass); outline-offset: 1px; }
 /* The qualifier behind a "strongest clade" line: what it measures, and why a
    higher-average clade can be skipped. */
 .stats-strength-note { font-style: normal; font-size: 12px; color: var(--ink-faint); }
+
+/* ---- Stats on a phone ----
+   The desktop layout leans on wide fixed columns and on tiles flowing in a row.
+   Under ~480px the clade grid is wider than the panel, so its last column clipped
+   at the edge, and the tiles wrapped ragged (two, then three, then two). */
+@media (max-width: 480px) {
+  /* Tiles on a fixed track instead of flex-wrapping: three even columns that line
+     up row to row, whether a panel has five tiles or seven. */
+  .stats-nums {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+    gap: 14px 10px;
+  }
+  .stat b { font-size: 26px; }
+
+  /* Narrower fixed columns so the row fits, and a name cell allowed to shrink.
+     Nothing is dropped: the meta wraps to a second line rather than clipping. */
+  .clade-row { grid-template-columns: 18px 1fr 44px 42px 74px; gap: 6px; }
+  .clade-name { min-width: 0; font-size: 13px; }
+  .clade-meta { font-size: 9px; line-height: 1.25; }
+
+  /* Four game pills read better as a 2×2 block than as three-then-one. Shared with
+     the leaderboard's switcher, which has the same four. */
+  .lb-gametabs { display: grid; grid-template-columns: 1fr 1fr; }
+  .lb-gametabs .lb-seg { text-align: center; }
+}
 /* Above or below the day's field average. Colour carries the sign, but the printed
    +/− carries it too, so it never depends on colour alone. */
 .vs-field.is-up { color: var(--brass-bright); }

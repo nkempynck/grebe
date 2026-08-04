@@ -31,8 +31,10 @@ export const MIN_FIELD_PLAYERS = 3;
 export interface FieldStat {
   /** Mean of (your points ÷ the day's average) − 1, as a signed percentage. */
   pct: number;
-  /** How many of your days went into it. */
-  days: number;
+  /** How many of YOUR GAMES went into it. Per game or per clade that's a count of
+   *  days, but the overall figure pools all three games, where 14 days is 42 games —
+   *  so the unit is games, and the label has to say games. */
+  games: number;
 }
 
 export interface FieldStats {
@@ -53,7 +55,7 @@ export const MIN_CLADE_DAYS = 3;
 
 const mean = (xs: number[]) => xs.reduce((s, x) => s + x, 0) / xs.length;
 const statOf = (ratios: number[]): FieldStat | null =>
-  ratios.length ? { pct: Math.round((mean(ratios) - 1) * 100), days: ratios.length } : null;
+  ratios.length ? { pct: Math.round((mean(ratios) - 1) * 100), games: ratios.length } : null;
 
 /** Index the averages by game and day for lookup. */
 function indexAverages(averages: DayAverage[]): Record<string, number> {
@@ -105,7 +107,7 @@ export function deriveField(store: StatsStore, averages: DayAverage[]): FieldSta
   let bestCladeId: string | null = null;
   let bestPct = -Infinity;
   for (const [gid, s] of Object.entries(byClade)) {
-    if (s.days >= MIN_CLADE_DAYS && s.pct > bestPct) { bestPct = s.pct; bestCladeId = gid; }
+    if (s.games >= MIN_CLADE_DAYS && s.pct > bestPct) { bestPct = s.pct; bestCladeId = gid; }
   }
 
   // Overall pools every day from every game, so it's weighted by how much you play
