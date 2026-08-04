@@ -17,6 +17,9 @@ import {
   saveStore,
   clearStore,
   isEmptyStore,
+  statsOwner,
+  setStatsOwner,
+  localStoreTrusted,
   type DailyEntry,
   type KinshipEntry,
   type BranchesEntry,
@@ -24,6 +27,7 @@ import {
   type DerivedStats,
   type StatsStore,
 } from "../data/stats";
+import { consumeDeliberateSignOut } from "../data/signOutIntent";
 
 // A record made while the cloud pull was still in flight, replayed once it lands.
 type PendingRecord =
@@ -71,9 +75,13 @@ export function useStats(userId: string | null, groupForDate?: DailyGroupResolve
     prevUserId.current = userId;
     if (!userId) {
       synced.current = true; // local-only: no cloud to race, push is a no-op
-      // Signing out clears the device (data is safe in the cloud); an anonymous
-      // first load keeps whatever local progress is there.
-      setStore(wasSignedIn ? clearStore() : loadStore());
+      // Only a DELIBERATE sign-out clears the device (that data is safe in the
+      // cloud, and the next account here must not inherit it). A session that just
+      // vanished — a failed token refresh, a revoked session — leaves the store
+      // alone: an infrastructure hiccup shouldn't empty a player's stats page.
+      // An anonymous first load keeps whatever local progress is there.
+      const deliberate = wasSignedIn && consumeDeliberateSignOut();
+      setStore(deliberate ? clearStore() : loadStore());
       return;
     }
     synced.current = false;
@@ -92,7 +100,10 @@ export function useStats(userId: string | null, groupForDate?: DailyGroupResolve
         //  2. Records made DURING the in-flight cloud pull (pending.current).
         // Cloud wins on any date collision, so nothing already-synced is rewritten.
         base = cloud;
-        const carried = mergeMissingDailies(base, loadStore());
+        // Fold in the local store only if it's THIS player's or nobody's (played
+        // anonymously). A store left behind by another account after a dropped
+        // session must not merge into this one — see statsOwner.
+        const carried = localStoreTrusted(statsOwner(), userId) ? mergeMissingDailies(base, loadStore()) : 0;
         for (const p of pending.current) {
           if (p.kind === "kinship") base = applyKinship(base, p.date, p.entry);
           else if (p.kind === "branches") base = applyBranches(base, p.date, p.entry);
@@ -102,12 +113,17 @@ export function useStats(userId: string | null, groupForDate?: DailyGroupResolve
         needsPush = carried > 0 || pending.current.length > 0;
       } else {
         // No cloud yet — seed it from local (which already includes any window
-        // records, since those were saved locally as they happened).
-        base = loadStore();
+        // records, since those were saved locally as they happened). This is how
+        // playing before you register carries into a first account. Same owner
+        // check: a fresh account doesn't adopt a store another player left here.
+        base = localStoreTrusted(statsOwner(), userId) ? loadStore() : clearStore();
         needsPush = true;
       }
       pending.current = [];
       saveStore(base);
+      // This device's store now belongs to this player, so a later sign-in by
+      // somebody else can tell it apart from an anonymous one.
+      setStatsOwner(userId);
       setStore(base);
       synced.current = true;
       if (needsPush) void pushCloudStats(base);

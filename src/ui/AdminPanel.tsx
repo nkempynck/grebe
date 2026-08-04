@@ -30,6 +30,7 @@ import {
   type DayPlan,
 } from "../data/dailyPlan";
 import { isSupabaseConfigured, supabase } from "../data/supabase";
+import { markDeliberateSignOut } from "../data/signOutIntent";
 import { fetchDailyActivity, fetchDailyPlays, type ActivityRow, type PlayCountRow } from "../data/games";
 import { PLAY_COUNT_SINCE, PLAY_DEDUPE_SINCE } from "../data/playCount";
 import {
@@ -1125,7 +1126,7 @@ export function AdminPanel({ tree }: { tree: Tree }) {
             <span className="admin-live">● Live</span>
             <span>Changes publish instantly for everyone.</span>
             {session && (
-              <button className="linkbtn" onClick={() => supabase?.auth.signOut()}>
+              <button className="linkbtn" onClick={() => { markDeliberateSignOut(); void supabase?.auth.signOut(); }}>
                 Sign out ({fromEmail(session.user.email)})
               </button>
             )}

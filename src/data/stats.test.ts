@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   derive,
+  localStoreTrusted,
   mergeMissingDailies,
   type BranchesEntry,
   type DailyEntry,
@@ -39,6 +40,26 @@ describe("signed-out daily carries into the played-today gate on sign-in", () =>
     const local = store({ [TODAY]: gaveUp(9) }); // a different local result for the same day
     expect(mergeMissingDailies(cloud, local)).toBe(0);
     expect(cloud.history[TODAY]).toBe(cloudToday); // untouched
+  });
+});
+
+// Whose stats may a signing-in account absorb? A deliberate sign-out wipes the
+// device, but a session that merely vanishes leaves the store in place (losing a
+// session shouldn't cost a player their stats), so the device can hold one
+// player's dailies while somebody else signs in next.
+describe("local store ownership", () => {
+  const A = "user-a", B = "user-b";
+
+  it("carries anonymous play into a first account", () => {
+    expect(localStoreTrusted(null, A)).toBe(true);
+  });
+
+  it("gives a player their own store back after a dropped session", () => {
+    expect(localStoreTrusted(A, A)).toBe(true);
+  });
+
+  it("refuses a store left behind by another account", () => {
+    expect(localStoreTrusted(A, B)).toBe(false);
   });
 });
 

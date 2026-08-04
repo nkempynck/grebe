@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "../data/supabase";
+import { markDeliberateSignOut } from "../data/signOutIntent";
 
 export interface UsePlayer {
   /** Whether sync is even possible (Supabase configured). */
@@ -175,6 +176,9 @@ export function usePlayer(): UsePlayer {
   }, []);
 
   const signOut = useCallback(() => {
+    // Flagged as intentional so useStats clears this device. Without the flag it
+    // treats a vanished session as a hiccup and keeps the local stats.
+    markDeliberateSignOut();
     void supabase?.auth.signOut();
   }, []);
 

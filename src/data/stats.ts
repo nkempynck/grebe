@@ -253,7 +253,45 @@ export function saveStore(store: StatsStore): void {
 export function clearStore(): StatsStore {
   const empty = emptyStore();
   saveStore(empty);
+  setStatsOwner(null);
   return empty;
+}
+
+const OWNER_KEY = "grebe.statsOwner";
+
+/** Which signed-in player this device's store belongs to, if any. Absent means
+ *  nobody owns it — the anonymous case — and an unowned store is trusted, so
+ *  playing before you register still carries into your first account.
+ *
+ *  A DELIBERATE sign-out wipes the device, leaving nothing to own. A session that
+ *  merely vanishes (failed refresh, revoked token) now leaves the store in place,
+ *  since losing a session shouldn't cost a player their stats. That's what makes
+ *  this necessary: the device can then hold one player's dailies while a different
+ *  account signs in next, and mergeMissingDailies() would otherwise fold them into
+ *  the newcomer's stats. */
+export function statsOwner(): string | null {
+  try {
+    return localStorage.getItem(OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** May this device's local store be folded into the account now signing in?
+ *  Unowned means anonymous play, which is exactly what SHOULD carry into a first
+ *  account; the same owner is the player returning after a dropped session. Only a
+ *  store belonging to somebody else is refused. */
+export function localStoreTrusted(owner: string | null, userId: string): boolean {
+  return owner === null || owner === userId;
+}
+
+export function setStatsOwner(userId: string | null): void {
+  try {
+    if (userId) localStorage.setItem(OWNER_KEY, userId);
+    else localStorage.removeItem(OWNER_KEY);
+  } catch {
+    /* storage blocked — nothing to guard, since nothing persisted either */
+  }
 }
 
 /** Coerce an untrusted blob (e.g. from the DB) into a valid v4 store. */
