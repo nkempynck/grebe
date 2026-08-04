@@ -44,6 +44,34 @@
         if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
       } catch (e) {}
     </script>
+    <script>
+      // Recover from a deploy that happened while this page was open or cached.
+      // index.html names hashed bundles; a deploy replaces them, and the old paths
+      // are gone. Cloudflare Pages answers a missing /assets/* with index.html
+      // (200, text/html), so the module script fails its MIME check and nothing
+      // renders — a blank page that a plain reload doesn't always clear.
+      // A failed script or stylesheet fires an error event on its element, which
+      // doesn't bubble, so this listens in the capture phase. One reload is enough
+      // (index.html is no-cache, so it comes back fresh); the sessionStorage flag
+      // makes a loop impossible if the reload fails for some other reason.
+      window.addEventListener(
+        "error",
+        function (e) {
+          var el = e.target;
+          if (!el || (el.tagName !== "SCRIPT" && el.tagName !== "LINK")) return;
+          // Only OUR hashed bundles. Turnstile's script failing (blocked, offline)
+          // is not a stale deploy and must not trigger a reload.
+          var url = el.src || el.href || "";
+          if (url.lastIndexOf(location.origin + "/assets/", 0) !== 0) return;
+          try {
+            if (sessionStorage.getItem("grebe.assetReload")) return;
+            sessionStorage.setItem("grebe.assetReload", "1");
+          } catch (err) {}
+          location.reload();
+        },
+        true
+      );
+    </script>
   </head>
   <body>
     <div id="root"></div>
