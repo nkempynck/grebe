@@ -41,6 +41,12 @@
 /index.html
   Cache-Control: no-cache
 
+# Build identity, rewritten by every deploy and polled by open tabs so they can
+# reload themselves onto a new version (src/data/versionCheck.ts). A cached copy
+# would mean a tab never sees the change, which is the whole point of the file.
+/version.json
+  Cache-Control: no-cache
+
 # Hashed build assets. The filename carries a content hash, so a URL's bytes never
 # change and it would be safe to cache for a year — but a header rule matches a
 # PATH, not a response, so an error served under /assets/* inherits whatever is set

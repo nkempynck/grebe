@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import logoUrl from "../logo.png";
+import { startVersionCheck } from "./data/versionCheck";
 
 // Use the bundled logo as the browser-tab icon (favicon) — keeps a single copy
 // of the asset in the package, hashed and cache-busted like everything else.
@@ -28,6 +29,10 @@ window.addEventListener("vite:preloadError", () => {
   if (tries >= 3) return;
   window.setTimeout(() => window.location.reload(), tries === 0 ? 800 : 2000);
 });
+
+// Proactive half of the same problem: a tab that a deploy did NOT break still runs
+// the old bundle until something makes it reload. This notices and does.
+startVersionCheck();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -1,8 +1,28 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
+// Identifies this build. Baked into the bundle as __BUILD_ID__ and written to
+// dist/version.json, so a running tab can tell whether it is still the current
+// deploy (see src/data/versionCheck.ts). Only equality matters, never ordering.
+const BUILD_ID = Date.now().toString(36);
+
+/** Emits version.json at the site root next to index.html. */
+function buildIdManifest(): Plugin {
+  return {
+    name: "grebe-build-id",
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "version.json",
+        source: JSON.stringify({ buildId: BUILD_ID }),
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), buildIdManifest()],
+  define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
   build: {
     rollupOptions: {
       output: {
