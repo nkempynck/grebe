@@ -74,9 +74,9 @@ describe("vs-field comparison", () => {
       avg("lineage", D1, 100), avg("lineage", D2, 100), avg("lineage", D3, 100),
       avg("lineage", "2026-08-04", 100), avg("lineage", "2026-08-05", 100), avg("lineage", "2026-08-06", 100),
     ]);
-    expect(f.byClade.birds).toEqual({ pct: 40, games: 3 });
-    expect(f.byClade.plants).toEqual({ pct: -10, games: 3 });
-    expect(f.bestCladeId).toBe("birds");
+    expect(f.byClade.lineage.birds).toEqual({ pct: 40, games: 3 });
+    expect(f.byClade.lineage.plants).toEqual({ pct: -10, games: 3 });
+    expect(f.bestCladeId.lineage).toBe("birds");
   });
 
   it("won't call a barely-played clade your best", () => {
@@ -89,8 +89,37 @@ describe("vs-field comparison", () => {
     const f = deriveField(s, [
       avg("lineage", D1, 100), avg("lineage", D2, 100), avg("lineage", D3, 100), avg("lineage", "2026-08-04", 100),
     ]);
-    expect(f.byClade.fish).toEqual({ pct: 200, games: 1 }); // still reported…
-    expect(f.bestCladeId).toBe("birds");                   // …but not the "best"
+    expect(f.byClade.lineage.fish).toEqual({ pct: 200, games: 1 }); // still reported…
+    expect(f.bestCladeId.lineage).toBe("birds");           // …but not the "best"
+  });
+
+  // Each game gets its own clade split: a Kinship bird board is compared against the
+  // Kinship field on that day, and says nothing about Lineage birds.
+  it("splits every game by clade, each against its own field", () => {
+    const s = store({
+      history: { [D1]: day(150, "birds") },                                                        // Lineage birds +50%
+      kinship: { [D1]: { status: "won", mistakes: 0, tier: 1, points: 50, group: "birds" } },       // Kinship birds −50%
+      branches: { [D2]: { won: true, correct: 5, total: 5, hinted: 0, peeked: 0, mistakes: 0, tier: 1, points: 200, group: "fish" } },
+    });
+    const f = deriveField(s, [
+      avg("lineage", D1, 100), avg("kinship", D1, 100), avg("branches", D2, 100),
+    ]);
+    expect(f.byClade.lineage.birds).toEqual({ pct: 50, games: 1 });
+    expect(f.byClade.kinship.birds).toEqual({ pct: -50, games: 1 });
+    expect(f.byClade.branches.fish).toEqual({ pct: 100, games: 1 });
+    expect(f.byClade.branches.birds).toBeUndefined();
+  });
+
+  it("resolves the clade of a day recorded before groups were tagged", () => {
+    const s = store({
+      kinship: { [D1]: { status: "won", mistakes: 0, tier: 1, points: 150 } }, // no group on the entry
+    });
+    const f = deriveField(s, [avg("kinship", D1, 100)], { kinship: () => "insects" });
+    expect(f.byClade.kinship.insects).toEqual({ pct: 50, games: 1 });
+    // Without a resolver the day still counts for the game, just not for any clade.
+    const bare = deriveField(s, [avg("kinship", D1, 100)]);
+    expect(bare.byGame.kinship).toEqual({ pct: 50, games: 1 });
+    expect(bare.byClade.kinship).toEqual({});
   });
 
   it("drops pre-launch days", () => {
@@ -102,7 +131,7 @@ describe("vs-field comparison", () => {
   it("is null with no field data at all", () => {
     const f = deriveField(store({ history: { [D1]: day(100) } }), []);
     expect(f.overall).toBeNull();
-    expect(f.bestCladeId).toBeNull();
+    expect(f.bestCladeId).toEqual({ lineage: null, kinship: null, branches: null });
   });
 
   it("formats with an explicit sign", () => {

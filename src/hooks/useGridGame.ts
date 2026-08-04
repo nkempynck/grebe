@@ -6,6 +6,7 @@ import { gridBoardFor } from "../data/gridDaily";
 import { fetchPinnedPuzzle, kinshipBoard } from "../data/pinnedPuzzles";
 import { loadGridProgress, saveGridProgress } from "../data/gridProgress";
 import { markCountedElsewhere } from "../data/playCount";
+import { boardGroupOf } from "../data/clades";
 import { fetchTodayGrid } from "../data/games";
 import { KINSHIP_FREE_REVEALS } from "../data/score";
 
@@ -28,6 +29,10 @@ export interface GridComplete {
   paidReveals: number;
   tier: number;
   date: string;
+  /** The board's clade group (every board sits in exactly one), for per-clade stats.
+   *  Null only if the tree knows none of the board's ids, which can't happen for a
+   *  board this tree just built — it's the same null the history backfill uses. */
+  group: string | null;
 }
 
 /** Admin playtest override: force a difficulty tier and reshuffle via `nonce`.
@@ -159,6 +164,14 @@ export function useGridGame(
     return m;
   }, [board]);
   const levelOf = useCallback((id: string) => levelById.get(id) ?? 0, [levelById]);
+
+  // The board's clade group, reported with the result so the stats page can bucket
+  // the day. Group clade ids come first: they resolve in the base tree too, which is
+  // what the history backfill has to work with (see boardGroupOf).
+  const boardGroup = useMemo(
+    () => (tree && board ? boardGroupOf(tree, [...board.groups.map((g) => g.cladeId), ...board.tiles]) : null),
+    [tree, board]
+  );
 
   // (Re)initialise when the board changes, restoring a same-day attempt. A
   // playtest board is always fresh — it ignores (and never writes) saved progress.
@@ -307,7 +320,7 @@ export function useGridGame(
       if (nextSolved.length === GRID_GROUPS) {
         setStatus("won");
         // A playtest board is never recorded (it would corrupt real standings).
-        if (!devActive) onCompleteRef.current?.({ won: true, mistakes, reveals: revealed.length, paidReveals, tier: board.tier, date });
+        if (!devActive) onCompleteRef.current?.({ won: true, mistakes, reveals: revealed.length, paidReveals, tier: board.tier, date, group: boardGroup });
       } else if (board.tier > PRESHOW_MAX_TIER) {
         // Only announce it on days that actually have reveals (Thu+); Mon–Wed show
         // every tile free, so there's nothing to spend a free peek on.
@@ -320,11 +333,11 @@ export function useGridGame(
     if (nextMistakes >= GRID_MAX_MISTAKES) {
       setStatus("lost");
       setSelected([]);
-      if (!devActive) onCompleteRef.current?.({ won: false, mistakes: nextMistakes, reveals: revealed.length, paidReveals, tier: board.tier, date });
+      if (!devActive) onCompleteRef.current?.({ won: false, mistakes: nextMistakes, reveals: revealed.length, paidReveals, tier: board.tier, date, group: boardGroup });
     } else {
       flash(oneAway ? "One away…" : "Not a group");
     }
-  }, [board, status, selected, solved, mistakes, revealed, paidReveals, levelOf, flash, date, devActive]);
+  }, [board, status, selected, solved, mistakes, revealed, paidReveals, levelOf, flash, date, devActive, boardGroup]);
 
   return {
     board,

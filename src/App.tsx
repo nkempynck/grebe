@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGame } from "./hooks/useGame";
 import { loadRichTree } from "./data/loadTaxonomy";
 import { informedPar, type Tree } from "./core";
-import { groupOf } from "./data/clades";
+import { groupOf, boardGroupOf } from "./data/clades";
 import { useStats } from "./hooks/useStats";
 import { useFieldStats } from "./hooks/useFieldStats";
 import { usePlayer } from "./hooks/usePlayer";
@@ -113,6 +113,32 @@ export default function App() {
     },
     [tree, answerIdFor]
   );
+  // Kinship/Branches clade groups for days played before the group was tagged on the
+  // entry (see stats.ts cladeScores). Both read the day's PINNED board: those boards
+  // are generated from the rich tree, which the stats page doesn't load, but a board's
+  // GROUP CLADES (families, genera) sit in the base tree, and boardGroupOf takes the
+  // first id this tree knows. A day with no pin cached, or one built entirely of ids
+  // the base tree lacks, resolves to null and stays out of the bars.
+  const kinshipGroupOf = useCallback(
+    (dateKey: string): string | null => {
+      const pin = pinnedPuzzleCached("kinship", dateKey);
+      if (!tree || !pin) return null;
+      return boardGroupOf(tree, [...pin.groups.map((g) => g.cladeId), ...pin.tiles]);
+    },
+    [tree, pinEpoch]
+  );
+  const branchesGroupOf = useCallback(
+    (dateKey: string): string | null => {
+      const pin = pinnedPuzzleCached("branches", dateKey);
+      if (!tree || !pin) return null;
+      return boardGroupOf(tree, [pin.rootId, ...pin.groupIds, ...pin.leafIds]);
+    },
+    [tree, pinEpoch]
+  );
+  const groupResolvers = useMemo(
+    () => ({ lineage: dailyGroupOf, kinship: kinshipGroupOf, branches: branchesGroupOf }),
+    [dailyGroupOf, kinshipGroupOf, branchesGroupOf]
+  );
   // The answer species for a past date — shown on that day's leaderboard. Callers
   // only use it for finished days, never today's puzzle.
   const dailyAnswerOf = useCallback(
@@ -123,10 +149,10 @@ export default function App() {
     },
     [tree, answerIdFor]
   );
-  const { stats, store, record, recordKinship, recordBranches } = useStats(userId, dailyGroupOf);
+  const { stats, store, record, recordKinship, recordBranches } = useStats(userId, groupResolvers);
   // How this player scored against the field on the days they scored (public
   // per-day averages; null when there is no backend or field.sql has not run).
-  const field = useFieldStats(store);
+  const field = useFieldStats(store, groupResolvers);
 
   // Whether this device has played each of today's games (signed in or not) —
   // today's leaderboards are hidden until the viewer has played that game.
@@ -138,13 +164,19 @@ export default function App() {
 
   // Prime the frozen pins for the past dates these lookups touch — the player's
   // local Lineage history, plus a recent window for the admin leaderboard preview.
+  // Kinship and Branches are primed over the days this player actually played, which
+  // is all their clade resolvers read (no 120-day window: nothing else looks those up).
   useEffect(() => {
     if (!tree) return;
-    const dates = new Set<string>(Object.keys(loadStore().history));
+    const saved = loadStore();
+    const dates = new Set<string>(Object.keys(saved.history));
     const t = Date.parse(`${todayKey()}T00:00:00Z`);
     for (let i = 1; i <= 120; i++) dates.add(new Date(t - i * 86_400_000).toISOString().slice(0, 10));
     let live = true;
-    primePinnedPuzzles("lineage", [...dates]).then((added) => { if (live && added) setPinEpoch((v) => v + 1); });
+    const bump = (added: boolean) => { if (live && added) setPinEpoch((v) => v + 1); };
+    primePinnedPuzzles("lineage", [...dates]).then(bump);
+    primePinnedPuzzles("kinship", Object.keys(saved.kinship)).then(bump);
+    primePinnedPuzzles("branches", Object.keys(saved.branches)).then(bump);
     return () => { live = false; };
   }, [tree, stats]);
   const [view, setView] = useState<"home" | "lineage" | "kinship" | "branches" | "leaderboard" | "stats" | "account" | "about">("home");
@@ -206,7 +238,10 @@ export default function App() {
         const mistakes = bp.mistakes ?? 0;
         // A win is every slot placed AND within the day's mistake budget.
         const won = r.correct === r.total && mistakes <= branchesAllowance(board.tier);
-        recordBranches({ won, ...r, mistakes, tier: board.tier });
+        // The board is in hand here, so tag its clade group too (the rich tree resolves
+        // every id); an untagged entry would still fall back to the date resolver.
+        const group = boardGroupOf(richTree, [board.rootId, ...board.groupIds, ...board.leafIds]) ?? undefined;
+        recordBranches({ won, ...r, mistakes, tier: board.tier, group });
       });
     }
     return () => { live = false; };
@@ -247,7 +282,7 @@ export default function App() {
       // Wrong guesses and reveals are scored separately (reveals are gentler than a
       // whole mistake), so both are reported; the server scores on both.
       const mistakes = Math.min(4, r.mistakes);
-      recordKinship({ status: r.won ? "won" : "lost", mistakes, tier: r.tier, reveals: r.reveals, paidReveals: r.paidReveals });
+      recordKinship({ status: r.won ? "won" : "lost", mistakes, tier: r.tier, reveals: r.reveals, paidReveals: r.paidReveals, group: r.group ?? undefined });
       void countPlay("kinship", r.date, r.won); // anonymous count; Kinship is daily-only
       const args = { puzzleDate: r.date, won: r.won, mistakes, reveals: r.reveals, paidReveals: r.paidReveals };
       if (player.session) {
@@ -270,7 +305,7 @@ export default function App() {
   // player also gets a durable leaderboard row, then the post-game board refetches.
   const recordBranchesResult = useCallback(
     (r: BranchesComplete) => {
-      recordBranches({ won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, mistakes: r.mistakes, tier: r.tier });
+      recordBranches({ won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, mistakes: r.mistakes, tier: r.tier, group: r.group ?? undefined });
       void countPlay("branches", r.date, r.won); // anonymous count; Branches is daily-only
       const args = { puzzleDate: r.date, won: r.won, correct: r.correct, total: r.total, hinted: r.hinted, peeked: r.peeked, mistakes: r.mistakes };
       if (player.session) {

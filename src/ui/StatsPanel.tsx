@@ -231,12 +231,18 @@ function DailyNums({ s, flawless, field }: {
  *  Preferred measure is vs-field (how you did against everyone else on those days,
  *  which is what "best at" really means); without field data it falls back to your
  *  own points-per-game average, and says which one it used either way. */
-function BestClade({ daily, field }: { daily: DerivedStats["daily"]; field: FieldStats | null }) {
-  const bestField = field?.bestCladeId ? field.byClade[field.bestCladeId] : null;
-  if (field?.bestCladeId && bestField) {
+function BestClade({ groups, strengthId, byClade, bestId }: {
+  groups: GroupScore[];
+  strengthId: string | null;
+  /** This game's vs-field figures per clade, when there's a field to compare to. */
+  byClade?: Record<string, FieldStat>;
+  bestId?: string | null;
+}) {
+  const bestField = bestId ? byClade?.[bestId] : null;
+  if (bestId && bestField) {
     return (
       <p className="stats-strength">
-        Strongest clade: <b>{cladeGroup(field.bestCladeId).label}</b>{" "}
+        Strongest clade: <b>{cladeGroup(bestId).label}</b>{" "}
         <span className={fieldClass(bestField.pct)}>{fmtFieldPct(bestField.pct)} vs field</span>
         <span className="stats-strength-note">
           {" "}Measured against everyone who played those days, failed days included, over the
@@ -245,10 +251,10 @@ function BestClade({ daily, field }: { daily: DerivedStats["daily"]; field: Fiel
       </p>
     );
   }
-  if (daily.strengthId) {
+  if (strengthId) {
     return (
       <p className="stats-strength">
-        Best average, {STRENGTH_MIN_GAMES}+ games: <b>{daily.groups.find((g) => g.id === daily.strengthId)?.label}</b>
+        Best average, {STRENGTH_MIN_GAMES}+ games: <b>{groups.find((g) => g.id === strengthId)?.label}</b>
         <span className="stats-strength-note">
           {" "}Ranked on your points per game, so a clade you've played once or twice can show a
           higher average without qualifying.
@@ -256,7 +262,7 @@ function BestClade({ daily, field }: { daily: DerivedStats["daily"]; field: Fiel
       </p>
     );
   }
-  const most = [...daily.groups].sort((a, b) => b.played - a.played)[0];
+  const most = [...groups].sort((a, b) => b.played - a.played)[0];
   return (
     <p className="stats-strength">
       No strongest clade yet.
@@ -314,9 +320,9 @@ const EMPTY: Record<GameId, string> = {
 };
 const TITLE: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches" };
 
-/** One game's daily stats. Lineage additionally carries its per-clade scoring and
- *  its free-play practice tally (practice exists only for Lineage), so everything
- *  about a game sits in one block, above that game's badges. */
+/** One game's daily stats: its numbers, its per-clade scoring, and — for Lineage,
+ *  the only game with free play — its practice tally, so everything about a game
+ *  sits in one block, above that game's badges. */
 export function GameStatsPanel({ stats, field, game }: { stats: DerivedStats; field: FieldStats | null; game: GameId }) {
   const { daily, practice, kinship, branches } = stats;
   const s = game === "lineage" ? daily : game === "kinship" ? kinship : branches;
@@ -324,7 +330,11 @@ export function GameStatsPanel({ stats, field, game }: { stats: DerivedStats; fi
   // Which reading of the clade bars is showing. Defaults to vs-field when there is
   // one: it's the more informative of the two, and the other is a click away.
   const [cladeMetric, setCladeMetric] = useState<"points" | "field">("field");
-  const cladeField = !!field && Object.keys(field.byClade).length > 0;
+  // This game's own clade figures: a Kinship bird board says nothing about how you do
+  // on Lineage birds, so each game compares against its own field and its own days.
+  const cladeByGame = field?.byClade[game];
+  const bestCladeId = field?.bestCladeId[game] ?? null;
+  const cladeField = !!cladeByGame && Object.keys(cladeByGame).length > 0;
 
   return (
     <div className="stats">
@@ -338,9 +348,10 @@ export function GameStatsPanel({ stats, field, game }: { stats: DerivedStats; fi
         </>
       )}
 
-      {/* Per-clade daily scoring — Lineage only (the other games' categories are
-          per-board, not persistent). */}
-      {game === "lineage" && daily.groups.length > 0 && (
+      {/* Per-clade daily scoring, for every game: a Lineage day is bucketed by its
+          answer species, a Kinship/Branches day by its board (neither game's board
+          ever spans two broad groups, so each day has exactly one clade). */}
+      {s.groups.length > 0 && (
         <>
           <div className="stats-dist-hd">
             <span className="stats-dist-ttl">By clade</span>
@@ -357,12 +368,12 @@ export function GameStatsPanel({ stats, field, game }: { stats: DerivedStats; fi
             )}
           </div>
           <GroupBars
-            groups={daily.groups}
+            groups={s.groups}
             metric={cladeField ? cladeMetric : "points"}
-            strengthId={field?.bestCladeId ?? daily.strengthId}
-            field={field?.byClade}
+            strengthId={bestCladeId ?? s.strengthId}
+            field={cladeByGame}
           />
-          <BestClade daily={daily} field={field} />
+          <BestClade groups={s.groups} strengthId={s.strengthId} byClade={cladeByGame} bestId={bestCladeId} />
         </>
       )}
 

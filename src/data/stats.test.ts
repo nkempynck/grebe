@@ -9,6 +9,7 @@ import {
   type StatsStore,
 } from "./stats";
 import { kinshipBadges, branchesBadges, lineageBadges } from "./badges";
+import { CLADE_GROUPS } from "./clades";
 
 const won = (): DailyEntry => ({ status: "won", guesses: 3, hints: 0, tier: 1 });
 const gaveUp = (guesses: number): DailyEntry => ({ status: "gaveup", guesses, hints: 0, tier: 1 });
@@ -205,5 +206,60 @@ describe("flawless boards", () => {
     expect(b.flawless).toBe(1);
     expect(b.flawlessDates).toEqual(["2026-08-08"]);
     expect(branchesBadges(derive(s, TODAY)).find((b2) => b2.id === "brn-flawless")).toBeTruthy();
+  });
+});
+
+// Per-clade scoring for Kinship and Branches. A board of either game never spans two
+// broad groups, so a day belongs to exactly one clade: the group tagged on the entry at
+// play time, else whatever the date resolver recovers from that day's pinned board. A
+// day neither can place stays OUT of the bars rather than being filed under "other",
+// which would read as a real result.
+describe("per-clade scoring beyond Lineage", () => {
+  const TODAY = "2026-08-10";
+  // Real group ids: the derivation reports only ids in CLADE_GROUPS, in that order.
+  const BIRDS = CLADE_GROUPS.find((g) => g.label === "Birds")!.id;
+  const PLANTS = CLADE_GROUPS.find((g) => g.label === "Plants")!.id;
+  const FISH = CLADE_GROUPS.find((g) => g.label === "Fish")!.id;
+  const INSECTS = CLADE_GROUPS.find((g) => g.label === "Insects")!.id;
+  const kin = (points: number, group?: string): KinshipEntry => ({ status: "won", mistakes: 0, tier: 1, points, group });
+  const brn = (points: number, group?: string): BranchesEntry => ({ won: true, correct: 5, total: 5, hinted: 0, peeked: 0, mistakes: 0, tier: 1, points, group });
+
+  it("buckets Kinship days by the board's clade", () => {
+    const s = kinStore({
+      "2026-08-08": kin(100, BIRDS),
+      "2026-08-09": kin(60, BIRDS),
+      "2026-08-10": kin(40, PLANTS),
+    });
+    const g = derive(s, TODAY).kinship.groups;
+    expect(g.find((x) => x.id === BIRDS)).toMatchObject({ played: 2, wins: 2, avgPoints: 80, totalPoints: 160 });
+    expect(g.find((x) => x.id === PLANTS)).toMatchObject({ played: 1, avgPoints: 40 });
+  });
+
+  it("buckets Branches days the same way", () => {
+    const s = brnStore({ "2026-08-09": brn(80, FISH), "2026-08-10": brn(40, FISH) });
+    expect(derive(s, TODAY).branches.groups.find((x) => x.id === FISH)).toMatchObject({ played: 2, avgPoints: 60 });
+  });
+
+  it("falls back to the date resolver for days recorded before groups were tagged", () => {
+    const s = kinStore({ "2026-08-09": kin(80), "2026-08-10": kin(40, INSECTS) });
+    const resolved = derive(s, TODAY, { kinship: (d) => (d === "2026-08-09" ? BIRDS : null) }).kinship.groups;
+    expect(resolved.find((x) => x.id === BIRDS)).toMatchObject({ played: 1, avgPoints: 80 });
+    expect(resolved.find((x) => x.id === INSECTS)).toMatchObject({ played: 1, avgPoints: 40 });
+    // An untagged day the resolver can't place counts in the totals but not the bars.
+    const unresolved = derive(s, TODAY).kinship;
+    expect(unresolved.played).toBe(2);
+    expect(unresolved.groups.map((x) => x.id)).toEqual([INSECTS]);
+  });
+
+  it("keeps each game's clades separate", () => {
+    const s: StatsStore = {
+      version: 6, clades: {}, history: {},
+      kinship: { "2026-08-10": kin(100, BIRDS) },
+      branches: { "2026-08-10": brn(20, BIRDS) },
+    };
+    const d = derive(s, TODAY);
+    expect(d.kinship.groups.find((x) => x.id === BIRDS)?.avgPoints).toBe(100);
+    expect(d.branches.groups.find((x) => x.id === BIRDS)?.avgPoints).toBe(20);
+    expect(d.daily.groups).toEqual([]);
   });
 });

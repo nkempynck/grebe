@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchDailyAverages, type DayAverage } from "../data/games";
 import { deriveField, type FieldStats } from "../data/field";
-import { countsForStats, type StatsStore } from "../data/stats";
+import { countsForStats, type GroupResolvers, type StatsStore } from "../data/stats";
 
 /** The vs-field comparison for this device's stats: fetches the day averages for
  *  exactly the span the player has played (one round-trip) and folds them against
@@ -16,7 +16,7 @@ import { countsForStats, type StatsStore } from "../data/stats";
  *  would fold the averages against whatever snapshot it had closed over at request
  *  time, which is how the numbers could come back empty while both inputs were
  *  fine. Deriving from the live store means a later store always re-derives. */
-export function useFieldStats(store: StatsStore): FieldStats | null {
+export function useFieldStats(store: StatsStore, groupFor?: GroupResolvers): FieldStats | null {
   const [rows, setRows] = useState<DayAverage[] | null>(null);
 
   // The inclusive span of counted days across all three games.
@@ -41,7 +41,7 @@ export function useFieldStats(store: StatsStore): FieldStats | null {
 
   return useMemo(() => {
     if (!rows || rows.length === 0) return null;
-    const field = deriveField(store, rows);
+    const field = deriveField(store, rows, groupFor);
     if (import.meta.env.DEV && !field.overall) {
       // Both inputs are non-empty yet nothing lined up. Print enough to tell a thin
       // player base (the legitimate case) from a key mismatch (a bug).
@@ -57,5 +57,5 @@ export function useFieldStats(store: StatsStore): FieldStats | null {
       );
     }
     return field;
-  }, [rows, store]);
+  }, [rows, store, groupFor]);
 }

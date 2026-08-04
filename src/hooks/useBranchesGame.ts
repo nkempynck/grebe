@@ -7,6 +7,7 @@ import { fetchPinnedPuzzle, branchesBoard as rebuildBranches } from "../data/pin
 import { loadBranchesProgress, saveBranchesProgress } from "../data/branchesProgress";
 import { fetchTodayBranches } from "../data/games";
 import { markCountedElsewhere } from "../data/playCount";
+import { boardGroupOf } from "../data/clades";
 
 export type BranchesStatus = "playing" | "done";
 
@@ -25,6 +26,9 @@ export interface BranchesComplete {
   won: boolean; // finished with every slot correct AND within the mistake budget
   tier: number;
   date: string;
+  /** The board's clade group (every board sits in exactly one), for per-clade stats.
+   *  Null only if the tree knows none of the board's ids — see boardGroupOf. */
+  group: string | null;
 }
 
 /** Admin playtest override: force a difficulty tier and reshuffle via `nonce`.
@@ -159,6 +163,13 @@ export function useBranchesGame(
   const [pinned, setPinned] = useState<BranchesBoard | null>(null);
   const board = pinned ?? computed;
   const allowance = board ? branchesAllowance(board.tier) : 1;
+  // The board's clade group, reported with the result so the stats page can bucket
+  // the day. Clade ids first: they resolve in the base tree too, which is what the
+  // history backfill has to work with (see boardGroupOf).
+  const boardGroup = useMemo(
+    () => (tree && board ? boardGroupOf(tree, [board.rootId, ...board.groupIds, ...board.leafIds]) : null),
+    [tree, board]
+  );
 
   // A frozen pin takes over only if it differs from the freshly computed board —
   // and never under a playtest override (that board is generated fresh).
@@ -416,10 +427,11 @@ export function useBranchesGame(
           won,
           tier: board.tier,
           date,
+          group: boardGroup,
         });
       }
     },
-    [board, date, devActive]
+    [board, date, devActive, boardGroup]
   );
 
   // Grade the whole board. Every-slot-correct → win. Otherwise it's a wrong board:

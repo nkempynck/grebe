@@ -21,7 +21,7 @@
  *  degrades to null when the backend has no field data. */
 
 import type { DayAverage, GameId } from "./games";
-import { countsForStats, pointsByDate, type StatsStore } from "./stats";
+import { countsForStats, pointsByDate, type GroupResolvers, type StatsStore } from "./stats";
 
 /** A day needs at least this many games before it's a "field" to compare against,
  *  one of which is usually yours. Two is too thin: the average would be half the
@@ -41,11 +41,14 @@ export interface FieldStats {
   /** Across all three games, weighted by how many days you played each. */
   overall: FieldStat | null;
   byGame: Record<GameId, FieldStat | null>;
-  /** Lineage only — keyed by clade group id (the other games have no persistent
-   *  categories). A day's clade comes from its answer, as stored on the entry. */
-  byClade: Record<string, FieldStat>;
-  /** The clade you're furthest above the field in, among those with enough days. */
-  bestCladeId: string | null;
+  /** Per game, keyed by clade group id. A day's clade is the one tagged on the entry
+   *  at play time, else whatever the date resolver recovers: Lineage from the day's
+   *  answer species, Kinship/Branches from the day's board (each sits in exactly one
+   *  broad group). A day neither can place is left out. */
+  byClade: Record<GameId, Record<string, FieldStat>>;
+  /** Per game, the clade you're furthest above the field in among those with enough
+   *  days, or null. */
+  bestCladeId: Record<GameId, string | null>;
 }
 
 /** Clade days needed before a clade's vs-field figure is offered as your best. It
@@ -69,12 +72,19 @@ function indexAverages(averages: DayAverage[]): Record<string, number> {
 
 /** Compare a store's frozen per-day points against the field averages.
  *  @param store     the raw stats store (per-day points, frozen at play time)
- *  @param averages  day averages from fetchDailyAverages(), any order */
-export function deriveField(store: StatsStore, averages: DayAverage[]): FieldStats {
+ *  @param averages  day averages from fetchDailyAverages(), any order
+ *  @param groupFor  per-game clade resolvers for days whose entry predates group
+ *  tagging, so the vs-field bars cover the same days as the avg-score bars */
+export function deriveField(store: StatsStore, averages: DayAverage[], groupFor?: GroupResolvers): FieldStats {
   const avg = indexAverages(averages);
   const pointsOf = pointsByDate(store);
   const ratios: Record<GameId, number[]> = { lineage: [], kinship: [], branches: [] };
-  const cladeRatios: Record<string, number[]> = {};
+  const cladeRatios: Record<GameId, Record<string, number[]>> = { lineage: {}, kinship: {}, branches: {} };
+  const taggedGroup: Record<GameId, (d: string) => string | null> = {
+    lineage: (d) => store.history[d]?.group ?? groupFor?.lineage?.(d) ?? null,
+    kinship: (d) => store.kinship[d]?.group ?? groupFor?.kinship?.(d) ?? null,
+    branches: (d) => store.branches[d]?.group ?? groupFor?.branches?.(d) ?? null,
+  };
 
   const collect = (game: GameId, dates: string[]) => {
     for (const d of dates) {
@@ -87,10 +97,8 @@ export function deriveField(store: StatsStore, averages: DayAverage[]): FieldSta
       // average carries everyone else's zeros, so yours belong in it too.
       const ratio = Math.max(0, mine) / field;
       ratios[game].push(ratio);
-      if (game === "lineage") {
-        const gid = store.history[d]?.group;
-        if (gid) (cladeRatios[gid] ??= []).push(ratio);
-      }
+      const gid = taggedGroup[game](d);
+      if (gid) (cladeRatios[game][gid] ??= []).push(ratio);
     }
   };
 
@@ -98,16 +106,17 @@ export function deriveField(store: StatsStore, averages: DayAverage[]): FieldSta
   collect("kinship", Object.keys(store.kinship ?? {}));
   collect("branches", Object.keys(store.branches ?? {}));
 
-  const byClade: Record<string, FieldStat> = {};
-  for (const [gid, rs] of Object.entries(cladeRatios)) {
-    const s = statOf(rs);
-    if (s) byClade[gid] = s;
-  }
-
-  let bestCladeId: string | null = null;
-  let bestPct = -Infinity;
-  for (const [gid, s] of Object.entries(byClade)) {
-    if (s.games >= MIN_CLADE_DAYS && s.pct > bestPct) { bestPct = s.pct; bestCladeId = gid; }
+  const byClade: Record<GameId, Record<string, FieldStat>> = { lineage: {}, kinship: {}, branches: {} };
+  const bestCladeId: Record<GameId, string | null> = { lineage: null, kinship: null, branches: null };
+  for (const game of ["lineage", "kinship", "branches"] as GameId[]) {
+    for (const [gid, rs] of Object.entries(cladeRatios[game])) {
+      const s = statOf(rs);
+      if (s) byClade[game][gid] = s;
+    }
+    let bestPct = -Infinity;
+    for (const [gid, s] of Object.entries(byClade[game])) {
+      if (s.games >= MIN_CLADE_DAYS && s.pct > bestPct) { bestPct = s.pct; bestCladeId[game] = gid; }
+    }
   }
 
   // Overall pools every day from every game, so it's weighted by how much you play

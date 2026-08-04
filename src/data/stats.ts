@@ -38,6 +38,10 @@ export interface KinshipEntry {
   paidReveals?: number;
   /** Points FROZEN at play time (added v6); see DailyEntry.points. */
   points?: number;
+  /** Clade group id of the board (every Kinship board sits in exactly ONE broad
+   *  group — see grid.ts BROAD_GROUPS). Tagged at play time; entries recorded
+   *  before this field resolve it from the date's pin instead. */
+  group?: string;
 }
 
 /** One finished Branches daily. `won` = every slot placed within the day's mistake
@@ -55,6 +59,9 @@ export interface BranchesEntry {
   tier: number;
   /** Points FROZEN at play time (added v6); see DailyEntry.points. */
   points?: number;
+  /** Clade group id of the board — as KinshipEntry.group (a Branches board also
+   *  never spans two broad groups; see branches.ts broadGroupOf). */
+  group?: string;
 }
 
 /** Free-play tally per clade group (practice is unranked → no points). */
@@ -144,6 +151,9 @@ export interface KinshipStats {
   bestStreakStart: string | null;
   bestStreakEnd: string | null;
   points: { total: number; avg: number; best: number };
+  /** Per-clade scoring, as DailyStats.groups. */
+  groups: GroupScore[];
+  strengthId: string | null;
 }
 
 /** Branches daily performance — ranked, score-based. */
@@ -161,6 +171,9 @@ export interface BranchesStats {
   bestStreakStart: string | null;
   bestStreakEnd: string | null;
   points: { total: number; avg: number; best: number };
+  /** Per-clade scoring, as DailyStats.groups. */
+  groups: GroupScore[];
+  strengthId: string | null;
 }
 
 export interface DerivedStats {
@@ -485,38 +498,29 @@ function deriveStreaks(
  *  stored). Returns null when it can't (e.g. tree not loaded yet). */
 export type DailyGroupResolver = (dateKey: string) => string | null;
 
-function deriveDaily(
-  history: Record<string, DailyEntry>,
-  todayKey: string,
-  groupForDate?: DailyGroupResolver
-): DailyStats {
-  const dates = Object.keys(history);
-  const played = dates.length;
-  const wins = dates.filter((d) => history[d].status === "won").length;
-
-  let total = 0;
-  let best = 0;
-  // Accumulate per-clade daily scoring from the tagged history entries.
+/** Per-clade scoring for one game's history, shared by all three games. Each day
+ *  contributes to exactly one group: the one tagged on the entry at play time, else
+ *  whatever the date resolver recovers (a day neither can place is simply left out
+ *  of the bars rather than dumped into "other", which would read as a real result).
+ *  @param days     the game's counted dates
+ *  @param groupOf  the group id for a date, or null if unknown
+ *  @param wonOn    did that date's game end in a win
+ *  @param ptsOn    that date's frozen points */
+function cladeScores(
+  days: string[],
+  groupOf: (dateKey: string) => string | null,
+  wonOn: (dateKey: string) => boolean,
+  ptsOn: (dateKey: string) => number
+): { groups: GroupScore[]; strengthId: string | null } {
   const tally: Record<string, { played: number; wins: number; pts: number }> = {};
-  for (const d of dates) {
-    const e = history[d];
-    const p = dailyPts(e);
-    total += p;
-    if (p > best) best = p;
-    // Prefer the group tagged at play time; fall back to recomputing from the
-    // date for entries recorded before groups were stored.
-    const gid = e.group ?? groupForDate?.(d) ?? null;
-    if (gid) {
-      const t = (tally[gid] ??= { played: 0, wins: 0, pts: 0 });
-      t.played++;
-      if (e.status === "won") t.wins++;
-      t.pts += p;
-    }
+  for (const d of days) {
+    const gid = groupOf(d);
+    if (!gid) continue;
+    const t = (tally[gid] ??= { played: 0, wins: 0, pts: 0 });
+    t.played++;
+    if (wonOn(d)) t.wins++;
+    t.pts += ptsOn(d);
   }
-
-  const { currentStreak, maxStreak, bestStreakStart, bestStreakEnd } = deriveStreaks(
-    dates, todayKey, (d) => history[d].status === "won"
-  );
 
   const groups: GroupScore[] = orderedIds
     .filter((id) => tally[id]?.played)
@@ -544,6 +548,38 @@ function deriveDaily(
       strengthId = g.id;
     }
   }
+  return { groups, strengthId };
+}
+
+function deriveDaily(
+  history: Record<string, DailyEntry>,
+  todayKey: string,
+  groupForDate?: DailyGroupResolver
+): DailyStats {
+  const dates = Object.keys(history);
+  const played = dates.length;
+  const wins = dates.filter((d) => history[d].status === "won").length;
+
+  let total = 0;
+  let best = 0;
+  for (const d of dates) {
+    const p = dailyPts(history[d]);
+    total += p;
+    if (p > best) best = p;
+  }
+
+  const { currentStreak, maxStreak, bestStreakStart, bestStreakEnd } = deriveStreaks(
+    dates, todayKey, (d) => history[d].status === "won"
+  );
+
+  // Prefer the group tagged at play time; fall back to recomputing from the date
+  // for entries recorded before groups were stored.
+  const { groups, strengthId } = cladeScores(
+    dates,
+    (d) => history[d].group ?? groupForDate?.(d) ?? null,
+    (d) => history[d].status === "won",
+    (d) => dailyPts(history[d])
+  );
 
   return {
     played,
@@ -575,7 +611,11 @@ function derivePractice(clades: Record<string, CladeFree>): PracticeStats {
 }
 
 /** Kinship (grid) daily stats. */
-function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string): KinshipStats {
+function deriveKinship(
+  kinship: Record<string, KinshipEntry>,
+  todayKey: string,
+  groupForDate?: DailyGroupResolver
+): KinshipStats {
   const dates = Object.keys(kinship);
   const played = dates.length;
   const wins = dates.filter((d) => kinship[d].status === "won").length;
@@ -605,6 +645,13 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
     dates, todayKey, (d) => kinship[d].status === "won"
   );
 
+  const { groups, strengthId } = cladeScores(
+    dates,
+    (d) => kinship[d].group ?? groupForDate?.(d) ?? null,
+    (d) => kinship[d].status === "won",
+    (d) => kinshipPts(kinship[d])
+  );
+
   return {
     played,
     wins,
@@ -618,13 +665,19 @@ function deriveKinship(kinship: Record<string, KinshipEntry>, todayKey: string):
     bestStreakStart,
     bestStreakEnd,
     points: { total, avg: played ? Math.round(total / played) : 0, best },
+    groups,
+    strengthId,
   };
 }
 
 /** Branches daily stats. Like Kinship: a plain run of consecutive wins (a win =
  *  solved within the day's mistake budget). "flawless" = won with no mistake, hint
  *  or peek. */
-function deriveBranches(branches: Record<string, BranchesEntry>, todayKey: string): BranchesStats {
+function deriveBranches(
+  branches: Record<string, BranchesEntry>,
+  todayKey: string,
+  groupForDate?: DailyGroupResolver
+): BranchesStats {
   const dates = Object.keys(branches);
   const played = dates.length;
   const isWin = (d: string) => branches[d].won;
@@ -644,6 +697,13 @@ function deriveBranches(branches: Record<string, BranchesEntry>, todayKey: strin
 
   const { currentStreak, maxStreak, bestStreakStart, bestStreakEnd } = deriveStreaks(dates, todayKey, isWin);
 
+  const { groups, strengthId } = cladeScores(
+    dates,
+    (d) => branches[d].group ?? groupForDate?.(d) ?? null,
+    isWin,
+    (d) => branchesPts(branches[d])
+  );
+
   return {
     played,
     wins,
@@ -657,6 +717,8 @@ function deriveBranches(branches: Record<string, BranchesEntry>, todayKey: strin
     bestStreakStart,
     bestStreakEnd,
     points: { total, avg: played ? Math.round(total / played) : 0, best },
+    groups,
+    strengthId,
   };
 }
 
@@ -673,15 +735,24 @@ const sinceLaunch = <T,>(rows: Record<string, T>): Record<string, T> => {
   return out;
 };
 
-export function derive(store: StatsStore, todayKey: string, groupForDate?: DailyGroupResolver): DerivedStats {
+/** A clade-group resolver per game, for days whose entry predates the tagging (see
+ *  cladeScores). Each is independent: Lineage resolves from the day's answer species,
+ *  Kinship/Branches from the day's pinned board. */
+export interface GroupResolvers {
+  lineage?: DailyGroupResolver;
+  kinship?: DailyGroupResolver;
+  branches?: DailyGroupResolver;
+}
+
+export function derive(store: StatsStore, todayKey: string, groupFor?: GroupResolvers): DerivedStats {
   // Tolerate partial stores (older shapes / hand-built test fixtures): a missing
   // section just derives as empty. Practice carries no dates (it's a per-clade
   // tally), so it can't be filtered by launch date and simply counts everything;
   // it's unranked and scoreless, so nothing hangs on it.
   return {
-    daily: deriveDaily(sinceLaunch(store.history ?? {}), todayKey, groupForDate),
+    daily: deriveDaily(sinceLaunch(store.history ?? {}), todayKey, groupFor?.lineage),
     practice: derivePractice(store.clades ?? {}),
-    kinship: deriveKinship(sinceLaunch(store.kinship ?? {}), todayKey),
-    branches: deriveBranches(sinceLaunch(store.branches ?? {}), todayKey),
+    kinship: deriveKinship(sinceLaunch(store.kinship ?? {}), todayKey, groupFor?.kinship),
+    branches: deriveBranches(sinceLaunch(store.branches ?? {}), todayKey, groupFor?.branches),
   };
 }
