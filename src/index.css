@@ -1,6 +1,19 @@
+/* Grebe stylesheet. Built to /assets/index-<contenthash>.css and served
+   immutable for a year, so the URL only changes when the BUILT bytes do.
+   That is the point of content hashing, and also a trap: if a browser ever
+   caches a bad response under one of these URLs (see the stale-asset guard in
+   index.html), the only remote cure is minting a new URL, and a deploy that
+   touches only the JS cannot rescue a poisoned stylesheet.
+   To force one, bump --grebe-asset-epoch below. It has to be a real declaration:
+   comments like this one are stripped before hashing, so editing them changes
+   nothing about the URL. */
 @import "./fonts.css";
 
 :root {
+  /* Bumped to mint a new stylesheet URL — see the note above. 2026-08-04: a
+     browser had cached an HTML error response under the previous CSS URL, which
+     immutable caching then pinned for a year. */
+  --grebe-asset-epoch: 2;
   /* ---- "Field Guide" palette · LIGHT (default) ----
      An aged naturalist plate: warm ivory paper, herbarium green as the lead,
      cochineal red for errors/answers, verdigris teal for distance, ochre gold

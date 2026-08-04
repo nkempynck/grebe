@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Not found — Grebe</title>
+    <meta name="robots" content="noindex" />
+    <!--
+      This file exists mainly for what it does to ASSET requests, not for humans.
+
+      Without it, Cloudflare Pages answers any unmatched path — including a
+      /assets/index-<hash>.js that a later deploy replaced — with index.html at
+      status 200 and content-type text/html. A browser holding an older
+      index.html then loads HTML where it expects a module or a stylesheet: the
+      script dies on its MIME type, or the page renders unstyled, and because
+      /assets/* is served immutable for a year, that wrong response can be cached
+      under a URL that is otherwise perfectly valid. With this file, a missing
+      asset is a plain 404 that no browser will mistake for code.
+
+      Grebe routes entirely through the hash (#admin), so no real URL relies on
+      the catch-all this replaces. Kept dependency-free and inline-styled: no
+      bundle, no fonts, nothing that could itself be the thing that is missing.
+    -->
+    <style>
+      body {
+        margin: 0; min-height: 100vh; display: grid; place-items: center;
+        background: #f4efe2; color: #2b2a26; text-align: center;
+        font-family: ui-serif, Georgia, "Times New Roman", serif;
+      }
+      main { padding: 32px; max-width: 30rem; }
+      h1 { font-size: 1.4rem; margin: 0 0 12px; }
+      p { margin: 0 0 20px; line-height: 1.5; color: #56534a; }
+      a { color: #4a6b3a; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #17161a; color: #e8e4d9; }
+        p { color: #a5a096; }
+        a { color: #86bd6b; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Nothing here</h1>
+      <p>That page doesn't exist. The daily games are on the front page.</p>
+      <p><a href="/">Go to Grebe</a></p>
+    </main>
+  </body>
+</html>
