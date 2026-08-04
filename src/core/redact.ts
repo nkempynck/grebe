@@ -13,8 +13,9 @@ import type { TaxonNode, Tree } from "./types";
  *  an exact search. Two mechanisms run instead:
  *
  *    1. Whole names — the common name, the binomial, the abbreviated binomial
- *       ("M. monoceros") — matched on word stems, so plurals count, and hidden in
- *       one piece.
+ *       ("M. monoceros") — matched on word stems with the word breaks squashed out,
+ *       so plurals and respellings count ("hover flies" for the Marmalade hoverfly),
+ *       and hidden in one piece.
  *    2. Single words that identify one tray species, hidden on their own wherever
  *       they appear.
  *
@@ -34,13 +35,31 @@ import type { TaxonNode, Tree } from "./types";
  *  label stops showing the word, so the prose can hide it. */
 
 /** Fold a word to a form shared by its singular and plural, so "beetles" matches
- *  "beetle". Deliberately crude: regular -s/-es/-ies only, no irregulars. */
-export function stem(word: string): string {
+ *  "beetle". Deliberately crude: regular -s/-es/-ies only, no irregulars.
+ *
+ *  -ed goes too, because these names are full of participles the articles write as
+ *  bare nouns: "Asian long-horned beetle" against "longhorn beetles", "banded" against
+ *  "bands". The doubled consonant a stripped -ed leaves behind goes with it, or
+ *  "spotted" would fold to "spott" and miss "spots". */
+function suffixes(word: string): string {
   let s = word.toLowerCase();
   if (s.length > 4 && s.endsWith("ies")) return s.slice(0, -3) + "y";
   if (s.length > 3 && s.endsWith("s")) s = s.slice(0, -1);
-  if (s.length > 3 && s.endsWith("e")) s = s.slice(0, -1);
+  if (s.length > 4 && s.endsWith("ed")) {
+    s = s.slice(0, -2);
+    if (s.length > 3 && /([^aeiou])\1$/.test(s)) s = s.slice(0, -1);
+  }
   return s;
+}
+
+/** The trailing -e left by "foxes" → "foxe", dropped at the END of a name only.
+ *  Doing it per word would break the compounds below: "house flies" folds to
+ *  "hous" + "fly", which no longer spells the Housefly. */
+const dropE = (s: string) => (s.length > 3 && s.endsWith("e") ? s.slice(0, -1) : s);
+
+/** A lone word folded all the way — what the board's telling words are keyed by. */
+export function stem(word: string): string {
+  return dropE(suffixes(word));
 }
 
 const WORD = /[\p{L}\p{N}]+/gu;
@@ -50,9 +69,25 @@ export function nameStems(name: string | undefined): string[] {
   return (name?.match(WORD) ?? []).map(stem);
 }
 
+/** A name folded to one key: its words run together, word breaks dropped.
+ *
+ *  Whether a name is written as one word, two words or hyphenated is not settled
+ *  English, and articles disagree with the species list constantly: "hover flies" for
+ *  the Marmalade hoverfly, "longhorn beetles" for the Asian long-horned beetle. Both
+ *  slipped past a word-by-word comparison, which saw one token against two. Squashed,
+ *  each side lands on the same key ("hoverfly", "longhornbeetl") and the match holds.
+ *  Word breaks survive at the ends of a match, so this never matches inside a word:
+ *  "lionfish" is one token and does not spell "lion". */
+export function squash(name: string | undefined): string {
+  return joinWords((name?.match(WORD) ?? []).map(suffixes));
+}
+
+/** Squash already-suffixed words into one key. */
+const joinWords = (words: string[]) => dropE(words.join(""));
+
 export interface Spoiler {
-  /** Whole names, as stem runs, hidden in one piece wherever they appear. */
-  phrases: string[][];
+  /** Whole names, as squashed keys, hidden in one piece wherever they appear. */
+  phrases: string[];
   /** Words that single this species out on the board, hidden on their own. */
   telling: Set<string>;
 }
@@ -77,9 +112,28 @@ function stemCounts(species: TaxonNode[]): Map<string, number> {
  *  Pass `widespreadWords(tree)` for it. Labels don't spare anything: a clade
  *  label sits right next to the tray, where even a filler word is decisive. */
 export function tellingWords(species: Array<TaxonNode | undefined>, spare?: Set<string>): Set<string> {
-  const counts = stemCounts(species.filter((n): n is TaxonNode => !!n));
+  const live = species.filter((n): n is TaxonNode => !!n);
+  const counts = stemCounts(live);
   const out = new Set<string>();
   for (const [s, n] of counts) if (n === 1 && s.length > 1 && !spare?.has(s)) out.add(s);
+  const singles = new Set(out);
+  for (const n of live) for (const p of tellingPairs(n.common, singles)) out.add(p);
+  return out;
+}
+
+/** The compound spellings of a name: two adjacent words run together, kept only when
+ *  BOTH are themselves telling. "Long-horned" gives "longhorn", so a bare "longhorns"
+ *  in prose — and a genus labelled "Milkweed Longhorns" — counts as the word it is.
+ *
+ *  Both, not either, is the whole rule. Pairing a telling word with a shared one would
+ *  swallow the shared one: "Hercules beetles" would go in one block over a tray where
+ *  three tiles are beetles, hiding a word that settles nothing. */
+function tellingPairs(name: string | undefined, telling: Set<string>): string[] {
+  const words = (name?.match(WORD) ?? []).map(suffixes);
+  const out: string[] = [];
+  for (let i = 0; i + 1 < words.length; i++) {
+    if (telling.has(dropE(words[i])) && telling.has(dropE(words[i + 1]))) out.push(joinWords(words.slice(i, i + 2)));
+  }
   return out;
 }
 
@@ -123,14 +177,14 @@ export function boardSpoilers(species: Array<TaxonNode | undefined>, spare?: Set
   const telling = tellingWords(live, spare);
   const singles = (s: string) => telling.has(s);
   return live.map((node) => {
-    const phrases: string[][] = [];
+    const phrases: string[] = [];
     const addPhrase = (name: string | undefined) => {
       const run = nameStems(name);
       // A one-word name is hidden only when that word singles the species out.
       // Two tray tiles sharing it (Cat and Wild cat) make every "cats" in an
       // article a match, which would black out the page and settle nothing.
       if (run.length > 1 || (run.length === 1 && !shared.has(run[0])) || (run.length === 1 && singles(run[0]))) {
-        phrases.push(run);
+        phrases.push(squash(name));
       }
     };
     addPhrase(node.common);
@@ -139,7 +193,8 @@ export function boardSpoilers(species: Array<TaxonNode | undefined>, spare?: Set
     // The abbreviated binomial articles switch to after first mention. The bare
     // genus is deliberately never hidden: it is often the clade's own name.
     if (genus && epithet) addPhrase(`${genus[0]}. ${epithet}`);
-    return { phrases, telling: new Set(nameStems(node.common).filter(singles)) };
+    const stems = nameStems(node.common);
+    return { phrases, telling: new Set([...stems.filter(singles), ...tellingPairs(node.common, telling)]) };
   });
 }
 
@@ -149,40 +204,55 @@ export interface RedactSegment {
   hidden: boolean;
 }
 
-interface Tok { stem: string; start: number; end: number }
+/** `word` carries the suffix rules but not the final -e, which only `joinWords`
+ *  applies, once a run has been squashed. */
+interface Tok { word: string; start: number; end: number }
 
 function tokens(text: string): Tok[] {
   const out: Tok[] = [];
-  for (const m of text.matchAll(WORD)) out.push({ stem: stem(m[0]), start: m.index, end: m.index + m[0].length });
+  for (const m of text.matchAll(WORD)) out.push({ word: suffixes(m[0]), start: m.index, end: m.index + m[0].length });
+  return out;
+}
+
+/** Character ranges whose words, squashed together, spell one of `keys`.
+ *
+ *  A run grows only while barely anything separates its words — a space, a hyphen, or
+ *  the ". " of "P. leo". Anything wider is not one name. Every run both starts and ends
+ *  on a word boundary, so a key is never found inside a longer word. */
+function keyRanges(toks: Tok[], keys: Set<string>): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  if (keys.size === 0) return out;
+  let cap = 0;
+  for (const k of keys) cap = Math.max(cap, k.length);
+  for (let i = 0; i < toks.length; i++) {
+    let acc = "";
+    for (let j = i; j < toks.length; j++) {
+      if (j > i && toks[j].start - toks[j - 1].end > 3) break;
+      acc += toks[j].word;
+      if (acc.length > cap + 1) break; // + the -e joinWords may still drop
+      if (keys.has(joinWords([acc]))) out.push([toks[i].start, toks[j].end]);
+    }
+  }
   return out;
 }
 
 /** Character ranges of `text` that give away one of `spoilers`. */
 function spoilerRanges(text: string, spoilers: Spoiler[], toks: Tok[]): Array<[number, number]> {
-  const ranges: Array<[number, number]> = [];
-  for (const sp of spoilers) {
-    for (const phrase of sp.phrases) {
-      for (let i = 0; i + phrase.length <= toks.length; i++) {
-        let ok = true;
-        for (let k = 0; k < phrase.length && ok; k++) {
-          // Words of one name sit next to each other; more than a space, a hyphen
-          // or "P. " between them means this is not that name.
-          ok = toks[i + k].stem === phrase[k] && (k === 0 || toks[i + k].start - toks[i + k - 1].end <= 3);
-        }
-        if (ok) ranges.push([toks[i].start, toks[i + phrase.length - 1].end]);
-      }
-    }
-  }
+  const ranges = keyRanges(toks, new Set(spoilers.flatMap((sp) => sp.phrases)));
   // Telling words on their own, from any species. Neighbouring ones merge into a
   // single block so "Colorado potato" doesn't read as two.
-  const telling = new Set(spoilers.flatMap((sp) => [...sp.telling]));
-  for (let i = 0; i < toks.length; i++) {
-    if (!telling.has(toks[i].stem)) continue;
-    let end = i;
-    while (end + 1 < toks.length && telling.has(toks[end + 1].stem) && /^[\s-]*$/.test(text.slice(toks[end].end, toks[end + 1].start))) end++;
-    ranges.push([toks[i].start, toks[end].end]);
-    i = end;
+  const hits = keyRanges(toks, new Set(spoilers.flatMap((sp) => [...sp.telling])));
+  hits.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let run: [number, number] | null = null;
+  for (const [start, end] of hits) {
+    if (run && (start <= run[1] || /^[\s-]*$/.test(text.slice(run[1], start)))) {
+      run[1] = Math.max(run[1], end);
+      continue;
+    }
+    if (run) ranges.push(run);
+    run = [start, end];
   }
+  if (run) ranges.push(run);
   return ranges;
 }
 

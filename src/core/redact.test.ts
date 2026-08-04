@@ -26,9 +26,21 @@ const BEETLES = [
 const shown = (text: string, species: TaxonNode[], spare?: Set<string>) =>
   redactSpoilers(text, boardSpoilers(species, spare)).map((s) => (s.hidden ? "[#]" : s.text)).join("");
 
+/** The hoverfly board from a reported leak: the Syrphidae summary wrote "hover flies". */
+const FLIES = [
+  sp("Marmalade hoverfly", "Episyrphus balteatus"),
+  sp("Housefly", "Musca domestica"),
+  sp("Western honey bee", "Apis mellifera"),
+];
+
 describe("stem", () => {
   it("folds regular plurals onto the singular", () => {
     for (const [a, b] of [["beetle", "beetles"], ["fly", "flies"], ["fox", "foxes"], ["snake", "snakes"]]) {
+      expect(stem(a)).toBe(stem(b));
+    }
+  });
+  it("folds a participle onto its bare noun", () => {
+    for (const [a, b] of [["horned", "horn"], ["spotted", "spots"], ["striped", "stripe"], ["banded", "bands"]]) {
       expect(stem(a)).toBe(stem(b));
     }
   });
@@ -89,8 +101,10 @@ describe("redactSpoilers", () => {
   it("hides the word that singles a species out, not the words around it", () => {
     expect(shown("Aspidoscelis is a genus of whiptail lizards in the family Teiidae.", REPTILES))
       .toBe("Aspidoscelis is a genus of [#] lizards in the family Teiidae.");
+    // "horn" goes with it: the tray holds a long-horned beetle, and participles fold
+    // onto their bare noun, so this line cannot name a horn beetle either.
     expect(shown("Other common names include Hercules beetles, unicorn beetles or horn beetles.", BEETLES))
-      .toBe("Other common names include [#] beetles, unicorn beetles or horn beetles.");
+      .toBe("Other common names include [#] beetles, unicorn beetles or [#] beetles.");
   });
 
   it("leaves a word shared by several species on the board", () => {
@@ -153,6 +167,25 @@ describe("redactSpoilers", () => {
     const board = [sp("Cat", "Felis catus"), sp("Wild cat", "Felis silvestris")];
     expect(shown("Cats are small carnivores; wild cats hunt alone.", board))
       .toBe("Cats are small carnivores; [#] hunt alone.");
+  });
+
+  it("hides a name the article respells with a space", () => {
+    // The reported leak: Syrphidae read "Hoverflies, also called hover flies", and the
+    // two-word spelling walked straight past a word-for-word match.
+    expect(shown("Hoverflies, also called hover flies, are a large family of flies.", FLIES))
+      .toBe("[#], also called [#], are a large family of flies.");
+    // …and the other way round, an article running a two-word name together.
+    expect(shown("Houseflies and house flies are the same insect.", FLIES))
+      .toBe("[#] and [#] are the same insect.");
+  });
+
+  it("hides a hyphenated name the article writes as a compound", () => {
+    // The reported leak: "longhorn beetles" over a tray holding the Asian long-horned
+    // beetle. "long" singles a tile out on its own, so it goes wherever it appears.
+    expect(shown("Cerambycidae, the longhorn beetles, have very long antennae.", BEETLES))
+      .toBe("Cerambycidae, the [#] beetles, have very [#] antennae.");
+    // A clade label is the same giveaway, so Branches shows the Latin for this genus.
+    expect(namesTell("Milkweed Longhorns", tellingWords(BEETLES))).toBe(true);
   });
 
   it("passes the text through when there is nothing to hide", () => {
