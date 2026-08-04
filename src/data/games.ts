@@ -433,14 +433,22 @@ export async function fetchDailyPlays(from: string, to: string): Promise<PlayCou
 }
 
 /** The caller's overall (combined-board) champion record: how many past days they
- *  topped the combined leaderboard, and the winning dates. Null when there's no
- *  backend or the streaks migration hasn't been run. */
-export async function fetchOverallBadges(): Promise<{ daily_wins: number; win_dates: string[] } | null> {
+ *  topped the combined leaderboard, the winning dates, and which of those they
+ *  shared with somebody who tied them. Null when there's no backend or the streaks
+ *  migration hasn't been run. `shared_dates` is missing on a backend still running
+ *  the pre-shared-crown streaks.sql, so it's normalised to empty here rather than
+ *  landing as undefined in the badge code. */
+export async function fetchOverallBadges(): Promise<import("./badges").OverallBadges | null> {
   if (!supabase) return null;
   try {
     const { data, error } = await supabase.rpc("overall_player_badges");
     if (error || !data) return null;
-    return data as { daily_wins: number; win_dates: string[] };
+    const row = data as { daily_wins?: number; win_dates?: string[]; shared_dates?: string[] };
+    return {
+      daily_wins: row.daily_wins ?? 0,
+      win_dates: row.win_dates ?? [],
+      shared_dates: row.shared_dates ?? [],
+    };
   } catch {
     return null;
   }

@@ -51,6 +51,16 @@ export interface PlayerBadges {
   groups: Record<string, { rank: number; total: number }>;
 }
 
+/** What overall_player_badges() returns for the combined board. Unlike a single
+ *  game's daily win, a tie at the top is SHARED: everyone level on the day keeps
+ *  it, and `shared_dates` is the subset of `win_dates` somebody else matched
+ *  exactly. Empty on a backend that predates the shared crown. */
+export interface OverallBadges {
+  daily_wins: number;
+  win_dates: string[];
+  shared_dates: string[];
+}
+
 /** Where a celebrated win came from: one of the three games, or the combined board. */
 export type WinSource = "lineage" | "kinship" | "branches" | "overall";
 
@@ -312,17 +322,33 @@ export function competitiveBadges(server: PlayerBadges | null): Badge[] {
   return out;
 }
 
-/** The overall (combined-board) champion badge, from overall_player_badges().
- *  One tiered 👑 badge for topping the day's combined leaderboard, with the winning
- *  dates attached. Empty until the first overall win. */
-export function overallBadges(server: { daily_wins: number; win_dates: string[] } | null): Badge[] {
+/** The overall (combined-board) badges, from overall_player_badges(): the tiered
+ *  👑 for topping the day's combined leaderboard, plus 🤝 for the days that top
+ *  spot was shared. Empty until the first overall win. */
+export function overallBadges(server: OverallBadges | null): Badge[] {
   if (!server) return [];
+  const out: Badge[] = [];
   const b = champBadge(
     "champ-overall", "👑", "overall daily champion", "overall daily",
     server.daily_wins, server.win_dates, fmtDay,
-    `Awarded for topping the combined daily board: each game's score scaled against that day's best, averaged over all three. Finished days with at least ${MIN_DAY_PLAYERS} players only.`
+    `Awarded for topping the combined daily board: each game's score scaled against that day's best, averaged over all three. Finished days with at least ${MIN_DAY_PLAYERS} players only. A tie is shared, so nobody is knocked off a day they were level on.`
   );
-  return b ? [b] : [];
+  if (b) out.push(b);
+
+  const shared = server.shared_dates ?? [];
+  if (shared.length > 0) {
+    out.push({
+      id: "joint-custody",
+      icon: "🤝",
+      label: shared.length === 1 ? "joint custody" : `${shared.length}× joint custody`,
+      tier: "plain",
+      desc: `Best of the day alongside somebody else on ${shared.length} day${shared.length === 1 ? "" : "s"}`,
+      criteria: "Awarded for topping the combined daily board on a day another player matched you exactly, game for game. Neither of you loses the day: the 👑 counts for both.",
+      occurrences: shared.map(fmtDay),
+      occLabel: "shared",
+    });
+  }
+  return out;
 }
 
 /** How many more plays to the next collector tier (a gentle nudge), or null.

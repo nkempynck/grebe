@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchCombinedDaily, fetchOverallBadges, type CombinedEntry } from "../data/games";
+import type { OverallBadges } from "../data/badges";
 import { todayKey, dailyNumber, DAILY_EPOCH } from "../core/daily";
 
 interface Props {
@@ -30,7 +31,7 @@ export function CombinedLeaderboard({ me, playedToday = true }: Props) {
   const today = todayKey();
   const [dayDate, setDayDate] = useState<string>(today);
   const [rows, setRows] = useState<CombinedEntry[] | null>(null);
-  const [overall, setOverall] = useState<{ daily_wins: number; win_dates: string[] } | null>(null);
+  const [overall, setOverall] = useState<OverallBadges | null>(null);
   // Today's board is earned by playing: hide it (and skip the fetch) until the
   // viewer has played at least one of today's games. Past days stay browsable.
   const locked = !playedToday && dayDate === today;
@@ -54,7 +55,20 @@ export function CombinedLeaderboard({ me, playedToday = true }: Props) {
     return () => { live = false; };
   }, [me]);
 
-  const myIdx = rows && me ? rows.findIndex((r) => r.display_name === me) : -1;
+  // Standard competition ranking: players level on score AND games played share a
+  // rank, and the next one down skips (1, 1, 3). fetchCombinedDaily already sorts
+  // by those two, so a tied block is contiguous and its first index is its rank.
+  // Two identical results being printed #1 and #2 was the board deciding a tie by
+  // the alphabet, which is also how a shared day used to cost somebody the 👑.
+  const ranked = useMemo(
+    () => rows?.map((r, _i, all) => ({
+      ...r,
+      rank: all.findIndex((o) => o.combined === r.combined && o.played === r.played) + 1,
+    })) ?? null,
+    [rows]
+  );
+
+  const myIdx = ranked && me ? ranked.findIndex((r) => r.display_name === me) : -1;
 
   return (
     <div className="lb">
@@ -80,9 +94,9 @@ export function CombinedLeaderboard({ me, playedToday = true }: Props) {
 
       {locked ? (
         <p className="stats-empty">Play one of today’s games to see the leaderboard of the day.</p>
-      ) : rows === null ? (
+      ) : ranked === null ? (
         <p className="stats-empty">Loading…</p>
-      ) : rows.length === 0 ? (
+      ) : ranked.length === 0 ? (
         <p className="stats-empty">No ranked games on this day yet. Play a signed-in daily to appear.</p>
       ) : (
         <>
@@ -93,13 +107,16 @@ export function CombinedLeaderboard({ me, playedToday = true }: Props) {
               <span className="lb-meta">games</span>
               <span className="lb-score">/100</span>
             </div>
-            {rows.slice(0, 10).map((r, i) => {
+            {ranked.slice(0, 10).map((r) => {
               const isMe = r.display_name === me;
+              const podium = r.rank <= 3;
+              // Everyone at rank 1 wears the crown, however many that is.
+              const crowned = r.rank === 1 && r.combined > 0;
               return (
-                <div className={`lb-row${isMe ? " is-me" : ""}${i < 3 ? " is-podium" : ""}`} key={r.display_name}>
-                  <span className={`lb-rank${i < 3 ? " is-medal" : ""}`}>{i < 3 ? MEDALS[i] : i + 1}</span>
+                <div className={`lb-row${isMe ? " is-me" : ""}${podium ? " is-podium" : ""}`} key={r.display_name}>
+                  <span className={`lb-rank${podium ? " is-medal" : ""}`}>{podium ? MEDALS[r.rank - 1] : r.rank}</span>
                   <span className="lb-name">
-                    {i === 0 && <span className="lb-crown" title={`Overall ${dayDate === today ? "leader" : "winner"} of the day`}>👑</span>}
+                    {crowned && <span className="lb-crown" title={`Overall ${dayDate === today ? "leader" : "winner"} of the day`}>👑</span>}
                     {r.display_name}{isMe && <span className="lb-youtag">you</span>}
                   </span>
                   <span className="lb-meta" title="games played today">{r.played}/3</span>
@@ -110,10 +127,10 @@ export function CombinedLeaderboard({ me, playedToday = true }: Props) {
           </div>
 
           <div className="lb-foot">
-            <span>{rows.length} player{rows.length === 1 ? "" : "s"}</span>
+            <span>{ranked.length} player{ranked.length === 1 ? "" : "s"}</span>
             {me && (
               myIdx >= 0 ? (
-                <span className="lb-you">You · #{myIdx + 1} of {rows.length} · {rows[myIdx].combined} pts</span>
+                <span className="lb-you">You · #{ranked[myIdx].rank} of {ranked.length} · {ranked[myIdx].combined} pts</span>
               ) : (
                 <span className="lb-you is-unranked">You · not ranked here yet</span>
               )
@@ -132,7 +149,8 @@ export function CombinedLeaderboard({ me, playedToday = true }: Props) {
       <p className="lb-note">
         Each game scored 0–100 (your score as a share of the day’s best in that game), then averaged
         across Lineage, Kinship and Branches for one daily total out of 100. Play all three to top it.
-        Top it on a finished day (with ≥3 players) to earn the 👑.
+        Top it on a finished day (with ≥3 players) to earn the 👑. Match the leader exactly and you
+        both keep it.
       </p>
     </div>
   );

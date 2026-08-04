@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { UsePlayer } from "../hooks/usePlayer";
 import { fetchOverallBadges } from "../data/games";
-import { overallBadges, type Badge } from "../data/badges";
+import { overallBadges, type Badge, type OverallBadges } from "../data/badges";
 import { BadgeGrid } from "./BadgeGrid";
 
 interface Props {
@@ -9,10 +9,11 @@ interface Props {
 }
 
 /** Overall (combined-board) badges: the 👑 daily-champion badge for topping the
- *  day's combined leaderboard across all three games. Its own Account panel so it
+ *  day's combined leaderboard across all three games, and the 🤝 for the days that
+ *  top spot was shared with a player who tied you. Its own Account panel so it
  *  isn't tied to any single game. */
 export function OverallBadgesPanel({ player }: Props) {
-  const [server, setServer] = useState<{ daily_wins: number; win_dates: string[] } | null>(null);
+  const [server, setServer] = useState<OverallBadges | null>(null);
 
   useEffect(() => {
     if (!player.session) { setServer(null); return; }
