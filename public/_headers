@@ -29,7 +29,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-PO/pQhqitWhIIx4ClFM7VI1eOVPp/jW60mWSPv7RffI=' 'sha256-pREEHP1tF4hnFjsGWhCxTHPIc2H7oIFfztRnZeIy1s8=' 'sha256-9QkEe22Bk0zuhNeG0lb4FBHx/opmZaawU0+dQA3gKfA=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://upload.wikimedia.org https://*.wikipedia.org; connect-src 'self' https://*.supabase.co https://en.wikipedia.org https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-PO/pQhqitWhIIx4ClFM7VI1eOVPp/jW60mWSPv7RffI=' 'sha256-pREEHP1tF4hnFjsGWhCxTHPIc2H7oIFfztRnZeIy1s8=' 'sha256-gDzmt7a9vTUvBF/8qnm5VK4YUu1Hk+4a3O7/DekdwOs=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://upload.wikimedia.org https://*.wikipedia.org; connect-src 'self' https://*.supabase.co https://en.wikipedia.org https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 # Cache strategy (SPA). index.html is the entry point and names the hashed JS/CSS
 # bundles; it MUST always be revalidated, or a returning browser keeps an old

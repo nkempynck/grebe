@@ -15,15 +15,18 @@ document.head.appendChild(icon);
 // named by the HTML; this catches a LAZY chunk (the taxonomy augment) requested
 // later from a tab that was already open when a deploy replaced it. A dynamic
 // import creates no element, so no error event fires — Vite reports it here
-// instead. Same one-shot flag as the inline guard, so the two can't ping-pong.
+// instead. Shares the inline guard's attempt counter, so between them they can
+// only ever spend the same three reloads.
 window.addEventListener("vite:preloadError", () => {
+  let tries: number;
   try {
-    if (sessionStorage.getItem("grebe.assetReload")) return;
-    sessionStorage.setItem("grebe.assetReload", "1");
+    tries = Number(sessionStorage.getItem("grebe.assetReload") ?? 0);
+    sessionStorage.setItem("grebe.assetReload", String(tries + 1));
   } catch {
-    /* private mode — reload anyway, the flag is only loop protection */
+    return; // can't bound the attempts, so don't start reloading
   }
-  window.location.reload();
+  if (tries >= 3) return;
+  window.setTimeout(() => window.location.reload(), tries === 0 ? 800 : 2000);
 });
 
 createRoot(document.getElementById("root")!).render(
@@ -32,9 +35,9 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>
 );
 
-// Reaching this line means every bundle loaded, so clear the one-shot reload flag:
-// a LATER deploy in this same session can then recover the same way. If a reload
-// doesn't fix things, we never get here and the flag stays set, so it can't loop.
+// Reaching this line means every bundle loaded, so reset the reload budget: a LATER
+// deploy in this same session gets its three attempts back. If reloading doesn't
+// fix things, we never get here, the count keeps climbing, and it stops at three.
 try {
   sessionStorage.removeItem("grebe.assetReload");
 } catch {

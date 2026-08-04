@@ -51,9 +51,16 @@
       // (200, text/html), so the module script fails its MIME check and nothing
       // renders — a blank page that a plain reload doesn't always clear.
       // A failed script or stylesheet fires an error event on its element, which
-      // doesn't bubble, so this listens in the capture phase. One reload is enough
-      // (index.html is no-cache, so it comes back fresh); the sessionStorage flag
-      // makes a loop impossible if the reload fails for some other reason.
+      // doesn't bubble, so this listens in the capture phase. index.html is
+      // no-cache, so a reload always fetches a fresh list of bundles.
+      //
+      // Up to three spaced attempts, not one: a deploy takes a few seconds to reach
+      // every edge, and an instant retry lands in the same gap it just failed in.
+      // The counter lives in sessionStorage and is cleared once the app boots, so a
+      // later deploy in the same session gets a fresh budget. If storage is
+      // unavailable we do NOT reload at all — without a way to count attempts there
+      // is no way to guarantee the loop ends, and a reload loop is far worse than a
+      // blank page.
       window.addEventListener(
         "error",
         function (e) {
@@ -63,11 +70,17 @@
           // is not a stale deploy and must not trigger a reload.
           var url = el.src || el.href || "";
           if (url.lastIndexOf(location.origin + "/assets/", 0) !== 0) return;
+          var tries;
           try {
-            if (sessionStorage.getItem("grebe.assetReload")) return;
-            sessionStorage.setItem("grebe.assetReload", "1");
-          } catch (err) {}
-          location.reload();
+            tries = +(sessionStorage.getItem("grebe.assetReload") || 0);
+            sessionStorage.setItem("grebe.assetReload", tries + 1);
+          } catch (err) {
+            return;
+          }
+          if (tries >= 3) return;
+          setTimeout(function () {
+            location.reload();
+          }, tries === 0 ? 800 : 2000);
         },
         true
       );
