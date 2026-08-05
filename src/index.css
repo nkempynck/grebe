@@ -383,10 +383,13 @@ body {
 .errline { color: var(--danger); font-size: 14px; min-height: 20px; margin: 5px 2px 14px; font-style: italic; }
 
 .subactions { display: flex; gap: 18px; margin-bottom: 26px; }
-/* Sits directly above the hint button, quoting its price. Muted on purpose: it's
-   a number to weigh, not a warning. */
+/* The hint price, shown only while the button is armed. Muted on purpose: it's a
+   number to weigh, not a warning. */
 .hintcost { font-size: 12px; color: var(--ink-faint); margin: 0 2px 6px; }
 .hintcost b { color: var(--ink-soft); font-weight: 600; }
+/* Armed state: the next press spends the hint, so it stops looking like the rest
+   of the link row. */
+.linkbtn.is-armed { color: var(--brass); text-decoration-color: var(--brass); font-weight: 600; }
 .linkbtn {
   background: none; border: none; padding: 0; cursor: pointer;
   font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft);

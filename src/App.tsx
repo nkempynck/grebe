@@ -356,6 +356,13 @@ export default function App() {
 
   const daily = g.mode === "daily";
   const roundOver = g.status !== "playing";
+  // A hint is irreversible and costs real points, so on the daily the button arms
+  // first and quotes the price, and only the second press spends it. Free play
+  // isn't scored, so there it stays a single press. Disarms itself whenever the
+  // board moves under it (a guess landed, the round ended, the mode switched), so
+  // the quoted number can never be stale by the time it's confirmed.
+  const [hintArmed, setHintArmed] = useState(false);
+  useEffect(() => { setHintArmed(false); }, [g.guesses.length, g.hintIds.length, roundOver, g.mode]);
   // The name shown/highlighted on the leaderboard (edited display name, else login).
   const boardName = player.displayName ?? player.username;
 
@@ -663,14 +670,16 @@ export default function App() {
         )}
         <div className="errline">{g.error}</div>
 
-        {/* What the next hint actually costs, in points, BEFORE it's spent. Daily
-            only: free play isn't scored, so there's nothing to quote. "Still in
-            play" is the best case — winning on your very next guess — so it drops
-            as you guess, which is the honest number to weigh a hint against. */}
-        {daily && !roundOver && g.canHint && (() => {
+        {/* The price, shown only once the button is armed, so it's an answer to
+            "what will this cost me" rather than a number sitting there all game.
+            "Still in play" is the best case — winning on your very next guess — so
+            it drops as you guess, which is the honest figure to weigh a hint
+            against. Daily only: free play isn't scored, so there's nothing to
+            quote and the button never arms. */}
+        {daily && !roundOver && g.canHint && hintArmed && (() => {
           const { now, cost } = hintCost(g.daily.tier, g.guesses.length, g.hintIds.length);
           return (
-            <div className="hintcost">
+            <div className="hintcost" role="status">
               {now > 0
                 ? <>Hint {g.hintIds.length + 1} of {LINEAGE_MAX_HINTS} costs <b>{cost}</b> of the <b>{now}</b> points still in play.</>
                 : <>Today’s board is already worth 0 points.</>}
@@ -680,9 +689,19 @@ export default function App() {
 
         <div className="subactions">
           {!roundOver && (
-            <button className="linkbtn" onClick={g.revealHint} disabled={!g.canHint}>
-              {g.canHint ? "Hint: reveal next branch" : "No hint left"}
+            <button
+              className={`linkbtn${hintArmed ? " is-armed" : ""}`}
+              onClick={() => {
+                if (!daily || hintArmed) { g.revealHint(); setHintArmed(false); }
+                else setHintArmed(true);
+              }}
+              disabled={!g.canHint}
+            >
+              {!g.canHint ? "No hint left" : hintArmed ? "Confirm hint" : "Hint: reveal next branch"}
             </button>
+          )}
+          {!roundOver && hintArmed && (
+            <button className="linkbtn" onClick={() => setHintArmed(false)}>Cancel</button>
           )}
           {!roundOver && <button className="linkbtn" onClick={g.giveUp}>Give up & reveal</button>}
           {!daily && <button className="linkbtn" onClick={g.newRandom}>New random specimen</button>}
