@@ -15,6 +15,7 @@ import {
   type Tree,
 } from "../core";
 import { resolveOutOfSet } from "../data/guessIndex";
+import { LINEAGE_MAX_HINTS } from "../data/score";
 import { loadTree } from "../data/loadTaxonomy";
 import { DEFAULT_SCOPE_ID, SCOPE_PRESETS, RESOLUTION_PRESETS } from "../data/presets";
 import { resolveDailyRules, dailyAnswerFor, type DailyRules } from "../data/dailySchedule";
@@ -202,7 +203,10 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     () => hintLineage.find((id) => (tree?.depthOf.get(id) ?? 0) > knownDepth) ?? null,
     [hintLineage, tree, knownDepth]
   );
-  const canHint = status === "playing" && nextHint !== null;
+  // Two hints per board, then the button is spent — a third would leave 10% of the
+  // day, which isn't a choice worth offering. Also still bounded by nextHint: a
+  // board can run out of named ancestors to reveal before it hits the cap.
+  const canHint = status === "playing" && nextHint !== null && hintIds.length < LINEAGE_MAX_HINTS;
 
   const revealHint = useCallback(() => {
     if (nextHint) setHintIds((h) => (h.includes(nextHint) ? h : [...h, nextHint]));

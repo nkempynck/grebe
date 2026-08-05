@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gamePoints, kinshipPoints, branchesPoints, branchesAllowance } from "./score";
+import { gamePoints, kinshipPoints, branchesPoints, branchesAllowance, tierWeight } from "./score";
 
 // GOLDEN scoring values. gamePoints() MUST stay byte-identical to
 // public.game_points in supabase/schema.sql — if you change the formula here,
@@ -21,17 +21,76 @@ describe("gamePoints", () => {
 
   it("decays with guesses (tier 5, no hints)", () => {
     expect(gamePoints(true, 5, 1, 0)).toBe(140);
-    expect(gamePoints(true, 5, 2, 0)).toBe(122);
-    expect(gamePoints(true, 5, 3, 0)).toBe(108);
-    expect(gamePoints(true, 5, 6, 0)).toBe(80);
+    expect(gamePoints(true, 5, 2, 0)).toBe(130);
+    expect(gamePoints(true, 5, 3, 0)).toBe(117);
+    expect(gamePoints(true, 5, 6, 0)).toBe(86);
+    // Never rises. Only STRICTLY falls out to 20 guesses: past there the curve
+    // decays by under a point per guess, so rounding makes neighbours tie.
+    for (let g = 2; g < 40; g++) {
+      expect(gamePoints(true, 5, g, 0)).toBeLessThanOrEqual(gamePoints(true, 5, g - 1, 0));
+    }
+    for (let g = 2; g <= 20; g++) {
+      expect(gamePoints(true, 5, g, 0)).toBeLessThan(gamePoints(true, 5, g - 1, 0));
+    }
   });
 
-  it("escalates the hint penalty — retains 90/70/40/0% at 1/2/3/4 hints (tier 5, 1 guess)", () => {
+  // The defect this curve exists to fix: the OPENING guess used to be the single
+  // most expensive one on the board (13%), despite being the only one made blind.
+  // It must now be the cheapest, and the cost must peak after it, not at it.
+  it("makes the blind opening guess the cheapest on the board", () => {
+    const cost = (g: number) => 1 - gamePoints(true, 7, g + 1, 0) / gamePoints(true, 7, g, 0);
+    for (let g = 2; g <= 6; g++) expect(cost(1)).toBeLessThan(cost(g));
+  });
+
+  // No player may score LESS than the pre-2026-08-04 curve at any depth: the change
+  // shipped mid-life, and the whole reason this shape was chosen over the steeper
+  // candidates is that it takes nothing away from anyone. Equality only at 1 guess.
+  it("never pays less than the original 1 + 0.15n curve", () => {
+    const legacy = (g: number) => Math.round(140 / (1 + 0.15 * (g - 1)));
+    expect(gamePoints(true, 5, 1, 0)).toBe(legacy(1));
+    for (let g = 2; g < 40; g++) {
+      expect(gamePoints(true, 5, g, 0)).toBeGreaterThanOrEqual(legacy(g));
+    }
+  });
+
+  // A 1-guess no-hint win pays the day's weight EXACTLY — never more. Holds by
+  // construction because n²/(n+1) is 0 at n=0 and rises from there; a discount
+  // coefficient above GUESS_SLOPE would break it (see guessDenom).
+  it("caps a perfect win at exactly the day's weight", () => {
+    for (let t = 1; t <= 7; t++) {
+      expect(gamePoints(true, t, 1, 0)).toBe(tierWeight(t));
+      for (let g = 1; g < 30; g++) expect(gamePoints(true, t, g, 0)).toBeLessThanOrEqual(tierWeight(t));
+    }
+  });
+
+  it("charges 20% then 30% for hints — retains 80/50% at 1/2 (tier 5, 1 guess)", () => {
     expect(gamePoints(true, 5, 1, 0)).toBe(140);
-    expect(gamePoints(true, 5, 1, 1)).toBe(126);
-    expect(gamePoints(true, 5, 1, 2)).toBe(98);
-    expect(gamePoints(true, 5, 1, 3)).toBe(56);
+    expect(gamePoints(true, 5, 1, 1)).toBe(112);
+    expect(gamePoints(true, 5, 1, 2)).toBe(70);
+  });
+
+  // The two-hint cap is CLIENT-side (LINEAGE_MAX_HINTS), while submit_game() derives
+  // the count from the posted hint_ids array. So the curve has to keep falling past
+  // the cap, or a tampered client claiming a third hint would pay the second's price.
+  it("keeps falling past the two-hint cap, so extra hints can't be free", () => {
+    expect(gamePoints(true, 5, 1, 3)).toBe(14);
     expect(gamePoints(true, 5, 1, 4)).toBe(0);
+    // Strictly down until it bottoms out at four, then pinned to zero — never back up.
+    for (let h = 1; h <= 4; h++) {
+      expect(gamePoints(true, 5, 1, h)).toBeLessThan(gamePoints(true, 5, 1, h - 1));
+    }
+    for (let h = 5; h < 12; h++) expect(gamePoints(true, 5, 1, h)).toBe(0);
+  });
+
+  // The change that motivated the retune: hinting used to be cheaper than an opening
+  // wrong guess despite revealing strictly better information, so the point-optimal
+  // first move was to hint. A hint must now cost more than the guess it replaces.
+  it("prices a hint above a wrong guess at the opening", () => {
+    const perfect = gamePoints(true, 5, 1, 0);            // win first guess, no help
+    const afterOneWrongGuess = gamePoints(true, 5, 2, 0); // win second guess
+    const afterOneHint = gamePoints(true, 5, 1, 1);       // win first guess, one hint
+    expect(afterOneHint).toBeLessThan(afterOneWrongGuess);
+    expect(perfect - afterOneHint).toBeGreaterThan(perfect - afterOneWrongGuess);
   });
 
   it("never returns a negative score", () => {

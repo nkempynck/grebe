@@ -7,18 +7,78 @@ export function tierWeight(tier: number): number {
   return 90 + 10 * (tier || 1);
 }
 
+/** Guess-efficiency denominator: score is weight/guessDenom(guesses), n = guesses-1.
+ *  Was a plain `1 + 0.15n`, which charged MOST for your opening guess (13.0%) and
+ *  least for your twentieth (3.7%) — backwards. Your first guess is made blind, with
+ *  nothing on the board to reason from; a mistake once you know the direction is the
+ *  culpable one. This is the same line with a discount that FADES as you go deeper:
+ *
+ *      1 + 0.15n - 0.15·n/(n+1)  ==  1 + 0.15·n²/(n+1)
+ *
+ *  The opening guess drops to 7.0% while everything from the third on costs a shade
+ *  MORE than it used to (9.6% vs 9.4% at guess 4, 6.7% vs 6.4% at guess 9). No score
+ *  is lower than the old curve's at any depth — the discount is always ≥ 0 — so this
+ *  cost no player anything on the day it shipped.
+ *
+ *  WHY SO MILD: a curve that really punishes late mistakes has to take points off
+ *  long boards, and the population average among SOLVED dailies was 9.1 guesses with
+ *  hard days averaging 16-17 (leaderboard_standing, 2026-08-04, 13 days / 17 players).
+ *  Those are days everyone found hard, not days everyone got sloppy, so the steeper
+ *  variants were docking the wrong players. Solving in 10 when the field averages 15
+ *  IS impressive, but no guess curve can know that — it only sees your count. Doing
+ *  that properly needs the day's realised difficulty, which doesn't exist until the
+ *  day closes, and points are frozen at submit time. Left as separate work.
+ *
+ *  MONOTONE BY CONSTRUCTION: using 0.15 for both the slope and the discount collapses
+ *  to n²/(n+1), whose derivative (n²+2n)/(n+1)² is ≥ 0 everywhere and which is exactly
+ *  1 at n=0. A 1-guess no-hint win therefore pays the day's weight and nothing pays
+ *  more. Pick a discount ABOVE the slope (0.155 was tried) and D dips below 1 between
+ *  n=0 and n=1, i.e. >100% of the day, saved only by n always being an integer. */
+const GUESS_SLOPE = 0.15;
+function guessDenom(guesses: number): number {
+  const n = Math.max(guesses - 1, 0);
+  return 1 + (GUESS_SLOPE * n * n) / (n + 1);
+}
+
 /** Lineage per-game leaderboard points. MUST match public.game_points in
  *  schema.sql so the number a player sees/shares equals what the server ranks
  *  them on. */
 export function gamePoints(won: boolean, tier: number, guesses: number, hints: number): number {
   if (!won) return 0;
   const weight = tierWeight(tier);
-  const efficiency = 1 / (1 + 0.15 * Math.max(guesses - 1, 0));
-  // Hints escalate: the marginal cost of hint n is 10n% (−10%, −20%, −30%, …),
-  // so the first hint barely stings but leaning on them drops fast. Retained
-  // value is 90/70/40/0% at 1/2/3/4 hints. Harsh, but softened at the first step.
-  const hintFactor = Math.max(0, 1 - 0.05 * hints * (hints + 1));
+  const efficiency = 1 / guessDenom(guesses);
+  // Hints cost 20% of the day's base, then 30%: retained value 80/50% at 1/2.
+  // Priced off a WRONG GUESS, which peaks at 10.8% around the seventh (see
+  // guessDenom). A hint always reveals a strictly deeper named clade where a guess
+  // can land nowhere new, so it has to cost more than the guesses it saves. 20%
+  // is ~2 guesses through the informed middle and more at the opening. Note guesses
+  // never stack linearly: two from a standing start cost 13.0% together, not the
+  // 13.5% you get by adding their marginals, so count with guessDenom, not sums.
+  //
+  // LINEAGE_MAX_HINTS caps this at two. The curve deliberately KEEPS FALLING past
+  // the cap (10% at three, 0 at four) rather than flattening: the cap lives in the
+  // client, but submit_game() derives the count from the posted hint_ids array, so
+  // a tampered client claiming a third hint scores itself down instead of paying
+  // the same as the second. Don't "simplify" this to a two-entry table.
+  const hintFactor = Math.max(0, 1 - 0.05 * hints * (hints + 3));
   return Math.max(0, Math.round(weight * efficiency * hintFactor));
+}
+
+/** Hints a Lineage board will hand out. Two, because a third would leave a player
+ *  10% of the day — not a choice, just a slower way to concede. Hints only ever
+ *  reveal ANCESTORS of the answer (see hintLineage in useGame), never the answer,
+ *  so capping them needs no zero-score backstop: the winning guess is always the
+ *  player's. */
+export const LINEAGE_MAX_HINTS = 2;
+
+/** What one more hint would cost RIGHT NOW, for the live note under the hint button:
+ *  `now` is the best score still reachable (you win on your very next guess), `after`
+ *  the same once the hint is spent. Routed through gamePoints so the number a player
+ *  is shown before spending can't drift from the one they're scored on. */
+export function hintCost(tier: number, guesses: number, hints: number): { now: number; after: number; cost: number } {
+  const now = gamePoints(true, tier, guesses + 1, hints);
+  const after = gamePoints(true, tier, guesses + 1, hints + 1);
+  return { now, after, cost: now - after };
 }
 
 /** Free Kinship picture/name reveals to START with. The free budget then grows by

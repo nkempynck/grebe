@@ -91,8 +91,10 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             <p>
               A daily is scored <b>difficulty&nbsp;weight × efficiency × hint&nbsp;factor</b>, and zero
               for a loss. The weight is the day's tier (<code>100–160 by day</code>), so a Sunday win is
-              worth a little more than a Monday one. Efficiency rewards fewer guesses; every hint and giving
-              up trims the score. Only the daily is ranked. Free play isn't scored.
+              worth a little more than a Monday one. Efficiency rewards fewer guesses, and your
+              opening guess is the cheapest on the board, since it's made blind. You get
+              <b> two hints</b>: the first costs 20% of the day's points, the second 30%. Giving up
+              scores zero. Only the daily is ranked. Free play isn't scored.
             </p>
           </details>
         </div>

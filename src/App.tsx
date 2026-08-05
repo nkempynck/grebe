@@ -17,7 +17,7 @@ import { loadDailyProgress } from "./data/dailyProgress";
 import { loadGridProgress } from "./data/gridProgress";
 import { loadBranchesProgress } from "./data/branchesProgress";
 import { branchesBoardFor } from "./data/branchesDaily";
-import { branchesAllowance, KINSHIP_FREE_REVEALS } from "./data/score";
+import { branchesAllowance, hintCost, KINSHIP_FREE_REVEALS, LINEAGE_MAX_HINTS } from "./data/score";
 import { branchesTally } from "./hooks/useBranchesGame";
 import { primePinnedPuzzles, pinnedPuzzleCached, fetchPinnedPuzzle, branchesBoard as rebuildBranchesBoard } from "./data/pinnedPuzzles";
 import { SettingsPanel } from "./ui/SettingsPanel";
@@ -63,6 +63,19 @@ const isAdminHash = (h: string) => h === ADMIN_HASH || (import.meta.env.DEV && h
  *  so the banner disappears at a rollover rather than mid-session. Shipped
  *  2026-08-03; nothing to remove afterwards. */
 const DISCUSSION_BANNER_UNTIL = "2026-08-11";
+
+/** Lineage scoring change, Wed through Fri. Bounded at BOTH ends, and FROM is the
+ *  rollover the SQL patch runs at, not the day the client ships: the prices aren't
+ *  real until then, so a build that goes out early stays silent by itself rather
+ *  than relying on the deploy being timed correctly. */
+const SCORING_BANNER_FROM = "2026-08-05";
+const SCORING_BANNER_UNTIL = "2026-08-08";
+
+/** The top-level sections, in nav order. Also the allowlist for the remembered view
+ *  below, so a stored value from an older build can't select a section that's gone. */
+const VIEWS = ["home", "lineage", "kinship", "branches", "leaderboard", "stats", "account", "about"] as const;
+type View = (typeof VIEWS)[number];
+const VIEW_KEY = "grebe.view";
 
 const WIN_GAME_LABEL: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches" };
 
@@ -179,7 +192,27 @@ export default function App() {
     primePinnedPuzzles("branches", Object.keys(saved.branches)).then(bump);
     return () => { live = false; };
   }, [tree, stats]);
-  const [view, setView] = useState<"home" | "lineage" | "kinship" | "branches" | "leaderboard" | "stats" | "account" | "about">("home");
+  // Remembered for THIS TAB only (sessionStorage), so the reload that versionCheck
+  // performs after a deploy puts the player back in the game they were in rather than
+  // bouncing them to Home. A manual reload restores too; opening the site in a new tab
+  // still starts at Home, which is why this isn't localStorage. Unknown or absent
+  // value falls back to Home, so a renamed view can't strand anyone on a blank screen.
+  const [view, setView] = useState<View>(() => {
+    try {
+      const saved = sessionStorage.getItem(VIEW_KEY);
+      if (saved && (VIEWS as readonly string[]).includes(saved)) return saved as View;
+    } catch {
+      /* private mode */
+    }
+    return "home";
+  });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(VIEW_KEY, view);
+    } catch {
+      /* private mode */
+    }
+  }, [view]);
   // Kinship/Branches generate boards from the RICH tree (base + a quality-filtered
   // augment). It's lazy-loaded the first time either tab opens — a separate chunk —
   // so the initial page and Lineage never download it. Falls back to the base tree
@@ -488,6 +521,23 @@ export default function App() {
         onHowItWorks={() => openAbout("about-lineage")}
         blurb="Guess the organism. Every miss tells you where you branched apart."
       />
+
+      {/* Scoring change, Wed through Fri. Lives inside Lineage rather than with the
+          site-wide banners because it only concerns this game. Date-bounded, so it
+          removes itself. Leads with the hint price since that's the half that costs
+          players something; the guess half follows so it isn't half a story. */}
+      {today >= SCORING_BANNER_FROM && today < SCORING_BANNER_UNTIL && (
+        <div className="beta-banner" role="note">
+          <span className="beta-tag">Scoring</span>
+          <span>
+            <b>Hints now cost more</b>: 20% of the day’s points for the first and 30% for the
+            second, two per board. They used to cost less than a wrong guess, despite always
+            revealing more. Your opening guess is now the cheapest on the board instead of the
+            most expensive, since it’s the one you make blind.
+          </span>
+        </div>
+      )}
+
       <div className="modeswitch" role="tablist" aria-label="Game mode">
         <button
           role="tab"
@@ -613,6 +663,21 @@ export default function App() {
         )}
         <div className="errline">{g.error}</div>
 
+        {/* What the next hint actually costs, in points, BEFORE it's spent. Daily
+            only: free play isn't scored, so there's nothing to quote. "Still in
+            play" is the best case — winning on your very next guess — so it drops
+            as you guess, which is the honest number to weigh a hint against. */}
+        {daily && !roundOver && g.canHint && (() => {
+          const { now, cost } = hintCost(g.daily.tier, g.guesses.length, g.hintIds.length);
+          return (
+            <div className="hintcost">
+              {now > 0
+                ? <>Hint {g.hintIds.length + 1} of {LINEAGE_MAX_HINTS} costs <b>{cost}</b> of the <b>{now}</b> points still in play.</>
+                : <>Today’s board is already worth 0 points.</>}
+            </div>
+          );
+        })()}
+
         <div className="subactions">
           {!roundOver && (
             <button className="linkbtn" onClick={g.revealHint} disabled={!g.canHint}>
@@ -701,7 +766,7 @@ export default function App() {
       )}
 
       <nav className="topnav" role="tablist" aria-label="Sections">
-        {(["home", "lineage", "kinship", "branches", "leaderboard", "stats", "account", "about"] as const).map((v) => {
+        {VIEWS.map((v) => {
           if (v === "account" && !player.configured) return null;
           const labels = { home: "Home", lineage: "Lineage", kinship: "Kinship", branches: "Branches", leaderboard: "Leaderboard", stats: "Stats", account: "Account", about: "About" };
           return (
