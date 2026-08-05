@@ -32,6 +32,10 @@ interface Props {
   playedToday?: boolean;
   /** One-line explanation of how the score works. */
   note?: string;
+  /** Rendered under the board when it is showing ONE day, with that date. Lets a
+   *  caller hang day-scoped content (the discussion board) here without this
+   *  component needing to know anything about it. */
+  renderForDate?: (date: string) => React.ReactNode;
   onClose?: () => void;
 }
 
@@ -55,7 +59,7 @@ const MEDALS = ["🥇", "🥈", "🥉"];
  *  filter (Kinship, Branches — and any future game). Lineage keeps its own richer
  *  panel because it filters by clade group. Reads through the game-parameterised
  *  fetchers in data/games.ts, so a new game is one registry entry away. */
-export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, playedToday = true, note, onClose }: Props) {
+export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, playedToday = true, note, renderForDate, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [dayDate, setDayDate] = useState<string>(() => todayKey());
@@ -205,6 +209,10 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, p
       )}
 
       {note && <p className="lb-note">{note}</p>}
+
+      {/* Day-scoped slot: only when the board is showing a single day, so the
+          caller never has to guess which date is on screen. */}
+      {forDate && renderForDate?.(forDate)}
     </div>
   );
 }

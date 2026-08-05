@@ -28,6 +28,7 @@ import { ShareCard } from "./ui/ShareCard";
 import { LeaderboardNudge } from "./ui/LeaderboardNudge";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import { DiscussionPanel } from "./ui/DiscussionPanel";
+import { ReplyBell } from "./ui/ReplyBell";
 import { AccountPanel } from "./ui/AccountPanel";
 import { StatsTabs } from "./ui/StatsTabs";
 import { AboutPanel } from "./ui/AboutPanel";
@@ -170,6 +171,8 @@ export default function App() {
   // Whether this device has played each of today's games (signed in or not) —
   // today's leaderboards are hidden until the viewer has played that game.
   const dayKey = todayKey();
+  // Yesterday, for the discussion read window (boards stay readable one day on).
+  const prevDayKey = new Date(Date.parse(`${dayKey}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
   const playedTodayLineage = stats.daily.playedDates.includes(dayKey);
   const playedTodayKinship = stats.kinship.playedDates.includes(dayKey);
   const playedTodayBranches = stats.branches.playedDates.includes(dayKey);
@@ -197,6 +200,29 @@ export default function App() {
   // bouncing them to Home. A manual reload restores too; opening the site in a new tab
   // still starts at Home, which is why this isn't localStorage. Unknown or absent
   // value falls back to Home, so a renamed view can't strand anyone on a blank screen.
+
+  // The discussion for whichever day a "By day" board is showing, so a reply from
+  // last night is reachable the next morning. Bounded to the server's two-day read
+  // window; older days get nothing rather than an error. Per game, keyed off that
+  // game's own played-dates so the client lock matches what the server will allow.
+  const discussionFor = useCallback(
+    (game: "lineage" | "kinship" | "branches", playedDates: string[]) =>
+      (date: string) => {
+        if (date > dayKey || date < prevDayKey) return null;
+        return (
+          <DiscussionPanel
+            board={game}
+            date={date}
+            configured={player.configured}
+            signedIn={!!player.session}
+            played={playedDates.includes(date)}
+            label={date === dayKey ? "today’s puzzle" : "that day’s puzzle"}
+          />
+        );
+      },
+    [dayKey, prevDayKey, player.configured, player.session]
+  );
+
   const [view, setView] = useState<View>(() => {
     try {
       const saved = sessionStorage.getItem(VIEW_KEY);
@@ -739,14 +765,19 @@ export default function App() {
   return (
     <div className="wrap">
       <header className="masthead">
-        <button
-          className="theme-toggle"
-          onClick={toggleTheme}
-          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          title={theme === "dark" ? "Light mode" : "Dark mode"}
-        >
-          {theme === "dark" ? "☀" : "☾"}
-        </button>
+        {/* Both corner controls in one stack, so the bell doesn't have to find its
+            own spot in a masthead whose right side is already logo + toggle. */}
+        <div className="masthead-tools">
+          <button
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {theme === "dark" ? "☀" : "☾"}
+          </button>
+          <ReplyBell signedIn={!!player.session} configured={player.configured} reloadKey={boardReload} />
+        </div>
         <div className="masthead-text">
           <div className="eyebrow">{eyebrow}</div>
           <h1 className="title">Grebe</h1>
@@ -875,21 +906,33 @@ export default function App() {
             <button role="tab" aria-selected={lbGame === "branches"} className={`lb-seg${lbGame === "branches" ? " is-on" : ""}`} onClick={() => setLbGame("branches")}>🌿 Branches</button>
           </div>
           {lbGame === "combined" ? (
-            <CombinedLeaderboard me={boardName} playedToday={playedTodayAny} />
+            <>
+              <CombinedLeaderboard me={boardName} playedToday={playedTodayAny} />
+              {/* The cross-game board: same daily lifetime as the rest, but earned
+                  by playing ANY of the day's three puzzles. */}
+              <DiscussionPanel
+                board="combined"
+                date={dayKey}
+                configured={player.configured}
+                signedIn={!!player.session}
+                played={playedTodayAny}
+                label="today’s puzzles"
+              />
+            </>
           ) : lbGame === "lineage" ? (
             <>
-              <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} />
-              <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} />
+              <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} renderForDate={discussionFor("lineage", stats.daily.playedDates)} />
+              <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} renderForDate={discussionFor("lineage", stats.daily.playedDates)} />
             </>
           ) : lbGame === "kinship" ? (
             <>
-              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="today" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
-              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="config" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
+              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="today" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." renderForDate={discussionFor("kinship", stats.kinship.playedDates)} />
+              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="config" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." renderForDate={discussionFor("kinship", stats.kinship.playedDates)} />
             </>
           ) : (
             <>
-              <Leaderboard game="branches" label="Branches" me={boardName} variant="today" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
-              <Leaderboard game="branches" label="Branches" me={boardName} variant="config" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
+              <Leaderboard game="branches" label="Branches" me={boardName} variant="today" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." renderForDate={discussionFor("branches", stats.branches.playedDates)} />
+              <Leaderboard game="branches" label="Branches" me={boardName} variant="config" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." renderForDate={discussionFor("branches", stats.branches.playedDates)} />
             </>
           )}
         </>

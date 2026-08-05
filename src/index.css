@@ -2076,3 +2076,60 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   margin: 18px 0 0; text-align: center;
   font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-faint);
 }
+
+/* ---------- Reply bell (replies to your comments) ----------
+   Lives in the masthead flex row, after the logo, so it never collides with the
+   absolutely-placed theme toggle in the corner. Styled as that toggle's sibling. */
+.masthead-tools {
+  position: absolute; top: 0; right: 0; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+/* Inside the stack it's a flex item, not the corner-anchored button it was. */
+.masthead-tools .theme-toggle { position: static; }
+.bell-wrap { position: relative; flex: none; }
+.bell {
+  position: relative;
+  width: 34px; height: 34px; padding: 0;
+  display: grid; place-items: center;
+  font-size: 15px; line-height: 1; color: var(--ink-soft);
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 50%;
+  cursor: pointer; transition: color 0.15s, border-color 0.15s;
+}
+.bell:hover { color: var(--brass); border-color: var(--brass); }
+.bell:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.bell-count {
+  position: absolute; top: -5px; right: -5px;
+  min-width: 15px; padding: 0 4px;
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700; line-height: 15px;
+  background: var(--brass); color: var(--on-accent);
+  border-radius: 999px; border: 1px solid var(--bg);
+}
+.bell-panel {
+  position: absolute; top: 40px; right: 0; z-index: 30; width: min(320px, 78vw);
+  padding: 10px 12px; text-align: left;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+.bell-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-faint); margin-bottom: 8px;
+}
+.bell-head .stats-close { position: static; }
+.bell-empty {
+  margin: 0; font-family: var(--font-body); font-size: 12.5px;
+  line-height: 1.45; color: var(--ink-faint);
+}
+.bell-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.bell-item { border-bottom: 1px solid var(--line-soft); padding-bottom: 8px; }
+.bell-item:last-child { border-bottom: none; padding-bottom: 0; }
+.bell-item-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+.bell-item-meta b { color: var(--ink); font-weight: 600; }
+.bell-item-body {
+  margin: 3px 0 0; font-family: var(--font-body); font-size: 13px; line-height: 1.45;
+  color: var(--ink); overflow-wrap: anywhere;
+}
+.bell-note {
+  margin: 9px 0 0; font-family: var(--font-body); font-style: italic;
+  font-size: 11.5px; color: var(--ink-faint);
+}
