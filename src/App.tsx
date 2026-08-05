@@ -379,13 +379,25 @@ export default function App() {
 
   useEffect(() => {
     if (!roundOver || !g.tree || !g.answerId) return;
+    // Which round this is filed as comes from g.roundMode, NOT g.mode. On the commit
+    // where the mode flips, g.mode has already changed while the guesses, answer and
+    // status in hand are still the round the player just finished, so keying off
+    // g.mode filed a won FREE round as today's daily: a cloud row holding the
+    // free-play guesses, which submit_game then makes permanent (its insert is
+    // `on conflict do nothing`, so the real daily could never land), and which the
+    // daily then restored and re-scored against its own answer. Reported twice:
+    // 2026-08-03 and 2026-08-05. g.roundMode still names the finished round here, so
+    // its key matches recordedKey and nothing is written. The same guard covers the
+    // reverse flip, which used to file a finished daily again as a free-play stat.
+    const mode = g.roundMode;
+    if (!mode) return;
     // A restored (already-played) daily is already recorded — don't count it again.
-    if (daily && g.dailyLocked) return;
-    const key = `${g.mode}:${g.answerId}:${g.status}`;
+    if (mode === "daily" && g.dailyLocked) return;
+    const key = `${mode}:${g.answerId}:${g.status}`;
     if (recordedKey.current === key) return;
     recordedKey.current = key;
     const group = groupOf(g.tree, g.answerId);
-    record(g.mode, group, {
+    record(mode, group, {
       status: g.status === "won" ? "won" : "gaveup",
       guesses: g.guesses.length,
       hints: g.hintIds.length,
@@ -394,9 +406,9 @@ export default function App() {
     // Only DAILY games get a durable cloud row (free play is tracked in stats
     // only). Descriptive detail (answer, assist, resolution, par) rides along but
     // never affects scoring. On resolve, bump boardReload to refetch the board.
-    if (daily) {
+    if (mode === "daily") {
       // Anonymous play count (no identifier of any kind, see data/playCount.ts).
-      // Inside the `daily` gate on purpose: free-play rounds aren't counted.
+      // Inside the daily gate on purpose: free-play rounds aren't counted.
       void countPlay("lineage", todayKey(), g.status === "won");
       const args = {
         userId: player.session?.user.id ?? "",
@@ -421,7 +433,7 @@ export default function App() {
         enqueuePendingSubmit({ game: "lineage", args });
       }
     }
-  }, [roundOver, daily, g.dailyLocked, g.mode, g.tree, g.answerId, g.status, g.guesses, g.hintIds, g.daily.tier, g.config.scopeRootId, g.config.winWithin, g.assist, par, player.session, player.configured, record]);
+  }, [roundOver, g.dailyLocked, g.roundMode, g.tree, g.answerId, g.status, g.guesses, g.hintIds, g.daily.tier, g.config.scopeRootId, g.config.winWithin, g.assist, par, player.session, player.configured, record]);
 
   useEffect(() => {
     if (!player.session) { setWinNudge([]); return; }

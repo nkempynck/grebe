@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hydrationToken, isLiveDailyState } from "./useGame";
+import { hydratedMode, hydrationToken, isLiveDailyState } from "./useGame";
 
 // REGRESSION, reported 2026-08-03. A player set free play to the same scope as the
 // daily, played it, then opened the daily and found it already "completed" with
@@ -54,5 +54,54 @@ describe("isLiveDailyState", () => {
 describe("hydrationToken", () => {
   it("distinguishes the two modes for the same day and answer", () => {
     expect(hydrationToken("daily", DATE, ANSWER)).not.toBe(hydrationToken("free", DATE, ANSWER));
+  });
+});
+
+// SECOND REGRESSION, reported 2026-08-05: the same story again, but through the
+// CLOUD rather than local storage. App's record effect keyed a finished round off
+// `mode`, so on the free → daily flip it re-fired with the free round's guesses,
+// answer and "won" status now labelled "daily" — writing them as the player's daily
+// game row. submit_game() inserts `on conflict do nothing`, so that row stuck and
+// the real daily could never be recorded; the daily then restored it and re-scored
+// the free-play guesses against its own answer.
+//
+// hydratedMode reports which round the state in hand belongs to, so anything
+// recording it keys off the round rather than off whatever mode the UI has flipped
+// to. It backs isLiveDailyState above, so the cases there hold through it too.
+const FREE_ANSWER = "ott999";
+
+describe("hydratedMode", () => {
+  it("names the mode a round was hydrated under", () => {
+    expect(hydratedMode(hydrationToken("daily", DATE, ANSWER), DATE, ANSWER)).toBe("daily");
+    expect(hydratedMode(hydrationToken("free", DATE, ANSWER), DATE, ANSWER)).toBe("free");
+  });
+
+  it("still says FREE on the commit where the mode has flipped to daily", () => {
+    // The leak: `mode` is "daily" here, but answer/guesses/status are the free
+    // round's, so a recorder keying off the mode files free play as today's daily.
+    expect(hydratedMode(hydrationToken("free", DATE, FREE_ANSWER), DATE, FREE_ANSWER)).toBe("free");
+  });
+
+  it("still says FREE when free play drew the daily's own answer", () => {
+    // The reported setup: free play pointed at the daily's scope, so both rounds can
+    // share an answer and only the mode tells them apart.
+    expect(hydratedMode(hydrationToken("free", DATE, ANSWER), DATE, ANSWER)).toBe("free");
+  });
+
+  it("still says DAILY on the reverse flip, so a finished daily isn't refiled as free play", () => {
+    expect(hydratedMode(hydrationToken("daily", DATE, ANSWER), DATE, ANSWER)).toBe("daily");
+  });
+
+  it("names no round when the answer has moved on but the token hasn't", () => {
+    expect(hydratedMode(hydrationToken("daily", DATE, FREE_ANSWER), DATE, ANSWER)).toBe(null);
+  });
+
+  it("names no round for yesterday's state, so a tab crossing the rollover records nothing", () => {
+    expect(hydratedMode(hydrationToken("daily", "2026-08-04", ANSWER), DATE, ANSWER)).toBe(null);
+  });
+
+  it("names no round before anything is hydrated", () => {
+    expect(hydratedMode(null, DATE, ANSWER)).toBe(null);
+    expect(hydratedMode(hydrationToken("daily", DATE, ANSWER), DATE, null)).toBe(null);
   });
 });

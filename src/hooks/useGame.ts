@@ -37,19 +37,42 @@ export type GameMode = "daily" | "free";
 export const hydrationToken = (mode: GameMode, date: string, answerId: string) =>
   `${mode}:${date}:${answerId}`;
 
+/** Which mode the round currently in memory (answer + guesses + status) was
+ *  hydrated under, or null when that state belongs to no live round at all — a
+ *  stale date, or a mid-switch render whose answer no longer matches the token.
+ *
+ *  This is NOT the same as `mode`. For one commit after a mode switch, `mode` has
+ *  already flipped while the previous round's state is still in the closure; this
+ *  keeps naming the round the state came from, which is what anything recording or
+ *  persisting that state has to key off. Extracted so the leaks it prevents stay
+ *  covered by tests; the hook has no test harness. */
+export const hydratedMode = (
+  hydratedFor: string | null,
+  date: string,
+  answerId: string | null,
+): GameMode | null => {
+  if (!answerId || !hydratedFor) return null;
+  const modes: GameMode[] = ["daily", "free"];
+  return modes.find((m) => hydratedFor === hydrationToken(m, date, answerId)) ?? null;
+};
+
 /** Whether the current render's state actually belongs to the live daily, and may
- *  therefore be written to the daily's storage key. Extracted so the free-play
- *  leak it prevents stays covered by a test; the hook has no test harness. */
+ *  therefore be written to the daily's storage key. */
 export const isLiveDailyState = (
   hydratedFor: string | null,
   date: string,
   answerId: string | null,
-): boolean => !!answerId && hydratedFor === hydrationToken("daily", date, answerId);
+): boolean => hydratedMode(hydratedFor, date, answerId) === "daily";
 
 export interface UseGame {
   tree: Tree | null;
   mode: GameMode;
   setMode: (m: GameMode) => void;
+  /** The mode the round in hand was hydrated under, which lags `mode` by one commit
+   *  across a switch (see hydratedMode). Anything that RECORDS this round must key
+   *  off this, never off `mode`, or a finished free round is filed as the daily.
+   *  Null while no live round is loaded. */
+  roundMode: GameMode | null;
   /** The day's difficulty schedule (only meaningful in daily mode). */
   daily: DailyRules;
   config: GameConfig;
@@ -133,6 +156,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
 
   const today = todayKey();
   const daily = useMemo(() => resolveDailyRules(today, dailyPlan), [today, dailyPlan]);
+  const roundMode = hydratedMode(hydratedFor, today, answerId);
 
   // A frozen pin for today, set only when it DIFFERS from the generator (i.e. the
   // content/seeding changed since it was pinned). When set it supersedes the
@@ -257,6 +281,12 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     let live = true;
     fetchTodayDaily(today).then((row) => {
       if (!live || !row) return;
+      // The row must be an attempt at the answer actually being played. A row for a
+      // different answer can only be a bad write (free-play state filed as the daily,
+      // the leak fixed in App's record effect), and restoring it would re-score
+      // someone else's guess list against today's answer and lock the board on it.
+      // Rows from before answer_id existed carry null, and are trusted as before.
+      if (row.answer_id && row.answer_id !== answerId) return;
       cloudRestored.current = key;
       // Played on another device, so it has already been counted there. Claim the day
       // locally without counting, or the persist effect below hands this board to
@@ -397,6 +427,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     tree,
     mode,
     setMode,
+    roundMode,
     daily,
     config,
     answerId,

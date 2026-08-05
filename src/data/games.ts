@@ -19,6 +19,9 @@ export interface TodayDaily {
   guess_ids: string[] | null;
   hint_ids: string[] | null;
   won: boolean;
+  /** The answer the row was played against. Null on rows written before the column
+   *  existed; the restore treats that as "unknown" and trusts the row. */
+  answer_id: string | null;
 }
 
 /** The signed-in player's row for today's daily, or null (RLS scopes it to the
@@ -28,7 +31,7 @@ export async function fetchTodayDaily(puzzleDate: string): Promise<TodayDaily | 
   try {
     const { data, error } = await supabase
       .from("games")
-      .select("guess_ids, hint_ids, won")
+      .select("guess_ids, hint_ids, won, answer_id")
       .eq("mode", "daily")
       .eq("puzzle_date", puzzleDate)
       .limit(1)
