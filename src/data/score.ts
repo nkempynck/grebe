@@ -135,6 +135,13 @@ export const BRANCHES_MISTAKE_PENALTY = 0.35;
  *  streak, against the risk of nothing and a broken streak for playing it honestly. */
 export const BRANCHES_WIN_FLOOR = 0.1;
 
+/** Hints a Branches board allows. ONE: enough to get past a slot you can't see, not
+ *  enough to hint the board out. The scoring already pays nothing for an all-hinted
+ *  win, but a streak counts days WON and never reads the points, so without a cap
+ *  the hint doubles as a guaranteed streak-saver. A cap is the only thing that
+ *  closes that; the score can't. */
+export const BRANCHES_MAX_HINTS = 1;
+
 /** Going OVER the mistake budget ends the board as a loss, but it isn't a hard 0:
  *  the slots you did lock still score, at this heavy discount. A blown board with
  *  nothing locked is still 0. A loser locks at most (slots−2)/slots (≤ 5/7 on the

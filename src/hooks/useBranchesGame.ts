@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BranchesBoard, Tree } from "../core";
 import { todayKey } from "../core/daily";
-import { branchesAllowance } from "../data/score";
+import { BRANCHES_MAX_HINTS, branchesAllowance } from "../data/score";
 import { branchesBoardFor } from "../data/branchesDaily";
 import { fetchPinnedPuzzle, branchesBoard as rebuildBranches } from "../data/pinnedPuzzles";
 import { loadBranchesProgress, saveBranchesProgress } from "../data/branchesProgress";
@@ -362,6 +362,9 @@ export function useBranchesGame(
 
   const hint = useCallback(() => {
     if (!board || status !== "playing") return;
+    // One per board (BRANCHES_MAX_HINTS): a rescue, not a way to hint the board out.
+    // Guarded here as well as in the UI so a restored board can't spend a second one.
+    if (hints.length >= BRANCHES_MAX_HINTS) return;
     // Reveal the first slot that isn't already correct: lock its true species in.
     const target = board.slotIds.find((s) => placements[s] !== s);
     if (!target) return;
@@ -374,7 +377,7 @@ export function useBranchesGame(
     setLockedSlots((l) => (l.includes(target) ? l : [...l, target]));
     setHints((h) => (h.includes(target) ? h : [...h, target]));
     setHeld(null);
-  }, [board, status, placements, lockedSlots]);
+  }, [board, status, placements, lockedSlots, hints]);
 
   // Looking up a to-place species while the game is live forfeits half that slot.
   // Only species that must be placed count (anchors and clade labels are free

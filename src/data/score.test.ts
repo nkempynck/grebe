@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gamePoints, kinshipPoints, branchesPoints, branchesAllowance, tierWeight } from "./score";
+import { gamePoints, kinshipPoints, branchesPoints, branchesAllowance, tierWeight, BRANCHES_MAX_HINTS } from "./score";
 
 // GOLDEN scoring values. gamePoints() MUST stay byte-identical to
 // public.game_points in supabase/schema.sql — if you change the formula here,
@@ -225,9 +225,21 @@ describe("branchesPoints", () => {
     }
   });
 
-  it("a fully hinted win scores nothing, so it can't be used to protect a streak", () => {
+  it("a fully hinted win scores nothing", () => {
     for (const { tier, n } of boards()) {
       expect(branchesPoints(tier, true, n, n, 0, n, 0)).toBe(0);
+    }
+  });
+
+  it("the hint cap, not the score, is what stops a hinted-out streak save", () => {
+    // Zero points doesn't protect a streak from anything: a streak counts days WON
+    // and never reads the score. Only the per-board cap makes hinting the whole
+    // board impossible, so it has to stay below the smallest board.
+    const smallestBoard = Math.min(...boards().map((b) => b.n));
+    expect(BRANCHES_MAX_HINTS).toBeLessThan(smallestBoard);
+    for (const { tier, n } of boards()) {
+      // The most a capped board can be helped still leaves real credit to score on.
+      expect(branchesPoints(tier, true, n, n, 0, BRANCHES_MAX_HINTS, 0)).toBeGreaterThan(0);
     }
   });
 });

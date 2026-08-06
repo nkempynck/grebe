@@ -4,7 +4,7 @@ import { inducedSubtree, dailyNumber, boardSpoilers, namesTell, tellingWords, wi
 import { resolveDailyRules } from "../data/dailySchedule";
 import { GameHeader } from "./GameHeader";
 import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame";
-import { branchesPoints, tierWeight } from "../data/score";
+import { BRANCHES_MAX_HINTS, branchesPoints, tierWeight } from "../data/score";
 import { fetchWikiImage, type WikiImage } from "../data/wikipedia";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } from "./cladoLayout";
 import { WikiCard } from "./WikiCard";
@@ -110,6 +110,9 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   const [trayOver, setTrayOver] = useState(false);
   const [wikiId, setWikiId] = useState<string | null>(null);
   const [pendingPeek, setPendingPeek] = useState<string | null>(null);
+  // A hint asked for but not yet paid for: the button only opens this warning, the
+  // reveal happens on the confirm.
+  const [pendingHint, setPendingHint] = useState(false);
   const [pendingRead, setPendingRead] = useState<{ id: string; url: string } | null>(null);
   const [mode, setMode] = useState<BranchesView>("radial");
   const [copied, setCopied] = useState(false);
@@ -320,6 +323,12 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   // whole board down, which quietly makes a lookup cheaper. Not worth surfacing, since
   // help getting cheaper because you already blundered is a strange thing to advertise.
   const lookupCost = Math.round((tierWeight(g.tier) * 0.5) / board.slotIds.length);
+  // A hint forfeits the WHOLE slot where a lookup forfeits half, so it prices at twice
+  // the lookup. Same "up to": a mistake already scaled the board down, and a slot that
+  // was looked up first has half its value gone, so the hint can only take the rest.
+  const hintCost = Math.round(tierWeight(g.tier) / board.slotIds.length);
+  const hintSpent = g.hints.length >= BRANCHES_MAX_HINTS;
+  const confirmHint = () => { setPendingHint(false); g.hint(); };
   const confirmRead = () => {
     if (!pendingRead) return;
     g.readFull(pendingRead.id);
@@ -553,13 +562,35 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
             )}
           </div>
           <div className="branches-actions">
-            <button className="linkbtn" onClick={g.hint} disabled={board.slotIds.every((s) => g.placements[s] === s)}>
-              Hint: reveal one
+            <button
+              className="linkbtn"
+              title={hintSpent ? "You've used this board's hint" : `Reveal one species (costs up to ${hintCost} pts)`}
+              onClick={() => setPendingHint(true)}
+              disabled={hintSpent || board.slotIds.every((s) => g.placements[s] === s)}
+            >
+              {hintSpent ? "Hint used" : "Hint: reveal one"}
             </button>
             <button className="branches-submit" onClick={g.submit} disabled={!g.canSubmit}>
               Submit
             </button>
           </div>
+
+          {/* The hint warning sits right under the button that opened it — the peek
+              confirm can afford to live at the page foot because a lookup starts from
+              a tile anywhere on the board, but this one has a fixed origin. */}
+          {pendingHint && (
+            <div className="branches-confirm" role="alertdialog" aria-label="Confirm hint">
+              <p>
+                Reveal one species? It locks a slot in correct, but a hinted slot scores nothing,
+                so it forfeits that whole slot: <b>up to {hintCost} points</b>. This is the board's
+                only hint.
+              </p>
+              <div className="branches-confirm-actions">
+                <button className="linkbtn" onClick={() => setPendingHint(false)}>Cancel</button>
+                <button className="branches-submit" onClick={confirmHint}>Reveal one (−{hintCost} pts)</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
