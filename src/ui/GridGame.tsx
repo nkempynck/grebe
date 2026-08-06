@@ -218,7 +218,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       ? `${usedReveals} · ${freeBalance} free left${earned}`
       : revealCost > 0
       ? `${usedReveals} · −${revealCost} pts`
-      : `${usedReveals} · still free${earned}`;
+      : `${usedReveals} · no free peeks left${earned}`;
 
   return (
     <div className="grid-game">
