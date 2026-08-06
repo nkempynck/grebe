@@ -426,6 +426,44 @@ export function mergeMissingDailies(base: StatsStore, local: StatsStore): number
   return added;
 }
 
+/** One day's score as the SERVER has it frozen (my_points(), see
+ *  supabase/stats-truth-2026-08-06.sql). */
+export interface ServerPoints {
+  game: "lineage" | "kinship" | "branches";
+  day: string;
+  points: number;
+}
+
+/** Adopt the server's frozen points for every day it knows about, in place, and
+ *  report how many entries moved.
+ *
+ *  A score used to be frozen TWICE, once here and once in games.points, and the two
+ *  copies could disagree: the client rounded and the server didn't, a scoring
+ *  retune landed between a game being stored and being frozen locally, or free play
+ *  leaked into the daily slot on one side only. The panel then argued with the
+ *  leaderboard about a number that is supposed to be the same number. The server's
+ *  copy is the one every board, badge and streak already ranks on, so it wins.
+ *
+ *  Days the server has NO row for keep their local value: that's a daily finished
+ *  signed out and never replayed, and it's the only reason the local freeze still
+ *  exists. This never adds a day the store doesn't have — a bare (date, points)
+ *  can't say what was guessed, which clade it was, or whether it was won. */
+export function adoptServerPoints(store: StatsStore, rows: ServerPoints[]): number {
+  const section = {
+    lineage: store.history,
+    kinship: store.kinship,
+    branches: store.branches,
+  };
+  let changed = 0;
+  for (const r of rows) {
+    const entry = section[r.game]?.[r.day];
+    if (!entry || !Number.isFinite(r.points) || entry.points === r.points) continue;
+    entry.points = r.points;
+    changed++;
+  }
+  return changed;
+}
+
 /** `dateKey` shifted by n days (negative = back). Dates are handled as UTC
  *  midnights so the 09:00 rollover can't drift a key by a day. */
 export function addDays(dateKey: string, n: number): string {
@@ -591,7 +629,7 @@ function deriveDaily(
     solvedDates: dates.filter((d) => history[d].status === "won").sort(),
     bestStreakStart,
     bestStreakEnd,
-    points: { total, avg: played ? Math.round(total / played) : 0, best },
+    points: { total: Math.round(total), avg: played ? Math.round(total / played) : 0, best: Math.round(best) },
     groups,
     strengthId,
   };
@@ -664,7 +702,7 @@ function deriveKinship(
     flawlessDates: dates.filter(isFlawless).sort(),
     bestStreakStart,
     bestStreakEnd,
-    points: { total, avg: played ? Math.round(total / played) : 0, best },
+    points: { total: Math.round(total), avg: played ? Math.round(total / played) : 0, best: Math.round(best) },
     groups,
     strengthId,
   };
@@ -716,7 +754,7 @@ function deriveBranches(
     flawlessDates: dates.filter(isFlawless).sort(),
     bestStreakStart,
     bestStreakEnd,
-    points: { total, avg: played ? Math.round(total / played) : 0, best },
+    points: { total: Math.round(total), avg: played ? Math.round(total / played) : 0, best: Math.round(best) },
     groups,
     strengthId,
   };

@@ -42,7 +42,12 @@ export function useFieldStats(store: StatsStore, groupFor?: GroupResolvers): Fie
   return useMemo(() => {
     if (!rows || rows.length === 0) return null;
     const field = deriveField(store, rows, groupFor);
-    if (import.meta.env.DEV && !field.overall) {
+    // Warn only when the player HAS days to compare. A signed-out device is cleared
+    // while the already-fetched averages stay in hand (they're public, not the
+    // player's), so an empty store here is expected, not a key mismatch.
+    const hasDays = [store.history, store.kinship, store.branches]
+      .some((s) => Object.keys(s ?? {}).some(countsForStats));
+    if (import.meta.env.DEV && hasDays && !field.overall) {
       // Both inputs are non-empty yet nothing lined up. Print enough to tell a thin
       // player base (the legitimate case) from a key mismatch (a bug).
       console.warn(

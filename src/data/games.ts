@@ -435,6 +435,27 @@ export async function fetchDailyPlays(from: string, to: string): Promise<PlayCou
   }
 }
 
+/** The caller's own frozen scores, one row per game per day, from my_points().
+ *  This is what the boards rank on, so folding it over the local store (see
+ *  adoptServerPoints) is what keeps the stats panel and the leaderboard telling the
+ *  same story. Null when there's no backend, nobody is signed in, or the migration
+ *  hasn't been run — all of which just leave the local values in place. */
+export async function fetchMyPoints(): Promise<import("./stats").ServerPoints[] | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc("my_points");
+    if (error || !data) return null;
+    return (data as { game: string; day: string; points: number | string }[]).map((r) => ({
+      game: r.game as "lineage" | "kinship" | "branches",
+      day: r.day,
+      // numeric comes back as a string from PostgREST when it doesn't fit a double.
+      points: Number(r.points),
+    }));
+  } catch {
+    return null;
+  }
+}
+
 /** The caller's overall (combined-board) champion record: how many past days they
  *  topped the combined leaderboard, the winning dates, and which of those they
  *  shared with somebody who tied them. Null when there's no backend or the streaks
