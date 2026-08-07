@@ -228,7 +228,15 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         dayName={rules.dayName}
         difficulty={rules.difficulty}
         onHowItWorks={onHowItWorks}
-        blurb={`Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess. Four wrong guesses allowed. ${revealHint} Solve a group to earn another free peek. No lookups. The fun is working out the groups from what you already know.`}
+        blurb={
+          <>
+            Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess.
+            Four wrong guesses allowed. {revealHint} Solve a group to earn another free peek.
+            <span className="gamehead-blurb-note">
+              No lookups. The fun is working out the groups from what you already know.
+            </span>
+          </>
+        }
       />
 
       {/* New-rule highlight — shown through the launch weekend, hides Monday 2026-07-27. */}
