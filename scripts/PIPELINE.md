@@ -33,9 +33,15 @@ Run the long ones under `caffeinate -i` (Mac won't sleep). Logs: `/tmp/grebe-*.l
 | assemble| `assemble-taxonomy.mjs` | prune tree to in-set tips → nodes; rank clades; inject genus names → `sel-nodes.json` |
 | names   | `build-names.mjs` | species = Wikipedia title else Wikidata P1843; clades = P1843; `common-name-overrides.mjs` win → `sel-nodes-named.json` |
 | finalize| `finalize-taxonomy.mjs` | write `src/data/taxonomy.json` + provenance (OTL synth + Wikidata date) + scopes |
+| wiki titles | `patch-wiki-titles.mjs` | clade `wikiTitle` from Wikidata (P9157 → enwiki article), keyed on the OTT id so homonyms can't collide. Patches `src/data/taxonomy.json` in place |
 | out-of-set | `build-taxon-index.mjs` | pool taxa NOT in in-set → `src/data/guessIndex.generated.json` (graft lineage from topology, + views). Needs `node --max-old-space-size=8192` |
 
 `npm run build:taxonomy` chains assemble→names→finalize. `npm run build:guessindex` = build-taxon-index.
+
+**Re-run `patch-wiki-titles.mjs` after any finalize** — it writes a field finalize doesn't
+know about, so a rebuild drops it. Without it, clades fetch Wikipedia by bare Latin name,
+and uninomial names aren't unique: "Linaria" the finch loses to Linaria the toadflax,
+"Acer" to Acer Inc., "Glycine" to the amino acid.
 
 **Species node-id = GBIF key is load-bearing:** OTL reuses some ott ids for both a clade
 AND a tip, so keying species by ott collides with clade nodes and drops them. GBIF keys
@@ -51,7 +57,8 @@ give species a separate id namespace. Clade ids = OTT.
 
 ## Kept utilities
 `common-name-overrides.mjs` (build-names), `curated-extras.mjs` (inject-extras),
-`load-guess-index.mjs`, `backup-taxon-index.mjs`, `pin-puzzles.ts`, `preview-*.ts`.
+`patch-wiki-titles.mjs` (post-finalize), `load-guess-index.mjs`, `backup-taxon-index.mjs`,
+`pin-puzzles.ts`, `preview-*.ts`.
 
 ## Retired (removed — old GBIF-occurrence pipeline)
 build-taxonomy.mjs, build-guess-index.mjs, enrich-wiki.mjs, build-augment.mjs,

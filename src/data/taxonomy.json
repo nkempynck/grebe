@@ -70,7 +70,8 @@
       "sciName": "Eukaryota",
       "rank": "domain",
       "parentId": "life",
-      "common": "Eukaryote"
+      "common": "Eukaryote",
+      "wikiTitle": "Eukaryote"
     },
     {
       "id": "ott361838",
@@ -272,7 +273,8 @@
       "id": "ott126272",
       "sciName": "Aristotelia",
       "rank": "genus",
-      "parentId": "ott649007"
+      "parentId": "ott649007",
+      "wikiTitle": "Aristotelia (plant)"
     },
     {
       "id": "5651082",
@@ -691,7 +693,8 @@
       "id": "ott655982",
       "sciName": "Melia",
       "rank": "genus",
-      "parentId": "ott655980"
+      "parentId": "ott655980",
+      "wikiTitle": "Melia (plant)"
     },
     {
       "id": "5914287",
@@ -1534,7 +1537,8 @@
       "id": "ott883789",
       "sciName": "Moringa",
       "rank": "genus",
-      "parentId": "ott883791"
+      "parentId": "ott883791",
+      "wikiTitle": "Moringa (genus)"
     },
     {
       "id": "3054181",
@@ -2003,7 +2007,8 @@
       "sciName": "Hura",
       "rank": "genus",
       "parentId": "ott30323",
-      "common": "Sandbox tree"
+      "common": "Sandbox tree",
+      "wikiTitle": "Hura (plant)"
     },
     {
       "id": "5380015",
@@ -2253,7 +2258,8 @@
       "sciName": "Salix",
       "rank": "genus",
       "parentId": "ott509390",
-      "common": "Willow"
+      "common": "Willow",
+      "wikiTitle": "Willow"
     },
     {
       "id": "7266382",
@@ -3288,7 +3294,8 @@
       "id": "ott3907870",
       "sciName": "Soleirolia",
       "rank": "genus",
-      "parentId": "ott630642"
+      "parentId": "ott630642",
+      "wikiTitle": "Helxine"
     },
     {
       "id": "2984366",
@@ -4244,7 +4251,8 @@
       "sciName": "Lens",
       "rank": "genus",
       "parentId": "ott31954",
-      "common": "Lentil"
+      "common": "Lentil",
+      "wikiTitle": "Lens (plant)"
     },
     {
       "id": "5350010",
@@ -4314,7 +4322,8 @@
       "sciName": "Glycine",
       "rank": "genus",
       "parentId": "ott219566",
-      "common": "Soybean"
+      "common": "Soybean",
+      "wikiTitle": "Glycine (plant)"
     },
     {
       "id": "ott5533150",
@@ -4675,7 +4684,8 @@
       "sciName": "Comptonia",
       "rank": "genus",
       "parentId": "ott706092",
-      "common": "Sweet fern"
+      "common": "Sweet fern",
+      "wikiTitle": "Comptonia (plant)"
     },
     {
       "id": "5414197",
@@ -4844,7 +4854,8 @@
       "sciName": "Castanea",
       "rank": "genus",
       "parentId": "ott129466",
-      "common": "Chestnut"
+      "common": "Chestnut",
+      "wikiTitle": "Chestnut"
     },
     {
       "id": "5333294",
@@ -4996,7 +5007,8 @@
       "id": "ott1004581",
       "sciName": "Acca",
       "rank": "genus",
-      "parentId": "ott1011084"
+      "parentId": "ott1011084",
+      "wikiTitle": "Acca (plant)"
     },
     {
       "id": "3181977",
@@ -5763,7 +5775,8 @@
       "sciName": "Hamamelis",
       "rank": "genus",
       "parentId": "ott256506",
-      "common": "Witch-hazel"
+      "common": "Witch-hazel",
+      "wikiTitle": "Witch-hazel"
     },
     {
       "id": "3152827",
@@ -5805,7 +5818,8 @@
       "sciName": "Paeonia",
       "rank": "genus",
       "parentId": "ott432991",
-      "common": "Peony"
+      "common": "Peony",
+      "wikiTitle": "Peony"
     },
     {
       "id": "7155259",
@@ -6592,7 +6606,8 @@
       "sciName": "Amaranthus",
       "rank": "genus",
       "parentId": "ott111722",
-      "common": "Amaranth"
+      "common": "Amaranth",
+      "wikiTitle": "Amaranth"
     },
     {
       "id": "ott892638",
@@ -6706,7 +6721,8 @@
       "id": "ott584111",
       "sciName": "Cactaceae",
       "rank": "family",
-      "parentId": "ott9799"
+      "parentId": "ott9799",
+      "wikiTitle": "Cactus"
     },
     {
       "id": "ott5005",
@@ -7276,7 +7292,8 @@
       "sciName": "Mirabilis",
       "rank": "genus",
       "parentId": "ott34173",
-      "common": "Four o'clock"
+      "common": "Four o'clock",
+      "wikiTitle": "Mirabilis (plant)"
     },
     {
       "id": "3086240",
@@ -7545,7 +7562,8 @@
       "sciName": "Rheum",
       "rank": "genus",
       "parentId": "ott839950",
-      "common": "Rhubarb"
+      "common": "Rhubarb",
+      "wikiTitle": "Rheum (plant)"
     },
     {
       "id": "2888867",
@@ -8194,7 +8212,8 @@
       "sciName": "Phyla",
       "rank": "genus",
       "parentId": "ott288158",
-      "common": "Fogfruit"
+      "common": "Fogfruit",
+      "wikiTitle": "Phyla (genus)"
     },
     {
       "id": "5341112",
@@ -8474,7 +8493,8 @@
       "sciName": "Melissa",
       "rank": "genus",
       "parentId": "ott355945",
-      "common": "Balm"
+      "common": "Balm",
+      "wikiTitle": "Melissa (plant)"
     },
     {
       "id": "5341501",
@@ -8538,7 +8558,8 @@
       "sciName": "Prunella",
       "rank": "clade",
       "parentId": "ott304971",
-      "common": "Selfheal"
+      "common": "Selfheal",
+      "wikiTitle": "Prunella (plant)"
     },
     {
       "id": "5341297",
@@ -10187,7 +10208,8 @@
       "sciName": "Ilex",
       "rank": "genus",
       "parentId": "ott727574",
-      "common": "Holly"
+      "common": "Holly",
+      "wikiTitle": "Holly"
     },
     {
       "id": "ott68449",
@@ -11112,7 +11134,8 @@
       "sciName": "Lonicera",
       "rank": "genus",
       "parentId": "ott5222",
-      "common": "Honeysuckle"
+      "common": "Honeysuckle",
+      "wikiTitle": "Honeysuckle"
     },
     {
       "id": "ott140546",
@@ -12315,7 +12338,8 @@
       "id": "ott555266",
       "sciName": "Davidia",
       "rank": "genus",
-      "parentId": "ott148283"
+      "parentId": "ott148283",
+      "wikiTitle": "Davidia (plant)"
     },
     {
       "id": "7322122",
@@ -12775,7 +12799,8 @@
       "sciName": "Diphylleia",
       "rank": "genus",
       "parentId": "ott243241",
-      "common": "Umbrellaleaf"
+      "common": "Umbrellaleaf",
+      "wikiTitle": "Diphylleia (plant)"
     },
     {
       "id": "5634432",
@@ -13503,7 +13528,8 @@
       "sciName": "Canna",
       "rank": "genus",
       "parentId": "ott156272",
-      "common": "Indian Shot"
+      "common": "Indian Shot",
+      "wikiTitle": "Canna (plant)"
     },
     {
       "id": "8034409",
@@ -13638,7 +13664,8 @@
       "sciName": "Musa",
       "rank": "genus",
       "parentId": "ott679528",
-      "common": "Banana"
+      "common": "Banana",
+      "wikiTitle": "Musa (plant)"
     },
     {
       "id": "ott98219",
@@ -13828,7 +13855,8 @@
       "sciName": "Zea",
       "rank": "genus",
       "parentId": "ott5759522",
-      "common": "Corn"
+      "common": "Corn",
+      "wikiTitle": "Zea (plant)"
     },
     {
       "id": "5290052",
@@ -14059,7 +14087,8 @@
       "id": "ott355014",
       "sciName": "Puya",
       "rank": "genus",
-      "parentId": "ott6019423"
+      "parentId": "ott6019423",
+      "wikiTitle": "Puya (plant)"
     },
     {
       "id": "2696328",
@@ -14191,7 +14220,8 @@
       "sciName": "Cocos",
       "rank": "genus",
       "parentId": "ott541630",
-      "common": "Coconut"
+      "common": "Coconut",
+      "wikiTitle": "Cocos (genus)"
     },
     {
       "id": "2735117",
@@ -14227,7 +14257,8 @@
       "sciName": "Euterpe",
       "rank": "genus",
       "parentId": "ott106392",
-      "common": "Palm"
+      "common": "Palm",
+      "wikiTitle": "Euterpe (plant)"
     },
     {
       "id": "5293398",
@@ -14321,7 +14352,8 @@
       "sciName": "Phoenix",
       "rank": "genus",
       "parentId": "ott593449",
-      "common": "Date palm"
+      "common": "Date palm",
+      "wikiTitle": "Phoenix (plant)"
     },
     {
       "id": "6109699",
@@ -14483,7 +14515,8 @@
       "id": "ott713005",
       "sciName": "Vanilla",
       "rank": "genus",
-      "parentId": "ott3008"
+      "parentId": "ott3008",
+      "wikiTitle": "Vanilla (genus)"
     },
     {
       "id": "2803398",
@@ -14620,7 +14653,8 @@
       "id": "ott1090694",
       "sciName": "Lycoris",
       "rank": "genus",
-      "parentId": "ott50110"
+      "parentId": "ott50110",
+      "wikiTitle": "Lycoris (plant)"
     },
     {
       "id": "5326188",
@@ -14745,7 +14779,8 @@
       "id": "ott748368",
       "sciName": "Asparagus",
       "rank": "genus",
-      "parentId": "ott361628"
+      "parentId": "ott361628",
+      "wikiTitle": "Asparagus (genus)"
     },
     {
       "id": "ott672858",
@@ -14973,7 +15008,8 @@
       "sciName": "Hemerocallis",
       "rank": "genus",
       "parentId": "ott981234",
-      "common": "Daylily"
+      "common": "Daylily",
+      "wikiTitle": "Daylily"
     },
     {
       "id": "2781103",
@@ -15021,7 +15057,8 @@
       "sciName": "Iris",
       "rank": "genus",
       "parentId": "ott7046347",
-      "common": "Blackberry-lily"
+      "common": "Blackberry-lily",
+      "wikiTitle": "Iris (plant)"
     },
     {
       "id": "ott38856",
@@ -15168,7 +15205,8 @@
       "id": "ott604244",
       "sciName": "Gloriosa",
       "rank": "genus",
-      "parentId": "ott82472"
+      "parentId": "ott82472",
+      "wikiTitle": "Gloriosa (plant)"
     },
     {
       "id": "2740024",
@@ -15387,7 +15425,8 @@
       "id": "ott137937",
       "sciName": "Xerophyllum",
       "rank": "genus",
-      "parentId": "ott137936"
+      "parentId": "ott137936",
+      "wikiTitle": "Xerophyllum (plant)"
     },
     {
       "id": "5295841",
@@ -16835,7 +16874,8 @@
       "sciName": "Victoria",
       "rank": "genus",
       "parentId": "ott442293",
-      "common": "Giant waterlily"
+      "common": "Giant waterlily",
+      "wikiTitle": "Victoria (plant)"
     },
     {
       "id": "5553148",
@@ -16849,7 +16889,8 @@
       "id": "ott583534",
       "sciName": "Euryale",
       "rank": "genus",
-      "parentId": "ott442293"
+      "parentId": "ott442293",
+      "wikiTitle": "Euryale (plant)"
     },
     {
       "id": "5333335",
@@ -17192,7 +17233,8 @@
       "sciName": "Sequoia",
       "rank": "genus",
       "parentId": "ott810380",
-      "common": "Redwood"
+      "common": "Redwood",
+      "wikiTitle": "Sequoia (genus)"
     },
     {
       "id": "2683909",
@@ -17317,7 +17359,8 @@
       "sciName": "Ephedra",
       "rank": "genus",
       "parentId": "ott673429",
-      "common": "Jointfir"
+      "common": "Jointfir",
+      "wikiTitle": "Ephedra (plant)"
     },
     {
       "id": "ott54056",
@@ -17386,7 +17429,8 @@
       "sciName": "Pinus",
       "rank": "genus",
       "parentId": "ott8454",
-      "common": "Pine"
+      "common": "Pine",
+      "wikiTitle": "Pine"
     },
     {
       "id": "5285165",
@@ -17423,7 +17467,8 @@
       "sciName": "Picea",
       "rank": "genus",
       "parentId": "ott8454",
-      "common": "Spruce"
+      "common": "Spruce",
+      "wikiTitle": "Spruce"
     },
     {
       "id": "ott39085",
@@ -17502,7 +17547,8 @@
       "sciName": "Cycadales",
       "rank": "order",
       "parentId": "ott7579470",
-      "common": "Cycads"
+      "common": "Cycads",
+      "wikiTitle": "Cycad"
     },
     {
       "id": "ott83825",
@@ -17601,7 +17647,8 @@
       "id": "ott5662210",
       "sciName": "Polypodiidae",
       "rank": "subclass",
-      "parentId": "ott7848"
+      "parentId": "ott7848",
+      "wikiTitle": "Leptosporangiate fern"
     },
     {
       "id": "ott20406",
@@ -17935,7 +17982,8 @@
       "sciName": "Pteridium",
       "rank": "genus",
       "parentId": "ott11446",
-      "common": "Brackenfern"
+      "common": "Brackenfern",
+      "wikiTitle": "Bracken"
     },
     {
       "id": "5275012",
@@ -18235,7 +18283,8 @@
       "id": "ott56601",
       "sciName": "Marchantiophyta",
       "rank": "phylum",
-      "parentId": "ott1066"
+      "parentId": "ott1066",
+      "wikiTitle": "Liverwort"
     },
     {
       "id": "ott991932",
@@ -18266,7 +18315,8 @@
       "id": "ott246594",
       "sciName": "Bryophyta",
       "rank": "phylum",
-      "parentId": "ott1066"
+      "parentId": "ott1066",
+      "wikiTitle": "Moss"
     },
     {
       "id": "ott471195",
@@ -18337,7 +18387,8 @@
       "id": "ott669062",
       "sciName": "Dawsonia",
       "rank": "genus",
-      "parentId": "ott430948"
+      "parentId": "ott430948",
+      "wikiTitle": "Dawsonia (plant)"
     },
     {
       "id": "5281347",
@@ -18381,7 +18432,8 @@
       "sciName": "Ulva",
       "rank": "genus",
       "parentId": "ott951301",
-      "common": "Laver"
+      "common": "Laver",
+      "wikiTitle": "Sea lettuce"
     },
     {
       "id": "5273309",
@@ -18451,7 +18503,8 @@
       "sciName": "Chordata",
       "rank": "phylum",
       "parentId": "ott147604",
-      "common": "Chordates"
+      "common": "Chordates",
+      "wikiTitle": "Chordate"
     },
     {
       "id": "ott658",
@@ -18463,7 +18516,8 @@
       "id": "ott947318",
       "sciName": "Craniata",
       "rank": "subphylum",
-      "parentId": "ott658"
+      "parentId": "ott658",
+      "wikiTitle": "Craniate"
     },
     {
       "id": "ott801601",
@@ -18519,7 +18573,8 @@
       "sciName": "Mammalia",
       "rank": "class",
       "parentId": "ott229560",
-      "common": "Mammal"
+      "common": "Mammal",
+      "wikiTitle": "Mammal"
     },
     {
       "id": "ott229558",
@@ -18575,7 +18630,8 @@
       "sciName": "Rodentia",
       "rank": "order",
       "parentId": "ott29157",
-      "common": "Rodents"
+      "common": "Rodents",
+      "wikiTitle": "Rodent"
     },
     {
       "id": "ott10477",
@@ -18649,13 +18705,15 @@
       "id": "ott831080",
       "sciName": "Cricetomyinae",
       "rank": "subfamily",
-      "parentId": "ott671055"
+      "parentId": "ott671055",
+      "wikiTitle": "Pouched rat"
     },
     {
       "id": "ott1068783",
       "sciName": "Cricetomys",
       "rank": "genus",
-      "parentId": "ott831080"
+      "parentId": "ott831080",
+      "wikiTitle": "Giant pouched rat"
     },
     {
       "id": "2438550",
@@ -18826,7 +18884,8 @@
       "id": "ott917323",
       "sciName": "Cricetinae",
       "rank": "subfamily",
-      "parentId": "ott42889"
+      "parentId": "ott42889",
+      "wikiTitle": "Hamster"
     },
     {
       "id": "ott391628",
@@ -18976,7 +19035,8 @@
       "id": "ott816254",
       "sciName": "Spalacinae",
       "rank": "subfamily",
-      "parentId": "ott148559"
+      "parentId": "ott148559",
+      "wikiTitle": "Blind mole-rat"
     },
     {
       "id": "4264696",
@@ -18996,7 +19056,8 @@
       "id": "ott410912",
       "sciName": "Dipodidae",
       "rank": "family",
-      "parentId": "ott7067182"
+      "parentId": "ott7067182",
+      "wikiTitle": "Jerboa"
     },
     {
       "id": "ott85038",
@@ -19008,7 +19069,8 @@
       "id": "ott436750",
       "sciName": "Jaculus",
       "rank": "genus",
-      "parentId": "ott85038"
+      "parentId": "ott85038",
+      "wikiTitle": "Jaculus (rodent)"
     },
     {
       "id": "5219894",
@@ -19062,14 +19124,16 @@
       "id": "ott342244",
       "sciName": "Geomyidae",
       "rank": "family",
-      "parentId": "ott7067145"
+      "parentId": "ott7067145",
+      "wikiTitle": "Gopher"
     },
     {
       "id": "ott342243",
       "sciName": "Thomomys",
       "rank": "genus",
       "parentId": "ott342244",
-      "common": "Smooth-toothed pocket gopher"
+      "common": "Smooth-toothed pocket gopher",
+      "wikiTitle": "Smooth-toothed pocket gopher"
     },
     {
       "id": "2439385",
@@ -19104,7 +19168,8 @@
       "id": "ott1048190",
       "sciName": "Castor",
       "rank": "genus",
-      "parentId": "ott835319"
+      "parentId": "ott835319",
+      "wikiTitle": "Beaver"
     },
     {
       "id": "4409131",
@@ -19176,7 +19241,8 @@
       "id": "ott410918",
       "sciName": "Capromyidae",
       "rank": "family",
-      "parentId": "ott169715"
+      "parentId": "ott169715",
+      "wikiTitle": "Hutia"
     },
     {
       "id": "ott848929",
@@ -19324,7 +19390,8 @@
       "id": "ott410914",
       "sciName": "Erethizontidae",
       "rank": "family",
-      "parentId": "ott67355"
+      "parentId": "ott67355",
+      "wikiTitle": "New World porcupine"
     },
     {
       "id": "ott848921",
@@ -19410,7 +19477,8 @@
       "id": "ott848923",
       "sciName": "Dasyprocta",
       "rank": "genus",
-      "parentId": "ott410922"
+      "parentId": "ott410922",
+      "wikiTitle": "Agouti"
     },
     {
       "id": "2437577",
@@ -19542,7 +19610,8 @@
       "id": "ott692682",
       "sciName": "Bathyergidae",
       "rank": "family",
-      "parentId": "ott45520"
+      "parentId": "ott45520",
+      "wikiTitle": "Blesmol"
     },
     {
       "id": "ott107111",
@@ -19608,7 +19677,8 @@
       "id": "ott384218",
       "sciName": "Sciuridae",
       "rank": "family",
-      "parentId": "ott829369"
+      "parentId": "ott829369",
+      "wikiTitle": "Squirrel"
     },
     {
       "id": "ott43435",
@@ -19633,7 +19703,8 @@
       "sciName": "Marmota",
       "rank": "genus",
       "parentId": "ott136299",
-      "common": "Marmot"
+      "common": "Marmot",
+      "wikiTitle": "Marmot"
     },
     {
       "id": "ott460174",
@@ -19740,7 +19811,8 @@
       "id": "ott1054153",
       "sciName": "Ratufa",
       "rank": "genus",
-      "parentId": "ott970410"
+      "parentId": "ott970410",
+      "wikiTitle": "Oriental giant squirrel"
     },
     {
       "id": "2437565",
@@ -19776,7 +19848,8 @@
       "sciName": "Gliridae",
       "rank": "family",
       "parentId": "ott44559",
-      "common": "Dormouse"
+      "common": "Dormouse",
+      "wikiTitle": "Dormouse"
     },
     {
       "id": "ott185345",
@@ -19814,7 +19887,8 @@
       "id": "ott185342",
       "sciName": "Glis",
       "rank": "genus",
-      "parentId": "ott159160"
+      "parentId": "ott159160",
+      "wikiTitle": "Glis (genus)"
     },
     {
       "id": "5706486",
@@ -19875,7 +19949,8 @@
       "sciName": "Lepus",
       "rank": "genus",
       "parentId": "ott644258",
-      "common": "Hare"
+      "common": "Hare",
+      "wikiTitle": "Hare"
     },
     {
       "id": "2436801",
@@ -19992,7 +20067,8 @@
       "id": "ott574734",
       "sciName": "Scandentia",
       "rank": "order",
-      "parentId": "ott30082"
+      "parentId": "ott30082",
+      "wikiTitle": "Treeshrew"
     },
     {
       "id": "ott574732",
@@ -20005,7 +20081,8 @@
       "id": "ott574730",
       "sciName": "Tupaia",
       "rank": "genus",
-      "parentId": "ott574732"
+      "parentId": "ott574732",
+      "wikiTitle": "Tupaia (mammal)"
     },
     {
       "id": "2436268",
@@ -20025,7 +20102,8 @@
       "id": "ott913935",
       "sciName": "Primates",
       "rank": "clade",
-      "parentId": "ott6520519"
+      "parentId": "ott6520519",
+      "wikiTitle": "Primate"
     },
     {
       "id": "ott3428",
@@ -20067,7 +20145,8 @@
       "id": "ott842868",
       "sciName": "Cercopithecidae",
       "rank": "family",
-      "parentId": "ott386194"
+      "parentId": "ott386194",
+      "wikiTitle": "Old World monkey"
     },
     {
       "id": "ott5512",
@@ -20091,7 +20170,8 @@
       "id": "ott235536",
       "sciName": "Nasalis",
       "rank": "genus",
-      "parentId": "ott77080"
+      "parentId": "ott77080",
+      "wikiTitle": "Nasalis (genus)"
     },
     {
       "id": "2436525",
@@ -20105,7 +20185,8 @@
       "id": "ott508298",
       "sciName": "Rhinopithecus",
       "rank": "genus",
-      "parentId": "ott77080"
+      "parentId": "ott77080",
+      "wikiTitle": "Snub-nosed monkey"
     },
     {
       "id": "7262005",
@@ -20167,7 +20248,8 @@
       "sciName": "Papio",
       "rank": "genus",
       "parentId": "ott436611",
-      "common": "Baboon"
+      "common": "Baboon",
+      "wikiTitle": "Baboon"
     },
     {
       "id": "5219586",
@@ -20182,7 +20264,8 @@
       "sciName": "Macaca",
       "rank": "genus",
       "parentId": "ott111862",
-      "common": "Macaques"
+      "common": "Macaques",
+      "wikiTitle": "Macaque"
     },
     {
       "id": "ott5560516",
@@ -20306,7 +20389,8 @@
       "id": "ott417949",
       "sciName": "Pongo",
       "rank": "genus",
-      "parentId": "ott1082538"
+      "parentId": "ott1082538",
+      "wikiTitle": "Orangutan"
     },
     {
       "id": "5707420",
@@ -20336,7 +20420,8 @@
       "id": "ott166544",
       "sciName": "Hylobatidae",
       "rank": "family",
-      "parentId": "ott96938"
+      "parentId": "ott96938",
+      "wikiTitle": "Gibbon"
     },
     {
       "id": "ott251578",
@@ -20470,7 +20555,8 @@
       "id": "ott1015243",
       "sciName": "Saguinus",
       "rank": "genus",
-      "parentId": "ott1015234"
+      "parentId": "ott1015234",
+      "wikiTitle": "Tamarin"
     },
     {
       "id": "ott429031",
@@ -20518,7 +20604,8 @@
       "id": "ott532396",
       "sciName": "Leontopithecus",
       "rank": "genus",
-      "parentId": "ott341890"
+      "parentId": "ott341890",
+      "wikiTitle": "Lion tamarin"
     },
     {
       "id": "2436481",
@@ -20540,13 +20627,15 @@
       "id": "ott655808",
       "sciName": "Cebinae",
       "rank": "subfamily",
-      "parentId": "ott93900"
+      "parentId": "ott93900",
+      "wikiTitle": "Capuchin monkey"
     },
     {
       "id": "ott217260",
       "sciName": "Cebus",
       "rank": "genus",
-      "parentId": "ott655808"
+      "parentId": "ott655808",
+      "wikiTitle": "Gracile capuchin monkey"
     },
     {
       "id": "8028197",
@@ -20560,7 +20649,8 @@
       "id": "ott5846387",
       "sciName": "Sapajus",
       "rank": "genus",
-      "parentId": "ott655808"
+      "parentId": "ott655808",
+      "wikiTitle": "Robust capuchin monkey"
     },
     {
       "id": "7477334",
@@ -20586,7 +20676,8 @@
       "id": "ott791703",
       "sciName": "Ateles",
       "rank": "genus",
-      "parentId": "ott81483"
+      "parentId": "ott81483",
+      "wikiTitle": "Spider monkey"
     },
     {
       "id": "ott797344",
@@ -20620,7 +20711,8 @@
       "id": "ott489216",
       "sciName": "Alouatta",
       "rank": "genus",
-      "parentId": "ott81488"
+      "parentId": "ott81488",
+      "wikiTitle": "Howler monkey"
     },
     {
       "id": "2436649",
@@ -20647,7 +20739,8 @@
       "sciName": "Cacajao",
       "rank": "genus",
       "parentId": "ott758742",
-      "common": "Uakari"
+      "common": "Uakari",
+      "wikiTitle": "Uakari"
     },
     {
       "id": "2436410",
@@ -20661,7 +20754,8 @@
       "id": "ott1058652",
       "sciName": "Pithecia",
       "rank": "genus",
-      "parentId": "ott758742"
+      "parentId": "ott758742",
+      "wikiTitle": "Saki monkey"
     },
     {
       "id": "2436373",
@@ -20690,7 +20784,8 @@
       "sciName": "Tarsiidae",
       "rank": "family",
       "parentId": "ott702151",
-      "common": "Tarsier"
+      "common": "Tarsier",
+      "wikiTitle": "Tarsier"
     },
     {
       "id": "ott7067587",
@@ -20766,7 +20861,8 @@
       "id": "ott734824",
       "sciName": "Microcebus",
       "rank": "genus",
-      "parentId": "ott311696"
+      "parentId": "ott311696",
+      "wikiTitle": "Mouse lemur"
     },
     {
       "id": "ott415576",
@@ -20802,7 +20898,8 @@
       "id": "ott388417",
       "sciName": "Cheirogaleus",
       "rank": "genus",
-      "parentId": "ott311696"
+      "parentId": "ott311696",
+      "wikiTitle": "Dwarf lemur"
     },
     {
       "id": "2436451",
@@ -20890,7 +20987,8 @@
       "id": "ott789636",
       "sciName": "Hapalemur",
       "rank": "genus",
-      "parentId": "ott913930"
+      "parentId": "ott913930",
+      "wikiTitle": "Bamboo lemur"
     },
     {
       "id": "2436415",
@@ -20918,7 +21016,8 @@
       "id": "ott388419",
       "sciName": "Varecia",
       "rank": "genus",
-      "parentId": "ott913933"
+      "parentId": "ott913933",
+      "wikiTitle": "Ruffed lemur"
     },
     {
       "id": "2436424",
@@ -20964,7 +21063,8 @@
       "id": "ott152021",
       "sciName": "Nycticebus",
       "rank": "genus",
-      "parentId": "ott673365"
+      "parentId": "ott673365",
+      "wikiTitle": "Slow loris"
     },
     {
       "id": "ott1049687",
@@ -20993,7 +21093,8 @@
       "sciName": "Loris",
       "rank": "genus",
       "parentId": "ott673365",
-      "common": "Slender loris"
+      "common": "Slender loris",
+      "wikiTitle": "Slender loris"
     },
     {
       "id": "2436626",
@@ -21007,7 +21108,8 @@
       "id": "ott786233",
       "sciName": "Galagidae",
       "rank": "family",
-      "parentId": "ott173071"
+      "parentId": "ott173071",
+      "wikiTitle": "Galago"
     },
     {
       "id": "ott271531",
@@ -21019,7 +21121,8 @@
       "id": "ott885711",
       "sciName": "Otolemur",
       "rank": "genus",
-      "parentId": "ott271531"
+      "parentId": "ott271531",
+      "wikiTitle": "Greater galago"
     },
     {
       "id": "2436511",
@@ -21115,7 +21218,8 @@
       "id": "ott460505",
       "sciName": "Cervidae",
       "rank": "family",
-      "parentId": "ott20474"
+      "parentId": "ott20474",
+      "wikiTitle": "Deer"
     },
     {
       "id": "ott534970",
@@ -21177,7 +21281,8 @@
       "id": "ott460515",
       "sciName": "Axis",
       "rank": "genus",
-      "parentId": "ott534970"
+      "parentId": "ott534970",
+      "wikiTitle": "Axis (genus)"
     },
     {
       "id": "2440934",
@@ -21458,7 +21563,8 @@
       "id": "ott233506",
       "sciName": "Moschus",
       "rank": "genus",
-      "parentId": "ott233507"
+      "parentId": "ott233507",
+      "wikiTitle": "Musk deer"
     },
     {
       "id": "2440989",
@@ -21570,7 +21676,8 @@
       "id": "ott986969",
       "sciName": "Tragulidae",
       "rank": "family",
-      "parentId": "ott916744"
+      "parentId": "ott916744",
+      "wikiTitle": "Chevrotain"
     },
     {
       "id": "ott456394",
@@ -21627,7 +21734,8 @@
       "sciName": "Cetacea",
       "rank": "infraorder",
       "parentId": "ott7655791",
-      "common": "Cetaceans"
+      "common": "Cetaceans",
+      "wikiTitle": "Cetacean"
     },
     {
       "id": "ott44568",
@@ -21640,7 +21748,8 @@
       "sciName": "Odontoceti",
       "rank": "parvorder",
       "parentId": "ott44568",
-      "common": "Toothed whales"
+      "common": "Toothed whales",
+      "wikiTitle": "Toothed whale"
     },
     {
       "id": "ott5269",
@@ -21658,7 +21767,8 @@
       "id": "ott477489",
       "sciName": "Platanista",
       "rank": "genus",
-      "parentId": "ott698419"
+      "parentId": "ott698419",
+      "wikiTitle": "South Asian river dolphin"
     },
     {
       "id": "2440764",
@@ -21759,7 +21869,8 @@
       "id": "ott1053845",
       "sciName": "Pontoporia",
       "rank": "genus",
-      "parentId": "ott509917"
+      "parentId": "ott509917",
+      "wikiTitle": "Pontoporia (genus)"
     },
     {
       "id": "5220001",
@@ -21779,7 +21890,8 @@
       "id": "ott698406",
       "sciName": "Delphinidae",
       "rank": "family",
-      "parentId": "ott194312"
+      "parentId": "ott194312",
+      "wikiTitle": "Oceanic dolphin"
     },
     {
       "id": "ott111103",
@@ -21933,7 +22045,8 @@
       "sciName": "Tursiops",
       "rank": "genus",
       "parentId": "ott124224",
-      "common": "Bottlenose Dolphin"
+      "common": "Bottlenose Dolphin",
+      "wikiTitle": "Bottlenose dolphin"
     },
     {
       "id": "2440447",
@@ -21953,7 +22066,8 @@
       "id": "ott698409",
       "sciName": "Delphinus",
       "rank": "genus",
-      "parentId": "ott187220"
+      "parentId": "ott187220",
+      "wikiTitle": "Delphinus (genus)"
     },
     {
       "id": "2440640",
@@ -21967,7 +22081,8 @@
       "id": "ott916112",
       "sciName": "Sousa",
       "rank": "genus",
-      "parentId": "ott187220"
+      "parentId": "ott187220",
+      "wikiTitle": "Humpback dolphin"
     },
     {
       "id": "2440495",
@@ -22010,7 +22125,8 @@
       "sciName": "Phocoenidae",
       "rank": "family",
       "parentId": "ott306757",
-      "common": "Porpoises"
+      "common": "Porpoises",
+      "wikiTitle": "Porpoise"
     },
     {
       "id": "ott499806",
@@ -22051,7 +22167,8 @@
       "sciName": "Neophocaena",
       "rank": "genus",
       "parentId": "ott499806",
-      "common": "Finless Porpoise"
+      "common": "Finless Porpoise",
+      "wikiTitle": "Finless porpoise"
     },
     {
       "id": "2440656",
@@ -22129,7 +22246,8 @@
       "id": "ott276849",
       "sciName": "Ziphiidae",
       "rank": "family",
-      "parentId": "ott6470"
+      "parentId": "ott6470",
+      "wikiTitle": "Beaked whale"
     },
     {
       "id": "ott1003906",
@@ -22195,7 +22313,8 @@
       "id": "ott1003908",
       "sciName": "Hyperoodon",
       "rank": "genus",
-      "parentId": "ott575100"
+      "parentId": "ott575100",
+      "wikiTitle": "Bottlenose whale"
     },
     {
       "id": "5220013",
@@ -22300,7 +22419,8 @@
       "id": "ott800314",
       "sciName": "Mysticeti",
       "rank": "parvorder",
-      "parentId": "ott44568"
+      "parentId": "ott44568",
+      "wikiTitle": "Baleen whale"
     },
     {
       "id": "ott397243",
@@ -22442,7 +22562,8 @@
       "id": "ott251473",
       "sciName": "Eubalaena",
       "rank": "genus",
-      "parentId": "ott397247"
+      "parentId": "ott397247",
+      "wikiTitle": "Right whale"
     },
     {
       "id": "ott1072344",
@@ -22536,7 +22657,8 @@
       "id": "ott1036752",
       "sciName": "Phacochoerus",
       "rank": "genus",
-      "parentId": "ott101334"
+      "parentId": "ott101334",
+      "wikiTitle": "Warthog"
     },
     {
       "id": "2441212",
@@ -22581,7 +22703,8 @@
       "sciName": "Sus",
       "rank": "genus",
       "parentId": "ott730008",
-      "common": "Pig"
+      "common": "Pig",
+      "wikiTitle": "Sus (genus)"
     },
     {
       "id": "2441215",
@@ -22653,7 +22776,8 @@
       "id": "ott730004",
       "sciName": "Tayassuidae",
       "rank": "family",
-      "parentId": "ott916745"
+      "parentId": "ott916745",
+      "wikiTitle": "Peccary"
     },
     {
       "id": "ott637442",
@@ -22742,7 +22866,8 @@
       "id": "ott510759",
       "sciName": "Lama",
       "rank": "genus",
-      "parentId": "ott143016"
+      "parentId": "ott143016",
+      "wikiTitle": "Lama (genus)"
     },
     {
       "id": "5220188",
@@ -22764,7 +22889,8 @@
       "id": "ott510767",
       "sciName": "Camelus",
       "rank": "genus",
-      "parentId": "ott510775"
+      "parentId": "ott510775",
+      "wikiTitle": "Camel"
     },
     {
       "id": "9055455",
@@ -22846,7 +22972,8 @@
       "id": "ott1068227",
       "sciName": "Tapiridae",
       "rank": "family",
-      "parentId": "ott277746"
+      "parentId": "ott277746",
+      "wikiTitle": "Tapir"
     },
     {
       "id": "ott6146951",
@@ -22894,7 +23021,8 @@
       "id": "ott1034218",
       "sciName": "Rhinocerotidae",
       "rank": "family",
-      "parentId": "ott277746"
+      "parentId": "ott277746",
+      "wikiTitle": "Rhinoceros"
     },
     {
       "id": "ott397576",
@@ -22942,7 +23070,8 @@
       "id": "ott1087499",
       "sciName": "Rhinoceros",
       "rank": "genus",
-      "parentId": "ott1034218"
+      "parentId": "ott1034218",
+      "wikiTitle": "Rhinoceros (genus)"
     },
     {
       "id": "5220112",
@@ -22964,7 +23093,8 @@
       "id": "ott574724",
       "sciName": "Chiroptera",
       "rank": "order",
-      "parentId": "ott6790"
+      "parentId": "ott6790",
+      "wikiTitle": "Bat"
     },
     {
       "id": "ott6794",
@@ -23090,7 +23220,8 @@
       "id": "ott238416",
       "sciName": "Molossidae",
       "rank": "family",
-      "parentId": "ott130215"
+      "parentId": "ott130215",
+      "wikiTitle": "Free-tailed bat"
     },
     {
       "id": "ott171158",
@@ -23130,7 +23261,8 @@
       "id": "ott289151",
       "sciName": "Phyllostomidae",
       "rank": "family",
-      "parentId": "ott604409"
+      "parentId": "ott604409",
+      "wikiTitle": "Leaf-nosed bat"
     },
     {
       "id": "ott238431",
@@ -23197,7 +23329,8 @@
       "id": "ott1039975",
       "sciName": "Desmodontinae",
       "rank": "subfamily",
-      "parentId": "ott238431"
+      "parentId": "ott238431",
+      "wikiTitle": "Vampire bat"
     },
     {
       "id": "ott1060472",
@@ -23285,7 +23418,8 @@
       "id": "ott574742",
       "sciName": "Pteropodidae",
       "rank": "family",
-      "parentId": "ott754606"
+      "parentId": "ott754606",
+      "wikiTitle": "Megabat"
     },
     {
       "id": "ott67622",
@@ -23297,7 +23431,8 @@
       "id": "ott113374",
       "sciName": "Eidolon",
       "rank": "genus",
-      "parentId": "ott67622"
+      "parentId": "ott67622",
+      "wikiTitle": "Eidolon (bat)"
     },
     {
       "id": "2432851",
@@ -23409,7 +23544,8 @@
       "id": "ott635025",
       "sciName": "Rhinolophidae",
       "rank": "family",
-      "parentId": "ott79793"
+      "parentId": "ott79793",
+      "wikiTitle": "Horseshoe bat"
     },
     {
       "id": "ott316927",
@@ -23455,7 +23591,8 @@
       "id": "ott289140",
       "sciName": "Macroderma",
       "rank": "genus",
-      "parentId": "ott813048"
+      "parentId": "ott813048",
+      "wikiTitle": "Macroderma (bat)"
     },
     {
       "id": "5218772",
@@ -23611,7 +23748,8 @@
       "sciName": "Meles",
       "rank": "genus",
       "parentId": "ott693052",
-      "common": "European Badgers"
+      "common": "European Badgers",
+      "wikiTitle": "Meles (genus)"
     },
     {
       "id": "2433875",
@@ -23631,7 +23769,8 @@
       "id": "ott306281",
       "sciName": "Lutrinae",
       "rank": "subfamily",
-      "parentId": "ott39395"
+      "parentId": "ott39395",
+      "wikiTitle": "Otter"
     },
     {
       "id": "ott949684",
@@ -23687,7 +23826,8 @@
       "sciName": "Mustela putorius",
       "rank": "clade",
       "parentId": "ott541439",
-      "common": "European polecat"
+      "common": "European polecat",
+      "wikiTitle": "European polecat"
     },
     {
       "id": "5218913",
@@ -23769,7 +23909,8 @@
       "sciName": "Procyon",
       "rank": "genus",
       "parentId": "ott685103",
-      "common": "Raccoons"
+      "common": "Raccoons",
+      "wikiTitle": "Procyon (genus)"
     },
     {
       "id": "5218786",
@@ -23927,7 +24068,8 @@
       "id": "ott231606",
       "sciName": "Mephitis",
       "rank": "genus",
-      "parentId": "ott736282"
+      "parentId": "ott736282",
+      "wikiTitle": "Mephitis (genus)"
     },
     {
       "id": "5219380",
@@ -23950,7 +24092,8 @@
       "sciName": "Spilogale",
       "rank": "genus",
       "parentId": "ott736282",
-      "common": "Spotted Skunks"
+      "common": "Spotted Skunks",
+      "wikiTitle": "Spotted skunk"
     },
     {
       "id": "2434835",
@@ -23973,7 +24116,8 @@
       "sciName": "Conepatus",
       "rank": "genus",
       "parentId": "ott231608",
-      "common": "Hog-nosed skunks"
+      "common": "Hog-nosed skunks",
+      "wikiTitle": "Hog-nosed skunk"
     },
     {
       "id": "2434878",
@@ -23995,7 +24139,8 @@
       "id": "ott685110",
       "sciName": "Mydaus",
       "rank": "genus",
-      "parentId": "ott445986"
+      "parentId": "ott445986",
+      "wikiTitle": "Stink badger"
     },
     {
       "id": "2434845",
@@ -24016,7 +24161,8 @@
       "sciName": "Ursidae",
       "rank": "family",
       "parentId": "ott22064",
-      "common": "Bears"
+      "common": "Bears",
+      "wikiTitle": "Bear"
     },
     {
       "id": "ott679667",
@@ -24138,7 +24284,8 @@
       "id": "ott749626",
       "sciName": "Phocidae",
       "rank": "family",
-      "parentId": "ott95364"
+      "parentId": "ott95364",
+      "wikiTitle": "Earless seal"
     },
     {
       "id": "ott664062",
@@ -24232,7 +24379,8 @@
       "id": "ott175272",
       "sciName": "Mirounga",
       "rank": "genus",
-      "parentId": "ott175268"
+      "parentId": "ott175268",
+      "wikiTitle": "Elephant seal"
     },
     {
       "id": "2434813",
@@ -24282,7 +24430,8 @@
       "id": "ott180391",
       "sciName": "Monachus",
       "rank": "genus",
-      "parentId": "ott759722"
+      "parentId": "ott759722",
+      "wikiTitle": "Monk seal"
     },
     {
       "id": "2434779",
@@ -24302,7 +24451,8 @@
       "id": "ott749638",
       "sciName": "Otariidae",
       "rank": "family",
-      "parentId": "ott433857"
+      "parentId": "ott433857",
+      "wikiTitle": "Eared seal"
     },
     {
       "id": "ott180381",
@@ -24464,7 +24614,8 @@
       "sciName": "Canis lupus",
       "rank": "clade",
       "parentId": "ott684074",
-      "common": "Wolf"
+      "common": "Wolf",
+      "wikiTitle": "Wolf"
     },
     {
       "id": "5219200",
@@ -24504,7 +24655,8 @@
       "id": "ott821959",
       "sciName": "Lycaon",
       "rank": "genus",
-      "parentId": "ott821953"
+      "parentId": "ott821953",
+      "wikiTitle": "Lycaon (genus)"
     },
     {
       "id": "5219317",
@@ -24662,7 +24814,8 @@
       "id": "ott42311",
       "sciName": "Herpestidae",
       "rank": "family",
-      "parentId": "ott44171"
+      "parentId": "ott44171",
+      "wikiTitle": "Mongoose"
     },
     {
       "id": "ott803645",
@@ -24728,7 +24881,8 @@
       "id": "ott7067617",
       "sciName": "Urva",
       "rank": "genus",
-      "parentId": "ott159576"
+      "parentId": "ott159576",
+      "wikiTitle": "Urva (genus)"
     },
     {
       "id": "10504616",
@@ -24902,7 +25056,8 @@
       "sciName": "Hyaenidae",
       "rank": "family",
       "parentId": "ott383901",
-      "common": "Hyenas"
+      "common": "Hyenas",
+      "wikiTitle": "Hyena"
     },
     {
       "id": "ott397157",
@@ -25239,7 +25394,8 @@
       "sciName": "Felis silvestris",
       "rank": "clade",
       "parentId": "ott563166",
-      "common": "Wild cat"
+      "common": "Wild cat",
+      "wikiTitle": "European wildcat"
     },
     {
       "id": "2435046",
@@ -25281,7 +25437,8 @@
       "id": "ott86161",
       "sciName": "Puma",
       "rank": "genus",
-      "parentId": "ott752759"
+      "parentId": "ott752759",
+      "wikiTitle": "Puma (genus)"
     },
     {
       "id": "2435099",
@@ -25363,7 +25520,8 @@
       "id": "ott1033548",
       "sciName": "Caracal",
       "rank": "genus",
-      "parentId": "ott660447"
+      "parentId": "ott660447",
+      "wikiTitle": "Caracal (genus)"
     },
     {
       "id": "2435010",
@@ -25377,7 +25535,8 @@
       "id": "ott644252",
       "sciName": "Pholidota",
       "rank": "order",
-      "parentId": "ott263949"
+      "parentId": "ott263949",
+      "wikiTitle": "Pangolin"
     },
     {
       "id": "ott644249",
@@ -25429,13 +25588,15 @@
       "id": "ott226446",
       "sciName": "Soricidae",
       "rank": "family",
-      "parentId": "ott60434"
+      "parentId": "ott60434",
+      "wikiTitle": "Shrew"
     },
     {
       "id": "ott930681",
       "sciName": "Crocidurinae",
       "rank": "subfamily",
-      "parentId": "ott226446"
+      "parentId": "ott226446",
+      "wikiTitle": "White-toothed shrew"
     },
     {
       "id": "ott809501",
@@ -25531,7 +25692,8 @@
       "id": "ott222367",
       "sciName": "Talpa",
       "rank": "genus",
-      "parentId": "ott222358"
+      "parentId": "ott222358",
+      "wikiTitle": "Talpa (mammal)"
     },
     {
       "id": "7872906",
@@ -25614,7 +25776,8 @@
       "id": "ott805540",
       "sciName": "Erinaceinae",
       "rank": "subfamily",
-      "parentId": "ott796668"
+      "parentId": "ott796668",
+      "wikiTitle": "Hedgehog"
     },
     {
       "id": "ott796658",
@@ -25693,7 +25856,8 @@
       "id": "ott812332",
       "sciName": "Solenodontidae",
       "rank": "family",
-      "parentId": "ott796664"
+      "parentId": "ott796664",
+      "wikiTitle": "Solenodon"
     },
     {
       "id": "ott469472",
@@ -25752,7 +25916,8 @@
       "id": "ott226189",
       "sciName": "Trichechus",
       "rank": "genus",
-      "parentId": "ott226181"
+      "parentId": "ott226181",
+      "wikiTitle": "Manatee"
     },
     {
       "id": "2435294",
@@ -25815,7 +25980,8 @@
       "id": "ott561109",
       "sciName": "Procaviidae",
       "rank": "family",
-      "parentId": "ott561107"
+      "parentId": "ott561107",
+      "wikiTitle": "Hyrax"
     },
     {
       "id": "ott561113",
@@ -25875,7 +26041,8 @@
       "id": "ott541933",
       "sciName": "Loxodonta",
       "rank": "genus",
-      "parentId": "ott541924"
+      "parentId": "ott541924",
+      "wikiTitle": "African elephant"
     },
     {
       "id": "2435349",
@@ -25915,7 +26082,8 @@
       "id": "ott796652",
       "sciName": "Tenrecidae",
       "rank": "clade",
-      "parentId": "ott3616708"
+      "parentId": "ott3616708",
+      "wikiTitle": "Tenrec"
     },
     {
       "id": "ott922729",
@@ -25996,7 +26164,8 @@
       "id": "ott54168",
       "sciName": "Chrysochloridae",
       "rank": "clade",
-      "parentId": "ott3616708"
+      "parentId": "ott3616708",
+      "wikiTitle": "Golden mole"
     },
     {
       "id": "ott702190",
@@ -26031,7 +26200,8 @@
       "sciName": "Macroscelididae",
       "rank": "family",
       "parentId": "ott604023",
-      "common": "Elephant Shrews"
+      "common": "Elephant Shrews",
+      "wikiTitle": "Sengi"
     },
     {
       "id": "ott1019438",
@@ -26301,7 +26471,8 @@
       "id": "ott495015",
       "sciName": "Folivora",
       "rank": "suborder",
-      "parentId": "ott495018"
+      "parentId": "ott495018",
+      "wikiTitle": "Sloth"
     },
     {
       "id": "ott1025073",
@@ -26313,7 +26484,8 @@
       "id": "ott527321",
       "sciName": "Choloepus",
       "rank": "genus",
-      "parentId": "ott1025073"
+      "parentId": "ott1025073",
+      "wikiTitle": "Two-toed sloth"
     },
     {
       "id": "5219520",
@@ -26342,7 +26514,8 @@
       "id": "ott527308",
       "sciName": "Bradypus",
       "rank": "genus",
-      "parentId": "ott273225"
+      "parentId": "ott273225",
+      "wikiTitle": "Three-toed sloth"
     },
     {
       "id": "ott736497",
@@ -26558,7 +26731,8 @@
       "id": "ott317162",
       "sciName": "Bettongia",
       "rank": "genus",
-      "parentId": "ott478200"
+      "parentId": "ott478200",
+      "wikiTitle": "Bettong"
     },
     {
       "id": "2440026",
@@ -26738,7 +26912,8 @@
       "id": "ott988899",
       "sciName": "Petrogale",
       "rank": "genus",
-      "parentId": "ott479573"
+      "parentId": "ott479573",
+      "wikiTitle": "Rock-wallaby"
     },
     {
       "id": "2440113",
@@ -26752,7 +26927,8 @@
       "id": "ott897699",
       "sciName": "Thylogale",
       "rank": "genus",
-      "parentId": "ott479573"
+      "parentId": "ott479573",
+      "wikiTitle": "Pademelon"
     },
     {
       "id": "2440164",
@@ -26774,7 +26950,8 @@
       "id": "ott277693",
       "sciName": "Dendrolagus",
       "rank": "genus",
-      "parentId": "ott42818"
+      "parentId": "ott42818",
+      "wikiTitle": "Tree-kangaroo"
     },
     {
       "id": "ott555307",
@@ -26863,7 +27040,8 @@
       "id": "ott579329",
       "sciName": "Ailurops",
       "rank": "genus",
-      "parentId": "ott193425"
+      "parentId": "ott193425",
+      "wikiTitle": "Bear cuscus"
     },
     {
       "id": "5219990",
@@ -26891,7 +27069,8 @@
       "id": "ott987677",
       "sciName": "Burramyidae",
       "rank": "family",
-      "parentId": "ott277687"
+      "parentId": "ott277687",
+      "wikiTitle": "Pygmy possum"
     },
     {
       "id": "ott34422",
@@ -26917,7 +27096,8 @@
       "id": "ott323250",
       "sciName": "Vombatidae",
       "rank": "family",
-      "parentId": "ott985451"
+      "parentId": "ott985451",
+      "wikiTitle": "Wombat"
     },
     {
       "id": "ott461126",
@@ -27043,7 +27223,8 @@
       "id": "ott393367",
       "sciName": "Dasyurus",
       "rank": "genus",
-      "parentId": "ott948469"
+      "parentId": "ott948469",
+      "wikiTitle": "Quoll"
     },
     {
       "id": "ott379186",
@@ -27119,7 +27300,8 @@
       "id": "ott948480",
       "sciName": "Sminthopsis",
       "rank": "genus",
-      "parentId": "ott1090598"
+      "parentId": "ott1090598",
+      "wikiTitle": "Dunnart"
     },
     {
       "id": "2435393",
@@ -27227,7 +27409,8 @@
       "id": "ott141238",
       "sciName": "Isoodon",
       "rank": "genus",
-      "parentId": "ott683254"
+      "parentId": "ott683254",
+      "wikiTitle": "Short-nosed bandicoot"
     },
     {
       "id": "2435311",
@@ -27309,7 +27492,8 @@
       "id": "ott16069",
       "sciName": "Didelphidae",
       "rank": "family",
-      "parentId": "ott277697"
+      "parentId": "ott277697",
+      "wikiTitle": "Opossum"
     },
     {
       "id": "ott608046",
@@ -27403,7 +27587,8 @@
       "id": "ott962396",
       "sciName": "Monotremata",
       "rank": "order",
-      "parentId": "ott962395"
+      "parentId": "ott962395",
+      "wikiTitle": "Monotreme"
     },
     {
       "id": "ott962377",
@@ -27415,7 +27600,8 @@
       "id": "ott344064",
       "sciName": "Tachyglossidae",
       "rank": "family",
-      "parentId": "ott962377"
+      "parentId": "ott962377",
+      "wikiTitle": "Echidna"
     },
     {
       "id": "ott16047",
@@ -27437,7 +27623,8 @@
       "sciName": "Zaglossus",
       "rank": "genus",
       "parentId": "ott344064",
-      "common": "Long-beaked echidna"
+      "common": "Long-beaked echidna",
+      "wikiTitle": "Long-beaked echidna"
     },
     {
       "id": "2433391",
@@ -27512,7 +27699,8 @@
       "sciName": "Aves",
       "rank": "class",
       "parentId": "ott31216",
-      "common": "Birds"
+      "common": "Birds",
+      "wikiTitle": "Bird"
     },
     {
       "id": "ott241846",
@@ -27566,7 +27754,8 @@
       "id": "ott1041547",
       "sciName": "Passeriformes",
       "rank": "order",
-      "parentId": "ott7113"
+      "parentId": "ott7113",
+      "wikiTitle": "Passerine"
     },
     {
       "id": "ott3212",
@@ -28127,7 +28316,8 @@
       "id": "ott267845",
       "sciName": "Cinclus",
       "rank": "genus",
-      "parentId": "ott496027"
+      "parentId": "ott496027",
+      "wikiTitle": "Dipper"
     },
     {
       "id": "2495093",
@@ -28373,7 +28563,8 @@
       "id": "ott522080",
       "sciName": "Moho",
       "rank": "genus",
-      "parentId": "ott661149"
+      "parentId": "ott661149",
+      "wikiTitle": "Moho (genus)"
     },
     {
       "id": "2486984",
@@ -28395,7 +28586,8 @@
       "id": "ott33428",
       "sciName": "Phainopepla",
       "rank": "genus",
-      "parentId": "ott33427"
+      "parentId": "ott33427",
+      "wikiTitle": "Phainopepla (genus)"
     },
     {
       "id": "2492885",
@@ -28409,7 +28601,8 @@
       "id": "ott613883",
       "sciName": "Bombycilla",
       "rank": "genus",
-      "parentId": "ott496029"
+      "parentId": "ott496029",
+      "wikiTitle": "Waxwing"
     },
     {
       "id": "2484605",
@@ -28529,7 +28722,8 @@
       "id": "ott465905",
       "sciName": "Erythrura",
       "rank": "genus",
-      "parentId": "ott95949"
+      "parentId": "ott95949",
+      "wikiTitle": "Parrotfinch"
     },
     {
       "id": "2493720",
@@ -28757,7 +28951,8 @@
       "sciName": "Geospiza difficilis",
       "rank": "clade",
       "parentId": "ott589948",
-      "common": "Sharp-beaked Ground Finch"
+      "common": "Sharp-beaked Ground Finch",
+      "wikiTitle": "Sharp-beaked ground finch"
     },
     {
       "id": "9029445",
@@ -29165,7 +29360,8 @@
       "id": "ott998126",
       "sciName": "Geothlypis",
       "rank": "genus",
-      "parentId": "ott63581"
+      "parentId": "ott63581",
+      "wikiTitle": "Yellowthroat"
     },
     {
       "id": "2489670",
@@ -29206,7 +29402,8 @@
       "sciName": "Icterus",
       "rank": "genus",
       "parentId": "ott93045",
-      "common": "New World orioles"
+      "common": "New World orioles",
+      "wikiTitle": "New World oriole"
     },
     {
       "id": "ott300876",
@@ -29447,7 +29644,8 @@
       "sciName": "Linaria",
       "rank": "genus",
       "parentId": "ott6375",
-      "common": "Linnets"
+      "common": "Linnets",
+      "wikiTitle": "Linaria (bird)"
     },
     {
       "id": "8104397",
@@ -29483,7 +29681,8 @@
       "id": "ott3601758",
       "sciName": "Haemorhous",
       "rank": "genus",
-      "parentId": "ott641497"
+      "parentId": "ott641497",
+      "wikiTitle": "American rosefinch"
     },
     {
       "id": "7804446",
@@ -29659,7 +29858,8 @@
       "id": "ott647180",
       "sciName": "Irena",
       "rank": "genus",
-      "parentId": "ott35053"
+      "parentId": "ott35053",
+      "wikiTitle": "Fairy-bluebird"
     },
     {
       "id": "2488929",
@@ -29811,7 +30011,8 @@
       "id": "ott1076202",
       "sciName": "Leiothrix",
       "rank": "genus",
-      "parentId": "ott215733"
+      "parentId": "ott215733",
+      "wikiTitle": "Leiothrix (bird)"
     },
     {
       "id": "5231398",
@@ -30078,7 +30279,8 @@
       "id": "ott897681",
       "sciName": "Hirundinidae",
       "rank": "family",
-      "parentId": "ott16185"
+      "parentId": "ott16185",
+      "wikiTitle": "Swallow"
     },
     {
       "id": "ott67916",
@@ -30286,7 +30488,8 @@
       "id": "ott662954",
       "sciName": "Alaudidae",
       "rank": "family",
-      "parentId": "ott63797"
+      "parentId": "ott63797",
+      "wikiTitle": "Lark"
     },
     {
       "id": "ott156647",
@@ -30298,7 +30501,8 @@
       "id": "ott420987",
       "sciName": "Eremophila",
       "rank": "genus",
-      "parentId": "ott156647"
+      "parentId": "ott156647",
+      "wikiTitle": "Eremophila (bird)"
     },
     {
       "id": "9415596",
@@ -30498,7 +30702,8 @@
       "id": "ott659",
       "sciName": "Petroicidae",
       "rank": "family",
-      "parentId": "ott10351"
+      "parentId": "ott10351",
+      "wikiTitle": "Australasian robin"
     },
     {
       "id": "ott918819",
@@ -30718,7 +30923,8 @@
       "id": "ott776480",
       "sciName": "Pica",
       "rank": "genus",
-      "parentId": "ott75990"
+      "parentId": "ott75990",
+      "wikiTitle": "Pica (bird)"
     },
     {
       "id": "5229490",
@@ -30754,7 +30960,8 @@
       "id": "ott140441",
       "sciName": "Pyrrhocorax",
       "rank": "genus",
-      "parentId": "ott140440"
+      "parentId": "ott140440",
+      "wikiTitle": "Chough"
     },
     {
       "id": "2482553",
@@ -30830,7 +31037,8 @@
       "id": "ott537964",
       "sciName": "Terpsiphone",
       "rank": "genus",
-      "parentId": "ott131211"
+      "parentId": "ott131211",
+      "wikiTitle": "Paradise flycatcher"
     },
     {
       "id": "2486687",
@@ -30864,7 +31072,8 @@
       "id": "ott1058847",
       "sciName": "Paradisaeidae",
       "rank": "family",
-      "parentId": "ott520286"
+      "parentId": "ott520286",
+      "wikiTitle": "Bird-of-paradise"
     },
     {
       "id": "ott30732",
@@ -30932,7 +31141,8 @@
       "id": "ott1092341",
       "sciName": "Corcoracidae",
       "rank": "family",
-      "parentId": "ott520286"
+      "parentId": "ott520286",
+      "wikiTitle": "Australian mudnester"
     },
     {
       "id": "ott635606",
@@ -31010,7 +31220,8 @@
       "id": "ott21006",
       "sciName": "Rhipidura",
       "rank": "genus",
-      "parentId": "ott20989"
+      "parentId": "ott20989",
+      "wikiTitle": "Fantail"
     },
     {
       "id": "5231722",
@@ -31106,7 +31317,8 @@
       "id": "ott319141",
       "sciName": "Strepera",
       "rank": "genus",
-      "parentId": "ott71163"
+      "parentId": "ott71163",
+      "wikiTitle": "Currawong"
     },
     {
       "id": "2489448",
@@ -31140,7 +31352,8 @@
       "id": "ott604017",
       "sciName": "Vireonidae",
       "rank": "family",
-      "parentId": "ott63086"
+      "parentId": "ott63086",
+      "wikiTitle": "Vireo"
     },
     {
       "id": "ott48944",
@@ -31359,7 +31572,8 @@
       "id": "ott598356",
       "sciName": "Pardalotus",
       "rank": "genus",
-      "parentId": "ott1093579"
+      "parentId": "ott1093579",
+      "wikiTitle": "Pardalote"
     },
     {
       "id": "2486622",
@@ -31373,7 +31587,8 @@
       "id": "ott901832",
       "sciName": "Maluridae",
       "rank": "family",
-      "parentId": "ott35023"
+      "parentId": "ott35023",
+      "wikiTitle": "Australasian wren"
     },
     {
       "id": "ott901831",
@@ -31427,7 +31642,8 @@
       "id": "ott73933",
       "sciName": "Menura",
       "rank": "genus",
-      "parentId": "ott73954"
+      "parentId": "ott73954",
+      "wikiTitle": "Lyrebird"
     },
     {
       "id": "2488979",
@@ -31467,7 +31683,8 @@
       "id": "ott390840",
       "sciName": "Furnarius",
       "rank": "genus",
-      "parentId": "ott12994"
+      "parentId": "ott12994",
+      "wikiTitle": "Hornero"
     },
     {
       "id": "2485821",
@@ -31543,7 +31760,8 @@
       "id": "ott463185",
       "sciName": "Tyrannus",
       "rank": "clade",
-      "parentId": "ott375105"
+      "parentId": "ott375105",
+      "wikiTitle": "Kingbird"
     },
     {
       "id": "ott618377",
@@ -31620,7 +31838,8 @@
       "sciName": "Procnias",
       "rank": "genus",
       "parentId": "ott354279",
-      "common": "Bellbirds"
+      "common": "Bellbirds",
+      "wikiTitle": "Neotropical bellbird"
     },
     {
       "id": "ott1032640",
@@ -31648,7 +31867,8 @@
       "id": "ott275660",
       "sciName": "Rupicola",
       "rank": "genus",
-      "parentId": "ott354279"
+      "parentId": "ott354279",
+      "wikiTitle": "Cock-of-the-rock"
     },
     {
       "id": "5230374",
@@ -31676,7 +31896,8 @@
       "id": "ott44873",
       "sciName": "Pittidae",
       "rank": "family",
-      "parentId": "ott50165"
+      "parentId": "ott50165",
+      "wikiTitle": "Pitta"
     },
     {
       "id": "2489507",
@@ -31704,7 +31925,8 @@
       "id": "ott901940",
       "sciName": "Acanthisittidae",
       "rank": "family",
-      "parentId": "ott1041547"
+      "parentId": "ott1041547",
+      "wikiTitle": "New Zealand wren"
     },
     {
       "id": "ott3599126",
@@ -31739,7 +31961,8 @@
       "id": "ott1020133",
       "sciName": "Psittaciformes",
       "rank": "order",
-      "parentId": "ott7113"
+      "parentId": "ott7113",
+      "wikiTitle": "Parrot"
     },
     {
       "id": "ott58938",
@@ -31804,7 +32027,8 @@
       "id": "ott174394",
       "sciName": "Agapornis",
       "rank": "genus",
-      "parentId": "ott174390"
+      "parentId": "ott174390",
+      "wikiTitle": "Lovebird"
     },
     {
       "id": "ott174401",
@@ -31952,7 +32176,8 @@
       "id": "ott1020129",
       "sciName": "Ara",
       "rank": "genus",
-      "parentId": "ott416113"
+      "parentId": "ott416113",
+      "wikiTitle": "Ara (bird)"
     },
     {
       "id": "ott851015",
@@ -32219,7 +32444,8 @@
       "id": "ott786441",
       "sciName": "Falco",
       "rank": "genus",
-      "parentId": "ott748842"
+      "parentId": "ott748842",
+      "wikiTitle": "Falcon"
     },
     {
       "id": "ott773020",
@@ -32289,7 +32515,8 @@
       "id": "ott591273",
       "sciName": "Caracara",
       "rank": "genus",
-      "parentId": "ott438657"
+      "parentId": "ott438657",
+      "wikiTitle": "Caracara (genus)"
     },
     {
       "id": "2480989",
@@ -32353,7 +32580,8 @@
       "id": "ott966325",
       "sciName": "Cariamidae",
       "rank": "family",
-      "parentId": "ott6151851"
+      "parentId": "ott6151851",
+      "wikiTitle": "Seriema"
     },
     {
       "id": "ott966327",
@@ -32609,7 +32837,8 @@
       "sciName": "Pandion",
       "rank": "genus",
       "parentId": "ott3600978",
-      "common": "Ospreys"
+      "common": "Ospreys",
+      "wikiTitle": "Pandion (bird)"
     },
     {
       "id": "2480726",
@@ -32631,7 +32860,8 @@
       "id": "ott363021",
       "sciName": "Cathartidae",
       "rank": "family",
-      "parentId": "ott4947835"
+      "parentId": "ott4947835",
+      "wikiTitle": "New World vulture"
     },
     {
       "id": "ott363015",
@@ -32749,7 +32979,8 @@
       "id": "ott1028829",
       "sciName": "Strigiformes",
       "rank": "order",
-      "parentId": "ott2907"
+      "parentId": "ott2907",
+      "wikiTitle": "Owl"
     },
     {
       "id": "ott1028828",
@@ -32914,7 +33145,8 @@
       "id": "ott489457",
       "sciName": "Bucerotidae",
       "rank": "family",
-      "parentId": "ott341907"
+      "parentId": "ott341907",
+      "wikiTitle": "Hornbill"
     },
     {
       "id": "ott159830",
@@ -33024,7 +33256,8 @@
       "id": "ott291860",
       "sciName": "Upupidae",
       "rank": "family",
-      "parentId": "ott815967"
+      "parentId": "ott815967",
+      "wikiTitle": "Hoopoe"
     },
     {
       "id": "ott412128",
@@ -33062,7 +33295,8 @@
       "id": "ott1020138",
       "sciName": "Picidae",
       "rank": "family",
-      "parentId": "ott130073"
+      "parentId": "ott130073",
+      "wikiTitle": "Woodpecker"
     },
     {
       "id": "ott149816",
@@ -33178,7 +33412,8 @@
       "id": "ott1010556",
       "sciName": "Picus",
       "rank": "genus",
-      "parentId": "ott218452"
+      "parentId": "ott218452",
+      "wikiTitle": "Picus (bird)"
     },
     {
       "id": "2478523",
@@ -33192,13 +33427,15 @@
       "id": "ott467845",
       "sciName": "Indicatoridae",
       "rank": "family",
-      "parentId": "ott130073"
+      "parentId": "ott130073",
+      "wikiTitle": "Honeyguide"
     },
     {
       "id": "ott467838",
       "sciName": "Indicator",
       "rank": "genus",
-      "parentId": "ott467845"
+      "parentId": "ott467845",
+      "wikiTitle": "Indicator (genus)"
     },
     {
       "id": "5228976",
@@ -33252,7 +33489,8 @@
       "id": "ott815702",
       "sciName": "Andigena",
       "rank": "genus",
-      "parentId": "ott263564"
+      "parentId": "ott263564",
+      "wikiTitle": "Mountain toucan"
     },
     {
       "id": "2478861",
@@ -33382,7 +33620,8 @@
       "id": "ott551378",
       "sciName": "Halcyon",
       "rank": "genus",
-      "parentId": "ott234476"
+      "parentId": "ott234476",
+      "wikiTitle": "Halcyon (genus)"
     },
     {
       "id": "5228328",
@@ -33452,7 +33691,8 @@
       "id": "ott489432",
       "sciName": "Momotidae",
       "rank": "family",
-      "parentId": "ott88365"
+      "parentId": "ott88365",
+      "wikiTitle": "Motmot"
     },
     {
       "id": "ott1079772",
@@ -33478,13 +33718,15 @@
       "id": "ott815968",
       "sciName": "Meropidae",
       "rank": "family",
-      "parentId": "ott244691"
+      "parentId": "ott244691",
+      "wikiTitle": "Bee-eater"
     },
     {
       "id": "ott989088",
       "sciName": "Merops",
       "rank": "genus",
-      "parentId": "ott815968"
+      "parentId": "ott815968",
+      "wikiTitle": "Merops (bird)"
     },
     {
       "id": "ott372776",
@@ -33580,7 +33822,8 @@
       "id": "ott539129",
       "sciName": "Trogonidae",
       "rank": "family",
-      "parentId": "ott539130"
+      "parentId": "ott539130",
+      "wikiTitle": "Trogon"
     },
     {
       "id": "ott412119",
@@ -33750,7 +33993,8 @@
       "id": "ott887699",
       "sciName": "Scolopacidae",
       "rank": "family",
-      "parentId": "ott24121"
+      "parentId": "ott24121",
+      "wikiTitle": "Sandpiper"
     },
     {
       "id": "ott217797",
@@ -33790,7 +34034,8 @@
       "id": "ott244704",
       "sciName": "Scolopax",
       "rank": "genus",
-      "parentId": "ott45306"
+      "parentId": "ott45306",
+      "wikiTitle": "Woodcock"
     },
     {
       "id": "2481695",
@@ -33812,7 +34057,8 @@
       "id": "ott1080868",
       "sciName": "Limosa",
       "rank": "genus",
-      "parentId": "ott217797"
+      "parentId": "ott217797",
+      "wikiTitle": "Godwit"
     },
     {
       "id": "2481681",
@@ -33826,7 +34072,8 @@
       "id": "ott193426",
       "sciName": "Numenius",
       "rank": "genus",
-      "parentId": "ott887699"
+      "parentId": "ott887699",
+      "wikiTitle": "Curlew"
     },
     {
       "id": "2481789",
@@ -34001,7 +34248,8 @@
       "id": "ott280898",
       "sciName": "Alle",
       "rank": "genus",
-      "parentId": "ott1097979"
+      "parentId": "ott1097979",
+      "wikiTitle": "Alle (genus)"
     },
     {
       "id": "2481299",
@@ -34043,7 +34291,8 @@
       "id": "ott855489",
       "sciName": "Alca",
       "rank": "genus",
-      "parentId": "ott899358"
+      "parentId": "ott899358",
+      "wikiTitle": "Alca (bird)"
     },
     {
       "id": "8277073",
@@ -34099,7 +34348,8 @@
       "id": "ott1014289",
       "sciName": "Fratercula",
       "rank": "genus",
-      "parentId": "ott280907"
+      "parentId": "ott280907",
+      "wikiTitle": "Puffin"
     },
     {
       "id": "2481357",
@@ -34136,7 +34386,8 @@
       "sciName": "Stercorariidae",
       "rank": "family",
       "parentId": "ott219032",
-      "common": "Skua"
+      "common": "Skua",
+      "wikiTitle": "Skua"
     },
     {
       "id": "ott742632",
@@ -34350,7 +34601,8 @@
       "id": "ott193407",
       "sciName": "Haematopus",
       "rank": "genus",
-      "parentId": "ott675126"
+      "parentId": "ott675126",
+      "wikiTitle": "Oystercatcher"
     },
     {
       "id": "7788295",
@@ -34398,7 +34650,8 @@
       "id": "ott274627",
       "sciName": "Himantopus",
       "rank": "genus",
-      "parentId": "ott427710"
+      "parentId": "ott427710",
+      "wikiTitle": "Stilt"
     },
     {
       "id": "5229128",
@@ -34412,7 +34665,8 @@
       "id": "ott917050",
       "sciName": "Recurvirostra",
       "rank": "genus",
-      "parentId": "ott427710"
+      "parentId": "ott427710",
+      "wikiTitle": "Avocet"
     },
     {
       "id": "2480258",
@@ -34447,7 +34701,8 @@
       "id": "ott738519",
       "sciName": "Chionis",
       "rank": "genus",
-      "parentId": "ott738518"
+      "parentId": "ott738518",
+      "wikiTitle": "Sheathbill"
     },
     {
       "id": "5789302",
@@ -34462,7 +34717,8 @@
       "sciName": "Burhinidae",
       "rank": "family",
       "parentId": "ott57829",
-      "common": "Stone-curlew"
+      "common": "Stone-curlew",
+      "wikiTitle": "Stone-curlew"
     },
     {
       "id": "ott427706",
@@ -34528,7 +34784,8 @@
       "id": "ott1041535",
       "sciName": "Fulica",
       "rank": "genus",
-      "parentId": "ott385129"
+      "parentId": "ott385129",
+      "wikiTitle": "Coot"
     },
     {
       "id": "ott521836",
@@ -34579,7 +34836,8 @@
       "sciName": "Porphyrio",
       "rank": "genus",
       "parentId": "ott73578",
-      "common": "Swamphen"
+      "common": "Swamphen",
+      "wikiTitle": "Swamphen"
     },
     {
       "id": "5228153",
@@ -34629,7 +34887,8 @@
       "id": "ott446460",
       "sciName": "Gruidae",
       "rank": "family",
-      "parentId": "ott1095362"
+      "parentId": "ott1095362",
+      "wikiTitle": "Crane (bird)"
     },
     {
       "id": "ott306574",
@@ -34756,7 +35015,8 @@
       "id": "ott915651",
       "sciName": "Aramus",
       "rank": "genus",
-      "parentId": "ott915649"
+      "parentId": "ott915649",
+      "wikiTitle": "Aramus (bird)"
     },
     {
       "id": "2474337",
@@ -34832,7 +35092,8 @@
       "id": "ott810751",
       "sciName": "Trochilidae",
       "rank": "family",
-      "parentId": "ott609798"
+      "parentId": "ott609798",
+      "wikiTitle": "Hummingbird"
     },
     {
       "id": "ott11002",
@@ -35002,7 +35263,8 @@
       "id": "ott609796",
       "sciName": "Apodidae",
       "rank": "family",
-      "parentId": "ott609798"
+      "parentId": "ott609798",
+      "wikiTitle": "Swift (bird)"
     },
     {
       "id": "ott196940",
@@ -35046,7 +35308,8 @@
       "id": "ott609795",
       "sciName": "Apus",
       "rank": "genus",
-      "parentId": "ott795151"
+      "parentId": "ott795151",
+      "wikiTitle": "Apus (bird)"
     },
     {
       "id": "ott4947470",
@@ -35153,7 +35416,8 @@
       "id": "ott178243",
       "sciName": "Nyctibiidae",
       "rank": "family",
-      "parentId": "ott178241"
+      "parentId": "ott178241",
+      "wikiTitle": "Potoo"
     },
     {
       "id": "ott178253",
@@ -35339,7 +35603,8 @@
       "id": "ott969838",
       "sciName": "Phalacrocoracidae",
       "rank": "family",
-      "parentId": "ott443639"
+      "parentId": "ott443639",
+      "wikiTitle": "Cormorant"
     },
     {
       "id": "ott9831",
@@ -35449,7 +35714,8 @@
       "id": "ott443638",
       "sciName": "Anhinga",
       "rank": "genus",
-      "parentId": "ott443646"
+      "parentId": "ott443646",
+      "wikiTitle": "Darter"
     },
     {
       "id": "ott986356",
@@ -35512,7 +35778,8 @@
       "sciName": "Sula",
       "rank": "genus",
       "parentId": "ott403772",
-      "common": "Booby"
+      "common": "Booby",
+      "wikiTitle": "Booby"
     },
     {
       "id": "ott5859716",
@@ -35548,7 +35815,8 @@
       "id": "ott752683",
       "sciName": "Morus",
       "rank": "genus",
-      "parentId": "ott403772"
+      "parentId": "ott403772",
+      "wikiTitle": "Gannet"
     },
     {
       "id": "5229212",
@@ -35576,7 +35844,8 @@
       "id": "ott108973",
       "sciName": "Fregata",
       "rank": "genus",
-      "parentId": "ott452471"
+      "parentId": "ott452471",
+      "wikiTitle": "Frigatebird"
     },
     {
       "id": "ott906500",
@@ -35624,7 +35893,8 @@
       "id": "ott609781",
       "sciName": "Ardeidae",
       "rank": "family",
-      "parentId": "ott316989"
+      "parentId": "ott316989",
+      "wikiTitle": "Heron"
     },
     {
       "id": "ott105531",
@@ -35801,7 +36071,8 @@
       "id": "ott316994",
       "sciName": "Pelecanus",
       "rank": "genus",
-      "parentId": "ott452465"
+      "parentId": "ott452465",
+      "wikiTitle": "Pelican"
     },
     {
       "id": "ott613206",
@@ -35981,7 +36252,8 @@
       "id": "ott363013",
       "sciName": "Ciconiidae",
       "rank": "family",
-      "parentId": "ott324158"
+      "parentId": "ott324158",
+      "wikiTitle": "Stork"
     },
     {
       "id": "ott464693",
@@ -36033,7 +36305,8 @@
       "id": "ott1041426",
       "sciName": "Jabiru",
       "rank": "genus",
-      "parentId": "ott848594"
+      "parentId": "ott848594",
+      "wikiTitle": "Jabiru (genus)"
     },
     {
       "id": "2481953",
@@ -36163,7 +36436,8 @@
       "id": "ott838239",
       "sciName": "Pterodroma",
       "rank": "genus",
-      "parentId": "ott73703"
+      "parentId": "ott73703",
+      "wikiTitle": "Gadfly petrel"
     },
     {
       "id": "2481465",
@@ -36177,7 +36451,8 @@
       "id": "ott854607",
       "sciName": "Macronectes",
       "rank": "genus",
-      "parentId": "ott82196"
+      "parentId": "ott82196",
+      "wikiTitle": "Giant petrel"
     },
     {
       "id": "2481515",
@@ -36214,7 +36489,8 @@
       "id": "ott85277",
       "sciName": "Diomedeidae",
       "rank": "family",
-      "parentId": "ott452461"
+      "parentId": "ott452461",
+      "wikiTitle": "Albatross"
     },
     {
       "id": "ott320282",
@@ -36226,7 +36502,8 @@
       "id": "ott379419",
       "sciName": "Diomedea",
       "rank": "genus",
-      "parentId": "ott320282"
+      "parentId": "ott320282",
+      "wikiTitle": "Great albatross"
     },
     {
       "id": "5229302",
@@ -36248,7 +36525,8 @@
       "id": "ott941509",
       "sciName": "Phoebastria",
       "rank": "genus",
-      "parentId": "ott320282"
+      "parentId": "ott320282",
+      "wikiTitle": "North Pacific albatross"
     },
     {
       "id": "2481385",
@@ -36284,7 +36562,8 @@
       "id": "ott250506",
       "sciName": "Thalassarche",
       "rank": "genus",
-      "parentId": "ott85277"
+      "parentId": "ott85277",
+      "wikiTitle": "Mollymawk"
     },
     {
       "id": "ott320294",
@@ -36319,7 +36598,8 @@
       "id": "ott494367",
       "sciName": "Spheniscidae",
       "rank": "family",
-      "parentId": "ott494366"
+      "parentId": "ott494366",
+      "wikiTitle": "Penguin"
     },
     {
       "id": "ott494361",
@@ -36343,7 +36623,8 @@
       "id": "ott494364",
       "sciName": "Eudyptes",
       "rank": "genus",
-      "parentId": "ott60417"
+      "parentId": "ott60417",
+      "wikiTitle": "Crested penguin"
     },
     {
       "id": "2481643",
@@ -36363,7 +36644,8 @@
       "id": "ott494360",
       "sciName": "Spheniscus",
       "rank": "genus",
-      "parentId": "ott219187"
+      "parentId": "ott219187",
+      "wikiTitle": "Banded penguin"
     },
     {
       "id": "5229384",
@@ -36461,7 +36743,8 @@
       "id": "ott803675",
       "sciName": "Gavia",
       "rank": "genus",
-      "parentId": "ott928350"
+      "parentId": "ott928350",
+      "wikiTitle": "Loon"
     },
     {
       "id": "ott1085739",
@@ -36529,7 +36812,8 @@
       "id": "ott330010",
       "sciName": "Phaethon",
       "rank": "genus",
-      "parentId": "ott452467"
+      "parentId": "ott452467",
+      "wikiTitle": "Tropicbird"
     },
     {
       "id": "ott509057",
@@ -36583,7 +36867,8 @@
       "id": "ott966318",
       "sciName": "Otididae",
       "rank": "family",
-      "parentId": "ott75792"
+      "parentId": "ott75792",
+      "wikiTitle": "Bustard"
     },
     {
       "id": "ott5031",
@@ -36678,7 +36963,8 @@
       "id": "ott458650",
       "sciName": "Otis",
       "rank": "genus",
-      "parentId": "ott738796"
+      "parentId": "ott738796",
+      "wikiTitle": "Otis (bird)"
     },
     {
       "id": "2474921",
@@ -36753,7 +37039,8 @@
       "id": "ott212181",
       "sciName": "Eudynamys",
       "rank": "genus",
-      "parentId": "ott169265"
+      "parentId": "ott169265",
+      "wikiTitle": "Koel"
     },
     {
       "id": "2496347",
@@ -36787,7 +37074,8 @@
       "id": "ott1039514",
       "sciName": "Centropus",
       "rank": "genus",
-      "parentId": "ott1040900"
+      "parentId": "ott1040900",
+      "wikiTitle": "Coucal"
     },
     {
       "id": "5232005",
@@ -36813,7 +37101,8 @@
       "id": "ott1041422",
       "sciName": "Crotophaga",
       "rank": "genus",
-      "parentId": "ott1041423"
+      "parentId": "ott1041423",
+      "wikiTitle": "Ani (bird)"
     },
     {
       "id": "2496211",
@@ -36828,7 +37117,8 @@
       "sciName": "Geococcyx",
       "rank": "genus",
       "parentId": "ott212182",
-      "common": "Roadrunners"
+      "common": "Roadrunners",
+      "wikiTitle": "Roadrunner"
     },
     {
       "id": "2496459",
@@ -36848,7 +37138,8 @@
       "id": "ott539141",
       "sciName": "Musophagidae",
       "rank": "family",
-      "parentId": "ott539139"
+      "parentId": "ott539139",
+      "wikiTitle": "Turaco"
     },
     {
       "id": "ott842345",
@@ -36860,7 +37151,8 @@
       "id": "ott842347",
       "sciName": "Corythaixoides",
       "rank": "genus",
-      "parentId": "ott842345"
+      "parentId": "ott842345",
+      "wikiTitle": "Go-away-bird"
     },
     {
       "id": "2475259",
@@ -36922,7 +37214,8 @@
       "id": "ott543770",
       "sciName": "Raphidae",
       "rank": "clade",
-      "parentId": "ott1032058"
+      "parentId": "ott1032058",
+      "wikiTitle": "Raphina"
     },
     {
       "id": "ott455684",
@@ -37068,7 +37361,8 @@
       "id": "ott1092651",
       "sciName": "Zenaida",
       "rank": "genus",
-      "parentId": "ott50388"
+      "parentId": "ott50388",
+      "wikiTitle": "Zenaida (genus)"
     },
     {
       "id": "2495347",
@@ -37102,7 +37396,8 @@
       "id": "ott452459",
       "sciName": "Podicipedidae",
       "rank": "family",
-      "parentId": "ott452464"
+      "parentId": "ott452464",
+      "wikiTitle": "Grebe"
     },
     {
       "id": "ott299429",
@@ -37162,7 +37457,8 @@
       "id": "ott1023129",
       "sciName": "Rollandia",
       "rank": "genus",
-      "parentId": "ott547308"
+      "parentId": "ott547308",
+      "wikiTitle": "Rollandia (bird)"
     },
     {
       "id": "5229424",
@@ -37225,7 +37521,8 @@
       "id": "ott472436",
       "sciName": "Phoenicopteridae",
       "rank": "family",
-      "parentId": "ott472435"
+      "parentId": "ott472435",
+      "wikiTitle": "Flamingo"
     },
     {
       "id": "ott443649",
@@ -37309,7 +37606,8 @@
       "id": "ott5839486",
       "sciName": "Galloanserae",
       "rank": "superorder",
-      "parentId": "ott241846"
+      "parentId": "ott241846",
+      "wikiTitle": "Fowl"
     },
     {
       "id": "ott837585",
@@ -37369,7 +37667,8 @@
       "id": "ott999677",
       "sciName": "Tetraoninae",
       "rank": "subfamily",
-      "parentId": "ott446490"
+      "parentId": "ott446490",
+      "wikiTitle": "Grouse"
     },
     {
       "id": "ott539045",
@@ -37457,7 +37756,8 @@
       "id": "ott153576",
       "sciName": "Lophophorus",
       "rank": "genus",
-      "parentId": "ott51354"
+      "parentId": "ott51354",
+      "wikiTitle": "Monal"
     },
     {
       "id": "5227747",
@@ -37483,7 +37783,8 @@
       "id": "ott153562",
       "sciName": "Gallus",
       "rank": "genus",
-      "parentId": "ott49319"
+      "parentId": "ott49319",
+      "wikiTitle": "Junglefowl"
     },
     {
       "id": "9326020",
@@ -37525,7 +37826,8 @@
       "id": "ott453587",
       "sciName": "Pavo",
       "rank": "genus",
-      "parentId": "ott51349"
+      "parentId": "ott51349",
+      "wikiTitle": "Pavo (bird)"
     },
     {
       "id": "9451184",
@@ -37539,7 +37841,8 @@
       "id": "ott594197",
       "sciName": "Odontophoridae",
       "rank": "family",
-      "parentId": "ott151684"
+      "parentId": "ott151684",
+      "wikiTitle": "New World quail"
     },
     {
       "id": "ott329467",
@@ -37641,7 +37944,8 @@
       "id": "ott684043",
       "sciName": "Numididae",
       "rank": "family",
-      "parentId": "ott104461"
+      "parentId": "ott104461",
+      "wikiTitle": "Guinea fowl"
     },
     {
       "id": "ott684045",
@@ -37776,7 +38080,8 @@
       "id": "ott837567",
       "sciName": "Megapodius",
       "rank": "genus",
-      "parentId": "ott750781"
+      "parentId": "ott750781",
+      "wikiTitle": "Scrubfowl"
     },
     {
       "id": "2482118",
@@ -37889,7 +38194,8 @@
       "id": "ott765192",
       "sciName": "Aix",
       "rank": "genus",
-      "parentId": "ott4130363"
+      "parentId": "ott4130363",
+      "wikiTitle": "Aix (bird)"
     },
     {
       "id": "2498388",
@@ -37949,7 +38255,8 @@
       "id": "ott190884",
       "sciName": "Anser",
       "rank": "genus",
-      "parentId": "ott83417"
+      "parentId": "ott83417",
+      "wikiTitle": "Anser (bird)"
     },
     {
       "id": "2498036",
@@ -37964,7 +38271,8 @@
       "sciName": "Cygnus",
       "rank": "genus",
       "parentId": "ott140312",
-      "common": "Swan"
+      "common": "Swan",
+      "wikiTitle": "Swan"
     },
     {
       "id": "ott817994",
@@ -38026,7 +38334,8 @@
       "id": "ott241842",
       "sciName": "Anhimidae",
       "rank": "family",
-      "parentId": "ott241841"
+      "parentId": "ott241841",
+      "wikiTitle": "Screamer"
     },
     {
       "id": "ott241847",
@@ -38084,7 +38393,8 @@
       "id": "ott589156",
       "sciName": "Casuarius",
       "rank": "genus",
-      "parentId": "ott589161"
+      "parentId": "ott589161",
+      "wikiTitle": "Cassowary"
     },
     {
       "id": "5231784",
@@ -38163,7 +38473,8 @@
       "id": "ott857863",
       "sciName": "Rhea",
       "rank": "genus",
-      "parentId": "ott745449"
+      "parentId": "ott745449",
+      "wikiTitle": "Rhea (bird)"
     },
     {
       "id": "2495165",
@@ -38183,7 +38494,8 @@
       "id": "ott292466",
       "sciName": "Struthio",
       "rank": "genus",
-      "parentId": "ott857849"
+      "parentId": "ott857849",
+      "wikiTitle": "Ostrich"
     },
     {
       "id": "2495150",
@@ -38230,7 +38542,8 @@
       "sciName": "Caiman",
       "rank": "genus",
       "parentId": "ott953147",
-      "common": "Caimans"
+      "common": "Caimans",
+      "wikiTitle": "Caiman (genus)"
     },
     {
       "id": "ott788419",
@@ -38337,7 +38650,8 @@
       "id": "ott335582",
       "sciName": "Crocodylidae",
       "rank": "family",
-      "parentId": "ott1092501"
+      "parentId": "ott1092501",
+      "wikiTitle": "Crocodile"
     },
     {
       "id": "ott35868",
@@ -38439,7 +38753,8 @@
       "id": "ott639666",
       "sciName": "Testudines",
       "rank": "order",
-      "parentId": "ott2982"
+      "parentId": "ott2982",
+      "wikiTitle": "Turtle"
     },
     {
       "id": "ott66459",
@@ -38586,7 +38901,8 @@
       "id": "ott623210",
       "sciName": "Nilssonia",
       "rank": "genus",
-      "parentId": "ott30435"
+      "parentId": "ott30435",
+      "wikiTitle": "Nilssonia (turtle)"
     },
     {
       "id": "2442549",
@@ -38739,7 +39055,8 @@
       "sciName": "Cuora",
       "rank": "genus",
       "parentId": "ott26428",
-      "common": "Asian box turtle"
+      "common": "Asian box turtle",
+      "wikiTitle": "Asian box turtle"
     },
     {
       "id": "2443520",
@@ -38789,7 +39106,8 @@
       "id": "ott910117",
       "sciName": "Testudinidae",
       "rank": "family",
-      "parentId": "ott14158"
+      "parentId": "ott14158",
+      "wikiTitle": "Tortoise"
     },
     {
       "id": "ott203272",
@@ -38869,7 +39187,8 @@
       "id": "ott207425",
       "sciName": "Testudo",
       "rank": "genus",
-      "parentId": "ott203272"
+      "parentId": "ott203272",
+      "wikiTitle": "Testudo (genus)"
     },
     {
       "id": "2441454",
@@ -38999,7 +39318,8 @@
       "id": "ott1013360",
       "sciName": "Terrapene",
       "rank": "genus",
-      "parentId": "ott436621"
+      "parentId": "ott436621",
+      "wikiTitle": "North American box turtle"
     },
     {
       "id": "2443173",
@@ -39062,7 +39382,8 @@
       "sciName": "Chelonioidea",
       "rank": "superfamily",
       "parentId": "ott243403",
-      "common": "Sea Turtles"
+      "common": "Sea Turtles",
+      "wikiTitle": "Sea turtle"
     },
     {
       "id": "ott895611",
@@ -39137,7 +39458,8 @@
       "id": "ott587323",
       "sciName": "Lepidochelys",
       "rank": "genus",
-      "parentId": "ott430320"
+      "parentId": "ott430320",
+      "wikiTitle": "Ridley sea turtle"
     },
     {
       "id": "2442153",
@@ -39802,7 +40124,8 @@
       "id": "ott262303",
       "sciName": "Viperidae",
       "rank": "family",
-      "parentId": "ott6519"
+      "parentId": "ott6519",
+      "wikiTitle": "Viper"
     },
     {
       "id": "ott652527",
@@ -40076,7 +40399,8 @@
       "id": "ott675102",
       "sciName": "Python",
       "rank": "genus",
-      "parentId": "ott897903"
+      "parentId": "ott897903",
+      "wikiTitle": "Python (genus)"
     },
     {
       "id": "ott88370",
@@ -40169,7 +40493,8 @@
       "id": "ott764380",
       "sciName": "Epicrates",
       "rank": "genus",
-      "parentId": "ott1072290"
+      "parentId": "ott1072290",
+      "wikiTitle": "Epicrates (snake)"
     },
     {
       "id": "2465228",
@@ -40183,7 +40508,8 @@
       "id": "ott1072293",
       "sciName": "Eunectes",
       "rank": "genus",
-      "parentId": "ott1072290"
+      "parentId": "ott1072290",
+      "wikiTitle": "Anaconda"
     },
     {
       "id": "5225712",
@@ -40219,7 +40545,8 @@
       "id": "ott764397",
       "sciName": "Boa",
       "rank": "genus",
-      "parentId": "ott363519"
+      "parentId": "ott363519",
+      "wikiTitle": "Boa (genus)"
     },
     {
       "id": "2464899",
@@ -40321,7 +40648,8 @@
       "id": "ott101609",
       "sciName": "Rena",
       "rank": "genus",
-      "parentId": "ott254892"
+      "parentId": "ott254892",
+      "wikiTitle": "Rena (snake)"
     },
     {
       "id": "5221748",
@@ -40410,7 +40738,8 @@
       "id": "ott58626",
       "sciName": "Agama",
       "rank": "genus",
-      "parentId": "ott19772"
+      "parentId": "ott19772",
+      "wikiTitle": "Agama (lizard)"
     },
     {
       "id": "5226308",
@@ -40533,7 +40862,8 @@
       "id": "ott362825",
       "sciName": "Chamaeleonidae",
       "rank": "family",
-      "parentId": "ott4812"
+      "parentId": "ott4812",
+      "wikiTitle": "Chameleon"
     },
     {
       "id": "ott38303",
@@ -40638,7 +40968,8 @@
       "id": "ott116299",
       "sciName": "Basiliscus",
       "rank": "genus",
-      "parentId": "ott726822"
+      "parentId": "ott726822",
+      "wikiTitle": "Basiliscus (lizard)"
     },
     {
       "id": "ott384634",
@@ -40734,7 +41065,8 @@
       "id": "ott160860",
       "sciName": "Phrynosoma",
       "rank": "genus",
-      "parentId": "ott7069486"
+      "parentId": "ott7069486",
+      "wikiTitle": "Horned lizard"
     },
     {
       "id": "ott157748",
@@ -40776,7 +41108,8 @@
       "id": "ott608984",
       "sciName": "Sceloporus",
       "rank": "genus",
-      "parentId": "ott160827"
+      "parentId": "ott160827",
+      "wikiTitle": "Spiny lizard"
     },
     {
       "id": "ott917784",
@@ -40818,7 +41151,8 @@
       "id": "ott427279",
       "sciName": "Uta",
       "rank": "genus",
-      "parentId": "ott160827"
+      "parentId": "ott160827",
+      "wikiTitle": "Side-blotched lizard"
     },
     {
       "id": "2451029",
@@ -41127,7 +41461,8 @@
       "id": "ott713772",
       "sciName": "Varanus",
       "rank": "genus",
-      "parentId": "ott713776"
+      "parentId": "ott713776",
+      "wikiTitle": "Monitor lizard"
     },
     {
       "id": "ott365509",
@@ -41211,7 +41546,8 @@
       "id": "ott5555231",
       "sciName": "Salvator",
       "rank": "genus",
-      "parentId": "ott236051"
+      "parentId": "ott236051",
+      "wikiTitle": "Salvator (lizard)"
     },
     {
       "id": "5227370",
@@ -41303,7 +41639,8 @@
       "id": "ott430810",
       "sciName": "Timon",
       "rank": "genus",
-      "parentId": "ott188787"
+      "parentId": "ott188787",
+      "wikiTitle": "Timon (lizard)"
     },
     {
       "id": "2468542",
@@ -41317,7 +41654,8 @@
       "id": "ott87619",
       "sciName": "Lacerta",
       "rank": "genus",
-      "parentId": "ott188787"
+      "parentId": "ott188787",
+      "wikiTitle": "Lacerta (genus)"
     },
     {
       "id": "ott190167",
@@ -41393,7 +41731,8 @@
       "sciName": "Scincidae",
       "rank": "family",
       "parentId": "ott849963",
-      "common": "Skink"
+      "common": "Skink",
+      "wikiTitle": "Skink"
     },
     {
       "id": "ott10869",
@@ -41550,7 +41889,8 @@
       "id": "ott1003140",
       "sciName": "Smaug",
       "rank": "genus",
-      "parentId": "ott117823"
+      "parentId": "ott117823",
+      "wikiTitle": "Smaug (lizard)"
     },
     {
       "id": "8151308",
@@ -41578,7 +41918,8 @@
       "id": "ott661801",
       "sciName": "Xantusiidae",
       "rank": "family",
-      "parentId": "ott106929"
+      "parentId": "ott106929",
+      "wikiTitle": "Night lizard"
     },
     {
       "id": "ott139524",
@@ -41947,7 +42288,8 @@
       "sciName": "Amphibia",
       "rank": "class",
       "parentId": "ott229562",
-      "common": "Amphibians"
+      "common": "Amphibians",
+      "wikiTitle": "Amphibian"
     },
     {
       "id": "ott471197",
@@ -41960,7 +42302,8 @@
       "sciName": "Anura",
       "rank": "order",
       "parentId": "ott471197",
-      "common": "Frog"
+      "common": "Frog",
+      "wikiTitle": "Frog"
     },
     {
       "id": "ott3129",
@@ -42545,7 +42888,8 @@
       "sciName": "Pseudacris",
       "rank": "genus",
       "parentId": "ott40328",
-      "common": "Chorus Frogs"
+      "common": "Chorus Frogs",
+      "wikiTitle": "Chorus frog"
     },
     {
       "id": "2428182",
@@ -42605,7 +42949,8 @@
       "id": "ott889358",
       "sciName": "Bufonidae",
       "rank": "family",
-      "parentId": "ott7239"
+      "parentId": "ott7239",
+      "wikiTitle": "True toad"
     },
     {
       "id": "ott4887",
@@ -42733,7 +43078,8 @@
       "id": "ott581837",
       "sciName": "Dendrobatidae",
       "rank": "family",
-      "parentId": "ott7239"
+      "parentId": "ott7239",
+      "wikiTitle": "Poison dart frog"
     },
     {
       "id": "ott1059126",
@@ -43043,7 +43389,8 @@
       "id": "ott233481",
       "sciName": "Pipa",
       "rank": "genus",
-      "parentId": "ott465087"
+      "parentId": "ott465087",
+      "wikiTitle": "Pipa (frog)"
     },
     {
       "id": "2423966",
@@ -43064,7 +43411,8 @@
       "sciName": "Bombina",
       "rank": "genus",
       "parentId": "ott1013112",
-      "common": "Fire-bellied toad"
+      "common": "Fire-bellied toad",
+      "wikiTitle": "Fire-bellied toad"
     },
     {
       "id": "ott991559",
@@ -43093,7 +43441,8 @@
       "sciName": "Caudata",
       "rank": "order",
       "parentId": "ott471197",
-      "common": "Salamanders"
+      "common": "Salamanders",
+      "wikiTitle": "Salamander"
     },
     {
       "id": "ott336753",
@@ -43105,7 +43454,8 @@
       "id": "ott336750",
       "sciName": "Cryptobranchidae",
       "rank": "family",
-      "parentId": "ott336753"
+      "parentId": "ott336753",
+      "wikiTitle": "Giant salamander"
     },
     {
       "id": "ott788372",
@@ -43157,7 +43507,8 @@
       "id": "ott984720",
       "sciName": "Ambystoma",
       "rank": "genus",
-      "parentId": "ott984723"
+      "parentId": "ott984723",
+      "wikiTitle": "Mole salamander"
     },
     {
       "id": "ott411269",
@@ -43474,7 +43825,8 @@
       "id": "ott991556",
       "sciName": "Siren",
       "rank": "genus",
-      "parentId": "ott515352"
+      "parentId": "ott515352",
+      "wikiTitle": "Siren (genus)"
     },
     {
       "id": "2432068",
@@ -43488,7 +43840,8 @@
       "id": "ott118027",
       "sciName": "Gymnophiona",
       "rank": "order",
-      "parentId": "ott544595"
+      "parentId": "ott544595",
+      "wikiTitle": "Caecilian"
     },
     {
       "id": "ott154777",
@@ -43541,7 +43894,8 @@
       "id": "ott773493",
       "sciName": "Coelacanthiformes",
       "rank": "clade",
-      "parentId": "ott760169"
+      "parentId": "ott760169",
+      "wikiTitle": "Coelacanth"
     },
     {
       "id": "ott773497",
@@ -43612,7 +43966,8 @@
       "id": "ott761450",
       "sciName": "Otomorpha",
       "rank": "cohort",
-      "parentId": "ott285819"
+      "parentId": "ott285819",
+      "wikiTitle": "Otocephala"
     },
     {
       "id": "ott803544",
@@ -43945,7 +44300,8 @@
       "id": "ott216167",
       "sciName": "Electrophorus",
       "rank": "genus",
-      "parentId": "ott32368"
+      "parentId": "ott32368",
+      "wikiTitle": "Electric eel"
     },
     {
       "id": "2401958",
@@ -43966,7 +44322,8 @@
       "id": "ott340599",
       "sciName": "Apteronotidae",
       "rank": "family",
-      "parentId": "ott32368"
+      "parentId": "ott32368",
+      "wikiTitle": "Ghost knifefish"
     },
     {
       "id": "2401878",
@@ -43987,7 +44344,8 @@
       "sciName": "Siluriformes",
       "rank": "order",
       "parentId": "ott1070",
-      "common": "Catfish"
+      "common": "Catfish",
+      "wikiTitle": "Catfish"
     },
     {
       "id": "ott5548749",
@@ -44037,7 +44395,8 @@
       "id": "ott180851",
       "sciName": "Bagre",
       "rank": "genus",
-      "parentId": "ott1576"
+      "parentId": "ott1576",
+      "wikiTitle": "Bagre (fish)"
     },
     {
       "id": "5202981",
@@ -44051,7 +44410,8 @@
       "id": "ott701522",
       "sciName": "Pangasiidae",
       "rank": "family",
-      "parentId": "ott54944"
+      "parentId": "ott54944",
+      "wikiTitle": "Shark catfish"
     },
     {
       "id": "5202457",
@@ -44229,7 +44589,8 @@
       "id": "ott967343",
       "sciName": "Plotosidae",
       "rank": "family",
-      "parentId": "ott113084"
+      "parentId": "ott113084",
+      "wikiTitle": "Eeltail catfish"
     },
     {
       "id": "2341901",
@@ -44333,7 +44694,8 @@
       "id": "ott828985",
       "sciName": "Clariidae",
       "rank": "family",
-      "parentId": "ott23762"
+      "parentId": "ott23762",
+      "wikiTitle": "Airbreathing catfish"
     },
     {
       "id": "ott290433",
@@ -44514,7 +44876,8 @@
       "id": "ott584231",
       "sciName": "Vandellia",
       "rank": "genus",
-      "parentId": "ott967334"
+      "parentId": "ott967334",
+      "wikiTitle": "Vandellia (fish)"
     },
     {
       "id": "5202897",
@@ -44909,7 +45272,8 @@
       "id": "ott232621",
       "sciName": "Engraulidae",
       "rank": "family",
-      "parentId": "ott12224"
+      "parentId": "ott12224",
+      "wikiTitle": "Anchovy"
     },
     {
       "id": "ott560624",
@@ -45084,7 +45448,8 @@
       "id": "ott216172",
       "sciName": "Esociformes",
       "rank": "order",
-      "parentId": "ott9371"
+      "parentId": "ott9371",
+      "wikiTitle": "Esocoidei"
     },
     {
       "id": "ott216164",
@@ -45138,7 +45503,8 @@
       "id": "ott621133",
       "sciName": "Opisthoproctidae",
       "rank": "family",
-      "parentId": "ott757259"
+      "parentId": "ott757259",
+      "wikiTitle": "Barreleye"
     },
     {
       "id": "ott11742",
@@ -45182,7 +45548,8 @@
       "id": "ott540484",
       "sciName": "Chauliodus",
       "rank": "genus",
-      "parentId": "ott540464"
+      "parentId": "ott540464",
+      "wikiTitle": "Viperfish"
     },
     {
       "id": "5203203",
@@ -45227,7 +45594,8 @@
       "id": "ott739939",
       "sciName": "Osmeridae",
       "rank": "family",
-      "parentId": "ott225330"
+      "parentId": "ott225330",
+      "wikiTitle": "Smelt (fish)"
     },
     {
       "id": "ott610348",
@@ -45482,7 +45850,8 @@
       "id": "ott867524",
       "sciName": "Blenniidae",
       "rank": "family",
-      "parentId": "ott21920"
+      "parentId": "ott21920",
+      "wikiTitle": "Combtooth blenny"
     },
     {
       "id": "ott179265",
@@ -45542,7 +45911,8 @@
       "id": "ott437596",
       "sciName": "Mugilidae",
       "rank": "family",
-      "parentId": "ott300513"
+      "parentId": "ott300513",
+      "wikiTitle": "Mullet (fish)"
     },
     {
       "id": "8189568",
@@ -45574,7 +45944,8 @@
       "id": "ott811925",
       "sciName": "Cichlidae",
       "rank": "family",
-      "parentId": "ott5557278"
+      "parentId": "ott5557278",
+      "wikiTitle": "Cichlid"
     },
     {
       "id": "ott7168",
@@ -45981,7 +46352,8 @@
       "id": "ott407171",
       "sciName": "Exocoetidae",
       "rank": "family",
-      "parentId": "ott106172"
+      "parentId": "ott106172",
+      "wikiTitle": "Flying fish"
     },
     {
       "id": "ott374878",
@@ -46030,7 +46402,8 @@
       "sciName": "Adrianichthyidae",
       "rank": "family",
       "parentId": "ott876474",
-      "common": "Ricefish"
+      "common": "Ricefish",
+      "wikiTitle": "Ricefish"
     },
     {
       "id": "2368377",
@@ -46558,7 +46931,8 @@
       "sciName": "Sphyraena",
       "rank": "genus",
       "parentId": "ott280947",
-      "common": "Barracuda"
+      "common": "Barracuda",
+      "wikiTitle": "Barracuda"
     },
     {
       "id": "9784990",
@@ -46572,7 +46946,8 @@
       "id": "ott72393",
       "sciName": "Polynemidae",
       "rank": "family",
-      "parentId": "ott188713"
+      "parentId": "ott188713",
+      "wikiTitle": "Threadfin"
     },
     {
       "id": "2393382",
@@ -46591,13 +46966,15 @@
       "id": "ott776557",
       "sciName": "Echeneidae",
       "rank": "family",
-      "parentId": "ott223663"
+      "parentId": "ott223663",
+      "wikiTitle": "Remora"
     },
     {
       "id": "ott383926",
       "sciName": "Remora",
       "rank": "genus",
-      "parentId": "ott776557"
+      "parentId": "ott776557",
+      "wikiTitle": "Remora (genus)"
     },
     {
       "id": "2375267",
@@ -46611,7 +46988,8 @@
       "id": "ott776565",
       "sciName": "Echeneis",
       "rank": "genus",
-      "parentId": "ott776557"
+      "parentId": "ott776557",
+      "wikiTitle": "Echeneis (fish)"
     },
     {
       "id": "2375300",
@@ -46672,7 +47050,8 @@
       "id": "ott612523",
       "sciName": "Osphronemidae",
       "rank": "family",
-      "parentId": "ott956323"
+      "parentId": "ott956323",
+      "wikiTitle": "Gourami"
     },
     {
       "id": "ott137253",
@@ -46780,7 +47159,8 @@
       "id": "ott332845",
       "sciName": "Anabantidae",
       "rank": "family",
-      "parentId": "ott956323"
+      "parentId": "ott956323",
+      "wikiTitle": "Climbing gourami"
     },
     {
       "id": "ott332846",
@@ -46812,7 +47192,8 @@
       "id": "ott72390",
       "sciName": "Channidae",
       "rank": "family",
-      "parentId": "ott956325"
+      "parentId": "ott956325",
+      "wikiTitle": "Snakehead (fish)"
     },
     {
       "id": "ott16782",
@@ -46866,7 +47247,8 @@
       "id": "ott196686",
       "sciName": "Dario",
       "rank": "genus",
-      "parentId": "ott5558400"
+      "parentId": "ott5558400",
+      "wikiTitle": "Dario (fish)"
     },
     {
       "id": "2389480",
@@ -46894,7 +47276,8 @@
       "sciName": "Synbranchidae",
       "rank": "family",
       "parentId": "ott145110",
-      "common": "Swamp eels"
+      "common": "Swamp eels",
+      "wikiTitle": "Swamp eel"
     },
     {
       "id": "ott765109",
@@ -47258,7 +47641,8 @@
       "id": "ott557117",
       "sciName": "Diodontidae",
       "rank": "family",
-      "parentId": "ott36204"
+      "parentId": "ott36204",
+      "wikiTitle": "Porcupinefish"
     },
     {
       "id": "ott177751",
@@ -47290,7 +47674,8 @@
       "id": "ott36225",
       "sciName": "Balistidae",
       "rank": "family",
-      "parentId": "ott36215"
+      "parentId": "ott36215",
+      "wikiTitle": "Triggerfish"
     },
     {
       "id": "ott85767",
@@ -47406,7 +47791,8 @@
       "id": "ott457789",
       "sciName": "Mola",
       "rank": "genus",
-      "parentId": "ott36202"
+      "parentId": "ott36202",
+      "wikiTitle": "Mola (fish)"
     },
     {
       "id": "5213725",
@@ -47476,7 +47862,8 @@
       "id": "ott583640",
       "sciName": "Lophiiformes",
       "rank": "order",
-      "parentId": "ott31480"
+      "parentId": "ott31480",
+      "wikiTitle": "Anglerfish"
     },
     {
       "id": "ott36649",
@@ -47494,7 +47881,8 @@
       "id": "ott583638",
       "sciName": "Lophiidae",
       "rank": "family",
-      "parentId": "ott757267"
+      "parentId": "ott757267",
+      "wikiTitle": "Goosefish"
     },
     {
       "id": "2415075",
@@ -47554,7 +47942,8 @@
       "id": "ott152124",
       "sciName": "Himantolophidae",
       "rank": "family",
-      "parentId": "ott36648"
+      "parentId": "ott36648",
+      "wikiTitle": "Footballfish"
     },
     {
       "id": "ott726672",
@@ -47581,7 +47970,8 @@
       "sciName": "Chaunacidae",
       "rank": "family",
       "parentId": "ott731201",
-      "common": "Sea toad"
+      "common": "Sea toad",
+      "wikiTitle": "Sea toad"
     },
     {
       "id": "ott887854",
@@ -48060,7 +48450,8 @@
       "id": "ott615333",
       "sciName": "Chaetodontidae",
       "rank": "family",
-      "parentId": "ott5839386"
+      "parentId": "ott5839386",
+      "wikiTitle": "Butterflyfish"
     },
     {
       "id": "ott176205",
@@ -48147,7 +48538,8 @@
       "id": "ott250279",
       "sciName": "Naso",
       "rank": "genus",
-      "parentId": "ott639700"
+      "parentId": "ott639700",
+      "wikiTitle": "Naso (fish)"
     },
     {
       "id": "5209124",
@@ -48444,7 +48836,8 @@
       "id": "ott76747",
       "sciName": "Uranoscopidae",
       "rank": "family",
-      "parentId": "ott5554914"
+      "parentId": "ott5554914",
+      "wikiTitle": "Stargazer (fish)"
     },
     {
       "id": "ott362840",
@@ -48530,13 +48923,15 @@
       "id": "ott577720",
       "sciName": "Liparidae",
       "rank": "family",
-      "parentId": "ott237344"
+      "parentId": "ott237344",
+      "wikiTitle": "Snailfish"
     },
     {
       "id": "ott3631937",
       "sciName": "Pseudoliparis",
       "rank": "genus",
-      "parentId": "ott577720"
+      "parentId": "ott577720",
+      "wikiTitle": "Pseudoliparis (fish)"
     },
     {
       "id": "5201532",
@@ -48711,7 +49106,8 @@
       "id": "ott401063",
       "sciName": "Gasterosteidae",
       "rank": "family",
-      "parentId": "ott145126"
+      "parentId": "ott145126",
+      "wikiTitle": "Stickleback"
     },
     {
       "id": "ott401070",
@@ -49127,7 +49523,8 @@
       "id": "ott186477",
       "sciName": "Perca",
       "rank": "genus",
-      "parentId": "ott186474"
+      "parentId": "ott186474",
+      "wikiTitle": "Perch"
     },
     {
       "id": "2382004",
@@ -49150,7 +49547,8 @@
       "sciName": "Trachinidae",
       "rank": "family",
       "parentId": "ott105611",
-      "common": "Weever"
+      "common": "Weever",
+      "wikiTitle": "Weever"
     },
     {
       "id": "ott816887",
@@ -49296,7 +49694,8 @@
       "id": "ott186467",
       "sciName": "Percichthyidae",
       "rank": "family",
-      "parentId": "ott5846155"
+      "parentId": "ott5846155",
+      "wikiTitle": "Temperate perch"
     },
     {
       "id": "ott17639",
@@ -49425,7 +49824,8 @@
       "sciName": "Pomoxis",
       "rank": "genus",
       "parentId": "ott437614",
-      "common": "Calico Bass"
+      "common": "Calico Bass",
+      "wikiTitle": "Crappie"
     },
     {
       "id": "2394526",
@@ -49574,7 +49974,8 @@
       "id": "ott1007058",
       "sciName": "Hippocampus",
       "rank": "genus",
-      "parentId": "ott145129"
+      "parentId": "ott145129",
+      "wikiTitle": "Seahorse"
     },
     {
       "id": "5201032",
@@ -49636,7 +50037,8 @@
       "id": "ott813991",
       "sciName": "Mullidae",
       "rank": "family",
-      "parentId": "ott5557308"
+      "parentId": "ott5557308",
+      "wikiTitle": "Goatfish"
     },
     {
       "id": "ott675216",
@@ -49670,7 +50072,8 @@
       "id": "ott646019",
       "sciName": "Callionymidae",
       "rank": "family",
-      "parentId": "ott646016"
+      "parentId": "ott646016",
+      "wikiTitle": "Dragonet"
     },
     {
       "id": "2386640",
@@ -49716,7 +50119,8 @@
       "id": "ott113991",
       "sciName": "Centriscinae",
       "rank": "subfamily",
-      "parentId": "ott111658"
+      "parentId": "ott111658",
+      "wikiTitle": "Shrimpfish"
     },
     {
       "id": "ott652356",
@@ -49754,7 +50158,8 @@
       "id": "ott984927",
       "sciName": "Nomeidae",
       "rank": "family",
-      "parentId": "ott48242"
+      "parentId": "ott48242",
+      "wikiTitle": "Driftfish"
     },
     {
       "id": "ott408416",
@@ -49890,7 +50295,8 @@
       "id": "ott137652",
       "sciName": "Pampus",
       "rank": "genus",
-      "parentId": "ott137657"
+      "parentId": "ott137657",
+      "wikiTitle": "Pampus (fish)"
     },
     {
       "id": "2397682",
@@ -49944,7 +50350,8 @@
       "id": "ott804461",
       "sciName": "Trichiuridae",
       "rank": "family",
-      "parentId": "ott34827"
+      "parentId": "ott34827",
+      "wikiTitle": "Cutlassfish"
     },
     {
       "id": "ott45155",
@@ -50256,7 +50663,8 @@
       "sciName": "Regalecidae",
       "rank": "family",
       "parentId": "ott617745",
-      "common": "Oarfish"
+      "common": "Oarfish",
+      "wikiTitle": "Oarfish"
     },
     {
       "id": "ott617754",
@@ -50441,7 +50849,8 @@
       "id": "ott635910",
       "sciName": "Pollachius",
       "rank": "genus",
-      "parentId": "ott62649"
+      "parentId": "ott62649",
+      "wikiTitle": "Pollock"
     },
     {
       "id": "2415861",
@@ -50502,7 +50911,8 @@
       "id": "ott432552",
       "sciName": "Zeus",
       "rank": "genus",
-      "parentId": "ott648754"
+      "parentId": "ott648754",
+      "wikiTitle": "Zeus (fish)"
     },
     {
       "id": "7744449",
@@ -50799,7 +51209,8 @@
       "id": "ott765787",
       "sciName": "Muraenidae",
       "rank": "family",
-      "parentId": "ott17072"
+      "parentId": "ott17072",
+      "wikiTitle": "Moray eel"
     },
     {
       "id": "ott57890",
@@ -50915,7 +51326,8 @@
       "id": "ott133414",
       "sciName": "Albulidae",
       "rank": "family",
-      "parentId": "ott133416"
+      "parentId": "ott133416",
+      "wikiTitle": "Bonefishes"
     },
     {
       "id": "ott191540",
@@ -50927,7 +51339,8 @@
       "id": "ott133401",
       "sciName": "Albula",
       "rank": "genus",
-      "parentId": "ott191540"
+      "parentId": "ott191540",
+      "wikiTitle": "Albula (fish)"
     },
     {
       "id": "5204104",
@@ -50954,7 +51367,8 @@
       "id": "ott854185",
       "sciName": "Megalops",
       "rank": "genus",
-      "parentId": "ott854186"
+      "parentId": "ott854186",
+      "wikiTitle": "Tarpon"
     },
     {
       "id": "5203123",
@@ -50980,7 +51394,8 @@
       "id": "ott904123",
       "sciName": "Lepisosteidae",
       "rank": "family",
-      "parentId": "ott904125"
+      "parentId": "ott904125",
+      "wikiTitle": "Gar"
     },
     {
       "id": "ott124012",
@@ -51054,7 +51469,8 @@
       "id": "ott329628",
       "sciName": "Amia",
       "rank": "genus",
-      "parentId": "ott329626"
+      "parentId": "ott329626",
+      "wikiTitle": "Amia (fish)"
     },
     {
       "id": "5207891",
@@ -51086,7 +51502,8 @@
       "id": "ott378907",
       "sciName": "Acipenseridae",
       "rank": "family",
-      "parentId": "ott285822"
+      "parentId": "ott285822",
+      "wikiTitle": "Sturgeon"
     },
     {
       "id": "ott831070",
@@ -51190,7 +51607,8 @@
       "id": "ott904108",
       "sciName": "Polyodontidae",
       "rank": "family",
-      "parentId": "ott285822"
+      "parentId": "ott285822",
+      "wikiTitle": "Paddlefish"
     },
     {
       "id": "ott910415",
@@ -51254,7 +51672,8 @@
       "id": "ott458429",
       "sciName": "Polypteridae",
       "rank": "family",
-      "parentId": "ott458427"
+      "parentId": "ott458427",
+      "wikiTitle": "Bichir"
     },
     {
       "id": "ott984715",
@@ -51330,7 +51749,8 @@
       "id": "ott146433",
       "sciName": "Pristidae",
       "rank": "family",
-      "parentId": "ott25727"
+      "parentId": "ott25727",
+      "wikiTitle": "Sawfish"
     },
     {
       "id": "ott234349",
@@ -51358,7 +51778,8 @@
       "id": "ott1041302",
       "sciName": "Rhinidae",
       "rank": "family",
-      "parentId": "ott25727"
+      "parentId": "ott25727",
+      "wikiTitle": "Wedgefish"
     },
     {
       "id": "ott356643",
@@ -51517,7 +51938,8 @@
       "id": "ott715629",
       "sciName": "Myliobatidae",
       "rank": "family",
-      "parentId": "ott47684"
+      "parentId": "ott47684",
+      "wikiTitle": "Eagle ray"
     },
     {
       "id": "ott71599",
@@ -51625,7 +52047,8 @@
       "id": "ott356640",
       "sciName": "Torpediniformes",
       "rank": "order",
-      "parentId": "ott25737"
+      "parentId": "ott25737",
+      "wikiTitle": "Electric ray"
     },
     {
       "id": "ott553102",
@@ -51637,7 +52060,8 @@
       "id": "ott493411",
       "sciName": "Torpedo",
       "rank": "genus",
-      "parentId": "ott553102"
+      "parentId": "ott553102",
+      "wikiTitle": "Torpedo (genus)"
     },
     {
       "id": "5215534",
@@ -51701,7 +52125,8 @@
       "id": "ott1019114",
       "sciName": "Heterodontus",
       "rank": "genus",
-      "parentId": "ott1019115"
+      "parentId": "ott1019115",
+      "wikiTitle": "Bullhead shark"
     },
     {
       "id": "5215682",
@@ -51797,7 +52222,8 @@
       "id": "ott541142",
       "sciName": "Glyphis",
       "rank": "genus",
-      "parentId": "ott450137"
+      "parentId": "ott450137",
+      "wikiTitle": "River shark"
     },
     {
       "id": "5215567",
@@ -51945,7 +52371,8 @@
       "id": "ott561376",
       "sciName": "Sphyrnidae",
       "rank": "family",
-      "parentId": "ott1021212"
+      "parentId": "ott1021212",
+      "wikiTitle": "Hammerhead shark"
     },
     {
       "id": "ott561377",
@@ -52221,7 +52648,8 @@
       "sciName": "Orectolobidae",
       "rank": "family",
       "parentId": "ott101591",
-      "common": "Wobbegong"
+      "common": "Wobbegong",
+      "wikiTitle": "Wobbegong"
     },
     {
       "id": "ott798346",
@@ -52438,7 +52866,8 @@
       "id": "ott1019129",
       "sciName": "Squalus",
       "rank": "genus",
-      "parentId": "ott856584"
+      "parentId": "ott856584",
+      "wikiTitle": "Spurdog"
     },
     {
       "id": "ott1019126",
@@ -52644,7 +53073,8 @@
       "id": "ott550649",
       "sciName": "Chimaeriformes",
       "rank": "order",
-      "parentId": "ott550652"
+      "parentId": "ott550652",
+      "wikiTitle": "Chimaera"
     },
     {
       "id": "ott550659",
@@ -52711,7 +53141,8 @@
       "id": "ott1067466",
       "sciName": "Petromyzontiformes",
       "rank": "order",
-      "parentId": "ott688828"
+      "parentId": "ott688828",
+      "wikiTitle": "Lamprey"
     },
     {
       "id": "ott801615",
@@ -52765,7 +53196,8 @@
       "id": "ott125649",
       "sciName": "Tunicata",
       "rank": "clade",
-      "parentId": "ott6520514"
+      "parentId": "ott6520514",
+      "wikiTitle": "Tunicate"
     },
     {
       "id": "ott125647",
@@ -52843,13 +53275,15 @@
       "sciName": "Salpidae",
       "rank": "family",
       "parentId": "ott487089",
-      "common": "Salp"
+      "common": "Salp",
+      "wikiTitle": "Salp"
     },
     {
       "id": "ott1047749",
       "sciName": "Thetys",
       "rank": "genus",
-      "parentId": "ott321951"
+      "parentId": "ott321951",
+      "wikiTitle": "Thetys (tunicate)"
     },
     {
       "id": "5232499",
@@ -52868,7 +53302,8 @@
       "id": "ott451020",
       "sciName": "Echinodermata",
       "rank": "clade",
-      "parentId": "ott6520512"
+      "parentId": "ott6520512",
+      "wikiTitle": "Echinoderm"
     },
     {
       "id": "ott317277",
@@ -52886,7 +53321,8 @@
       "id": "ott669472",
       "sciName": "Echinoidea",
       "rank": "class",
-      "parentId": "ott669475"
+      "parentId": "ott669475",
+      "wikiTitle": "Sea urchin"
     },
     {
       "id": "ott312575",
@@ -52941,7 +53377,8 @@
       "sciName": "Holothuroidea",
       "rank": "class",
       "parentId": "ott669475",
-      "common": "Sea cucumbers"
+      "common": "Sea cucumbers",
+      "wikiTitle": "Sea cucumber"
     },
     {
       "id": "ott924444",
@@ -52992,7 +53429,8 @@
       "id": "ott451009",
       "sciName": "Asteroidea",
       "rank": "class",
-      "parentId": "ott451023"
+      "parentId": "ott451023",
+      "wikiTitle": "Starfish"
     },
     {
       "id": "ott17646",
@@ -53118,7 +53556,8 @@
       "sciName": "Platyhelminthes",
       "rank": "phylum",
       "parentId": "ott155737",
-      "common": "Flatworms"
+      "common": "Flatworms",
+      "wikiTitle": "Flatworm"
     },
     {
       "id": "ott3669734",
@@ -53225,7 +53664,8 @@
       "id": "ott5131679",
       "sciName": "Obama",
       "rank": "genus",
-      "parentId": "ott283450"
+      "parentId": "ott283450",
+      "wikiTitle": "Obama (flatworm)"
     },
     {
       "id": "8701771",
@@ -53467,7 +53907,8 @@
       "id": "ott409995",
       "sciName": "Gastropoda",
       "rank": "class",
-      "parentId": "ott1589"
+      "parentId": "ott1589",
+      "wikiTitle": "Gastropod"
     },
     {
       "id": "ott1590",
@@ -53497,7 +53938,8 @@
       "id": "ott821758",
       "sciName": "Ampullariidae",
       "rank": "family",
-      "parentId": "ott560991"
+      "parentId": "ott560991",
+      "wikiTitle": "Apple snail"
     },
     {
       "id": "ott843053",
@@ -53564,7 +54006,8 @@
       "id": "ott2901408",
       "sciName": "Clea",
       "rank": "genus",
-      "parentId": "ott700414"
+      "parentId": "ott700414",
+      "wikiTitle": "Clea (gastropod)"
     },
     {
       "id": "9510074",
@@ -53629,7 +54072,8 @@
       "sciName": "Conidae",
       "rank": "family",
       "parentId": "ott376923",
-      "common": "Cone snail"
+      "common": "Cone snail",
+      "wikiTitle": "Cone snail"
     },
     {
       "id": "ott126315",
@@ -53765,7 +54209,8 @@
       "id": "ott246924",
       "sciName": "Melo",
       "rank": "genus",
-      "parentId": "ott5704821"
+      "parentId": "ott5704821",
+      "wikiTitle": "Melo (gastropod)"
     },
     {
       "id": "5727620",
@@ -53796,7 +54241,8 @@
       "id": "ott4958803",
       "sciName": "Syrinx",
       "rank": "genus",
-      "parentId": "ott5704764"
+      "parentId": "ott5704764",
+      "wikiTitle": "Syrinx (gastropod)"
     },
     {
       "id": "5795889",
@@ -54022,13 +54468,15 @@
       "sciName": "Nudibranchia",
       "rank": "order",
       "parentId": "ott5677055",
-      "common": "Nudibranchs"
+      "common": "Nudibranchs",
+      "wikiTitle": "Nudibranch"
     },
     {
       "id": "ott5693094",
       "sciName": "Euctenidiacea",
       "rank": "suborder",
-      "parentId": "ott76753"
+      "parentId": "ott76753",
+      "wikiTitle": "Doridina"
     },
     {
       "id": "ott204214",
@@ -54184,7 +54632,8 @@
       "id": "ott322154",
       "sciName": "Elysia",
       "rank": "genus",
-      "parentId": "ott322152"
+      "parentId": "ott322152",
+      "wikiTitle": "Elysia (gastropod)"
     },
     {
       "id": "5192081",
@@ -54307,7 +54756,8 @@
       "id": "ott933375",
       "sciName": "Hygrophila",
       "rank": "order",
-      "parentId": "ott5948"
+      "parentId": "ott5948",
+      "wikiTitle": "Hygrophila (gastropod)"
     },
     {
       "id": "ott58234",
@@ -54457,7 +54907,8 @@
       "id": "ott6361786",
       "sciName": "Crikey",
       "rank": "genus",
-      "parentId": "ott725733"
+      "parentId": "ott725733",
+      "wikiTitle": "Crikey (gastropod)"
     },
     {
       "id": "8651084",
@@ -54510,7 +54961,8 @@
       "id": "ott5327272",
       "sciName": "Cornu",
       "rank": "genus",
-      "parentId": "ott121074"
+      "parentId": "ott121074",
+      "wikiTitle": "Cornu (gastropod)"
     },
     {
       "id": "5858758",
@@ -54523,7 +54975,8 @@
       "id": "ott349698",
       "sciName": "Helix",
       "rank": "genus",
-      "parentId": "ott349693"
+      "parentId": "ott349693",
+      "wikiTitle": "Helix (gastropod)"
     },
     {
       "id": "2294287",
@@ -54625,7 +55078,8 @@
       "id": "ott139555",
       "sciName": "Rumina",
       "rank": "genus",
-      "parentId": "ott591139"
+      "parentId": "ott591139",
+      "wikiTitle": "Rumina (gastropod)"
     },
     {
       "id": "2294129",
@@ -54651,7 +55105,8 @@
       "id": "ott661122",
       "sciName": "Arion",
       "rank": "genus",
-      "parentId": "ott1025557"
+      "parentId": "ott1025557",
+      "wikiTitle": "Arion (gastropod)"
     },
     {
       "id": "7540164",
@@ -54680,7 +55135,8 @@
       "id": "ott2882281",
       "sciName": "Ariolimax",
       "rank": "genus",
-      "parentId": "ott1025557"
+      "parentId": "ott1025557",
+      "wikiTitle": "Banana slug"
     },
     {
       "id": "2294090",
@@ -54794,7 +55250,8 @@
       "sciName": "Pectinidae",
       "rank": "family",
       "parentId": "ott951120",
-      "common": "Scallops"
+      "common": "Scallops",
+      "wikiTitle": "Scallop"
     },
     {
       "id": "ott5692604",
@@ -54812,7 +55269,8 @@
       "id": "ott449047",
       "sciName": "Pecten",
       "rank": "genus",
-      "parentId": "ott5692599"
+      "parentId": "ott5692599",
+      "wikiTitle": "Pecten (bivalve)"
     },
     {
       "id": "2285980",
@@ -54952,7 +55410,8 @@
       "id": "ott239657",
       "sciName": "Perna",
       "rank": "genus",
-      "parentId": "ott1025541"
+      "parentId": "ott1025541",
+      "wikiTitle": "Perna (bivalve)"
     },
     {
       "id": "5729679",
@@ -55007,7 +55466,8 @@
       "id": "ott499758",
       "sciName": "Arcidae",
       "rank": "family",
-      "parentId": "ott499757"
+      "parentId": "ott499757",
+      "wikiTitle": "Ark clam"
     },
     {
       "id": "ott539402",
@@ -55056,7 +55516,8 @@
       "id": "ott255552",
       "sciName": "Cardiidae",
       "rank": "family",
-      "parentId": "ott21780"
+      "parentId": "ott21780",
+      "wikiTitle": "Cockle (bivalve)"
     },
     {
       "id": "ott7930294",
@@ -55114,7 +55575,8 @@
       "id": "ott347163",
       "sciName": "Donax",
       "rank": "genus",
-      "parentId": "ott779631"
+      "parentId": "ott779631",
+      "wikiTitle": "Donax (bivalve)"
     },
     {
       "id": "5189101",
@@ -55145,7 +55607,8 @@
       "id": "ott7365",
       "sciName": "Mya",
       "rank": "genus",
-      "parentId": "ott7364"
+      "parentId": "ott7364",
+      "wikiTitle": "Mya (bivalve)"
     },
     {
       "id": "7791733",
@@ -55165,7 +55628,8 @@
       "id": "ott623486",
       "sciName": "Teredinidae",
       "rank": "family",
-      "parentId": "ott406878"
+      "parentId": "ott406878",
+      "wikiTitle": "Shipworm"
     },
     {
       "id": "ott5703832",
@@ -55177,7 +55641,8 @@
       "id": "ott326000",
       "sciName": "Teredo",
       "rank": "genus",
-      "parentId": "ott5703832"
+      "parentId": "ott5703832",
+      "wikiTitle": "Teredo (bivalve)"
     },
     {
       "id": "2288847",
@@ -55462,7 +55927,8 @@
       "sciName": "Cephalopoda",
       "rank": "class",
       "parentId": "ott1881",
-      "common": "Cephalopods"
+      "common": "Cephalopods",
+      "wikiTitle": "Cephalopod"
     },
     {
       "id": "ott7371",
@@ -55530,7 +55996,8 @@
       "id": "ott94943",
       "sciName": "Onychoteuthidae",
       "rank": "family",
-      "parentId": "ott15930"
+      "parentId": "ott15930",
+      "wikiTitle": "Hooked squid"
     },
     {
       "id": "5855954",
@@ -55641,7 +56108,8 @@
       "id": "ott7373",
       "sciName": "Sepiidae",
       "rank": "family",
-      "parentId": "ott43354"
+      "parentId": "ott43354",
+      "wikiTitle": "Cuttlefish"
     },
     {
       "id": "ott528817",
@@ -55790,7 +56258,8 @@
       "id": "ott478542",
       "sciName": "Octopoda",
       "rank": "order",
-      "parentId": "ott854106"
+      "parentId": "ott854106",
+      "wikiTitle": "Octopus"
     },
     {
       "id": "ott4736",
@@ -55802,7 +56271,8 @@
       "id": "ott619096",
       "sciName": "Opisthoteuthidae",
       "rank": "family",
-      "parentId": "ott4736"
+      "parentId": "ott4736",
+      "wikiTitle": "Umbrella octopus"
     },
     {
       "id": "2289248",
@@ -55976,7 +56446,8 @@
       "sciName": "Argonauta",
       "rank": "genus",
       "parentId": "ott932759",
-      "common": "Argonaut"
+      "common": "Argonaut",
+      "wikiTitle": "Argonaut (animal)"
     },
     {
       "id": "5189614",
@@ -55989,7 +56460,8 @@
       "id": "ott678560",
       "sciName": "Vampyromorpha",
       "rank": "order",
-      "parentId": "ott854106"
+      "parentId": "ott854106",
+      "wikiTitle": "Vampyromorphida"
     },
     {
       "id": "ott270088",
@@ -56015,7 +56487,8 @@
       "id": "ott854446",
       "sciName": "Nautiloidea",
       "rank": "subclass",
-      "parentId": "ott7368"
+      "parentId": "ott7368",
+      "wikiTitle": "Nautiloid"
     },
     {
       "id": "ott854452",
@@ -56027,13 +56500,15 @@
       "id": "ott616361",
       "sciName": "Nautilidae",
       "rank": "family",
-      "parentId": "ott854452"
+      "parentId": "ott854452",
+      "wikiTitle": "Nautilus"
     },
     {
       "id": "ott616358",
       "sciName": "Nautilus",
       "rank": "genus",
-      "parentId": "ott616361"
+      "parentId": "ott616361",
+      "wikiTitle": "Nautilus (genus)"
     },
     {
       "id": "2289202",
@@ -56047,7 +56522,8 @@
       "id": "ott941620",
       "sciName": "Annelida",
       "rank": "phylum",
-      "parentId": "ott519"
+      "parentId": "ott519",
+      "wikiTitle": "Annelid"
     },
     {
       "id": "ott6914",
@@ -56162,7 +56638,8 @@
       "id": "ott316447",
       "sciName": "Eisenia",
       "rank": "genus",
-      "parentId": "ott696412"
+      "parentId": "ott696412",
+      "wikiTitle": "Eisenia (annelid)"
     },
     {
       "id": "5815560",
@@ -56175,7 +56652,8 @@
       "id": "ott1022151",
       "sciName": "Hirudinea",
       "rank": "subclass",
-      "parentId": "ott674"
+      "parentId": "ott674",
+      "wikiTitle": "Leech"
     },
     {
       "id": "ott953050",
@@ -56397,7 +56875,8 @@
       "id": "ott162291",
       "sciName": "Eunice",
       "rank": "genus",
-      "parentId": "ott34491"
+      "parentId": "ott34491",
+      "wikiTitle": "Eunice (annelid)"
     },
     {
       "id": "5198482",
@@ -56443,7 +56922,8 @@
       "sciName": "Arthropoda",
       "rank": "phylum",
       "parentId": "ott816442",
-      "common": "Arthropod"
+      "common": "Arthropod",
+      "wikiTitle": "Arthropod"
     },
     {
       "id": "ott985907",
@@ -56473,7 +56953,8 @@
       "id": "ott1062253",
       "sciName": "Insecta",
       "rank": "class",
-      "parentId": "ott568991"
+      "parentId": "ott568991",
+      "wikiTitle": "Insect"
     },
     {
       "id": "ott983656",
@@ -56633,7 +57114,8 @@
       "id": "ott692848",
       "sciName": "Lyssa",
       "rank": "genus",
-      "parentId": "ott117175"
+      "parentId": "ott117175",
+      "wikiTitle": "Lyssa (moth)"
     },
     {
       "id": "1953196",
@@ -56660,7 +57142,8 @@
       "id": "ott968124",
       "sciName": "Geometridae",
       "rank": "family",
-      "parentId": "ott8846"
+      "parentId": "ott8846",
+      "wikiTitle": "Geometer moth"
     },
     {
       "id": "ott11168",
@@ -56684,7 +57167,8 @@
       "id": "ott531546",
       "sciName": "Abraxas",
       "rank": "genus",
-      "parentId": "ott10117"
+      "parentId": "ott10117",
+      "wikiTitle": "Abraxas (moth)"
     },
     {
       "id": "1967873",
@@ -56698,7 +57182,8 @@
       "id": "ott968120",
       "sciName": "Biston",
       "rank": "genus",
-      "parentId": "ott10117"
+      "parentId": "ott10117",
+      "wikiTitle": "Biston (moth)"
     },
     {
       "id": "1975897",
@@ -56842,7 +57327,8 @@
       "id": "ott758175",
       "sciName": "Tyria",
       "rank": "genus",
-      "parentId": "ott7147150"
+      "parentId": "ott7147150",
+      "wikiTitle": "Tyria (moth)"
     },
     {
       "id": "5115777",
@@ -56937,7 +57423,8 @@
       "sciName": "Noctua",
       "rank": "genus",
       "parentId": "ott7150355",
-      "common": "Yellow Underwings"
+      "common": "Yellow Underwings",
+      "wikiTitle": "Noctua (moth)"
     },
     {
       "id": "1789695",
@@ -57036,7 +57523,8 @@
       "id": "ott173574",
       "sciName": "Phalera",
       "rank": "genus",
-      "parentId": "ott776784"
+      "parentId": "ott776784",
+      "wikiTitle": "Phalera (moth)"
     },
     {
       "id": "5119245",
@@ -57142,7 +57630,8 @@
       "id": "ott898681",
       "sciName": "Acherontia",
       "rank": "genus",
-      "parentId": "ott898680"
+      "parentId": "ott898680",
+      "wikiTitle": "Death's-head hawkmoth"
     },
     {
       "id": "1861510",
@@ -57214,7 +57703,8 @@
       "id": "ott3094518",
       "sciName": "Daphnis",
       "rank": "genus",
-      "parentId": "ott3094517"
+      "parentId": "ott3094517",
+      "wikiTitle": "Daphnis (moth)"
     },
     {
       "id": "1862401",
@@ -57629,7 +58119,8 @@
       "id": "ott407315",
       "sciName": "Anania",
       "rank": "genus",
-      "parentId": "ott4615"
+      "parentId": "ott4615",
+      "wikiTitle": "Anania (moth)"
     },
     {
       "id": "8462369",
@@ -57661,7 +58152,8 @@
       "id": "ott911507",
       "sciName": "Pyrausta",
       "rank": "genus",
-      "parentId": "ott4615"
+      "parentId": "ott4615",
+      "wikiTitle": "Pyrausta (moth)"
     },
     {
       "id": "1890534",
@@ -57788,7 +58280,8 @@
       "sciName": "Galleria",
       "rank": "genus",
       "parentId": "ott910677",
-      "common": "Greater Wax Moth"
+      "common": "Greater Wax Moth",
+      "wikiTitle": "Galleria (moth)"
     },
     {
       "id": "1876542",
@@ -57856,7 +58349,8 @@
       "id": "ott167949",
       "sciName": "Pieris",
       "rank": "genus",
-      "parentId": "ott30841"
+      "parentId": "ott30841",
+      "wikiTitle": "Pieris (butterfly)"
     },
     {
       "id": "1920506",
@@ -57959,7 +58453,8 @@
       "id": "ott112773",
       "sciName": "Morpho",
       "rank": "genus",
-      "parentId": "ott554793"
+      "parentId": "ott554793",
+      "wikiTitle": "Morpho (genus)"
     },
     {
       "id": "5133523",
@@ -58052,7 +58547,8 @@
       "id": "ott190090",
       "sciName": "Danaus",
       "rank": "genus",
-      "parentId": "ott774831"
+      "parentId": "ott774831",
+      "wikiTitle": "Danaus (butterfly)"
     },
     {
       "id": "ott276188",
@@ -58133,7 +58629,8 @@
       "sciName": "Vanessa",
       "rank": "genus",
       "parentId": "ott113234",
-      "common": "Ladies and Red Admiral"
+      "common": "Ladies and Red Admiral",
+      "wikiTitle": "Vanessa (butterfly)"
     },
     {
       "id": "ott624275",
@@ -58181,7 +58678,8 @@
       "id": "ott527568",
       "sciName": "Cupido",
       "rank": "genus",
-      "parentId": "ott90836"
+      "parentId": "ott90836",
+      "wikiTitle": "Cupido (butterfly)"
     },
     {
       "id": "1926260",
@@ -58257,7 +58755,8 @@
       "id": "ott661439",
       "sciName": "Papilionidae",
       "rank": "family",
-      "parentId": "ott6210"
+      "parentId": "ott6210",
+      "wikiTitle": "Swallowtail butterfly"
     },
     {
       "id": "ott79978",
@@ -58369,7 +58868,8 @@
       "id": "ott414388",
       "sciName": "Battus",
       "rank": "genus",
-      "parentId": "ott951458"
+      "parentId": "ott951458",
+      "wikiTitle": "Battus (butterfly)"
     },
     {
       "id": "5141342",
@@ -58536,7 +59036,8 @@
       "sciName": "Megalopygidae",
       "rank": "family",
       "parentId": "ott23953",
-      "common": "Crinkled Flannel Moths"
+      "common": "Crinkled Flannel Moths",
+      "wikiTitle": "Flannel moth"
     },
     {
       "id": "ott235072",
@@ -58620,7 +59121,8 @@
       "id": "ott420844",
       "sciName": "Sesia",
       "rank": "genus",
-      "parentId": "ott660307"
+      "parentId": "ott660307",
+      "wikiTitle": "Sesia (moth)"
     },
     {
       "id": "5141493",
@@ -58674,7 +59176,8 @@
       "id": "ott1098009",
       "sciName": "Endoxyla",
       "rank": "genus",
-      "parentId": "ott481944"
+      "parentId": "ott481944",
+      "wikiTitle": "Endoxyla (moth)"
     },
     {
       "id": "5806352",
@@ -58713,7 +59216,8 @@
       "id": "ott968112",
       "sciName": "Cydia",
       "rank": "genus",
-      "parentId": "ott94673"
+      "parentId": "ott94673",
+      "wikiTitle": "Cydia (moth)"
     },
     {
       "id": "1737847",
@@ -58793,7 +59297,8 @@
       "id": "ott363581",
       "sciName": "Tinea",
       "rank": "genus",
-      "parentId": "ott1050561"
+      "parentId": "ott1050561",
+      "wikiTitle": "Tinea (moth)"
     },
     {
       "id": "1858163",
@@ -58988,7 +59493,8 @@
       "id": "ott661378",
       "sciName": "Diptera",
       "rank": "order",
-      "parentId": "ott8113"
+      "parentId": "ott8113",
+      "wikiTitle": "Fly"
     },
     {
       "id": "ott6635",
@@ -59031,7 +59537,8 @@
       "sciName": "Syrphidae",
       "rank": "family",
       "parentId": "ott633",
-      "common": "Hoverflies"
+      "common": "Hoverflies",
+      "wikiTitle": "Hoverfly"
     },
     {
       "id": "ott1143",
@@ -59181,7 +59688,8 @@
       "sciName": "Sarcophagidae",
       "rank": "family",
       "parentId": "ott173863",
-      "common": "Flesh Flies"
+      "common": "Flesh Flies",
+      "wikiTitle": "Flesh fly"
     },
     {
       "id": "ott335138",
@@ -59208,7 +59716,8 @@
       "sciName": "Oestrus",
       "rank": "genus",
       "parentId": "ott511768",
-      "common": "Nasal Bot Flies"
+      "common": "Nasal Bot Flies",
+      "wikiTitle": "Oestrus (fly)"
     },
     {
       "id": "1587401",
@@ -59479,7 +59988,8 @@
       "id": "ott484748",
       "sciName": "Musca",
       "rank": "genus",
-      "parentId": "ott75189"
+      "parentId": "ott75189",
+      "wikiTitle": "Musca (fly)"
     },
     {
       "id": "ott533283",
@@ -59505,7 +60015,8 @@
       "id": "ott557410",
       "sciName": "Fannia",
       "rank": "genus",
-      "parentId": "ott672492"
+      "parentId": "ott672492",
+      "wikiTitle": "Fannia (fly)"
     },
     {
       "id": "5094693",
@@ -59993,7 +60504,8 @@
       "sciName": "Mydidae",
       "rank": "family",
       "parentId": "ott77031",
-      "common": "Mydas Flies"
+      "common": "Mydas Flies",
+      "wikiTitle": "Mydas fly"
     },
     {
       "id": "ott58192",
@@ -60207,7 +60719,8 @@
       "id": "ott121915",
       "sciName": "Bibio",
       "rank": "genus",
-      "parentId": "ott423692"
+      "parentId": "ott423692",
+      "wikiTitle": "Bibio (fly)"
     },
     {
       "id": "1590998",
@@ -60264,7 +60777,8 @@
       "id": "ott158196",
       "sciName": "Belgica",
       "rank": "genus",
-      "parentId": "ott836368"
+      "parentId": "ott836368",
+      "wikiTitle": "Belgica (fly)"
     },
     {
       "id": "1446616",
@@ -60366,7 +60880,8 @@
       "sciName": "Simuliidae",
       "rank": "family",
       "parentId": "ott722874",
-      "common": "Black Flies"
+      "common": "Black Flies",
+      "wikiTitle": "Black fly"
     },
     {
       "id": "ott311837",
@@ -60411,7 +60926,8 @@
       "sciName": "Culicidae",
       "rank": "family",
       "parentId": "ott722897",
-      "common": "Mosquitoes"
+      "common": "Mosquitoes",
+      "wikiTitle": "Mosquito"
     },
     {
       "id": "ott7058",
@@ -60637,7 +61153,8 @@
       "id": "ott1043126",
       "sciName": "Ctenophora",
       "rank": "genus",
-      "parentId": "ott990413"
+      "parentId": "ott990413",
+      "wikiTitle": "Ctenophora (fly)"
     },
     {
       "id": "5064377",
@@ -60656,7 +61173,8 @@
       "id": "ott656313",
       "sciName": "Siphonaptera",
       "rank": "order",
-      "parentId": "ott15530"
+      "parentId": "ott15530",
+      "wikiTitle": "Flea"
     },
     {
       "id": "ott81979",
@@ -60765,7 +61283,8 @@
       "sciName": "Coleoptera",
       "rank": "order",
       "parentId": "ott1798",
-      "common": "Coleopteran"
+      "common": "Coleopteran",
+      "wikiTitle": "Beetle"
     },
     {
       "id": "ott684689",
@@ -61076,7 +61595,8 @@
       "id": "ott850662",
       "sciName": "Rosalia",
       "rank": "genus",
-      "parentId": "ott850661"
+      "parentId": "ott850661",
+      "wikiTitle": "Rosalia (beetle)"
     },
     {
       "id": "1159835",
@@ -61292,7 +61812,8 @@
       "id": "ott5337354",
       "sciName": "Asbolus",
       "rank": "genus",
-      "parentId": "ott686521"
+      "parentId": "ott686521",
+      "wikiTitle": "Asbolus (beetle)"
     },
     {
       "id": "9670677",
@@ -61313,7 +61834,8 @@
       "sciName": "Tribolium",
       "rank": "genus",
       "parentId": "ott148900",
-      "common": "Flour Beetles"
+      "common": "Flour Beetles",
+      "wikiTitle": "Tribolium (beetle)"
     },
     {
       "id": "4990338",
@@ -61397,7 +61919,8 @@
       "id": "ott413960",
       "sciName": "Pyrochroidae",
       "rank": "family",
-      "parentId": "ott48820"
+      "parentId": "ott48820",
+      "wikiTitle": "Fire-coloured beetle"
     },
     {
       "id": "ott288593",
@@ -61480,7 +62003,8 @@
       "id": "ott332966",
       "sciName": "Harmonia",
       "rank": "genus",
-      "parentId": "ott158647"
+      "parentId": "ott158647",
+      "wikiTitle": "Harmonia (beetle)"
     },
     {
       "id": "4989904",
@@ -61793,7 +62317,8 @@
       "id": "ott865251",
       "sciName": "Lampyridae",
       "rank": "family",
-      "parentId": "ott52431"
+      "parentId": "ott52431",
+      "wikiTitle": "Firefly"
     },
     {
       "id": "ott125431",
@@ -61908,7 +62433,8 @@
       "id": "ott161625",
       "sciName": "Cantharidae",
       "rank": "family",
-      "parentId": "ott160343"
+      "parentId": "ott160343",
+      "wikiTitle": "Soldier beetle"
     },
     {
       "id": "ott735184",
@@ -62160,7 +62686,8 @@
       "sciName": "Nicrophorus",
       "rank": "genus",
       "parentId": "ott569173",
-      "common": "Sexton Beetles"
+      "common": "Sexton Beetles",
+      "wikiTitle": "Burying beetle"
     },
     {
       "id": "1038971",
@@ -62389,7 +62916,8 @@
       "id": "ott867955",
       "sciName": "Lucanus",
       "rank": "genus",
-      "parentId": "ott923279"
+      "parentId": "ott923279",
+      "wikiTitle": "Lucanus (beetle)"
     },
     {
       "id": "5743122",
@@ -62597,7 +63125,8 @@
       "id": "ott413463",
       "sciName": "Harpalus",
       "rank": "genus",
-      "parentId": "ott470119"
+      "parentId": "ott470119",
+      "wikiTitle": "Harpalus (beetle)"
     },
     {
       "id": "9251010",
@@ -62727,7 +63256,8 @@
       "sciName": "Corydalinae",
       "rank": "subfamily",
       "parentId": "ott1062255",
-      "common": "Dobsonfly"
+      "common": "Dobsonfly",
+      "wikiTitle": "Dobsonfly"
     },
     {
       "id": "ott1062257",
@@ -62836,7 +63366,8 @@
       "id": "ott1094296",
       "sciName": "Myrmeleontidae",
       "rank": "family",
-      "parentId": "ott31543"
+      "parentId": "ott31543",
+      "wikiTitle": "Antlion"
     },
     {
       "id": "ott1028668",
@@ -63015,7 +63546,8 @@
       "sciName": "Xylocopa",
       "rank": "genus",
       "parentId": "ott28982",
-      "common": "Carpenter Bees"
+      "common": "Carpenter Bees",
+      "wikiTitle": "Carpenter bee"
     },
     {
       "id": "1342494",
@@ -63162,7 +63694,8 @@
       "sciName": "Philanthus",
       "rank": "genus",
       "parentId": "ott215042",
-      "common": "Beewolves"
+      "common": "Beewolves",
+      "wikiTitle": "Beewolf"
     },
     {
       "id": "5760758",
@@ -63382,7 +63915,8 @@
       "id": "ott3277348",
       "sciName": "Aha",
       "rank": "genus",
-      "parentId": "ott2709"
+      "parentId": "ott2709",
+      "wikiTitle": "Aha (wasp)"
     },
     {
       "id": "4682353",
@@ -63444,7 +63978,8 @@
       "sciName": "Formicidae",
       "rank": "family",
       "parentId": "ott215086",
-      "common": "Ants"
+      "common": "Ants",
+      "wikiTitle": "Ant"
     },
     {
       "id": "ott17752",
@@ -63744,7 +64279,8 @@
       "id": "ott573508",
       "sciName": "Vespa",
       "rank": "genus",
-      "parentId": "ott250189"
+      "parentId": "ott250189",
+      "wikiTitle": "Hornet"
     },
     {
       "id": "ott573512",
@@ -63795,7 +64331,8 @@
       "sciName": "Chrysididae",
       "rank": "family",
       "parentId": "ott25960",
-      "common": "Cuckoo Wasps"
+      "common": "Cuckoo Wasps",
+      "wikiTitle": "Cuckoo wasp"
     },
     {
       "id": "ott846499",
@@ -63813,7 +64350,8 @@
       "id": "ott881312",
       "sciName": "Chrysis",
       "rank": "genus",
-      "parentId": "ott693160"
+      "parentId": "ott693160",
+      "wikiTitle": "Chrysis (wasp)"
     },
     {
       "id": "5760254",
@@ -63846,7 +64384,8 @@
       "sciName": "Pompilidae",
       "rank": "family",
       "parentId": "ott5961155",
-      "common": "Spider Wasps"
+      "common": "Spider Wasps",
+      "wikiTitle": "Spider wasp"
     },
     {
       "id": "ott5961210",
@@ -63886,7 +64425,8 @@
       "sciName": "Mutillidae",
       "rank": "family",
       "parentId": "ott5961155",
-      "common": "Velvet Ants"
+      "common": "Velvet Ants",
+      "wikiTitle": "Velvet ant"
     },
     {
       "id": "ott368354",
@@ -64108,7 +64648,8 @@
       "id": "ott783313",
       "sciName": "Siricidae",
       "rank": "family",
-      "parentId": "ott42453"
+      "parentId": "ott42453",
+      "wikiTitle": "Horntail"
     },
     {
       "id": "ott1089818",
@@ -64417,7 +64958,8 @@
       "id": "ott3472460",
       "sciName": "Murgantia",
       "rank": "genus",
-      "parentId": "ott493994"
+      "parentId": "ott493994",
+      "wikiTitle": "Murgantia (bug)"
     },
     {
       "id": "2078935",
@@ -64580,7 +65122,8 @@
       "id": "ott3473942",
       "sciName": "Acanthocephala",
       "rank": "genus",
-      "parentId": "ott7470754"
+      "parentId": "ott7470754",
+      "wikiTitle": "Acanthocephala (bug)"
     },
     {
       "id": "5156079",
@@ -64772,7 +65315,8 @@
       "id": "ott539236",
       "sciName": "Zelus",
       "rank": "genus",
-      "parentId": "ott226361"
+      "parentId": "ott226361",
+      "wikiTitle": "Zelus (bug)"
     },
     {
       "id": "2008837",
@@ -65077,7 +65621,8 @@
       "id": "ott817888",
       "sciName": "Cicada",
       "rank": "genus",
-      "parentId": "ott118088"
+      "parentId": "ott118088",
+      "wikiTitle": "Cicada (genus)"
     },
     {
       "id": "4482723",
@@ -65090,7 +65635,8 @@
       "id": "ott254807",
       "sciName": "Tanna",
       "rank": "genus",
-      "parentId": "ott118082"
+      "parentId": "ott118082",
+      "wikiTitle": "Tanna (cicada)"
     },
     {
       "id": "7782400",
@@ -65290,7 +65836,8 @@
       "id": "ott3464139",
       "sciName": "Issus",
       "rank": "genus",
-      "parentId": "ott582708"
+      "parentId": "ott582708",
+      "wikiTitle": "Issus (planthopper)"
     },
     {
       "id": "2051491",
@@ -65425,7 +65972,8 @@
       "id": "ott116660",
       "sciName": "Eriosoma",
       "rank": "genus",
-      "parentId": "ott436306"
+      "parentId": "ott436306",
+      "wikiTitle": "Eriosoma (aphid)"
     },
     {
       "id": "2075983",
@@ -65473,7 +66021,8 @@
       "id": "ott585108",
       "sciName": "Kermes",
       "rank": "genus",
-      "parentId": "ott811739"
+      "parentId": "ott811739",
+      "wikiTitle": "Kermes (insect)"
     },
     {
       "id": "2096837",
@@ -65513,7 +66062,8 @@
       "id": "ott384332",
       "sciName": "Kerria",
       "rank": "genus",
-      "parentId": "ott287878"
+      "parentId": "ott287878",
+      "wikiTitle": "Kerria (insect)"
     },
     {
       "id": "165462439",
@@ -65539,7 +66089,8 @@
       "sciName": "Aleyrodidae",
       "rank": "family",
       "parentId": "ott341407",
-      "common": "Whiteflies"
+      "common": "Whiteflies",
+      "wikiTitle": "Whitefly"
     },
     {
       "id": "ott278352",
@@ -65604,7 +66155,8 @@
       "sciName": "Dermaptera",
       "rank": "order",
       "parentId": "ott3873",
-      "common": "Earwigs"
+      "common": "Earwigs",
+      "wikiTitle": "Earwig"
     },
     {
       "id": "ott24880",
@@ -66147,7 +66699,8 @@
       "id": "ott656293",
       "sciName": "Mantodea",
       "rank": "order",
-      "parentId": "ott48286"
+      "parentId": "ott48286",
+      "wikiTitle": "Mantis"
     },
     {
       "id": "ott15196",
@@ -66242,7 +66795,8 @@
       "id": "ott87192",
       "sciName": "Empusa",
       "rank": "genus",
-      "parentId": "ott748482"
+      "parentId": "ott748482",
+      "wikiTitle": "Empusa (mantis)"
     },
     {
       "id": "5048815",
@@ -66349,7 +66903,8 @@
       "id": "ott641494",
       "sciName": "Mantis",
       "rank": "genus",
-      "parentId": "ott152389"
+      "parentId": "ott152389",
+      "wikiTitle": "Mantis (genus)"
     },
     {
       "id": "6258028",
@@ -66468,7 +67023,8 @@
       "id": "ott456473",
       "sciName": "Pterophylla",
       "rank": "genus",
-      "parentId": "ott1007502"
+      "parentId": "ott1007502",
+      "wikiTitle": "Pterophylla (katydid)"
     },
     {
       "id": "5097411",
@@ -66570,7 +67126,8 @@
       "id": "ott202336",
       "sciName": "Gryllotalpidae",
       "rank": "family",
-      "parentId": "ott7482548"
+      "parentId": "ott7482548",
+      "wikiTitle": "Mole cricket"
     },
     {
       "id": "ott202323",
@@ -66653,7 +67210,8 @@
       "id": "ott1087105",
       "sciName": "Deinacrida",
       "rank": "genus",
-      "parentId": "ott887813"
+      "parentId": "ott887813",
+      "wikiTitle": "Giant wētā"
     },
     {
       "id": "1725128",
@@ -66694,7 +67252,8 @@
       "id": "ott898796",
       "sciName": "Sia",
       "rank": "genus",
-      "parentId": "ott762867"
+      "parentId": "ott762867",
+      "wikiTitle": "Sia (insect)"
     },
     {
       "id": "1725040",
@@ -66864,7 +67423,8 @@
       "id": "ott565986",
       "sciName": "Ephemeroptera",
       "rank": "order",
-      "parentId": "ott3046"
+      "parentId": "ott3046",
+      "wikiTitle": "Mayfly"
     },
     {
       "id": "ott4153",
@@ -66941,7 +67501,8 @@
       "id": "ott669563",
       "sciName": "Ephemera",
       "rank": "genus",
-      "parentId": "ott845487"
+      "parentId": "ott845487",
+      "wikiTitle": "Ephemera (mayfly)"
     },
     {
       "id": "5716472",
@@ -66999,7 +67560,8 @@
       "sciName": "Calopteryx",
       "rank": "genus",
       "parentId": "ott866417",
-      "common": "Demoiselles"
+      "common": "Demoiselles",
+      "wikiTitle": "Calopteryx (damselfly)"
     },
     {
       "id": "ott48545",
@@ -67081,7 +67643,8 @@
       "id": "ott210447",
       "sciName": "Pseudostigmatidae",
       "rank": "family",
-      "parentId": "ott45387"
+      "parentId": "ott45387",
+      "wikiTitle": "Pseudostigmatinae"
     },
     {
       "id": "ott889476",
@@ -67450,7 +68013,8 @@
       "sciName": "Collembola",
       "rank": "class",
       "parentId": "ott568991",
-      "common": "Springtails"
+      "common": "Springtails",
+      "wikiTitle": "Springtail"
     },
     {
       "id": "ott635924",
@@ -67551,7 +68115,8 @@
       "id": "ott430267",
       "sciName": "Caligidae",
       "rank": "family",
-      "parentId": "ott754178"
+      "parentId": "ott754178",
+      "wikiTitle": "Sea louse"
     },
     {
       "id": "ott430266",
@@ -67901,7 +68466,8 @@
       "id": "ott169205",
       "sciName": "Decapoda",
       "rank": "order",
-      "parentId": "ott169204"
+      "parentId": "ott169204",
+      "wikiTitle": "Decapod"
     },
     {
       "id": "ott736321",
@@ -68029,7 +68595,8 @@
       "id": "ott812822",
       "sciName": "Alpheus",
       "rank": "genus",
-      "parentId": "ott471793"
+      "parentId": "ott471793",
+      "wikiTitle": "Alpheus (crustacean)"
     },
     {
       "id": "5863118",
@@ -68248,7 +68815,8 @@
       "id": "ott796821",
       "sciName": "Ocypodinae",
       "rank": "subfamily",
-      "parentId": "ott757102"
+      "parentId": "ott757102",
+      "wikiTitle": "Ghost crab"
     },
     {
       "id": "ott509870",
@@ -68420,7 +68988,8 @@
       "id": "ott385296",
       "sciName": "Zosimus",
       "rank": "genus",
-      "parentId": "ott5809652"
+      "parentId": "ott5809652",
+      "wikiTitle": "Zosimus (crab)"
     },
     {
       "id": "2227782",
@@ -68505,7 +69074,8 @@
       "id": "ott182918",
       "sciName": "Scylla",
       "rank": "genus",
-      "parentId": "ott5809632"
+      "parentId": "ott5809632",
+      "wikiTitle": "Scylla (crustacean)"
     },
     {
       "id": "2225562",
@@ -68524,7 +69094,8 @@
       "id": "ott233894",
       "sciName": "Menippe",
       "rank": "clade",
-      "parentId": "ott414954"
+      "parentId": "ott414954",
+      "wikiTitle": "Menippe (crab)"
     },
     {
       "id": "5178757",
@@ -68576,7 +69147,8 @@
       "id": "ott304377",
       "sciName": "Calappa",
       "rank": "genus",
-      "parentId": "ott808057"
+      "parentId": "ott808057",
+      "wikiTitle": "Calappa (crab)"
     },
     {
       "id": "5178362",
@@ -68642,7 +69214,8 @@
       "id": "ott706443",
       "sciName": "Cancer",
       "rank": "genus",
-      "parentId": "ott706435"
+      "parentId": "ott706435",
+      "wikiTitle": "Cancer (genus)"
     },
     {
       "id": "2222079",
@@ -68725,7 +69298,8 @@
       "id": "ott941964",
       "sciName": "Maja",
       "rank": "genus",
-      "parentId": "ott428460"
+      "parentId": "ott428460",
+      "wikiTitle": "Maja (crab)"
     },
     {
       "id": "5178690",
@@ -68738,7 +69312,8 @@
       "id": "ott233901",
       "sciName": "Raninoidea",
       "rank": "superfamily",
-      "parentId": "ott38074"
+      "parentId": "ott38074",
+      "wikiTitle": "Raninoida"
     },
     {
       "id": "ott38076",
@@ -68793,7 +69368,8 @@
       "id": "ott653859",
       "sciName": "Lithodidae",
       "rank": "family",
-      "parentId": "ott5755387"
+      "parentId": "ott5755387",
+      "wikiTitle": "King crab"
     },
     {
       "id": "ott131917",
@@ -68910,7 +69486,8 @@
       "id": "ott888292",
       "sciName": "Emerita",
       "rank": "genus",
-      "parentId": "ott888291"
+      "parentId": "ott888291",
+      "wikiTitle": "Emerita (crustacean)"
     },
     {
       "id": "2225698",
@@ -69173,7 +69750,8 @@
       "id": "ott653845",
       "sciName": "Palinuridae",
       "rank": "family",
-      "parentId": "ott494450"
+      "parentId": "ott494450",
+      "wikiTitle": "Spiny lobster"
     },
     {
       "id": "ott162044",
@@ -69216,7 +69794,8 @@
       "id": "ott653847",
       "sciName": "Palinurus",
       "rank": "genus",
-      "parentId": "ott162044"
+      "parentId": "ott162044",
+      "wikiTitle": "Palinurus (crustacean)"
     },
     {
       "id": "2221606",
@@ -69231,7 +69810,8 @@
       "sciName": "Scyllaridae",
       "rank": "family",
       "parentId": "ott494450",
-      "common": "Slipper lobsters"
+      "common": "Slipper lobsters",
+      "wikiTitle": "Slipper lobster"
     },
     {
       "id": "ott64913",
@@ -69311,7 +69891,8 @@
       "id": "ott852582",
       "sciName": "Euphausiacea",
       "rank": "order",
-      "parentId": "ott169204"
+      "parentId": "ott169204",
+      "wikiTitle": "Krill"
     },
     {
       "id": "ott852540",
@@ -69343,7 +69924,8 @@
       "id": "ott42631",
       "sciName": "Stomatopoda",
       "rank": "order",
-      "parentId": "ott563526"
+      "parentId": "ott563526",
+      "wikiTitle": "Mantis shrimp"
     },
     {
       "id": "ott899558",
@@ -69433,7 +70015,8 @@
       "sciName": "Chilopoda",
       "rank": "class",
       "parentId": "ott177526",
-      "common": "Centipedes"
+      "common": "Centipedes",
+      "wikiTitle": "Centipede"
     },
     {
       "id": "ott308377",
@@ -69648,7 +70231,8 @@
       "sciName": "Ixodida",
       "rank": "order",
       "parentId": "ott150786",
-      "common": "Tick"
+      "common": "Tick",
+      "wikiTitle": "Tick"
     },
     {
       "id": "ott779539",
@@ -70201,7 +70785,8 @@
       "id": "ott106109",
       "sciName": "Tetranychidae",
       "rank": "family",
-      "parentId": "ott608669"
+      "parentId": "ott608669",
+      "wikiTitle": "Spider mite"
     },
     {
       "id": "ott106111",
@@ -70254,7 +70839,8 @@
       "sciName": "Araneae",
       "rank": "order",
       "parentId": "ott49680",
-      "common": "Spiders"
+      "common": "Spiders",
+      "wikiTitle": "Spider"
     },
     {
       "id": "ott17398",
@@ -70327,7 +70913,8 @@
       "sciName": "Salticidae",
       "rank": "family",
       "parentId": "ott45861",
-      "common": "Jumping spider"
+      "common": "Jumping spider",
+      "wikiTitle": "Jumping spider"
     },
     {
       "id": "ott29589",
@@ -70363,7 +70950,8 @@
       "id": "ott8672",
       "sciName": "Plexippus",
       "rank": "genus",
-      "parentId": "ott471324"
+      "parentId": "ott471324",
+      "wikiTitle": "Plexippus (spider)"
     },
     {
       "id": "2171214",
@@ -70404,7 +70992,8 @@
       "id": "ott577079",
       "sciName": "Dendryphantinae",
       "rank": "subfamily",
-      "parentId": "ott4522"
+      "parentId": "ott4522",
+      "wikiTitle": "Dendryphantina"
     },
     {
       "id": "ott593614",
@@ -70446,7 +71035,8 @@
       "id": "ott602882",
       "sciName": "Portia",
       "rank": "genus",
-      "parentId": "ott29589"
+      "parentId": "ott29589",
+      "wikiTitle": "Portia (spider)"
     },
     {
       "id": "5173494",
@@ -70473,7 +71063,8 @@
       "id": "ott3546345",
       "sciName": "Bagheera",
       "rank": "genus",
-      "parentId": "ott466751"
+      "parentId": "ott466751",
+      "wikiTitle": "Bagheera (spider)"
     },
     {
       "id": "4656999",
@@ -70570,7 +71161,8 @@
       "sciName": "Sparassidae",
       "rank": "family",
       "parentId": "ott219965",
-      "common": "Huntsman spider"
+      "common": "Huntsman spider",
+      "wikiTitle": "Huntsman spider"
     },
     {
       "id": "ott338169",
@@ -70743,7 +71335,8 @@
       "sciName": "Lycosidae",
       "rank": "family",
       "parentId": "ott62344",
-      "common": "Wolf spider"
+      "common": "Wolf spider",
+      "wikiTitle": "Wolf spider"
     },
     {
       "id": "ott62343",
@@ -70833,7 +71426,8 @@
       "sciName": "Pisauridae",
       "rank": "family",
       "parentId": "ott63321",
-      "common": "Nursery web spider"
+      "common": "Nursery web spider",
+      "wikiTitle": "Nursery web spider"
     },
     {
       "id": "ott300308",
@@ -70868,7 +71462,8 @@
       "sciName": "Oxyopidae",
       "rank": "family",
       "parentId": "ott63321",
-      "common": "Lynx spider"
+      "common": "Lynx spider",
+      "wikiTitle": "Lynx spider"
     },
     {
       "id": "ott1002953",
@@ -71177,13 +71772,15 @@
       "sciName": "Tetragnathidae",
       "rank": "family",
       "parentId": "ott207308",
-      "common": "Long-jawed orb weaver"
+      "common": "Long-jawed orb weaver",
+      "wikiTitle": "Long-jawed orb weaver"
     },
     {
       "id": "ott1043570",
       "sciName": "Meta",
       "rank": "genus",
-      "parentId": "ott585615"
+      "parentId": "ott585615",
+      "wikiTitle": "Meta (spider)"
     },
     {
       "id": "2151378",
@@ -71217,7 +71814,8 @@
       "id": "ott201929",
       "sciName": "Araneidae",
       "rank": "family",
-      "parentId": "ott207308"
+      "parentId": "ott207308",
+      "wikiTitle": "Orb-weaver spider"
     },
     {
       "id": "ott957074",
@@ -71237,7 +71835,8 @@
       "id": "ott1043549",
       "sciName": "Argiope",
       "rank": "genus",
-      "parentId": "ott201929"
+      "parentId": "ott201929",
+      "wikiTitle": "Argiope (spider)"
     },
     {
       "id": "5171022",
@@ -71299,7 +71898,8 @@
       "id": "ott989364",
       "sciName": "Patu",
       "rank": "genus",
-      "parentId": "ott858407"
+      "parentId": "ott858407",
+      "wikiTitle": "Patu (spider)"
     },
     {
       "id": "2178497",
@@ -71312,7 +71912,8 @@
       "id": "ott573777",
       "sciName": "Nephilidae",
       "rank": "family",
-      "parentId": "ott207308"
+      "parentId": "ott207308",
+      "wikiTitle": "Nephilinae"
     },
     {
       "id": "ott201921",
@@ -71372,7 +71973,8 @@
       "sciName": "Eresidae",
       "rank": "family",
       "parentId": "ott551421",
-      "common": "Velvet spider"
+      "common": "Velvet spider",
+      "wikiTitle": "Velvet spider"
     },
     {
       "id": "ott551415",
@@ -71447,7 +72049,8 @@
       "sciName": "Loxosceles",
       "rank": "genus",
       "parentId": "ott793505",
-      "common": "Recluse Spiders"
+      "common": "Recluse Spiders",
+      "wikiTitle": "Recluse spider"
     },
     {
       "id": "5170652",
@@ -71518,13 +72121,15 @@
       "sciName": "Segestriidae",
       "rank": "family",
       "parentId": "ott722607",
-      "common": "Tube-dwelling spiders"
+      "common": "Tube-dwelling spiders",
+      "wikiTitle": "Tube-dwelling spider"
     },
     {
       "id": "ott106118",
       "sciName": "Segestria",
       "rank": "clade",
-      "parentId": "ott213560"
+      "parentId": "ott213560",
+      "wikiTitle": "Segestria (spider)"
     },
     {
       "id": "5169968",
@@ -71544,7 +72149,8 @@
       "sciName": "Scytodidae",
       "rank": "family",
       "parentId": "ott154473",
-      "common": "Spitting spiders"
+      "common": "Spitting spiders",
+      "wikiTitle": "Spitting spider"
     },
     {
       "id": "ott329615",
@@ -71564,7 +72170,8 @@
       "sciName": "Filistatidae",
       "rank": "family",
       "parentId": "ott207312",
-      "common": "Crevice weaver"
+      "common": "Crevice weaver",
+      "wikiTitle": "Crevice weaver"
     },
     {
       "id": "ott1071418",
@@ -71618,7 +72225,8 @@
       "sciName": "Theraphosidae",
       "rank": "family",
       "parentId": "ott399421",
-      "common": "Tarantulas"
+      "common": "Tarantulas",
+      "wikiTitle": "Tarantula"
     },
     {
       "id": "ott95319",
@@ -71757,7 +72365,8 @@
       "sciName": "Atypidae",
       "rank": "family",
       "parentId": "ott399421",
-      "common": "Purseweb Spiders"
+      "common": "Purseweb Spiders",
+      "wikiTitle": "Atypical tarantula"
     },
     {
       "id": "ott14858",
@@ -71880,7 +72489,8 @@
       "sciName": "Scorpiones",
       "rank": "order",
       "parentId": "ott5504",
-      "common": "Scorpions"
+      "common": "Scorpions",
+      "wikiTitle": "Scorpion"
     },
     {
       "id": "ott815451",
@@ -72085,7 +72695,8 @@
       "id": "ott511970",
       "sciName": "Androctonus",
       "rank": "genus",
-      "parentId": "ott511971"
+      "parentId": "ott511971",
+      "wikiTitle": "Fattail scorpion"
     },
     {
       "id": "6894171",
@@ -72112,7 +72723,8 @@
       "id": "ott549921",
       "sciName": "Tityus",
       "rank": "genus",
-      "parentId": "ott511971"
+      "parentId": "ott511971",
+      "wikiTitle": "Tityus (genus)"
     },
     {
       "id": "6893860",
@@ -72163,7 +72775,8 @@
       "sciName": "Pseudoscorpiones",
       "rank": "order",
       "parentId": "ott26536",
-      "common": "Pseudoscorpions"
+      "common": "Pseudoscorpions",
+      "wikiTitle": "Pseudoscorpion"
     },
     {
       "id": "ott395260",
@@ -72227,7 +72840,8 @@
       "id": "ott1089021",
       "sciName": "Limulidae",
       "rank": "family",
-      "parentId": "ott1041486"
+      "parentId": "ott1041486",
+      "wikiTitle": "Horseshoe crab"
     },
     {
       "id": "ott1041449",
@@ -72284,13 +72898,15 @@
       "sciName": "Tardigrada",
       "rank": "phylum",
       "parentId": "ott816442",
-      "common": "Tardigrade"
+      "common": "Tardigrade",
+      "wikiTitle": "Tardigrade"
     },
     {
       "id": "ott111445",
       "sciName": "Eutardigrada",
       "rank": "class",
-      "parentId": "ott111438"
+      "parentId": "ott111438",
+      "wikiTitle": "Eutardigrade"
     },
     {
       "id": "ott1075727",
@@ -72322,7 +72938,8 @@
       "sciName": "Nematoda",
       "rank": "phylum",
       "parentId": "ott611099",
-      "common": "Roundworm"
+      "common": "Roundworm",
+      "wikiTitle": "Nematode"
     },
     {
       "id": "ott206556",
@@ -72509,7 +73126,8 @@
       "id": "ott856980",
       "sciName": "Necator",
       "rank": "clade",
-      "parentId": "ott1020170"
+      "parentId": "ott1020170",
+      "wikiTitle": "Necator (nematode)"
     },
     {
       "id": "5188627",
@@ -72591,7 +73209,8 @@
       "sciName": "Actiniaria",
       "rank": "order",
       "parentId": "ott7012",
-      "common": "Sea Anemones"
+      "common": "Sea Anemones",
+      "wikiTitle": "Sea anemone"
     },
     {
       "id": "ott1084480",
@@ -72687,7 +73306,8 @@
       "id": "ott627423",
       "sciName": "Porpitidae",
       "rank": "family",
-      "parentId": "ott5139885"
+      "parentId": "ott5139885",
+      "wikiTitle": "Chondrophore"
     },
     {
       "id": "ott627424",
@@ -72732,7 +73352,8 @@
       "id": "ott767784",
       "sciName": "Hydra",
       "rank": "genus",
-      "parentId": "ott861539"
+      "parentId": "ott861539",
+      "wikiTitle": "Hydra (genus)"
     },
     {
       "id": "5185782",
@@ -72840,7 +73461,8 @@
       "id": "ott404483",
       "sciName": "Aurelia",
       "rank": "genus",
-      "parentId": "ott1045719"
+      "parentId": "ott1045719",
+      "wikiTitle": "Aurelia (cnidarian)"
     },
     {
       "id": "2264442",
@@ -72899,7 +73521,8 @@
       "id": "ott152136",
       "sciName": "Cyanea",
       "rank": "clade",
-      "parentId": "ott945739"
+      "parentId": "ott945739",
+      "wikiTitle": "Cyanea (cnidarian)"
     },
     {
       "id": "2264478",
@@ -72933,7 +73556,8 @@
       "id": "ott985071",
       "sciName": "Pelagia",
       "rank": "genus",
-      "parentId": "ott418507"
+      "parentId": "ott418507",
+      "wikiTitle": "Pelagia (cnidarian)"
     },
     {
       "id": "2264423",
@@ -72971,14 +73595,16 @@
       "sciName": "Porifera",
       "rank": "phylum",
       "parentId": "ott3989",
-      "common": "Sponge"
+      "common": "Sponge",
+      "wikiTitle": "Sponge"
     },
     {
       "id": "ott67816",
       "sciName": "Demospongiae",
       "rank": "class",
       "parentId": "ott67819",
-      "common": "Demosponge"
+      "common": "Demosponge",
+      "wikiTitle": "Demosponge"
     },
     {
       "id": "ott588758",
@@ -73036,7 +73662,8 @@
       "id": "ott352914",
       "sciName": "Fungi",
       "rank": "kingdom",
-      "parentId": "ott5246132"
+      "parentId": "ott5246132",
+      "wikiTitle": "Fungus"
     },
     {
       "id": "ott5576447",
@@ -73116,7 +73743,8 @@
       "id": "ott1076314",
       "sciName": "Hypoderma",
       "rank": "genus",
-      "parentId": "ott68612"
+      "parentId": "ott68612",
+      "wikiTitle": "Hypoderma (fungus)"
     },
     {
       "id": "1587286",
@@ -73126,5 +73754,6 @@
       "common": "Botfly",
       "views": 1661
     }
-  ]
+  ],
+  "wikiTitlesPatchedAt": "2026-08-07T12:08:09.720Z"
 }
