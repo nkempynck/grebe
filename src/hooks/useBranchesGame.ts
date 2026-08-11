@@ -78,6 +78,11 @@ export interface UseBranchesGame {
   oneAway: boolean;
   /** Slots that were wrong on the last submit, for a transient red flash. */
   wrongSlots: string[];
+  /** One entry per submit, oldest first: a char per slot in board.slotIds order,
+   *  "1" correct / "0" wrong. The share grid draws one row each, so a board won
+   *  after a mistake shows where it went wrong above the clean row. Empty for a
+   *  board restored from the server (only summary stats are stored there). */
+  attempts: string[];
   /** Species ids still in the tray (not yet placed), in display order. */
   tray: string[];
   /** The tray species the player has picked up, or null. */
@@ -193,6 +198,7 @@ export function useBranchesGame(
   const [peeked, setPeeked] = useState<string[]>([]);
   const [reads, setReads] = useState<string[]>([]);
   const [mistakes, setMistakes] = useState(0);
+  const [attempts, setAttempts] = useState<string[]>([]);
   const [held, setHeld] = useState<string | null>(null);
   const [status, setStatus] = useState<BranchesStatus>("playing");
   const [result, setResult] = useState<BranchesResult | null>(null);
@@ -218,6 +224,7 @@ export function useBranchesGame(
       setPeeked(prog.peeked ?? []);
       setReads(prog.reads ?? []);
       setMistakes(prog.mistakes ?? 0);
+      setAttempts(prog.attempts ?? []);
       setStatus(prog.status ?? "playing");
       setResult(prog.status === "done"
         ? { ...branchesTally(board, p, prog.hints ?? [], prog.peeked ?? [], prog.reads ?? []), mistakes: prog.mistakes ?? 0 }
@@ -229,6 +236,7 @@ export function useBranchesGame(
       setPeeked([]);
       setReads([]);
       setMistakes(0);
+      setAttempts([]);
       setStatus("playing");
       setResult(null);
     }
@@ -251,8 +259,8 @@ export function useBranchesGame(
       const saved = loadBranchesProgress();
       if (saved && saved.date === date && saved.status === "done") return;
     }
-    saveBranchesProgress({ date, placements, locked: lockedSlots, hints, peeked, reads, mistakes, status });
-  }, [board, date, devActive, placements, lockedSlots, hints, peeked, reads, mistakes, status, hydratedSig]);
+    saveBranchesProgress({ date, placements, locked: lockedSlots, hints, peeked, reads, mistakes, attempts, status });
+  }, [board, date, devActive, placements, lockedSlots, hints, peeked, reads, mistakes, attempts, status, hydratedSig]);
 
   // Signed-in players: restore an already-played board from the server (works on
   // any device/domain, where localStorage is empty). Runs once per (user, date),
@@ -286,6 +294,9 @@ export function useBranchesGame(
       setPeeked([]);
       setReads([]);
       setMistakes(row.mistakes);
+      // The server row keeps no per-submit history, so the share grid falls back
+      // to a single row drawn from this restored (solved) board.
+      setAttempts([]);
       setHeld(null);
       setResult({ correct: row.correct, total: row.total, hinted: row.hinted, peeked: row.peeked, mistakes: row.mistakes });
       setStatus("done");
@@ -444,6 +455,10 @@ export function useBranchesGame(
   const submit = useCallback(() => {
     if (!board || status !== "playing") return;
     const wrong = board.slotIds.filter((s) => placements[s] !== s);
+    // Record this submit as a row for the share grid: a char per slot, in board
+    // order. Every graded board gets one, so a win after a mistake ends up with
+    // the failed row(s) above a clean one.
+    setAttempts((a) => [...a, board.slotIds.map((s) => (placements[s] === s ? "1" : "0")).join("")]);
     if (wrong.length === 0) {
       finish(placements, hints, peeked, reads, mistakes, true); // clean board
       return;
@@ -484,6 +499,7 @@ export function useBranchesGame(
     setPeeked([]);
     setReads([]);
     setMistakes(0);
+    setAttempts([board.slotIds.map(() => "1").join("")]);
     setHeld(null);
     setStatus("done");
     setResult({ ...branchesTally(board, correct, [], [], []), mistakes: 0 });
@@ -507,6 +523,7 @@ export function useBranchesGame(
     allowance,
     oneAway,
     wrongSlots,
+    attempts,
     tray,
     held,
     status,

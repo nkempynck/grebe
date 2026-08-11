@@ -17,6 +17,10 @@ export interface BranchesProgress {
   reads?: string[];
   /** Wrong placements committed so far (against the day's mistake budget). */
   mistakes?: number;
+  /** One entry per submit, in order: a char per slot in board.slotIds order,
+   *  "1" correct / "0" wrong. Drives the row-per-attempt share grid. Optional —
+   *  boards finished before the grid kept a history have none. */
+  attempts?: string[];
   status: "playing" | "done";
 }
 

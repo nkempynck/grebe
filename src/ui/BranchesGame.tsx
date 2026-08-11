@@ -12,7 +12,7 @@ import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
 import { DiscussionPanel } from "./DiscussionPanel";
 import { todayKey } from "../core/daily";
-import { gameUrl } from "./share";
+import { branchesShareRows, gameUrl } from "./share";
 import { PlaytestBar } from "./PlaytestBar";
 import { useDev } from "../data/devMode";
 
@@ -256,15 +256,16 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   const won = g.won;
   const points = g.result ? branchesPoints(g.tier, won, g.result.total, g.result.correct, g.result.mistakes, g.result.hinted, g.result.peeked) : 0;
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
-  // Shareable result grid: one square per slot in board order. The answer species
-  // are never encoded — only whether each was placed right, and with what help —
-  // so the grid is safe to post. Clean correct 🟩, hint-revealed 🟨, peeked 🟦,
-  // never-placed (on a loss) ⬛.
+  // Shareable result grid: one row per submit (see branchesShareRows). The answer
+  // species are never encoded — only whether each was placed right, and with what
+  // help — so the grid is safe to post. Clean correct 🟩, hint-revealed 🟨,
+  // peeked 🟦, wrong (or never placed, on a loss) ⬛.
   const shareSquare = (s: string) =>
     g.placements[s] !== s ? "⬛" : g.hints.includes(s) ? "🟨" : g.peeked.includes(s) ? "🟦" : "🟩";
+  const shareRows = branchesShareRows(board.slotIds, g.attempts, shareSquare);
   const shareText = (() => {
     const head = `🌿 Grebe Branches · №${dailyNumber(g.date)}${rules.difficulty ? ` · ${rules.difficulty}` : ""}`;
-    const grid = board.slotIds.map(shareSquare).join("");
+    const grid = shareRows.join("\n");
     const tags = [
       g.result?.mistakes ? plural(g.result.mistakes, "mistake") : "",
       g.result?.hinted ? plural(g.result.hinted, "hint") : "",
@@ -626,8 +627,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
           )}
           <div className="share">
             <div className="share-head">🌿 Grebe Branches <span>· №{dailyNumber(g.date)}{rules.difficulty ? ` · ${rules.difficulty}` : ""}</span></div>
-            <div className="share-grid" aria-label={`placements: ${board.slotIds.map(shareSquare).join("")}`}>
-              {board.slotIds.map(shareSquare).join("")}
+            <div className="share-grid" aria-label={`placements: ${shareRows.join(", ")}`}>
+              {shareRows.map((row, i) => <div key={i}>{row}</div>)}
             </div>
             <div className="share-verdict">
               {won ? "Solved 😎" : "Missed it"} · {g.result.correct}/{g.result.total} placed
