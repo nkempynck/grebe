@@ -59,6 +59,13 @@ export interface OverallBadges {
   daily_wins: number;
   win_dates: string[];
   shared_dates: string[];
+  /** Completed weeks/months topped on the combined board, and their start dates
+   *  (Monday / the 1st). Optional: a backend that predates the period crowns
+   *  returns neither, and the badges simply don't render. */
+  week_wins?: number;
+  week_dates?: string[];
+  month_wins?: number;
+  month_dates?: string[];
 }
 
 /** Where a celebrated win came from: one of the three games, or the combined board. */
@@ -334,6 +341,23 @@ export function overallBadges(server: OverallBadges | null): Badge[] {
     `Awarded for topping the combined daily board: each game's score scaled against that day's best, averaged over all three. Finished days with at least ${MIN_DAY_PLAYERS} players only. A tie is shared, so nobody is knocked off a day they were level on.`
   );
   if (b) out.push(b);
+
+  // Same 🏆/🎖️ as a single game's champions (champBadge, fmtWeek, fmtMonth are
+  // shared with competitiveBadges), earned on the combined board instead: the
+  // highest SUM of daily combined scores across a finished week or month. Absent
+  // on a backend without the period crowns, hence the ?? 0.
+  const week = champBadge(
+    "champ-overall-week", "🏆", "overall weekly champion", "overall weekly",
+    server.week_wins ?? 0, server.week_dates ?? [], fmtWeek,
+    `Awarded for the highest combined total across a finished week (Monday to Sunday), adding up each day's combined score. Weeks with at least ${MIN_DAY_PLAYERS} players only.`
+  );
+  if (week) out.push(week);
+  const month = champBadge(
+    "champ-overall-month", "🎖️", "overall monthly champion", "overall monthly",
+    server.month_wins ?? 0, server.month_dates ?? [], fmtMonth,
+    `Awarded for the highest combined total across a finished calendar month, adding up each day's combined score. Months with at least ${MIN_DAY_PLAYERS} players only.`
+  );
+  if (month) out.push(month);
 
   const shared = server.shared_dates ?? [];
   if (shared.length > 0) {

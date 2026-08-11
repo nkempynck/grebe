@@ -365,6 +365,10 @@ export default function App() {
   useEffect(() => { setHintArmed(false); }, [g.guesses.length, g.hintIds.length, roundOver, g.mode]);
   // The name shown/highlighted on the leaderboard (edited display name, else login).
   const boardName = player.displayName ?? player.username;
+  // Browsing past boards (and every window that isn't today) is for signed-in
+  // players. Gated on the session, not on boardName, which can be null for an
+  // account that has yet to pick a display name.
+  const canBrowseBoards = !!player.session;
 
   // Record each finished game once (per mode+answer), tagged with its clade
   // group. Daily results also pop the stats panel open.
@@ -874,24 +878,32 @@ export default function App() {
             <button role="tab" aria-selected={lbGame === "kinship"} className={`lb-seg${lbGame === "kinship" ? " is-on" : ""}`} onClick={() => setLbGame("kinship")}>🧩 Kinship</button>
             <button role="tab" aria-selected={lbGame === "branches"} className={`lb-seg${lbGame === "branches" ? " is-on" : ""}`} onClick={() => setLbGame("branches")}>🌿 Branches</button>
           </div>
+          {/* Signed out: today's board only. The filterable panel (past days,
+              weeks, months, all time) is what an account buys, so it's replaced
+              by the nudge rather than shown locked. Today's board still obeys
+              the play wall above it. */}
           {lbGame === "combined" ? (
-            <CombinedLeaderboard me={boardName} playedToday={playedTodayAny} />
+            <>
+              <CombinedLeaderboard me={boardName} variant="today" playedToday={playedTodayAny} />
+              {canBrowseBoards && <CombinedLeaderboard me={boardName} variant="config" playedToday={playedTodayAny} />}
+            </>
           ) : lbGame === "lineage" ? (
             <>
               <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} />
-              <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} />
+              {canBrowseBoards && <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} />}
             </>
           ) : lbGame === "kinship" ? (
             <>
               <Leaderboard game="kinship" label="Kinship" me={boardName} variant="today" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
-              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="config" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
+              {canBrowseBoards && <Leaderboard game="kinship" label="Kinship" me={boardName} variant="config" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />}
             </>
           ) : (
             <>
               <Leaderboard game="branches" label="Branches" me={boardName} variant="today" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
-              <Leaderboard game="branches" label="Branches" me={boardName} variant="config" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
+              {canBrowseBoards && <Leaderboard game="branches" label="Branches" me={boardName} variant="config" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." />}
             </>
           )}
+          <LeaderboardNudge show={player.configured && !canBrowseBoards} kind="browse" />
         </>
       )}
       {view === "stats" && <StatsTabs stats={stats} field={field} player={player} />}
