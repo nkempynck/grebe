@@ -1,26 +1,24 @@
 import { describe, it, expect } from "vitest";
 import taxonomy from "../data/taxonomy.json";
-import { buildTree, mrca } from "./index";
-import { generateGridBoard, gridBoardForSeed, checkGridSelection, GRID_GROUPS, GRID_GROUP_SIZE, GRID_TILES } from "./grid";
+import augment from "../data/taxonomyAugment.json";
+import { buildTree } from "./index";
+import { mrca, separationTierOf } from "./tree";
+import { generateGridBoard, checkGridSelection, GRID_GROUPS, GRID_GROUP_SIZE, GRID_TILES } from "./grid";
 
-const tree = buildTree((taxonomy as { nodes: Parameters<typeof buildTree>[0] }).nodes);
+type Nodes = Parameters<typeof buildTree>[0];
+const tree = buildTree((taxonomy as { nodes: Nodes }).nodes);
+// The tree the GAME actually plays on: base + the Kinship/Branches augment (see
+// loadRichTree). The weekday difficulty ramp only exists here — on the bare base tree
+// the gradient is flat to slightly inverted — so any test of difficulty must use it.
+const richTree = buildTree([
+  ...(taxonomy as { nodes: Nodes }).nodes,
+  ...(augment as { nodes: Nodes }).nodes,
+]);
 
 const board = (date: string, tier: number) => {
   const b = generateGridBoard(tree, date, tier);
   if (!b) throw new Error(`no board for ${date} tier ${tier}`);
   return b;
-};
-
-// Board tightness = MEDIAN over the six group-pairs of their MRCA depth (deeper = more
-// clustered = harder). Median (not the single all-four MRCA) matches the generator's own
-// difficulty measure: it's robust to one distant outlier group among three tight ones.
-const spreadDepth = (b: { groups: { cladeId: string }[] }) => {
-  const ids = b.groups.map((g) => g.cladeId);
-  const pd: number[] = [];
-  for (let i = 0; i < ids.length; i++)
-    for (let j = i + 1; j < ids.length; j++) pd.push(tree.depthOf.get(mrca(tree, ids[i], ids[j])) ?? 0);
-  pd.sort((a, z) => a - z);
-  return (pd[Math.floor((pd.length - 1) / 2)] + pd[Math.ceil((pd.length - 1) / 2)]) / 2;
 };
 
 describe("generateGridBoard", () => {
@@ -59,17 +57,46 @@ describe("generateGridBoard", () => {
     expect(new Set(sigs).size).toBeGreaterThan(1);
   });
 
-  it("clusters groups more tightly on harder tiers (median over many boards)", () => {
-    // Sample many boards per tier via the seed path (no epoch replay → fast) and compare
-    // average tightness. The gradient is gentle by design (difficulty is carried mainly by
-    // the reveal mode), so average over a big sample rather than asserting per-board.
-    const seeds = Array.from({ length: 60 }, (_, i) => `grid-test-${i}`);
-    const avg = (tier: number) => {
-      const ds = seeds.map((s) => gridBoardForSeed(tree, s, tier)).filter(Boolean).map((b) => spreadDepth(b!));
-      return ds.reduce((a, x) => a + x, 0) / ds.length;
+  it("ramps difficulty by group separation across the week", () => {
+    // What makes a board hard is how CLOSE its four groups sit, and nothing else. This test
+    // has been wrong twice, both times by asserting a ramp the generator did not produce:
+    // first "Sunday's groups cluster more tightly" (separation was flat, 3.05 Mon to 3.70
+    // Sun, so it passed on luck), then a RECOGNISABILITY ramp — real only while difficulty
+    // was max(separation, obscurity). Obscurity is no longer difficulty: it made boards
+    // unplayable rather than interesting (the two worst of 22 played boards were obscure and
+    // well separated, at 0.02 and 0.11 of available points, while the tightest famous board
+    // scored 0.64), and it cannot bite at all Mon-Wed where the tile names are printed. With
+    // it gone the recognisability ramp INVERTS — tight boards are the famous ones, cats and
+    // monkeys — so asserting it would now pin the bug we just removed.
+    //
+    // Measured, not guessed: the mean over pooled tiers, across eight different 16-date
+    // windows, ran 1.16-1.22. Mean, not median: a board's separation is the median of six
+    // pair-tiers and lands on a handful of discrete values, so a median-of-medians snaps to
+    // 3.5 or 4.0 and reads a real ramp as exactly 1.0.
+    const dates = Array.from({ length: 16 }, (_, i) => {
+      const d = new Date("2026-06-29T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + i * 7);
+      return d.toISOString().slice(0, 10);
+    });
+    const median = (v: number[]) => {
+      const s = [...v].sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
     };
-    expect(avg(7)).toBeGreaterThan(avg(1)); // Sunday boards tighter than Monday's
-  });
+    const separation = (ids: string[]) => {
+      const pairs: number[] = [];
+      for (let i = 0; i < ids.length; i++)
+        for (let j = i + 1; j < ids.length; j++) pairs.push(separationTierOf(richTree, mrca(richTree, ids[i], ids[j])));
+      return median(pairs);
+    };
+    const meanAt = (tiers: number[]) => {
+      const v = tiers.flatMap((tier) =>
+        dates.map((d) => generateGridBoard(richTree, d, tier)).filter(Boolean).map((b) => separation(b!.groups.map((g) => g.cladeId)))
+      );
+      return v.reduce((a, b) => a + b, 0) / v.length;
+    };
+    expect(meanAt([5, 6, 7])).toBeGreaterThan(meanAt([1, 2, 3]) * 1.1);
+  }, 30_000);
 });
 
 describe("checkGridSelection", () => {
