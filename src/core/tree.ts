@@ -81,7 +81,8 @@ export const MRCA_TIER: Record<string, number> = {
  *  easier, conservative read; nothing is called hard just for lacking a rank label). */
 export function separationTierOf(tree: Tree, id: string): number {
   for (let c: string | null | undefined = id; c; c = tree.byId.get(c)?.parentId) {
-    const t = MRCA_TIER[tree.byId.get(c)?.rank ?? ""];
+    const n = tree.byId.get(c);
+    const t = MRCA_TIER[n?.sepRank ?? n?.rank ?? ""];
     if (t !== undefined) return t;
   }
   return 1; // no ranked ancestor at all → a very high clade → easy
