@@ -35,12 +35,14 @@ Run the long ones under `caffeinate -i` (Mac won't sleep). Logs: `/tmp/grebe-*.l
 | finalize| `finalize-taxonomy.mjs` | write `src/data/taxonomy.json` + provenance (OTL synth + Wikidata date) + scopes |
 | wiki titles | `patch-wiki-titles.mjs` | clade `wikiTitle` from Wikidata (P9157 → enwiki article), keyed on the OTT id so homonyms can't collide. Patches `src/data/taxonomy.json` in place |
 | clade views | `patch-clade-views.mjs` | clade `cladeViews` from `sel-pool-pageviews.json`, joined on sciName. A JOIN, no network. Patches BOTH `taxonomy.json` and `taxonomyAugment.json` |
+| merged clades | `patch-merged-clades.mjs` | names ~140 anonymous clades whose children are each too small to be a group, by joining them ("Vicugna & Lama"). Only where nothing below is ALREADY a group, so a name adds a group and costs none. No network |
 | out-of-set | `build-taxon-index.mjs` | pool taxa NOT in in-set → `src/data/guessIndex.generated.json` (graft lineage from topology, + views). Needs `node --max-old-space-size=8192` |
 
 `npm run build:taxonomy` chains assemble→names→finalize. `npm run build:guessindex` = build-taxon-index.
 
-**Re-run `patch-wiki-titles.mjs` AND `patch-clade-views.mjs` after any finalize** — both
-write fields finalize doesn't know about, so a rebuild drops them.
+**Re-run `patch-wiki-titles.mjs`, `patch-clade-views.mjs` AND `patch-merged-clades.mjs`
+after any finalize** — all three write fields finalize doesn't know about, so a rebuild
+drops them. Losing the merged-clade names costs ~24 distinct Kinship groups a year.
 
 Without wiki titles, clades fetch Wikipedia by bare Latin name, and uninomial names aren't
 unique: "Linaria" the finch loses to Linaria the toadflax, "Acer" to Acer Inc., "Glycine"
@@ -89,7 +91,7 @@ pinned. `separationTierOf` reads `sepRank ?? rank`; nothing else looks at it.
 
 ## Kept utilities
 `common-name-overrides.mjs` (build-names), `curated-extras.mjs` (inject-extras),
-`patch-wiki-titles.mjs` + `patch-clade-views.mjs` (both post-finalize),
+`patch-wiki-titles.mjs` + `patch-clade-views.mjs` + `patch-merged-clades.mjs` (all post-finalize),
 `load-guess-index.mjs`, `backup-taxon-index.mjs`, `pin-puzzles.ts`, `preview-*.ts`.
 
 ## One-time migrations
