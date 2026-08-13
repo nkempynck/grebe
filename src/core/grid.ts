@@ -12,7 +12,7 @@
 // Pure: imports only the tree engine — no React, no DOM, no data layer.
 
 import type { Tree } from "./types";
-import { isAncestor, leavesUnder, mrca, separationTierOf } from "./tree";
+import { leavesUnder, mrca, separationTierOf } from "./tree";
 
 export const GRID_GROUPS = 4;
 export const GRID_GROUP_SIZE = 4;
@@ -218,6 +218,57 @@ interface Theme {
 
 const isLeaf = (tree: Tree, id: string) => (tree.childrenOf.get(id) ?? []).length === 0;
 
+/** O(1) "is a inside b" for a whole tree, from one iterative DFS. `isAncestor` in ./tree
+ *  walks parent links, which is fine for a handful of calls and far too slow here: container
+ *  discovery asks it O(n^2) times per container for the disjoint-count test and again for
+ *  the pairwise separation table, and once containers could hold overlapping themes that
+ *  turned first-board generation into a 16-SECOND stall. Cached per tree, like discovery. */
+interface Euler { enter: Map<string, number>; exit: Map<string, number> }
+const eulerCache = new WeakMap<Tree, Euler>();
+function eulerOf(tree: Tree): Euler {
+  const hit = eulerCache.get(tree);
+  if (hit) return hit;
+  const enter = new Map<string, number>();
+  const exit = new Map<string, number>();
+  let clock = 0;
+  // Iterative: the tree is deep enough that recursion has blown the stack here before.
+  const stack: Array<[string, boolean]> = [[tree.rootId, false]];
+  while (stack.length) {
+    const [id, done] = stack.pop()!;
+    if (done) { exit.set(id, clock++); continue; }
+    enter.set(id, clock++);
+    stack.push([id, true]);
+    for (const c of tree.childrenOf.get(id) ?? []) stack.push([c, false]);
+  }
+  const e = { enter, exit };
+  eulerCache.set(tree, e);
+  return e;
+}
+/** True when `a` contains `b`, or they are the same node. */
+const contains = (e: Euler, a: string, b: string) => {
+  const ea = e.enter.get(a), eb = e.enter.get(b);
+  if (ea === undefined || eb === undefined) return false;
+  return ea <= eb && (e.exit.get(b) ?? 0) <= (e.exit.get(a) ?? 0);
+};
+/** Either node inside the other — the test for "these two can never share a board". */
+const overlaps = (e: Euler, a: string, b: string) => contains(e, a, b) || contains(e, b, a);
+
+/** Separation for a pair of clades, memoised per tree. Containers overlap heavily — a theme
+ *  belongs to every container above it — so discovery asks for the same pair many times, and
+ *  each miss walks both ancestry chains to find the MRCA. */
+const sepMemoCache = new WeakMap<Tree, Map<string, number>>();
+function pairSeparation(tree: Tree, a: string, b: string): number {
+  let memo = sepMemoCache.get(tree);
+  if (!memo) { memo = new Map(); sepMemoCache.set(tree, memo); }
+  const k = sepKey(a, b);
+  let v = memo.get(k);
+  if (v === undefined) {
+    v = separationTierOf(tree, mrca(tree, a, b));
+    memo.set(k, v);
+  }
+  return v;
+}
+
 /** Every clade that could serve as one group: an internal node with a coherent
  *  number of NAMED member species (Latin-only leaves are unusable as tiles, so a
  *  theme must field four with common names). Its stored leaf list is the named
@@ -292,6 +343,7 @@ const sepKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
  *  the extra boards are a win instead of the imbalance a fame-only tier produced. */
 const FAMILY_AS_CONTAINER = true;
 function containers(tree: Tree, themes: Map<string, Theme>): Container[] {
+  const e = eulerOf(tree);
   const offered = new Map<string, Theme[]>();
   const belowOf = new Map<string, Theme[]>();
   const compute = (id: string): Theme[] => {
@@ -343,7 +395,7 @@ function containers(tree: Tree, themes: Map<string, Theme>): Container[] {
     // Admission counts the DISJOINT groups available, not the list length: a list of one
     // clade plus its three children looks like four groups and can only ever field three.
     // On a tree the leaf-most themes are a maximum antichain, so counting them is exact.
-    const disjoint = list.filter((t) => !list.some((o) => o.cladeId !== t.cladeId && isAncestor(tree, t.cladeId, o.cladeId))).length;
+    const disjoint = list.filter((t) => !list.some((o) => o.cladeId !== t.cladeId && contains(e, t.cladeId, o.cladeId))).length;
     if (disjoint >= GRID_GROUPS) out.push({ id, depth: tree.depthOf.get(id) ?? 0, themes: list });
   }
   return out;
@@ -503,7 +555,7 @@ function boardSeparation(
   for (let i = 0; i < n; i++)
     for (let j = i + 1; j < n; j++) {
       const memo = pairSep?.get(sepKey(groupIds[i], groupIds[j]));
-      const v = memo ?? separationTierOf(tree, mrca(tree, groupIds[i], groupIds[j]));
+      const v = memo ?? pairSeparation(tree, groupIds[i], groupIds[j]);
       m[i][j] = m[j][i] = v;
       pairs.push(v);
     }
@@ -642,6 +694,7 @@ function broadGroupOf(tree: Tree, id: string): string {
  *  a cross-class container (group "other") can't host a board, so no board ever mixes two
  *  classes. (Board difficulty is scored later, per board, in boardForDay.) */
 function discover(tree: Tree): Discovered | null {
+  const eu = eulerOf(tree);
   const candidates = containers(tree, allThemes(tree)).filter((c) => broadGroupOf(tree, c.id) !== "other");
   if (candidates.length === 0) return null;
 
@@ -672,8 +725,8 @@ function discover(tree: Tree): Discovered | null {
         // A nested pair can never share a board, and its "separation" is the rank of the
         // outer clade itself — a large number that would fake a confusable pair and let a
         // container through the floor on a board it cannot build.
-        if (isAncestor(tree, a, b) || isAncestor(tree, b, a)) continue;
-        const s = separationTierOf(tree, mrca(tree, a, b));
+        if (overlaps(eu, a, b)) continue;
+        const s = pairSeparation(tree, a, b);
         c.pairSep.set(sepKey(a, b), s);
         if (s > tightest) tightest = s;
       }
@@ -762,6 +815,7 @@ function buildBoard(
   tier: number,
   hist?: History
 ): GridBoard | null {
+  const eb = eulerOf(tree);
   const rng = mulberry32(xmur3(`grebe:grid:${dateKey}:${container.id}`));
   // Which of this container's themes are still fresh (see orderedThemes). Optional so the
   // function stays usable without history; with it the board is a function of (date,
@@ -809,7 +863,7 @@ function buildBoard(
     // A container's themes may now overlap (see containers), so disjointness is enforced
     // here rather than guaranteed by the list: a group that CONTAINS another group on the
     // same board leaves the puzzle with no correct answer.
-    if (groups.some((g) => isAncestor(tree, t.cladeId, g.cladeId) || isAncestor(tree, g.cladeId, t.cladeId))) continue;
+    if (groups.some((g) => overlaps(eb, t.cladeId, g.cladeId))) continue;
     if (nestsWithAny(tree, t.cladeId, memberIds, groups)) continue; // reads as a group inside a group
     // Count the allowance only once the theme is actually ACCEPTED: pickMembers can still
     // reject it on the word cap, and spending the allowance on a theme that never made the
