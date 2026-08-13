@@ -856,8 +856,19 @@ function buildBoard(
 /** A board's four categories, order-independent — the anti-repeat key. */
 const groupSig = (b: GridBoard) => b.groups.map((g) => g.cladeId).sort().join(",");
 
-/** Days a board's group-SET should stay clear of its recent predecessors. */
+/** Days a board's group-SET may not return at all. A HARD gate, like the group rule below
+ *  and unlike the soft cost this used to be. As a cost it competed on equal terms with
+ *  everything else and lost: a set returning after 60 days charged 90-60 = 30, while missing
+ *  the day's difficulty band charges 45 per rank, so the scorer would replay all four groups
+ *  from two months ago rather than accept a slightly off-band board. Measured over a year
+ *  that let 26 sets return inside the window, one after 49 days, where the pre-branch
+ *  generator never repeated a set inside 90 days at all. Replaying the identical four groups
+ *  is the worst outcome on offer, so it does not get a price. */
 const GRID_ANTI_REPEAT_WINDOW = 90;
+/** Beyond the hard window a repeated set still costs something, decaying to zero here — the
+ *  same shape as GRID_GROUP_SPACING, and for the same reason: without it a set returns the
+ *  day its gate expires. */
+const GRID_SET_SPACING = 180;
 
 /** Days an individual SPECIES should stay off the board before it is a preferred tile
  *  again (pickMembers). A preference, never a gate: a group with exactly four named
@@ -971,7 +982,9 @@ function boardForDay(
     // case: an exact four-set could return at 30 days because the flat amount happened to
     // beat the alternatives that day.
     const seen = seenAt.get(groupSig(board));
-    const setCost = seen === undefined ? 0 : Math.max(0, GRID_ANTI_REPEAT_WINDOW - (dayIdx - seen));
+    const setAge = seen === undefined ? Infinity : dayIdx - seen;
+    const setTooSoon = setAge < GRID_ANTI_REPEAT_WINDOW;
+    const setCost = Math.max(0, GRID_SET_SPACING - setAge);
     // How much of this board the player has seen recently, tile by tile.
     let staleTiles = 0;
     for (const g of board.groups)
@@ -1023,7 +1036,7 @@ function boardForDay(
         : (TRAP_SIZE[tier] ?? 3) >= 3
         ? pairTrap && riderOk && (tripleTrap || uniform)
         : pairTrap && riderOk;
-    if (classTooSoon || recentGroups > 0 || !shapeOk) {
+    if (classTooSoon || recentGroups > 0 || setTooSoon || !shapeOk) {
       if (score < floorFallbackScore) { floorFallback = board; floorFallbackScore = score; }
       continue; // giveaway group, or nothing on the board to confuse — see the gates
     }
