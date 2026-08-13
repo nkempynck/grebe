@@ -3,6 +3,18 @@ import { generateGridBoard, type GridBoard } from "../core";
 import { todayKey } from "../core/daily";
 import { resolveDailyRules } from "./dailySchedule";
 
+/** How far ahead the bench may sample before wrapping. Every board it deals replays the
+ *  anti-repeat history from the anchor up to its date, at roughly 140ms per replayed day, so
+ *  an unbounded walk is an unbounded stall. Half a year of weekdays is plenty to judge
+ *  variety and costs at most a few seconds even if something resets the counter high. */
+const BENCH_HORIZON_WEEKS = 26;
+
+/** Weekday tier for a date, Mon=1 … Sun=7 — the same mapping generateGridBoard replays. */
+const tierOfDate = (dateKey: string): number => {
+  const day = new Date(`${dateKey}T00:00:00Z`).getUTCDay(); // Sun=0 … Sat=6
+  return ((day + 6) % 7) + 1;
+};
+
 const shiftDate = (dateKey: string, delta: number): string => {
   const d = new Date(`${dateKey}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + delta);
@@ -20,11 +32,28 @@ export function gridBoardFor(
 ): GridBoard | null {
   // `opts` is an admin playtest override: force a tier and/or reshuffle. Left
   // undefined for real dailies, so today's board never changes shape.
-  const tier = opts?.tier && opts.tier > 0 ? opts.tier : resolveDailyRules(dateKey).tier;
-  // Reshuffle walks the REAL daily sequence: reshuffle N shows the anti-repeated board
-  // from N days later at the chosen tier. So the bench previews genuine day-to-day
-  // variety (full class mix, no short repeats) and the true difficulty — not a stateless,
-  // class-skewed one-off. The offset is a real date, so the anti-repeat replay terminates.
+  const forced = opts?.tier && opts.tier > 0 ? opts.tier : 0;
   const offset = opts?.reshuffle && opts.reshuffle > 0 ? opts.reshuffle : 0;
-  return generateGridBoard(tree, offset > 0 ? shiftDate(dateKey, offset) : dateKey, tier);
+
+  // Reshuffle walks the REAL daily sequence rather than dealing a stateless one-off, so the
+  // bench previews genuine day-to-day variety — the true class mix, and the no-repeat rules
+  // actually applied. The offset lands on a real date, so the anti-repeat replay terminates.
+  //
+  // A FORCED tier steps a WEEK at a time from the next date that really is that weekday,
+  // so every sample is a real day's board at its natural tier. Stepping one day at a time
+  // instead looked equivalent and was not: the anti-repeat history records only each date's
+  // natural-tier board, so a forced-tier sample was checked against boards the bench never
+  // showed, and consecutive reshuffles repeated. Measured at tier 1, six of twenty
+  // consecutive pairs shared three of four groups; walking the weekday takes that to zero.
+  if (forced) {
+    let d = dateKey;
+    for (let i = 0; i < 7 && tierOfDate(d) !== forced; i++) d = shiftDate(d, 1);
+    return generateGridBoard(tree, shiftDate(d, (offset % BENCH_HORIZON_WEEKS) * 7), forced);
+  }
+  // Each day at its OWN tier. Resolving the tier from the UNSHIFTED date was a quiet bug:
+  // reshuffling dealt day+N's board at today's tier, which is an off-tier board for that
+  // date and so is not the one committed to the anti-repeat history — so consecutive
+  // reshuffles could repeat, the very thing the bench exists to check.
+  const target = offset > 0 ? shiftDate(dateKey, offset % (BENCH_HORIZON_WEEKS * 7)) : dateKey;
+  return generateGridBoard(tree, target, resolveDailyRules(target).tier);
 }
