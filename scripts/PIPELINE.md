@@ -99,14 +99,42 @@ TRAILING ott number, handing the node an id belonging to an unrelated taxon). Id
 refuses to write on any ambiguity. **Delete it once the augment is rebuilt** — see TODO.
 
 ## Retired (removed — old GBIF-occurrence pipeline)
-build-taxonomy.mjs, build-guess-index.mjs, enrich-wiki.mjs, build-augment.mjs,
+build-taxonomy.mjs, build-guess-index.mjs, enrich-wiki.mjs,
 patch-common-names.mjs, patch-prominence.mjs, and the exploration probes
 (build-select, classify-families [Wikidata], calibrate-*, proto-wiki-select,
 bench-wikidata-names).
 
+## E. Kinship/Branches depth — the augment
+
+`build-augment.mjs` (NOT retired) grafts extra named pool species onto the in-set tree so
+Kinship and Branches get breadth Lineage's curated set can't give them: the in-set caps each
+genus at **3** species and a group needs **4**, so no genus can be a group without it. It
+reads `src/data/taxonomy.json` + `sel-pool.json` + `sel-classify-otl.json` +
+`sel-family-anchors.json` and writes `src/data/taxonomyAugment.json`. **Re-run
+`patch-clade-views.mjs` afterwards** — the augment carries `cladeViews` too.
+
+It GRAFTS onto existing base nodes rather than re-pruning, so base and augment cannot
+disagree about a clade's id. Two guards keep it that way:
+
+- **Never mint a genus node for a genus the base tree already holds species of.** Genus
+  injection rejects a genus that isn't monophyletic in our topology — *Bison* nests inside
+  *Bos*, the sun bear inside *Ursus* — so there is no `Bos` node even though Bos taurus is in
+  the tree under Bovinae. Minting `auggen_Bos` for the rest produced a board asking you to
+  sort one Bos into "Bovinae" and another into "Bos", and a group that is taxonomically
+  false. Those species graft where their relatives already live instead.
+- **Never mint a node whose NAME already exists in the base tree.**
+
+Duplicate scientific names across base+augment: 49 before, 5 after.
+
 ## TODO (not yet done)
-- Kinship/Branches depth: the current `taxonomyAugment.json` is the OLD GBIF-era augment;
-  rebuild it (or its replacement) from the new pool so Kinship/Branches get genus depth.
-  It supplies 43% of the species Kinship shows but only ~11% of the groups, so this is the
-  largest remaining variety lever. Rebuilding it also retires `migrate-augment-ids.mjs`.
+- `migrate-augment-ids.mjs` can be deleted: it existed only to re-point the OLD augment after
+  the parseLabel id fix, and the augment is now rebuilt from the current tree.
+- Variety: ~334 internal nodes sit at usable group size (4-25 named species) above the fame
+  floor with NO name at all, and are therefore invisible to Kinship — a potential +28% on the
+  theme pool, spread across every class. They are intermediate branch points with no Linnaean
+  name, so naming them needs subfamily/tribe data we don't pull yet. Adding SPECIES is the
+  weaker lever by comparison: 2,657 nameable pool species are missing but only ~40 genera
+  would cross the four-species line.
+- `build-augment.mjs` requires a two-word binomial, so hybrids are dropped — that loses
+  Fragaria × ananassa (strawberry, 90k views) and friends.
 - Wire Amphibians + Reptiles (new scopes) into leaderboards/badges.

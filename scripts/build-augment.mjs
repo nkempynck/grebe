@@ -68,6 +68,24 @@ for (const n of tax.nodes) {
 }
 const inSetSci = new Set();
 for (const n of tax.nodes) if (n.rank === "species") inSetSci.add(n.sciName);
+// Genera the base tree holds SPECIES of but has no genus NODE for, mapped to where those
+// species actually hang. Genus injection rejects a genus whose species aren't monophyletic
+// in our topology — Bison nests inside Bos, so there is no `Bos` node even though Bos taurus
+// and Bos primigenius are in the tree, sitting under Bovinae. Minting `auggen_Bos` for the
+// remaining Bos species then produces the board that asks you to sort one Bos into "Bovinae"
+// and another into "Bos". Grafting them where their relatives already live avoids inventing
+// a second home for one genus.
+const baseParentByGenus = new Map();
+const inSetCountByGenusName = new Map();
+for (const n of tax.nodes) {
+  if (n.rank !== "species") continue;
+  const g = n.sciName.split(/\s+/)[0];
+  inSetCountByGenusName.set(g, (inSetCountByGenusName.get(g) ?? 0) + 1);
+  if (!genusNodeBySci.has(g) && !baseParentByGenus.has(g)) baseParentByGenus.set(g, n.parentId);
+}
+// Names already spoken for anywhere in the base tree — never mint a second node for one.
+const inSetCladeNames = new Set();
+for (const n of tax.nodes) if (n.rank !== "species" && n.sciName) inSetCladeNames.add(n.sciName);
 const genusIdToSci = new Map([...genusNodeBySci].map(([sci, id]) => [id, sci]));
 const inSetCountByGenus = new Map(); // genus sci -> # in-set species already shipped
 for (const n of tax.nodes) {
@@ -90,6 +108,11 @@ for (const s of pool) {
   if (genusNodeBySci.has(s.genus)) {
     let b = genusBuckets.get(s.genus);
     if (!b) genusBuckets.set(s.genus, (b = { isNew: false, parentId: genusNodeBySci.get(s.genus), species: [] }));
+    b.species.push({ ...s, common: s.article });
+  } else if (baseParentByGenus.has(s.genus)) {
+    // see baseParentByGenus — graft alongside the relatives already in the tree
+    let b = genusBuckets.get(s.genus);
+    if (!b) genusBuckets.set(s.genus, (b = { isNew: false, parentId: baseParentByGenus.get(s.genus), species: [] }));
     b.species.push({ ...s, common: s.article });
   } else if (s.family && famNodeBySci.has(s.family)) {
     let b = genusBuckets.get(s.genus);
@@ -126,13 +149,14 @@ for (const [genus, b] of genusBuckets) {
   if (b.isNew) {
     const gid = genusNodeId(genus);
     if (allNodeIds.has(gid) || usedId.has(gid)) continue;
+    if (inSetCladeNames.has(genus)) continue; // the name is already someone else's node
     const sp = takeSpecies(b.species, AUG_PER_GENUS, gid);
     if (sp.length < NEW_GENUS_MIN) continue; // can't field a group — skip the whole genus
     usedId.add(gid);
     nodes.push({ id: gid, sciName: genus, rank: "genus", parentId: b.parentId }, ...sp);
     breadthGenera++;
   } else {
-    const room = AUG_PER_GENUS - (inSetCountByGenus.get(genus) ?? 0);
+    const room = AUG_PER_GENUS - (inSetCountByGenus.get(genus) ?? inSetCountByGenusName.get(genus) ?? 0);
     if (room <= 0) continue;
     const sp = takeSpecies(b.species, room, b.parentId);
     if (sp.length) { nodes.push(...sp); depthGenera++; }
@@ -146,12 +170,13 @@ for (const [family, f] of famBuckets) {
   if (!anchor || !insetOtt.has(anchor)) continue; // unplaceable → skip (no class wiring guessed)
   const famId = `ott${f.ott}`;
   if (allNodeIds.has(famId) || usedId.has(famId)) continue;
+  if (inSetCladeNames.has(family)) continue; // the name is already someone else's node
   // Build this family's genus nodes + species first, so we know if it's eligible.
   const famNodes = [];
   let leaves = 0, hasGenusTheme = false;
   for (const [genus, list] of f.genera) {
     const gid = genusNodeId(genus);
-    if (allNodeIds.has(gid) || usedId.has(gid)) continue;
+    if (allNodeIds.has(gid) || usedId.has(gid) || inSetCladeNames.has(genus)) continue;
     const sp = takeSpecies(list, AUG_PER_GENUS, gid);
     if (!sp.length) continue;
     usedId.add(gid);
