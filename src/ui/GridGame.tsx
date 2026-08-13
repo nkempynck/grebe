@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Tree } from "../core";
 import { dailyNumber } from "../core";
 import { useGridGame, PRESHOW_MAX_TIER, type GridComplete } from "../hooks/useGridGame";
@@ -47,6 +47,13 @@ const LEVEL_SQUARE = ["🟨", "🟩", "🟦", "🟪"];
 /** From this tier (Sat–Sun) the board is picture-only: pictures are shown and the
  *  NAME is the hidden thing you reveal — sort the organisms by sight. */
 const PICTURE_MODE_MIN_TIER = 6;
+
+/** Thu-Fri are MIXED: this many of the sixteen tiles arrive as pictures with their name
+ *  hidden, the rest as names with their picture hidden. Each tile's reveal flips whichever
+ *  half it is missing. Those two days used to be the only ones with no free pictures at all,
+ *  which is the cliff in the week: it is where obscure boards bite hardest, and it is why
+ *  plant boards were unplayable there before they were moved off it. */
+const MIXED_PICTURE_COUNT = 4;
 
 function GroupBar({ tree, group, dimmed, onPick }: { tree: Tree; group: GridGroup; dimmed?: boolean; onPick?: (id: string) => void }) {
   const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
@@ -104,6 +111,17 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   //     recognise the organism by sight, then sort by clade.
   const preshow = g.tier > 0 && g.tier <= PRESHOW_MAX_TIER;
   const pictureMode = g.tier >= PICTURE_MODE_MIN_TIER;
+  const mixedMode = g.tier > PRESHOW_MAX_TIER && g.tier < PICTURE_MODE_MIN_TIER;
+  // Which tiles start as pictures on a mixed day. Spread evenly over the board's SHUFFLED
+  // tile order, which is seeded and carries no group structure, so the four picture tiles
+  // don't hand a group away. Keyed off the whole board (not `remaining`) so a tile does not
+  // change mode when a group is solved.
+  const pictureTiles = useMemo(() => {
+    const all = g.board?.tiles;
+    if (!mixedMode || !all?.length) return new Set<string>();
+    const step = Math.max(1, Math.floor(all.length / MIXED_PICTURE_COUNT));
+    return new Set(Array.from({ length: MIXED_PICTURE_COUNT }, (_, i) => all[(i * step) % all.length]));
+  }, [mixedMode, g.board]);
   const tiles = g.board?.tiles;
   // Prefetch every tile's image up front, in all modes. Easy/picture days show them;
   // harder days keep them hidden until a flip — but we still fetch so we know which
@@ -201,6 +219,8 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
     ? "Every picture is shown free on the easier days."
     : pictureMode
     ? "Pictures only today, names hidden: flip a name with 🔤 (first three free, then a little score)."
+    : mixedMode
+    ? `${MIXED_PICTURE_COUNT} tiles arrive as pictures and the rest as names: flip either to its other half (first three free, then a little score).`
     : "Flip a tile to its picture with 🔍 (first three free, then a little score).";
 
   // Live reveal tracker (shown while reveals are in play, i.e. not the easy preshow
@@ -271,16 +291,18 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
               const hasImg = !!thumbs[id];
               // Picture mode: the image is the tile, the name is revealed. Normal:
               // the name is the tile, the image is revealed. Easy days show both.
-              const imgShown = pictureMode ? hasImg : (preshow || flipped.has(id)) && hasImg;
-              // In picture mode the name shows only once revealed or once we know
+              // On a mixed day each tile has its OWN mode; elsewhere the board has one.
+              const asPicture = pictureMode || pictureTiles.has(id);
+              const imgShown = asPicture ? hasImg : (preshow || flipped.has(id)) && hasImg;
+              // As a picture the name shows only once revealed or once we know
               // the species has no image — never in the gap while images load.
-              const nameShown = pictureMode ? flipped.has(id) || noImg.has(id) : true;
+              const nameShown = asPicture ? flipped.has(id) || noImg.has(id) : true;
               // A reveal control exists on the harder days: it flips the hidden
               // half (picture normally, name in picture mode). None on easy days,
               // and — in either mode — none for an image-less tile: there's nothing
               // to reveal, so flipping it must never cost a reveal.
-              const canReveal = pictureMode ? hasImg : !preshow && hasImg;
-              const noun = pictureMode ? "name" : "picture";
+              const canReveal = asPicture ? hasImg : !preshow && hasImg;
+              const noun = asPicture ? "name" : "picture";
               const nextCost = revealCostOf(g.revealed.length);
               const flipTitle = g.revealed.includes(id)
                 ? `Hide ${noun}`
