@@ -5,9 +5,14 @@ import { resolveDailyRules } from "./dailySchedule";
 
 /** How far ahead the bench may sample before wrapping. Every board it deals replays the
  *  anti-repeat history from the anchor up to its date, at roughly 140ms per replayed day, so
- *  an unbounded walk is an unbounded stall. Half a year of weekdays is plenty to judge
- *  variety and costs at most a few seconds even if something resets the counter high. */
-const BENCH_HORIZON_WEEKS = 26;
+ *  an unbounded walk is an unbounded stall.
+ *
+ *  A FULL year of same-weekday boards, because the wrap is visible: at 26 the 27th press
+ *  dealt the byte-identical board to the first, and pressing "New board" a few dozen times
+ *  reads as the generator cycling through a small set when it is only the bench running out
+ *  of dates. A year is the natural unit to judge variety over anyway, since that is what the
+ *  anti-repeat windows are tuned against. */
+const BENCH_HORIZON_WEEKS = 52;
 
 /** Weekday tier for a date, Mon=1 … Sun=7 — the same mapping generateGridBoard replays. */
 const tierOfDate = (dateKey: string): number => {
