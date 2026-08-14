@@ -112,15 +112,39 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   const preshow = g.tier > 0 && g.tier <= PRESHOW_MAX_TIER;
   const pictureMode = g.tier >= PICTURE_MODE_MIN_TIER;
   const mixedMode = g.tier > PRESHOW_MAX_TIER && g.tier < PICTURE_MODE_MIN_TIER;
-  // Which tiles start as pictures on a mixed day. Spread evenly over the board's SHUFFLED
-  // tile order, which is seeded and carries no group structure, so the four picture tiles
-  // don't hand a group away. Keyed off the whole board (not `remaining`) so a tile does not
+  // Which tiles start as pictures on a mixed day. Ordered by a hash of the date and the tile
+  // id, so the four scatter across the grid but every player sees the same board and it
+  // survives a reload. This used to take every fourth tile of the board order, which with
+  // sixteen tiles in four columns meant indices 0/4/8/12 — the entire first column, every
+  // Thursday and Friday. Keyed off the whole board (not `remaining`) so a tile does not
   // change mode when a group is solved.
   const pictureTiles = useMemo(() => {
     const all = g.board?.tiles;
     if (!mixedMode || !all?.length) return new Set<string>();
-    const step = Math.max(1, Math.floor(all.length / MIXED_PICTURE_COUNT));
-    return new Set(Array.from({ length: MIXED_PICTURE_COUNT }, (_, i) => all[(i * step) % all.length]));
+    const seed = g.board?.date ?? "";
+    const hash = (str: string) => {
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    };
+    const order = [...all].sort((a, b) => hash(seed + a) - hash(seed + b) || (a < b ? -1 : 1));
+    const pos = new Map(all.map((id, i) => [id, i]));
+    // Genuine randomness lands all four in one column or row about twice a year, which is
+    // indistinguishable from the bug this replaced. Take the next candidate instead.
+    const aligned = (ids: string[]) =>
+      ids.length === MIXED_PICTURE_COUNT &&
+      (new Set(ids.map((id) => (pos.get(id) ?? 0) % 4)).size === 1 ||
+        new Set(ids.map((id) => Math.floor((pos.get(id) ?? 0) / 4))).size === 1);
+    const chosen: string[] = [];
+    for (const id of order) {
+      if (chosen.length >= MIXED_PICTURE_COUNT) break;
+      chosen.push(id);
+      if (aligned(chosen)) chosen.pop();
+    }
+    return new Set(chosen);
   }, [mixedMode, g.board]);
   const tiles = g.board?.tiles;
   // Prefetch every tile's image up front, in all modes. Easy/picture days show them;
