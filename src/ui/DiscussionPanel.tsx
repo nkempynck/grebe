@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { todayKey } from "../core/daily";
 import {
   fetchComments,
   postComment,
@@ -55,6 +56,11 @@ function ago(iso: string): string {
 // Ownership comes from the server's is_mine flag rather than a display-name
 // comparison, so it stays correct if a player renames themselves mid-day.
 export function DiscussionPanel({ board, date, configured, signedIn, played, label = "this puzzle" }: Props) {
+  // A board is READABLE for two days but WRITEABLE for one: yesterday's is closed.
+  // The server enforces that in post_comment/vote_comment, so this only stops the UI
+  // offering actions that would be refused — the same mistake as showing Reply on a
+  // comment that could never accept one.
+  const writable = date === todayKey();
   const [sort, setSort] = useState<CommentSort>("top");
   const [rows, setRows] = useState<Comment[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -109,7 +115,9 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
   // stay behind the completion gate.
   if (!configured) return null;
   if (!played) {
-    if (teaser < MIN_TEASER) return null;
+    // Nothing to offer on a closed board you never played: the puzzle is gone, so
+    // "finish it to read them" would be an instruction you can't follow.
+    if (!writable || teaser < MIN_TEASER) return null;
     return (
       <p className="disc-teaser">
         💬 {teaser} comments on today’s puzzle. Finish it to read them.
@@ -208,7 +216,7 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
           <button
             className={`disc-vote${c.myVote === 1 ? " is-on" : ""}`}
             onClick={() => void vote(c, 1)}
-            disabled={!signedIn || c.isMine || c.isRemoved}
+            disabled={!signedIn || !writable || c.isMine || c.isRemoved}
             aria-label="Upvote"
             title={c.isMine ? "You can’t vote on your own comment" : "Upvote"}
           >▲</button>
@@ -216,7 +224,7 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
           <button
             className={`disc-vote${c.myVote === -1 ? " is-on" : ""}`}
             onClick={() => void vote(c, -1)}
-            disabled={!signedIn || c.isMine || c.isRemoved}
+            disabled={!signedIn || !writable || c.isMine || c.isRemoved}
             aria-label="Downvote"
             title={c.isMine ? "You can’t vote on your own comment" : "Downvote"}
           >▼</button>
@@ -230,7 +238,7 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
           {renderBody(c)}
           {!c.isRemoved && (
             <div className="disc-actions">
-              {signedIn && (
+              {signedIn && writable && (
                 <button
                   className="disc-link"
                   onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyDraft(""); }}
@@ -279,7 +287,9 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
         </div>
       </div>
 
-      {signedIn ? (
+      {!writable ? (
+        <p className="lb-nudge">This board is closed. You can still read it today.</p>
+      ) : signedIn ? (
         <div className="disc-compose">
           <textarea
             className="disc-input"
@@ -332,7 +342,9 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
       )}
 
       <p className="lb-note">
-        Today’s puzzle only. The discussion closes when the day rolls over.
+        {writable
+          ? "Posting closes when the day rolls over. The board stays readable for one more day."
+          : "Closed for posting. It stops being shown after today."}
       </p>
     </div>
   );

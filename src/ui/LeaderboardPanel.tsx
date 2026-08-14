@@ -34,6 +34,10 @@ interface Props {
   /** Resolve a past day's answer species (for the day-browsing view). Only ever
    *  called for finished days, so it never reveals today's puzzle. */
   answerForDate?: (dateKey: string) => { name: string; sci: string } | null;
+  /** Rendered under the board when it is showing ONE day, with that date. Lets a
+   *  caller hang day-scoped content (the discussion board) here without this
+   *  component needing to know anything about it. */
+  renderForDate?: (date: string) => React.ReactNode;
   onClose?: () => void;
 }
 
@@ -53,7 +57,7 @@ const GROUPS: { id: string | null; label: string; icon: string }[] = [
   { id: OTHER_GROUP.id, label: OTHER_GROUP.label, icon: OTHER_GROUP.icon },
 ];
 
-export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 0, streak, playedToday = true, answerForDate, onClose }: Props) {
+export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 0, streak, playedToday = true, answerForDate, renderForDate, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [group, setGroup] = useState<string | null>(null);
@@ -256,6 +260,11 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
           </button>
         )}
       </p>
+
+      {/* Day-scoped slot: whenever the board is showing ONE day, so the caller never
+          has to guess which date is on screen. The fixed "today" board counts —
+          forDate is null there only because that query needs no date filter. */}
+      {(isToday ? today : forDate) && renderForDate?.((isToday ? today : forDate) as string)}
     </div>
   );
 }

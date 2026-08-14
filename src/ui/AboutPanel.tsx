@@ -121,7 +121,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
               shaves a quarter. Early in the week every species' name and picture is shown for free to help;
               midweek the pictures hide behind a gentle peek that never ends the board (the first three
               free, then each further reveal costs 15% of the day's points). The weekend flips it: the
-              pictures are the tiles and the names are hidden, revealed the same way (first three free).
+              pictures are the tiles and the names are hidden, revealed the same way (first four free).
               It shares the weekday weight with Lineage, so scores are comparable across the games.
             </p>
           </details>

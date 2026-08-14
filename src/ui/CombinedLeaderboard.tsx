@@ -22,6 +22,11 @@ interface Props {
   /** "today" = the fixed daily board, no controls; "config" = filterable. Mirrors
    *  the per-game boards, which the leaderboard tab stacks the same way. */
   variant?: "today" | "config";
+  /** Rendered under the board whenever ONE day is on screen, with that day's key.
+   *  The discussion hangs off this. Not called for week/month/all-time views, which
+   *  span many days and have no single board to talk about. Mirrors the slot on
+   *  Leaderboard/LeaderboardPanel so all four boards behave the same way. */
+  renderForDate?: (date: string) => React.ReactNode;
 }
 
 /** Podium medals for ranks 1–3; plain numbers below. */
@@ -61,7 +66,7 @@ interface Row {
  *  The day view combines the per-game boards client-side (fetchCombinedDaily);
  *  the period views come from combined_leaderboard(), which walks the same days
  *  server-side rather than making the client fetch ~90 boards for a month. */
-export function CombinedLeaderboard({ me, playedToday = true, variant = "config" }: Props) {
+export function CombinedLeaderboard({ me, playedToday = true, variant = "config", renderForDate }: Props) {
   const today = todayKey();
   const fixedToday = variant === "today";
   // The filterable panel opens on All time, as the per-game boards do; the fixed
@@ -214,6 +219,11 @@ export function CombinedLeaderboard({ me, playedToday = true, variant = "config"
         for the full 100. Top a finished day (with ≥3 players) to earn the 👑, a finished week for the
         🏆, a finished month for the 🎖️. Match the leader exactly and you both keep it.
       </p>}
+
+      {/* Day-scoped slot, same as the per-game boards: only when a single day is on
+          screen, so the caller never has to work out which date that is. `anchor` is
+          the browsed day; the fixed today board passes its own date. */}
+      {(fixedToday || oneDay) && renderForDate?.(fixedToday ? today : anchor)}
     </div>
   );
 }

@@ -15,10 +15,16 @@ export interface DevSettings {
 const KEY = "grebe.dev";
 const DEFAULT: DevSettings = { tier: 0, nonce: 0 };
 
+/** The forced tier is a preference and persists. The reshuffle counter deliberately does
+ *  NOT: it is a position in the daily sequence, and every board the bench deals has to
+ *  replay the anti-repeat history from the anchor to reach it. Persisted, it only ever grew,
+ *  so a bench used across sessions asked for a date years out and each click paid for the
+ *  whole walk — 17s at 100 reshuffles, 70s at 400, which reads as a frozen page. Resetting
+ *  it per load keeps a session's clicks incremental and cheap. */
 function load(): DevSettings {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...DEFAULT, ...(JSON.parse(raw) as Partial<DevSettings>) };
+    if (raw) return { ...DEFAULT, ...(JSON.parse(raw) as Partial<DevSettings>), nonce: 0 };
   } catch {
     /* ignore */
   }

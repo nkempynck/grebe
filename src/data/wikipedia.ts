@@ -56,30 +56,68 @@ export interface WikiImage {
 // as null) to avoid re-fetching the same species across renders.
 const imgCache = new Map<string, WikiImage | null>();
 
-// A page's lead image is often not a photo of the organism: range/distribution
-// maps, IUCN-status icons, and old line-drawing plates all commonly sit at the
-// top of a taxon infobox. Two cheap signals separate those from a usable image:
-//   1. File type — SVG/GIF are vector diagrams, cladograms and range maps, never
-//      a subject image (we test the ORIGINAL file's extension, not the thumb's,
-//      since Wikipedia renders SVGs to a *.svg.png thumbnail).
-//   2. Filename — maps/icons carry tell-tale words.
+// A page's lead image is often not a photo of the organism: range/distribution maps,
+// IUCN-status icons, size-comparison charts and old line-drawing plates all commonly sit
+// at the top of a taxon infobox. Two cheap signals separate those from a usable image:
+//   1. File type — SVG is a vector diagram, cladogram or range map, never a subject
+//      image. We test the ORIGINAL file's extension, not the thumb's, since Wikipedia
+//      renders SVGs to a *.svg.png thumbnail. GIF is deliberately NOT rejected: it is a
+//      RASTER format, and every GIF in our set is a real subject image (Tubifex, Capelin,
+//      Black marlin, Hobo spider, and the scanned microscope plate that is the only
+//      picture Wikipedia has of the balsam woolly adelgid). Lumping it in with SVG cost
+//      19 species their photo and handed one of them a picture of a dead forest instead.
+//   2. Filename — maps, icons and charts carry tell-tale WORDS, matched as words and
+//      never as substrings. The old substring rule fired on "range" inside "Orange_Walk",
+//      "_area" inside "head_area", and "status " inside every Latin epithet ending
+//      -cristatus/-cristata, discarding 50 good photos including Turkey vulture, Marine
+//      iguana, Great crested grebe, Wheel Bug, Dunlin and Yuzu.
 // PNG is NOT rejected on type alone: many legitimate species lead images are PNGs
-// (colour illustrations, or photos re-saved as PNG). Rejecting every PNG made us
-// throw away a correct fish plate (Sebastes alutus) and grab the biggest JPEG on
-// the page instead — which was a food-dish photo (a "…perch sandwich"). A PNG
-// range map still gets caught by its filename (signal 2).
+// (colour illustrations, or photos re-saved as PNG). Rejecting every PNG made us throw
+// away a correct fish plate (Sebastes alutus) and grab the biggest JPEG on the page
+// instead — which was a food-dish photo (a "…perch sandwich"). A PNG range map still
+// gets caught by its filename (signal 2).
 // Neither signal is perfect (a colour-plate illustration saved as JPEG still slips
 // through), but together they catch the common cases.
-const NON_PHOTO_NAME =
-  /(\bmap\b|range|distribution|locator|_area|_world\b|iucn|status[_ ]|wikispecies|commons-logo|question_book|disambig|_icon\b|\bicon\b|\blogo\b|ambox|silhouette)/i;
 
-/** True when a file URL/name looks like a map, diagram, icon or drawing rather
- *  than a photograph. Pass the ORIGINAL file URL (or a File: title). */
+/** Words marking a diagram, map, icon or chart wherever they appear in the filename. */
+const NON_PHOTO_WORDS = new Set([
+  "range", "distribution", "locator", "iucn", "status", "wikispecies", "disambig",
+  "icon", "logo", "ambox", "silhouette", "cladogram", "phylogeny", "phylogenetic",
+  "diagram", "chart", "graph",
+]);
+/** …and words that only mark one when they END the name, which is where a map file puts
+ *  them ("Dendrolagus_mayri_map.png"). "map" cannot be a general marker, because the
+ *  northern map turtle is a real animal with a real photo called "Northern_Map_Turtle". */
+const NON_PHOTO_TAIL = new Set(["map", "maps", "area", "range", "distribution", "size"]);
+/** Cooked food. Any article about an edible organism carries dish photos, and since
+ *  bestPhoto takes the LARGEST jpeg on the page it will happily serve a cafeteria tray of
+ *  fish and rice as the picture of a blue grenadier. Nothing here belongs on a tile in a
+ *  game about living things. "plate" is excluded on purpose: it means a colour plate in
+ *  an illustrated monograph far more often than it means dinnerware. */
+const FOOD_WORDS = new Set([
+  "meal", "meals", "dish", "dishes", "cooked", "cooking", "fried", "grilled", "roasted",
+  "boiled", "baked", "smoked", "fillet", "fillets", "filet", "filets", "steak", "sushi",
+  "sashimi", "soup", "stew", "salad", "sandwich", "recipe", "cuisine", "restaurant",
+  "dinner", "lunch", "canned", "tinned",
+]);
+
+/** Filename words, lowercased, extension dropped. "Turkey_vulture_(Cathartes_aura).jpg"
+ *  → ["turkey","vulture","cathartes","aura"]. */
+function fileWords(url: string): string[] {
+  const path = decodeURIComponent(url.split("?")[0]);
+  const file = (path.split("/").pop() ?? path).replace(/\.[a-z0-9]+$/i, "");
+  return file.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+/** True when a file URL/name looks like a map, diagram, icon, chart or plate of food
+ *  rather than a photograph of the organism. Pass the ORIGINAL file URL (or a File:
+ *  title). */
 function looksNonPhoto(url: string | undefined): boolean {
   if (!url) return true;
-  const path = decodeURIComponent(url.split("?")[0]);
-  if (/\.(svg|gif)$/i.test(path)) return true; // vector diagrams / cladograms / range maps, never a subject image
-  return NON_PHOTO_NAME.test(path.split("/").pop() ?? path);
+  if (/\.svg$/i.test(decodeURIComponent(url.split("?")[0]))) return true;
+  const words = fileWords(url);
+  if (words.some((w) => NON_PHOTO_WORDS.has(w) || FOOD_WORDS.has(w))) return true;
+  return words.length > 0 && NON_PHOTO_TAIL.has(words[words.length - 1]);
 }
 
 interface PageImage { title: string; mime: string; w: number; h: number; thumb: string; full: string; }
@@ -115,7 +153,7 @@ async function fetchPageImages(title: string): Promise<PageImage[]> {
  *  thumbnail or badge). Returns null when the article has no real photo. */
 function bestPhoto(imgs: PageImage[]): WikiImage | null {
   const photos = imgs
-    .filter((i) => i.mime === "image/jpeg" && Math.min(i.w, i.h) >= 80 && !NON_PHOTO_NAME.test(i.title.replace(/^File:/i, "")))
+    .filter((i) => i.mime === "image/jpeg" && Math.min(i.w, i.h) >= 80 && !looksNonPhoto(i.title))
     .sort((a, b) => b.w * b.h - a.w * a.h);
   const p = photos[0];
   return p ? { thumb: p.thumb, full: p.full } : null;

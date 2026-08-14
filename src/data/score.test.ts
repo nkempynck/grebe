@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gamePoints, kinshipPoints, branchesPoints, branchesAllowance, tierWeight, BRANCHES_MAX_HINTS } from "./score";
+import { gamePoints, kinshipPoints, branchesPoints, branchesAllowance, tierWeight, BRANCHES_MAX_HINTS, kinshipFreeReveals } from "./score";
 
 // GOLDEN scoring values. gamePoints() MUST stay byte-identical to
 // public.game_points in supabase/schema.sql — if you change the formula here,
@@ -124,25 +124,44 @@ describe("kinshipPoints", () => {
     expect(kinshipPoints(true, 7, 0, 0)).toBe(160);
   });
 
-  it("each PAID reveal deducts a flat 15% of the day's weight", () => {
-    // tier 7 weight = 160; 15% = 24 per paid reveal.
-    expect(kinshipPoints(true, 7, 0, 1)).toBe(136); // 160 − 24
-    expect(kinshipPoints(true, 7, 0, 2)).toBe(112); // 160 − 48
-    expect(kinshipPoints(true, 7, 0, 3)).toBe(88);  // 160 − 72
+  it("each PAID reveal deducts a flat 10% of the day's weight", () => {
+    // tier 7 weight = 160; 10% = 16 per paid reveal.
+    expect(kinshipPoints(true, 7, 0, 1)).toBe(144); // 160 − 16
+    expect(kinshipPoints(true, 7, 0, 2)).toBe(128); // 160 − 32
+    expect(kinshipPoints(true, 7, 0, 3)).toBe(112); // 160 − 48
   });
 
   it("paid-reveal penalty stacks with mistakes", () => {
-    expect(kinshipPoints(true, 7, 2, 1)).toBe(56); // 80 − 24
+    expect(kinshipPoints(true, 7, 2, 1)).toBe(64); // 80 − 16
   });
 
-  it("a win never scores zero — paid reveals floor at 10% of the day's weight", () => {
+  it("the picture-only weekend starts with one more free reveal", () => {
+    // Names are hidden Sat/Sun, so a reveal is the only way into a species you cannot
+    // recognise by sight — and those are also the highest-weight days.
+    expect(kinshipFreeReveals(1)).toBe(3);
+    expect(kinshipFreeReveals(5)).toBe(3);
+    expect(kinshipFreeReveals(6)).toBe(4);
+    expect(kinshipFreeReveals(7)).toBe(4);
+  });
+
+  it("revealing the whole board, solving as you go, clears the floor on Sat/Sun", () => {
+    // 16 tiles, 4 free to start plus 4 earned one per solved group → 8 paid.
+    expect(kinshipPoints(true, 7, 0, 8)).toBe(32); // 160 − 128, well clear of the 8 floor
+    // Thu/Fri start with 3 free, so the same play lands 9 paid.
+    expect(kinshipPoints(true, 4, 0, 9)).toBe(13); // 130 − 117, floor is 130×0.05 = 7
+  });
+
+  it("a win never scores zero — paid reveals floor at 5% of the day's weight", () => {
     // tier 1 weight = 100; the raw score goes negative, so a win floors at
-    // 100×0.1 = 10 instead of collapsing to zero.
-    expect(kinshipPoints(true, 1, 0, 9)).toBe(10);
+    // 100×0.05 = 5 instead of collapsing to zero.
+    expect(kinshipPoints(true, 1, 0, 12)).toBe(5);
     // Worst case still positive: max mistakes for a win (3) plus every peek paid.
-    expect(kinshipPoints(true, 7, 3, 16)).toBe(16); // floor 160×0.1
+    expect(kinshipPoints(true, 7, 3, 16)).toBe(8); // floor 160×0.05
     // A loss is still a flat zero, floor or not.
     expect(kinshipPoints(false, 7, 3, 16)).toBe(0);
+    // The floor must sit BELOW the reveal price, or the last peeks are free: at
+    // tier 7 a peek costs 16, so the score must still be moving at 9 paid reveals.
+    expect(kinshipPoints(true, 7, 0, 9)).toBeGreaterThan(kinshipPoints(true, 7, 0, 10));
   });
 });
 

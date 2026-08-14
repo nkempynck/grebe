@@ -25,6 +25,7 @@ import taxonomy from "../src/data/taxonomy.json";
 import augment from "../src/data/taxonomyAugment.json";
 import { buildTree, DAILY_EPOCH, type TaxonNode, type Tree } from "../src/core";
 import { CLADE_COMMON } from "../src/data/cladeNames";
+import { SPECIES_COMMON } from "../src/data/speciesCommon";
 import { computePuzzle, encodePuzzle, puzzleVersion, type Game } from "../src/data/pinnedPuzzles";
 
 const GAMES: Game[] = ["lineage", "kinship", "branches"];
@@ -62,8 +63,16 @@ async function main() {
   // match the app exactly (a clade's common name flips containers()' "named" theme
   // preference, so skipping it would generate DIFFERENT Kinship/Branches boards than
   // players see). Synonyms are irrelevant to generation, so we skip them.
+  // Must stay identical to build() in src/data/loadTaxonomy.ts, SPECIES_COMMON included:
+  // a species' common name decides whether it is a usable tile or Latin-pool filler, so
+  // dropping that layer here pins boards the app would never generate.
   const withCommon = (nodes: TaxonNode[]): Tree =>
-    buildTree(nodes.map((n) => (n.rank !== "species" && CLADE_COMMON[n.sciName] ? { ...n, common: CLADE_COMMON[n.sciName] } : n)));
+    buildTree(
+      nodes.map((n) => {
+        const fixed = n.rank === "species" ? SPECIES_COMMON[n.sciName] : CLADE_COMMON[n.sciName];
+        return fixed ? { ...n, common: fixed } : n;
+      })
+    );
   const baseNodes = (taxonomy as { nodes: TaxonNode[] }).nodes;
   const tree = withCommon(baseNodes);                                   // Lineage: curated in-set
   const richTree = withCommon([...baseNodes, ...(augment as { nodes: TaxonNode[] }).nodes]); // Kinship/Branches
@@ -81,10 +90,20 @@ async function main() {
   const games = only ? GAMES.filter((g) => g === only) : GAMES;
 
   // Build every (game, date) row from the shared registry.
+  //
+  // Under --force the upsert REWRITES whatever it is given, and `from` defaults to the
+  // launch epoch, so an unguarded `npm run pin -- --force` would recompute every day since
+  // launch and silently rewrite the boards people already played — which is exactly what
+  // pinning exists to prevent. repinFuture() in pinnedPuzzles.ts has always refused to
+  // touch the past; this is the same rule for the CLI. Insert-if-absent runs are harmless
+  // (an existing row is never overwritten), so the guard applies only to --force.
+  const today = new Date().toISOString().slice(0, 10);
   const rows: { game: string; puzzle_date: string; payload: unknown; version: number }[] = [];
   let skipped = 0;
+  let pastBlocked = 0;
   for (let i = 0; i < days; i++) {
     const date = shiftDate(from, i);
+    if (force && date <= today) { pastBlocked++; continue; }
     for (const game of games) {
       const puzzle = computePuzzle(game, treeFor(game), date);
       if (!puzzle) { skipped++; continue; } // tree can't field this puzzle — rare
@@ -94,7 +113,9 @@ async function main() {
 
   console.log(
     `Pinning ${rows.length} rows (${games.join(", ")}) from ${from} for ${days} days` +
-      `${skipped ? `, ${skipped} skipped (no puzzle)` : ""}, mode=${force ? "OVERWRITE future" : "insert-if-absent"}.`
+      `${skipped ? `, ${skipped} skipped (no puzzle)` : ""}` +
+      `${pastBlocked ? `, ${pastBlocked} dates up to and including ${today} left frozen` : ""}` +
+      `, mode=${force ? "OVERWRITE future" : "insert-if-absent"}.`
   );
 
   let written = 0;

@@ -35,7 +35,10 @@ describe("puzzle resolver parity", () => {
         board.groups.map((g) => ({ cladeId: g.cladeId, memberIds: g.memberIds, level: g.level }))
       );
     }
-  });
+    // Two Kinship generations per date, each replaying the anti-repeat history from the
+    // anchor, so this sits just over vitest's 5s default once GRID_GROUP_ANTI_REPEAT_WINDOW
+    // is widened (a wider window rarely finds a zero-score board to break the scan early).
+  }, 20_000);
 });
 
 describe("puzzle encode/decode round-trip", () => {

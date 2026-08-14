@@ -167,6 +167,57 @@ export async function fetchCommentCount(board: BoardKey, date: string): Promise<
   }
 }
 
+/** One unseen reply to something the caller wrote. */
+export interface ReplyUpdate {
+  commentId: number;
+  parentId: number | null;
+  board: BoardKey;
+  date: string;
+  displayName: string | null;
+  body: string | null;
+  createdAt: string;
+  /** Arrived since the player last opened the list. Drives the count; the row is
+   *  listed either way, so a reply you glanced at is still reachable afterwards. */
+  isNew: boolean;
+}
+
+/** Recent replies to your own comments, newest first, each flagged `isNew` when it
+ *  arrived since you last opened the list. Bounded server-side by the same two-day
+ *  read window as the boards, so it can never point at a board you're no longer
+ *  allowed to open. Best-effort: an unavailable badge is not worth an error state. */
+export async function fetchReplyUpdates(): Promise<ReplyUpdate[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase.rpc("my_reply_updates");
+    if (error || !data) return [];
+    return (data as Array<{
+      comment_id: number; parent_id: number | null; game: string; puzzle_date: string;
+      display_name: string | null; body: string | null; created_at: string; is_new: boolean;
+    }>).map((r) => ({
+      commentId: r.comment_id,
+      parentId: r.parent_id,
+      board: r.game,
+      date: r.puzzle_date,
+      displayName: r.display_name,
+      body: r.body,
+      createdAt: r.created_at,
+      isNew: r.is_new,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Stamp the "seen" cursor, so what was just read stops counting as new. */
+export async function markRepliesSeen(): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.rpc("mark_replies_seen");
+  } catch {
+    /* best-effort: the worst case is the badge reappearing next load */
+  }
+}
+
 /** Group the flat server list into threads, preserving the server's ordering. The
  *  server already returns each root followed by its replies; this makes the shape
  *  explicit for rendering, and tolerates an orphaned reply. */
