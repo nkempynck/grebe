@@ -146,19 +146,22 @@ describe("kinshipPoints", () => {
 
   it("revealing the whole board, solving as you go, clears the floor on Sat/Sun", () => {
     // 16 tiles, 4 free to start plus 4 earned one per solved group → 8 paid.
-    expect(kinshipPoints(true, 7, 0, 8)).toBe(32); // 160 − 128, floor is 16
-    // Thu/Fri start with 3 free, so the same play lands 9 paid — exactly on the floor.
-    expect(kinshipPoints(true, 4, 0, 9)).toBe(13); // floor 130×0.1
+    expect(kinshipPoints(true, 7, 0, 8)).toBe(32); // 160 − 128, well clear of the 8 floor
+    // Thu/Fri start with 3 free, so the same play lands 9 paid.
+    expect(kinshipPoints(true, 4, 0, 9)).toBe(13); // 130 − 117, floor is 130×0.05 = 7
   });
 
-  it("a win never scores zero — paid reveals floor at 10% of the day's weight", () => {
+  it("a win never scores zero — paid reveals floor at 5% of the day's weight", () => {
     // tier 1 weight = 100; the raw score goes negative, so a win floors at
-    // 100×0.1 = 10 instead of collapsing to zero.
-    expect(kinshipPoints(true, 1, 0, 9)).toBe(10);
+    // 100×0.05 = 5 instead of collapsing to zero.
+    expect(kinshipPoints(true, 1, 0, 12)).toBe(5);
     // Worst case still positive: max mistakes for a win (3) plus every peek paid.
-    expect(kinshipPoints(true, 7, 3, 16)).toBe(16); // floor 160×0.1
+    expect(kinshipPoints(true, 7, 3, 16)).toBe(8); // floor 160×0.05
     // A loss is still a flat zero, floor or not.
     expect(kinshipPoints(false, 7, 3, 16)).toBe(0);
+    // The floor must sit BELOW the reveal price, or the last peeks are free: at
+    // tier 7 a peek costs 16, so the score must still be moving at 9 paid reveals.
+    expect(kinshipPoints(true, 7, 0, 9)).toBeGreaterThan(kinshipPoints(true, 7, 0, 10));
   });
 });
 

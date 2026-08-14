@@ -110,13 +110,18 @@ export const KINSHIP_REVEAL_PENALTY = 0.1;
 
 /** A win never scores zero: solving all four groups floors at this fraction of the
  *  day's weight, however many reveals were burned. (Reveals can otherwise deduct
- *  more than the whole board — flipping all sixteen tiles used to leave nothing.) */
-export const KINSHIP_WIN_FLOOR = 0.1;
+ *  more than the whole board — flipping all sixteen tiles used to leave nothing.)
+ *
+ *  Lowered 0.10 -> 0.05 alongside the cheaper reveals: with a peek at 10% of the
+ *  weight, a floor at 10% meant the last few peeks were free, since the score had
+ *  already bottomed out. A lower floor keeps every reveal costing something while
+ *  still refusing to score a solved board at zero. */
+export const KINSHIP_WIN_FLOOR = 0.05;
 
 /** Kinship (grid) per-game points: the day's weight scaled down by mistakes, minus
  *  a flat penalty per PAID reveal, zero for a loss. Four mistakes ends the board (a
  *  loss), so a win carries 0–3 mistakes → 100/75/50/25% of the weight; each paid
- *  reveal then shaves another 15% of the weight, down to a small floor a win always
+ *  reveal then shaves another 10% of the weight, down to a small floor a win always
  *  keeps. The 4th arg is the count of PAID reveals — the caller decides which reveals
  *  were free: KINSHIP_FREE_REVEALS to start plus one earned per group solved, spent
  *  in order (a peek already paid for stays paid; see useGridGame). MUST match the
