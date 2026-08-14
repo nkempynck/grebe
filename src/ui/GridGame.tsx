@@ -107,7 +107,8 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   //   Mon–Wed (tier ≤ 3)  name + picture — both shown free, easiest.
   //   Thu–Fri (tier 4–5)  name only — pictures hidden behind the reveal penalty.
   //   Sat–Sun (tier ≥ 6)  picture only — pictures are the tile and the NAME is the
-  //     hidden thing you reveal (first three free, then the same gentle penalty):
+  //     hidden thing you reveal (first FOUR free here, three elsewhere — see
+  //     kinshipFreeReveals — then the same gentle penalty):
   //     recognise the organism by sight, then sort by clade.
   const preshow = g.tier > 0 && g.tier <= PRESHOW_MAX_TIER;
   const pictureMode = g.tier >= PICTURE_MODE_MIN_TIER;
@@ -242,7 +243,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   const revealHint = preshow
     ? "Every picture is shown free on the easier days."
     : pictureMode
-    ? "Pictures only today, names hidden: flip a name with 🔤 (first three free, then a little score)."
+    ? "Pictures only today, names hidden: flip a name with 🔤 (first four free, then a little score)."
     : mixedMode
     ? `${MIXED_PICTURE_COUNT} tiles arrive as pictures and the rest as names: flip either to its other half (first three free, then a little score).`
     : "Flip a tile to its picture with 🔍 (first three free, then a little score).";
@@ -397,7 +398,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
             {preshow
               ? "Pictures are shown to help on the easier days."
               : pictureMode
-              ? "Pictures only today, no names. Tap 🔤 on a tile to reveal its name; the first three are free, then each one costs a little score."
+              ? "Pictures only today, no names. Tap 🔤 on a tile to reveal its name; the first four are free, then each one costs a little score."
               : "Tap the 🔍 on a tile to see its picture. The first three are free; after that, each one costs a little score."}
           </p>
 
