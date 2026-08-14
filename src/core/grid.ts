@@ -320,6 +320,9 @@ interface Container {
   pairSep?: Map<string, number>;
   /** The confusable-pair floor that applies to this container's class (see discover). */
   tightestFloor?: number;
+  /** cladeId → recognisability, so boardForDay can gate on how NAMEABLE a board's groups
+   *  are without recomputing. Set at discovery. */
+  recog?: Map<string, number>;
 }
 
 /** Key into Container.pairSep. */
@@ -597,6 +600,19 @@ const BAND_TIER_WINDOW: Array<[number, number]> = [
   [3.5, 4.5], // medium (Thu–Fri, name only)
   [4.5, 7], // hard  (Sat–Sun, picture only)
 ];
+// Closeness is one currency but it does not buy the same difficulty in every class.
+// Measured over 730 boards, closeness is flat across classes (mammals 3.87, birds 3.92)
+// while fame is not: a mammal tile carries 7383 median pageviews against a bird's 4120,
+// and a mammal GROUP 13532 against 7595. Difficulty is deliberately blind to fame (see
+// the block above boardSeparation), so mammals ride easy inside whatever tier they land
+// in — four mammal families at separation 3 separate themselves on sight, where four
+// snake families at separation 3 genuinely do not. Shift the band for the classes players
+// can eyeball, so those boards must sit closer to earn the same weekday. Applied per
+// CONTAINER, not per day, since class varies candidate to candidate. Soft, like the band
+// itself: a class that cannot go tighter is not banned, it just loses ties.
+const CLASS_BAND_SHIFT: Record<string, number> = { Mammals: 0.5 };
+/** Separation is a rank tier, so the window can never be pushed past the top of it. */
+const MAX_SEPARATION = 7;
 
 // TWO structural gates, applied to every candidate board on EVERY day. Unlike the band
 // these are hard: `offBand` is only a +1 tiebreak, so a fresh-but-trivial board still won
@@ -643,6 +659,16 @@ const MIN_VIABLE_CONTAINERS = 25;
 // picture-only weekend, where you recognise by sight. Lowering this widens the container
 // pool (more reptile/amphibian/plant variety). (Applied per theme in discover.)
 const MIN_BOARD_FAME = 2000;
+/** Below this a group is one most players cannot NAME even once they have solved it —
+ *  `Petrogale`, `Potoroidae`, `Microhyloidea`. One or two of those on a board is the game
+ *  teaching you something; a whole board of them is unplayable and unrewarding. */
+const GROUP_NAMEABLE = 4000;
+/** How many such groups a board may carry. The fame floors are all PER GROUP, so nothing
+ *  stopped four marginal ones sitting together: measured over 730 boards, 103 (14%) had
+ *  three or more and one had four — a picture-only Sunday of Potoroidae / Dendrolagus /
+ *  Petrogale / Osphranter, i.e. separate rock-wallabies from tree-kangaroos from bettongs
+ *  by sight, with four Latin labels as the reward. */
+const MAX_OBSCURE_GROUPS = 2;
 
 // …except that ONE group per board may sit below that, down to this harder floor, and only
 // when the rest of the board is comfortably recognisable (RELAXED_COMPANION_MIN).
@@ -717,6 +743,7 @@ function discover(tree: Tree): Discovered | null {
     // Pairwise separations, once. A container whose themes are ALL mutually distant can
     // never field a board with a confusable pair, so it is dropped below rather than
     // rebuilt and rejected on every one of the ~365 days it would be surveyed.
+    c.recog = new Map(c.themes.map((t) => [t.cladeId, t.recognisability]));
     c.pairSep = new Map();
     let tightest = 0;
     for (let i = 0; i < c.themes.length; i++)
@@ -1002,7 +1029,7 @@ function boardForDay(
   hist: History
 ): GridBoard | null {
   const { seenAt, groupSeenAt, classSeenAt, idx: dayIdx } = hist;
-  const [lo, hi] = BAND_TIER_WINDOW[WEEKDAY_BAND[tier] ?? 0];
+  const [bandLo, bandHi] = BAND_TIER_WINDOW[WEEKDAY_BAND[tier] ?? 0];
   // Stable per-date survey order, so the pick varies day to day.
   const order = shuffle([...pool], mulberry32(xmur3(`grebe:grid:${dateKey}:${tier}:order`)));
   let best: GridBoard | null = null;
@@ -1054,6 +1081,10 @@ function boardForDay(
     // Bos/Bovinae/Tragelaphus/Kobus at separation 6/6/6 (the tightest board possible, on
     // the easiest day) while that Saturday drew the loosest board of its week. Capped at 3
     // so it stays below one recent group (4): freshness still wins, but only just.
+    // The band this CLASS has to hit, which may sit above the day's own (CLASS_BAND_SHIFT).
+    const shift = CLASS_BAND_SHIFT[c.group!] ?? 0;
+    const lo = Math.min(bandLo + shift, MAX_SEPARATION);
+    const hi = Math.min(bandHi + shift, MAX_SEPARATION);
     const offBy = Math.max(0, lo - sep.med, sep.med - hi);
     // Ordering matters more than the exact weights, and it used to be wrong: at 2, a board
     // whose ENTIRE four-group set was a repeat scored better than one reusing a single group
@@ -1063,6 +1094,8 @@ function boardForDay(
     const gap = GROUP_MIN_GAP.get(c.group!);
     const classSeen = classSeenAt.get(c.group!);
     const classTooSoon = gap !== undefined && classSeen !== undefined && dayIdx - classSeen < gap;
+    const obscureGroups = board.groups.filter((g) => (c.recog?.get(g.cladeId) ?? Infinity) < GROUP_NAMEABLE).length;
+    const tooObscure = obscureGroups > MAX_OBSCURE_GROUPS;
     // Two shapes are worth playing, and a weekday accepts EITHER — a union, so both are more
     // available than the single old rule, not less:
     //   TRAP     a set of groups close enough to genuinely confuse, plus others that are
@@ -1090,7 +1123,7 @@ function boardForDay(
         : (TRAP_SIZE[tier] ?? 3) >= 3
         ? pairTrap && riderOk && (tripleTrap || uniform)
         : pairTrap && riderOk;
-    if (classTooSoon || recentGroups > 0 || setTooSoon || !shapeOk) {
+    if (classTooSoon || recentGroups > 0 || setTooSoon || tooObscure || !shapeOk) {
       if (score < floorFallbackScore) { floorFallback = board; floorFallbackScore = score; }
       continue; // giveaway group, or nothing on the board to confuse — see the gates
     }
