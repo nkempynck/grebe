@@ -40,6 +40,9 @@ function dayWord(date: string): string {
 export function ReplyBell({ signedIn, configured, reloadKey = 0 }: Props) {
   const [updates, setUpdates] = useState<ReplyUpdate[]>([]);
   const [open, setOpen] = useState(false);
+  // The badge counts only what has arrived since the list was last opened; the list
+  // itself shows everything recent, so a reply you glanced at is still reachable.
+  const unseen = updates.filter((u) => u.isNew).length;
 
   useEffect(() => {
     if (!configured || !signedIn) { setUpdates([]); return; }
@@ -52,10 +55,10 @@ export function ReplyBell({ signedIn, configured, reloadKey = 0 }: Props) {
   // rows stay on screen while the count clears.
   const toggle = useCallback(() => {
     setOpen((wasOpen) => {
-      if (!wasOpen && updates.length > 0) void markRepliesSeen();
+      if (!wasOpen && unseen > 0) void markRepliesSeen();
       return !wasOpen;
     });
-  }, [updates.length]);
+  }, [unseen]);
 
   if (!configured || !signedIn) return null;
 
@@ -65,13 +68,13 @@ export function ReplyBell({ signedIn, configured, reloadKey = 0 }: Props) {
         className="bell"
         onClick={toggle}
         aria-label={
-          updates.length === 0
-            ? "No new replies to you"
-            : `${updates.length} new ${updates.length === 1 ? "reply" : "replies"} to you`
+          unseen === 0
+            ? "Replies to your comments"
+            : `${unseen} new ${unseen === 1 ? "reply" : "replies"} to you`
         }
         title="Replies to your comments"
       >
-        💬{updates.length > 0 && <span className="bell-count">{updates.length}</span>}
+        💬{unseen > 0 && <span className="bell-count">{unseen}</span>}
       </button>
 
       {open && (
@@ -81,12 +84,13 @@ export function ReplyBell({ signedIn, configured, reloadKey = 0 }: Props) {
             <button className="stats-close" onClick={() => setOpen(false)} aria-label="Close">×</button>
           </div>
           {updates.length === 0 && (
-            <p className="bell-empty">No new replies. When someone answers a comment of yours, it shows up here.</p>
+            <p className="bell-empty">No replies yet. When someone answers a comment of yours, it shows up here.</p>
           )}
           <ul className="bell-list">
             {updates.map((u) => (
-              <li className="bell-item" key={u.commentId}>
+              <li className={`bell-item${u.isNew ? " is-new" : ""}`} key={u.commentId}>
                 <div className="bell-item-meta">
+                  {u.isNew && <span className="bell-dot" aria-label="new" title="New" />}
                   <b>{u.displayName ?? "Someone"}</b> replied on {dayWord(u.date)}{" "}
                   {GAME_LABEL[u.board] ?? u.board}
                 </div>

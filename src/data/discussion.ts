@@ -176,12 +176,15 @@ export interface ReplyUpdate {
   displayName: string | null;
   body: string | null;
   createdAt: string;
+  /** Arrived since the player last opened the list. Drives the count; the row is
+   *  listed either way, so a reply you glanced at is still reachable afterwards. */
+  isNew: boolean;
 }
 
-/** Replies to your own comments that you haven't seen yet, newest first. Bounded
- *  server-side by the same two-day read window as the boards, so it can never point
- *  at a board you're no longer allowed to open. Best-effort: an unavailable badge
- *  is not worth an error state. */
+/** Recent replies to your own comments, newest first, each flagged `isNew` when it
+ *  arrived since you last opened the list. Bounded server-side by the same two-day
+ *  read window as the boards, so it can never point at a board you're no longer
+ *  allowed to open. Best-effort: an unavailable badge is not worth an error state. */
 export async function fetchReplyUpdates(): Promise<ReplyUpdate[]> {
   if (!supabase) return [];
   try {
@@ -189,7 +192,7 @@ export async function fetchReplyUpdates(): Promise<ReplyUpdate[]> {
     if (error || !data) return [];
     return (data as Array<{
       comment_id: number; parent_id: number | null; game: string; puzzle_date: string;
-      display_name: string | null; body: string | null; created_at: string;
+      display_name: string | null; body: string | null; created_at: string; is_new: boolean;
     }>).map((r) => ({
       commentId: r.comment_id,
       parentId: r.parent_id,
@@ -198,6 +201,7 @@ export async function fetchReplyUpdates(): Promise<ReplyUpdate[]> {
       displayName: r.display_name,
       body: r.body,
       createdAt: r.created_at,
+      isNew: r.is_new,
     }));
   } catch {
     return [];
