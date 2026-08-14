@@ -355,6 +355,50 @@ export async function fetchCombinedDaily(forDate: string, limit = 200): Promise<
   return out;
 }
 
+/** One row of the combined board over a WHOLE period (week, month, all time). */
+export interface CombinedPeriodEntry {
+  display_name: string;
+  /** The player's daily combined scores summed over the window. */
+  combined: number;
+  /** Days in the window they have a ranked result on. */
+  days: number;
+  /** Game-days played across the window (3 per fully-played day). */
+  games: number;
+}
+
+/** The combined board for a period, from combined_leaderboard().
+ *
+ *  Deliberately NOT the client-side combine that fetchCombinedDaily does: a
+ *  period is the SUM of the daily 0–100 scores, so it would need every day's
+ *  per-game board (about 90 round trips for a month). The RPC walks the days
+ *  server-side instead, using the same normalise-per-day arithmetic.
+ *
+ *  Summing DAILY scores is the whole point. Ranking a week on raw points would
+ *  hand it to the easy days where everyone maxed, and discount a brutal day you
+ *  won with a low score — the per-day normalisation is what keeps a won day worth
+ *  its full 100 whatever the day's scores looked like.
+ *
+ *  Returns [] when the backend isn't configured or the migration hasn't been run,
+ *  so the board shows its empty state rather than breaking. */
+export async function fetchCombinedPeriod(
+  period: LeaderboardPeriod,
+  forDate: string | null = null,
+  limit = 200
+): Promise<CombinedPeriodEntry[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase.rpc("combined_leaderboard", {
+      period,
+      for_date: forDate,
+      limit_n: limit,
+    });
+    if (error || !data) return [];
+    return data as CombinedPeriodEntry[];
+  } catch {
+    return [];
+  }
+}
+
 /** Each opted-in player's CURRENT daily-win streak for a game (name → streak),
  *  from game_streaks(). Only players on a live streak (≥1) are returned. Empty if
  *  the backend isn't configured or the streaks migration hasn't been run. */
@@ -435,6 +479,27 @@ export async function fetchDailyPlays(from: string, to: string): Promise<PlayCou
   }
 }
 
+/** The caller's own frozen scores, one row per game per day, from my_points().
+ *  This is what the boards rank on, so folding it over the local store (see
+ *  adoptServerPoints) is what keeps the stats panel and the leaderboard telling the
+ *  same story. Null when there's no backend, nobody is signed in, or the migration
+ *  hasn't been run — all of which just leave the local values in place. */
+export async function fetchMyPoints(): Promise<import("./stats").ServerPoints[] | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.rpc("my_points");
+    if (error || !data) return null;
+    return (data as { game: string; day: string; points: number | string }[]).map((r) => ({
+      game: r.game as "lineage" | "kinship" | "branches",
+      day: r.day,
+      // numeric comes back as a string from PostgREST when it doesn't fit a double.
+      points: Number(r.points),
+    }));
+  } catch {
+    return null;
+  }
+}
+
 /** The caller's overall (combined-board) champion record: how many past days they
  *  topped the combined leaderboard, the winning dates, and which of those they
  *  shared with somebody who tied them. Null when there's no backend or the streaks
@@ -446,11 +511,20 @@ export async function fetchOverallBadges(): Promise<import("./badges").OverallBa
   try {
     const { data, error } = await supabase.rpc("overall_player_badges");
     if (error || !data) return null;
-    const row = data as { daily_wins?: number; win_dates?: string[]; shared_dates?: string[] };
+    const row = data as {
+      daily_wins?: number; win_dates?: string[]; shared_dates?: string[];
+      week_wins?: number; week_dates?: string[]; month_wins?: number; month_dates?: string[];
+    };
     return {
       daily_wins: row.daily_wins ?? 0,
       win_dates: row.win_dates ?? [],
       shared_dates: row.shared_dates ?? [],
+      // Absent until the period migration is applied; the badges then stay hidden
+      // rather than rendering a zero.
+      week_wins: row.week_wins ?? 0,
+      week_dates: row.week_dates ?? [],
+      month_wins: row.month_wins ?? 0,
+      month_dates: row.month_dates ?? [],
     };
   } catch {
     return null;

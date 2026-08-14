@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { todayKey } from "../core/daily";
+import { fetchMyPoints } from "../data/games";
 import {
+  adoptServerPoints,
   applyDaily,
   applyFree,
   applyKinship,
@@ -87,7 +89,9 @@ export function useStats(userId: string | null, groupFor?: GroupResolvers): UseS
     synced.current = false;
     setSyncing(true);
     (async () => {
-      const cloud = await fetchCloudStats();
+      // Both in one round-trip: the stats row, and the scores the server has frozen
+      // for this player (which win over the local copies, see adoptServerPoints).
+      const [cloud, serverPoints] = await Promise.all([fetchCloudStats(), fetchMyPoints()]);
       if (cancelled) return;
       let base: ReturnType<typeof loadStore>;
       let needsPush: boolean;
@@ -120,6 +124,10 @@ export function useStats(userId: string | null, groupFor?: GroupResolvers): UseS
         needsPush = true;
       }
       pending.current = [];
+      // Last, so it also corrects anything just merged or replayed above. Pushing
+      // when it changes something keeps the correction from being redone on every
+      // load, and carries it to this player's other devices.
+      if (serverPoints && adoptServerPoints(base, serverPoints) > 0) needsPush = true;
       saveStore(base);
       // This device's store now belongs to this player, so a later sign-in by
       // somebody else can tell it apart from an anonymous one.

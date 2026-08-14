@@ -1735,6 +1735,17 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .about-score p { margin-top: 8px; }
 .about-score code { font-size: 12.5px; }
 
+/* Kinship's changelog, reusing the collapsible scoring style. Sits between the header and
+   the board, so it stays quiet until opened. */
+.grid-changelog { margin: 0 0 14px; }
+.grid-changelog > ul {
+  margin: 10px 0 0; padding-left: 18px;
+  font-size: 14px; color: var(--ink-soft); line-height: 1.55;
+}
+.grid-changelog > ul > li { margin-bottom: 7px; }
+.grid-changelog > ul > li:last-child { margin-bottom: 0; }
+.grid-changelog-sign { margin-top: 10px; font-size: 14px; color: var(--ink-soft); line-height: 1.55; }
+
 /* "How this works" deep-link at the top of a game page. */
 .explain-row { display: flex; justify-content: flex-end; margin: -4px 0 8px; }
 .explain-link { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.03em; }
@@ -1761,6 +1772,8 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   font-family: var(--font-body); font-style: italic; font-size: 14.5px; color: var(--ink-soft);
   line-height: 1.5; margin: 10px 0 0; max-width: 60ch;
 }
+/* The "no lookups" nudge: its own line under the blurb, a touch heavier. */
+.gamehead-blurb-note { display: block; font-weight: 600; margin-top: 4px; }
 
 /* Lineage's daily setup, shown under the mode switch and briefly explained. */
 .lineage-setup { margin: 12px 0 4px; line-height: 1.5; max-width: 62ch; }

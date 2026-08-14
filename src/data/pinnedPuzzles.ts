@@ -102,7 +102,10 @@ const lineageResolver: Resolver<"lineage"> = {
   //   no longer balloons past a mis-ranked ancestor (Sauria). Scope/winWithin/assist/answer
   //   all moved for most dates. Re-pin un-played future dates (Admin ▸ Pins ▸ Re-pin, or
   //   npm run pin -- --force); past pins stay frozen.
-  version: 3,
+  // v4 (2026-08-14): no Lineage code change, but the shipped taxonomy did change — 20 base
+  //   species whose "common name" was really a scientific synonym lost it (patch-latin-names),
+  //   which moves any answer/scope draw that touched them. Re-pin un-played future dates.
+  version: 4,
   compute(tree, date) {
     const rules = resolveDailyRules(date);
     return {
@@ -129,7 +132,12 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   4 groups (and their famous species); and the anti-repeat replay is anchored before
   //   the pre-launch days (was DAILY_EPOCH, which gave pre-launch previews empty history).
   //   The board sequence shifted for most dates → re-pin un-played future dates.
-  version: 6,
+  // v7 (2026-08-14): difficulty and data both moved. Mammal containers must now sit half a
+  //   rank closer than the day's band (CLASS_BAND_SHIFT), boards carry at most two
+  //   hard-to-name groups, two accentors left the mint family they had been grafted into,
+  //   and 51 Latin-synonym "common names" became Latin-pool filler. Board identity changed
+  //   at most dates → re-pin un-played future dates.
+  version: 7,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -175,7 +183,9 @@ const branchesResolver: Resolver<"branches"> = {
   //   changed at most tiers → re-pin un-played future dates.
   // Board identity changed → re-pin un-played future dates (Admin ▸ Pins ▸ Re-pin,
   // or npm run pin -- --force); past pins stay frozen.
-  version: 5,
+  // v6 (2026-08-14): no Branches code change, but it reads the same rich tree Kinship does,
+  //   and that tree changed (accentor re-parenting, 51 cleared Latin names). Re-pin.
+  version: 6,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;

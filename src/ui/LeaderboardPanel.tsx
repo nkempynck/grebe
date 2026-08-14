@@ -11,7 +11,9 @@ import {
 } from "../data/games";
 import { demoBoard } from "../data/demoLeaderboard";
 import { CLADE_GROUPS, OTHER_GROUP } from "../data/clades";
-import { todayKey, dailyNumber, DAILY_EPOCH } from "../core/daily";
+import { todayKey, dailyNumber } from "../core/daily";
+import { periodStart } from "../core/period";
+import { PeriodNav, windowNoun } from "./PeriodNav";
 
 interface Props {
   /** Signed-in player's display name, to highlight their own row. */
@@ -46,13 +48,6 @@ const PERIODS: { k: LeaderboardPeriod; label: string }[] = [
   { k: "day", label: "By day" },
 ];
 
-/** Shift a YYYY-MM-DD key by whole days (UTC), for the day navigator. */
-function stepDate(key: string, delta: number): string {
-  const d = new Date(`${key}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + delta);
-  return d.toISOString().slice(0, 10);
-}
-
 /** Podium medals for ranks 1–3; plain numbers below. */
 const MEDALS = ["🥇", "🥈", "🥉"];
 
@@ -66,7 +61,9 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
   const [group, setGroup] = useState<string | null>(null);
-  const [dayDate, setDayDate] = useState<string>(() => todayKey());
+  // The bucket being browsed: any date inside it. Reset to today when the period
+  // changes, so each tab opens on the current window and steps back from there.
+  const [anchor, setAnchor] = useState<string>(() => todayKey());
   const [demo, setDemo] = useState(false);
   const [rows, setRows] = useState<LeaderboardEntry[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -82,19 +79,27 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
   // Demo preview is an admin-only layout tool; never active for regular players
   // even if state somehow flips (the toggle that sets it is admin-gated below).
   const previewing = demo && canPreview;
-  // When browsing a specific past day, pin the board to that date (period ignored).
   const today = todayKey();
   const browsingDay = !isToday && period === "day";
   // A single-day board: everyone has one game, so per-row wins/games is noise —
   // drop that column and surface the viewer's streak in the footer instead.
   const oneDay = isToday || browsingDay;
-  const forDate = browsingDay ? dayDate : null;
+  // Pin the board to a past bucket only when one is being browsed. On the current
+  // week/month, `for_date` stays null and the RPC takes its own current-window
+  // branch — exactly what these tabs sent before periods became browsable, so the
+  // board behaves identically on a database without the period migration.
+  const pastBucket = !isToday && period !== "all" && periodStart(period, anchor) !== periodStart(period, today);
+  const forDate = browsingDay || pastBucket ? anchor : null;
   // The answer is revealed only for a finished day (never today's live puzzle).
-  const dayAnswer = browsingDay && dayDate < today && answerForDate ? answerForDate(dayDate) : null;
+  const dayAnswer = browsingDay && anchor < today && answerForDate ? answerForDate(anchor) : null;
   // Today's board is earned by playing: hide it (and skip the fetch) until the
   // viewer has played today's Lineage. Past days stay browsable; the admin demo
   // preview bypasses the lock (synthetic data, layout tool).
-  const locked = !playedToday && !previewing && (isToday || (browsingDay && dayDate === today));
+  // Only the window CONTAINING today is earned by playing (see Leaderboard.tsx):
+  // the current week/month is gated all week long, past buckets and All time are
+  // open. The admin demo preview bypasses it (synthetic data, layout tool).
+  const currentBucket = !isToday && period !== "all" && !pastBucket;
+  const locked = !playedToday && !previewing && (isToday || currentBucket);
 
   useEffect(() => {
     let live = true;
@@ -110,7 +115,7 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
     if (locked) return;
     // Completion is per-day and Overall-only (the RPC isn't clade-filtered): today
     // uses today's key; browsing a day uses that date; otherwise skip it.
-    const completionDate = oneDay && group === null ? (isToday ? today : dayDate) : null;
+    const completionDate = oneDay && group === null ? (isToday ? today : anchor) : null;
     Promise.all([
       fetchLeaderboard(period, group, 10, forDate),
       fetchStanding(period, group, forDate),
@@ -123,7 +128,7 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
       setCompletion(c);
     });
     return () => { live = false; };
-  }, [period, group, previewing, groupLabelForDemo, reloadKey, forDate, locked, oneDay, isToday, today, dayDate]);
+  }, [period, group, previewing, groupLabelForDemo, reloadKey, forDate, locked, oneDay, isToday, today, anchor]);
 
   // Live per-player daily-win streaks (name → streak), shown as a flame. Skipped in
   // the admin demo preview (its names are synthetic).
@@ -144,7 +149,7 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
         {isToday
           ? "Today’s leaderboard"
           : browsingDay
-            ? `Daily №${dailyNumber(dayDate)} · ${groupLabel ?? "Overall"}`
+            ? `Daily №${dailyNumber(anchor)} · ${groupLabel ?? "Overall"}`
             : `Rankings · ${groupLabel ?? "Overall"}`}
         {previewing && " · demo"}
       </div>
@@ -153,7 +158,11 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
         <div className="lb-controls">
           <div className="lb-segs">
             {PERIODS.map((p) => (
-              <button key={p.k} className={`lb-seg${period === p.k ? " is-on" : ""}`} onClick={() => setPeriod(p.k)}>
+              <button
+                key={p.k}
+                className={`lb-seg${period === p.k ? " is-on" : ""}`}
+                onClick={() => { setPeriod(p.k); setAnchor(today); }}
+              >
                 {p.label}
               </button>
             ))}
@@ -165,27 +174,11 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
               </button>
             ))}
           </div>
-          {browsingDay && (
-            <div className="lb-daynav">
-              <button
-                className="lb-daynav-btn"
-                onClick={() => setDayDate((d) => stepDate(d, -1))}
-                disabled={dayDate <= DAILY_EPOCH}
-                aria-label="Previous day"
-              >‹</button>
-              <span className="lb-daynav-lbl">№{dailyNumber(dayDate)} · {dayDate}{dayDate === today && " · today"}</span>
-              <button
-                className="lb-daynav-btn"
-                onClick={() => setDayDate((d) => stepDate(d, 1))}
-                disabled={dayDate >= today}
-                aria-label="Next day"
-              >›</button>
-            </div>
-          )}
+          <PeriodNav period={period} date={anchor} onChange={setAnchor} />
           {browsingDay && (
             dayAnswer ? (
               <div className="lb-dayanswer">Answer · <b>{dayAnswer.name}</b> <i>{dayAnswer.sci}</i></div>
-            ) : dayDate === today ? (
+            ) : anchor === today ? (
               <div className="lb-dayanswer is-muted">Today’s answer is hidden until the day ends.</div>
             ) : null
           )}
@@ -193,7 +186,7 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
       )}
 
       {locked ? (
-        <p className="stats-empty">Play today’s Lineage to see the leaderboard of the day.</p>
+        <p className="stats-empty">Play today’s Lineage to see {windowNoun(isToday ? "day" : period)}.</p>
       ) : rows === null ? (
         <p className="stats-empty">Loading…</p>
       ) : rows.length === 0 ? (
@@ -218,7 +211,9 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
                       <span className="lb-rowstreak" title={`${streaks[r.display_name]}-day win streak`}>🔥{streaks[r.display_name]}</span>
                     )}
                   </span>
-                  {!oneDay && <span className="lb-meta" title="wins / games played">{r.wins}/{r.games}</span>}
+                  {/* Wins only — same reason as Leaderboard.tsx: the board drops
+                      0-point rows, so the denominator could only equal the wins. */}
+                  {!oneDay && <span className="lb-meta" title="boards won">{r.wins}</span>}
                   <span className="lb-score">{r.total_score}</span>
                 </div>
               );

@@ -121,7 +121,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
               shaves a quarter. Early in the week every species' name and picture is shown for free to help;
               midweek the pictures hide behind a gentle peek that never ends the board (the first three
               free, then each further reveal costs 15% of the day's points). The weekend flips it: the
-              pictures are the tiles and the names are hidden, revealed the same way (first three free).
+              pictures are the tiles and the names are hidden, revealed the same way (first four free).
               It shares the weekday weight with Lineage, so scores are comparable across the games.
             </p>
           </details>
@@ -152,7 +152,8 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
               A win starts at <b>the day's weight × (correct − penalties) ⁄ slots</b>, then each
               surviving <b>mistake</b> knocks off <b>35%</b> (so one mistake keeps 65%, two keep 30%),
               never dropping below a tenth of the weight so long as one slot was earned unaided. A{" "}
-              <b>hint</b> that reveals a slot forfeits that whole slot; looking a to-place species up on
+              <b>hint</b> reveals a slot and forfeits that whole slot, and there's only one per board;
+              looking a to-place species up on
               Wikipedia forfeits <b>half</b> of one, since the article usually names its family and so is
               only a soft nudge. Opening the full article, where nothing is blanked out, costs the same
               half, once per clade or species. A slot is the day's weight split across the board, so half

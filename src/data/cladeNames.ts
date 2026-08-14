@@ -38,6 +38,12 @@ export const CLADE_COMMON: Record<string, string> = {
   Carnivora: "Carnivorans",
   Felidae: "Cats",
   Canidae: "Dogs",
+  // OTL gives genus Canis the name of its type species, and GBIF's vernacular for that
+  // binomial is "Common wolf" — so the group holding dog, wolf, both jackals and the
+  // Ethiopian/African wolves was labelled after one of its own tiles. The only node in
+  // the tree wearing a binomial while holding children, so it needs no general rule.
+  // The species Canis lupus is a separate node and keeps "Wolf": this map skips species.
+  "Canis lupus": "Wolves & jackals",
   Ursidae: "Bears",
   Chiroptera: "Bats",
   Rodentia: "Rodents",

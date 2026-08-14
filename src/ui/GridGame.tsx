@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Tree } from "../core";
 import { dailyNumber } from "../core";
 import { useGridGame, PRESHOW_MAX_TIER, type GridComplete } from "../hooks/useGridGame";
@@ -47,6 +47,18 @@ const LEVEL_SQUARE = ["🟨", "🟩", "🟦", "🟪"];
 /** From this tier (Sat–Sun) the board is picture-only: pictures are shown and the
  *  NAME is the hidden thing you reveal — sort the organisms by sight. */
 const PICTURE_MODE_MIN_TIER = 6;
+
+/** Thu-Fri are MIXED: this many of the sixteen tiles arrive with BOTH halves showing,
+ *  picture and name, and the other fourteen as names with the picture hidden. Those two days
+ *  used to be the only ones with no free pictures at all, which is the cliff in the week: it
+ *  is where obscure boards bite hardest, and it is why plant boards were unplayable there
+ *  before they were moved off it.
+ *
+ *  These tiles were once four pictures with the NAME hidden, which was a second puzzle
+ *  rather than a help: you had to identify four species by sight before the board even
+ *  started. Two fully-known tiles is a foothold instead — it costs less of the board's
+ *  information than four unnamed photos did, and it gives every player somewhere to begin. */
+const MIXED_PICTURE_COUNT = 2;
 
 function GroupBar({ tree, group, dimmed, onPick }: { tree: Tree; group: GridGroup; dimmed?: boolean; onPick?: (id: string) => void }) {
   const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
@@ -100,10 +112,63 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   //   Mon–Wed (tier ≤ 3)  name + picture — both shown free, easiest.
   //   Thu–Fri (tier 4–5)  name only — pictures hidden behind the reveal penalty.
   //   Sat–Sun (tier ≥ 6)  picture only — pictures are the tile and the NAME is the
-  //     hidden thing you reveal (first three free, then the same gentle penalty):
+  //     hidden thing you reveal (first FOUR free here, three elsewhere — see
+  //     kinshipFreeReveals — then the same gentle penalty):
   //     recognise the organism by sight, then sort by clade.
   const preshow = g.tier > 0 && g.tier <= PRESHOW_MAX_TIER;
   const pictureMode = g.tier >= PICTURE_MODE_MIN_TIER;
+  const mixedMode = g.tier > PRESHOW_MAX_TIER && g.tier < PICTURE_MODE_MIN_TIER;
+  // Which tiles start as pictures on a mixed day. Ordered by a hash of the date and the tile
+  // id, so the four scatter across the grid but every player sees the same board and it
+  // survives a reload. This used to take every fourth tile of the board order, which with
+  // sixteen tiles in four columns meant indices 0/4/8/12 — the entire first column, every
+  // Thursday and Friday. Keyed off the whole board (not `remaining`) so a tile does not
+  // change mode when a group is solved.
+  const pictureOrder = useMemo(() => {
+    const all = g.board?.tiles;
+    if (!mixedMode || !all?.length) return [] as string[];
+    const seed = g.board?.date ?? "";
+    const hash = (str: string) => {
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    };
+    // NOTE: there used to be a guard here rejecting a pick that landed entirely in one row
+    // or column, because four such tiles look deliberate and read as the first-column bug
+    // this replaced. At MIXED_PICTURE_COUNT = 2 it is meaningless — two tiles share a row
+    // one time in five by chance, and refusing that would stop the pair sitting anywhere
+    // near each other. Reinstate it at selection time below if the count ever goes back up.
+    return [...all].sort((a, b) => hash(seed + a) - hash(seed + b) || (a < b ? -1 : 1));
+  }, [mixedMode, g.board]);
+
+  // …and which of them actually become the gift tiles. Walking the order alone is not
+  // enough: a species with no Wikipedia picture arrives as a bare name, so the board
+  // silently hands out one gift instead of two. Take only tiles that HAVE an image.
+  //
+  // Sticky, and it never skips past a tile still loading: a tile whose image has not
+  // resolved stops the walk rather than being passed over, so the final pair is the same
+  // whatever order the fetches happen to return in, and a late arrival never reshuffles
+  // the board under a player who has already started reading it.
+  const [givenTiles, setGivenTiles] = useState<Set<string>>(new Set());
+  useEffect(() => { setGivenTiles(new Set()); }, [g.board]);
+  useEffect(() => {
+    if (!mixedMode) return;
+    setGivenTiles((prev) => {
+      if (prev.size >= MIXED_PICTURE_COUNT) return prev;
+      const next = new Set(prev);
+      for (const id of pictureOrder) {
+        if (next.size >= MIXED_PICTURE_COUNT) break;
+        if (next.has(id)) continue;
+        if (thumbs[id]) next.add(id);
+        else if (!noImg.has(id)) break; // still loading — wait for it, don't jump the queue
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [mixedMode, pictureOrder, thumbs, noImg, g.board]);
+  const pictureTiles = givenTiles;
   const tiles = g.board?.tiles;
   // Prefetch every tile's image up front, in all modes. Easy/picture days show them;
   // harder days keep them hidden until a flip — but we still fetch so we know which
@@ -200,7 +265,9 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   const revealHint = preshow
     ? "Every picture is shown free on the easier days."
     : pictureMode
-    ? "Pictures only today, names hidden: flip a name with 🔤 (first three free, then a little score)."
+    ? "Pictures only today, names hidden: flip a name with 🔤 (first four free, then a little score)."
+    : mixedMode
+    ? `${MIXED_PICTURE_COUNT} tiles arrive with their picture already shown: flip any other tile to its picture with 🔍 (first three free, then a little score).`
     : "Flip a tile to its picture with 🔍 (first three free, then a little score).";
 
   // Live reveal tracker (shown while reveals are in play, i.e. not the easy preshow
@@ -218,7 +285,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       ? `${usedReveals} · ${freeBalance} free left${earned}`
       : revealCost > 0
       ? `${usedReveals} · −${revealCost} pts`
-      : `${usedReveals} · still free${earned}`;
+      : `${usedReveals} · no free peeks left${earned}`;
 
   return (
     <div className="grid-game">
@@ -228,7 +295,15 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         dayName={rules.dayName}
         difficulty={rules.difficulty}
         onHowItWorks={onHowItWorks}
-        blurb={`Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess. Four wrong guesses allowed. ${revealHint} Solve a group to earn another free peek. No lookups. The fun is working out the groups from what you already know.`}
+        blurb={
+          <>
+            Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess.
+            Four wrong guesses allowed. {revealHint} Solve a group to earn another free peek.
+            <span className="gamehead-blurb-note">
+              No lookups. The fun is working out the groups from what you already know.
+            </span>
+          </>
+        }
       />
 
       {/* New-rule highlight — shown through the launch weekend, hides Monday 2026-07-27. */}
@@ -238,6 +313,53 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
           <span>Solving a group now earns a free tile reveal 🔑. Reveals you already paid a score penalty for stay paid.</span>
         </div>
       )}
+
+      {/* What changed, for returning players. Collapsed by default: someone opening the game
+          to play should not have to scroll past a changelog. Kept factual, downsides
+          included — a player who notices the species got less familiar deserves to know it
+          was deliberate rather than wonder if something broke. */}
+      <details className="about-score grid-changelog">
+        <summary>I updated Kinship quite a bit, check below what changed</summary>
+        <ul>
+          <li>
+            <b>Boards repeat far less.</b> When a group comes back it now brings mostly
+            different species: 29% of its tiles are repeats, down from 60%. Boards that
+            closely resemble a recent one dropped by about two thirds. I stg if i had to see another Sailfish smh.
+          </li>
+          <li>
+            <b>Every board has a real trap, hopefully, or at least a bit of a challenge.</b> There is always at least one pair of groups
+            that are potentially easy to mix up. Boards where all four groups were obvious used
+            to happen roughly twice a week. So these will hopefully be gone.
+          </li>
+          <li>
+            <b>Mammal boards ask for closer groups.</b> Familiar animals are easier to sort
+            than unfamiliar ones at the same distance on the tree, so mammals now have to be
+            more tightly related to earn the same day. But it's not a crazy difference.
+          </li>
+          <li>
+            <b>Thursday and Friday start you off.</b> Two tiles arrive with both their picture
+            and their name showing, instead of four pictures with the names hidden. Name only was a bit less fun imo so adding some pics starts you off and is a bit more appealing. I hope.
+          </li>
+          <li>
+            <b>Reveals cost less.</b> A peek is 10% of the day's points instead of 15%, and
+            the picture-only weekend starts with four free instead of three. This also helps with the overall increased difficulty.
+          </li>
+          <li>
+            <b>Better pictures.</b> Range maps, diagrams and photos of cooked food no longer
+            slip onto tiles, and about fifty species that were showing the wrong picture, or
+            none, now show the right one. But mistakes can still happen.
+          </li>
+          <li>
+            <b>The trade-off.</b> Groups are drawn from a wider slice of the tree, so you will
+            meet less famous species and more scientific group names than before. That is the
+            price of the variety above, and it was a deliberate choice. Note that repeats will still happen, and are unavoidable by the way kinship is structured and what the tree of life has us to offer.
+          </li>
+        </ul>
+        <p className="grid-changelog-sign">
+          I hope this makes kinship more stable and challenging and enjoyable! Shoutout to the
+          day ones for always playing! Appreciate yall.
+        </p>
+      </details>
 
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
 
@@ -263,16 +385,23 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
               const hasImg = !!thumbs[id];
               // Picture mode: the image is the tile, the name is revealed. Normal:
               // the name is the tile, the image is revealed. Easy days show both.
-              const imgShown = pictureMode ? hasImg : (preshow || flipped.has(id)) && hasImg;
-              // In picture mode the name shows only once revealed or once we know
+              // On a mixed day each tile has its OWN mode; elsewhere the board has one.
+              const asPicture = pictureMode || pictureTiles.has(id);
+              const imgShown = asPicture ? hasImg : (preshow || flipped.has(id)) && hasImg;
+              // A mixed day's pictured tiles are a GIFT, not a second puzzle: both halves
+              // show from the start. Only the picture-only weekend keeps a name hidden
+              // behind a reveal.
+              const given = !pictureMode && pictureTiles.has(id);
+              // As a picture the name shows only once revealed or once we know
               // the species has no image — never in the gap while images load.
-              const nameShown = pictureMode ? flipped.has(id) || noImg.has(id) : true;
+              const nameShown = asPicture && !given ? flipped.has(id) || noImg.has(id) : true;
               // A reveal control exists on the harder days: it flips the hidden
               // half (picture normally, name in picture mode). None on easy days,
-              // and — in either mode — none for an image-less tile: there's nothing
-              // to reveal, so flipping it must never cost a reveal.
-              const canReveal = pictureMode ? hasImg : !preshow && hasImg;
-              const noun = pictureMode ? "name" : "picture";
+              // none on a given tile (nothing is hidden), and — in either mode — none
+              // for an image-less tile: there's nothing to reveal, so flipping it must
+              // never cost a reveal.
+              const canReveal = given ? false : asPicture ? hasImg : !preshow && hasImg;
+              const noun = asPicture ? "name" : "picture";
               const nextCost = revealCostOf(g.revealed.length);
               const flipTitle = g.revealed.includes(id)
                 ? `Hide ${noun}`
@@ -343,7 +472,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
             {preshow
               ? "Pictures are shown to help on the easier days."
               : pictureMode
-              ? "Pictures only today, no names. Tap 🔤 on a tile to reveal its name; the first three are free, then each one costs a little score."
+              ? "Pictures only today, no names. Tap 🔤 on a tile to reveal its name; the first four are free, then each one costs a little score."
               : "Tap the 🔍 on a tile to see its picture. The first three are free; after that, each one costs a little score."}
           </p>
 

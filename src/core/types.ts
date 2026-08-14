@@ -14,6 +14,15 @@ export interface TaxonNode {
   common?: string;
   /** Taxonomic rank label for display only (the math uses depth, not rank). */
   rank: string;
+  /** Rank used ONLY to read group separation (separationTierOf), never for display, and
+   *  never by Lineage. Set by the name-injection steps on clades OTL left anonymous, whose
+   *  `rank` must stay "clade": nearestAncestorOfRank stops at the first ancestor ranked
+   *  above the one it wants, so promoting these to real ranks would break the family win
+   *  target on lineages whose family crown is itself an injected clade — on days already
+   *  pinned. Without this the rank-based separation scale measures how well OTL labels a
+   *  corner of the tree rather than how close two groups are: plants had a ranked MRCA on
+   *  4% of group-pairs versus 29-40% elsewhere, so every plant board read as trivial. */
+  sepRank?: string;
   /** Parent node id, or null for the root of the whole dataset. */
   parentId: string | null;
   /** Wikipedia article title to link to. Falls back to common/sciName. */
@@ -24,6 +33,12 @@ export interface TaxonNode {
    *  tier), so each order's recognisable members surface rather than the most
    *  species-rich group. */
   views?: number;
+  /** Clades only: ~60-day pageviews of the clade's OWN article (set by
+   *  scripts/patch-clade-views.mjs). A group can be famous while its species are not —
+   *  "Clownfish" is one of the best-known animals alive, `Amphiprion perideraion` is not —
+   *  so this is used to decide whether a group is RECOGNISABLE enough to show. It
+   *  deliberately does not feed difficulty tiering; see MIN_BOARD_FAME in core/grid.ts. */
+  cladeViews?: number;
   /** Species only: a curated iconic species (matches EXTRAS) — floored to top
    *  prominence so easy/medium days favour icons even if lightly recorded. */
   icon?: boolean;

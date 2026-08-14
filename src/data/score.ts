@@ -82,14 +82,31 @@ export function hintCost(tier: number, guesses: number, hints: number): { now: n
 }
 
 /** Free Kinship picture/name reveals to START with. The free budget then grows by
- *  one for every group solved (earned as you play, spent in order). */
+ *  one for every group solved (earned as you play, spent in order).
+ *
+ *  The picture-only weekend gets one more. Difficulty there IS the hidden information —
+ *  a name is the only way to reason about a species you cannot recognise on sight — so the
+ *  days that need reveals most were the days they cost most (the day's weight is highest
+ *  too). Not sent to the server: the client nets the free budget into `paid`, so this can
+ *  change without a migration. */
 export const KINSHIP_FREE_REVEALS = 3;
+export const KINSHIP_FREE_REVEALS_PICTURE = 4;
+export const kinshipFreeReveals = (tier: number): number =>
+  tier >= 6 ? KINSHIP_FREE_REVEALS_PICTURE : KINSHIP_FREE_REVEALS;
 
 /** Each reveal past the free ones deducts this fraction of the day's weight — a
  *  flat, consistent cost (never ends the board). Scored SEPARATELY from mistakes
  *  (they're a whole 25% step; reveals are gentler), so grid_games carries its own
- *  `reveals` column and public.grid_game_points takes it as a 4th argument. */
-export const KINSHIP_REVEAL_PENALTY = 0.15;
+ *  `reveals` column and public.grid_game_points takes it as a 4th argument.
+ *
+ *  Was 0.15, which made reveals unaffordable exactly where they are the point: six paid
+ *  peeks on a Sunday took 160 points to the 16-point floor, so a player who could not
+ *  recognise the species had no usable way in. At 0.10, four peeks keep 96 of 160 rather
+ *  than 64. Revealing the WHOLE board while solving as you go still floors on Thu/Fri
+ *  (nine paid × 10% is the entire day) but stays above it on Sat/Sun, which is where the
+ *  fourth free peek goes.
+ *  MUST match public.grid_game_points() — see supabase/kinship-reveals-2026-08-14.sql. */
+export const KINSHIP_REVEAL_PENALTY = 0.1;
 
 /** A win never scores zero: solving all four groups floors at this fraction of the
  *  day's weight, however many reveals were burned. (Reveals can otherwise deduct
@@ -134,6 +151,13 @@ export const BRANCHES_MISTAKE_PENALTY = 0.35;
  *  crack: a guaranteed win, a guaranteed 10–16 points, and above all a preserved
  *  streak, against the risk of nothing and a broken streak for playing it honestly. */
 export const BRANCHES_WIN_FLOOR = 0.1;
+
+/** Hints a Branches board allows. ONE: enough to get past a slot you can't see, not
+ *  enough to hint the board out. The scoring already pays nothing for an all-hinted
+ *  win, but a streak counts days WON and never reads the points, so without a cap
+ *  the hint doubles as a guaranteed streak-saver. A cap is the only thing that
+ *  closes that; the score can't. */
+export const BRANCHES_MAX_HINTS = 1;
 
 /** Going OVER the mistake budget ends the board as a loss, but it isn't a hard 0:
  *  the slots you did lock still score, at this heavy discount. A blown board with

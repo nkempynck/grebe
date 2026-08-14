@@ -25,6 +25,7 @@ const nodes = JSON.parse(readFileSync(resolve(C, "sel-nodes-named.json"), "utf8"
 const list = nodes.map((n) => {
   const o = { id: n.id, sciName: n.sciName, rank: n.rank, parentId: n.parentId };
   if (n.common) o.common = n.common;
+  if (n.sepRank) o.sepRank = n.sepRank; // separation-only rank; see assemble step 5
   if (n.rank === "species" && n.views != null) o.views = n.views;
   return o;
 });

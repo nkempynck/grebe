@@ -11,7 +11,9 @@ import {
   type LeaderboardEntry,
   type LeaderboardPeriod,
 } from "../data/games";
-import { todayKey, dailyNumber, DAILY_EPOCH } from "../core/daily";
+import { todayKey, dailyNumber } from "../core/daily";
+import { periodStart } from "../core/period";
+import { PeriodNav, windowNoun } from "./PeriodNav";
 
 interface Props {
   /** Which game's board to show. */
@@ -46,12 +48,6 @@ const PERIODS: { k: LeaderboardPeriod; label: string }[] = [
   { k: "day", label: "By day" },
 ];
 
-function stepDate(key: string, delta: number): string {
-  const d = new Date(`${key}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + delta);
-  return d.toISOString().slice(0, 10);
-}
-
 /** Podium medals for ranks 1–3; plain numbers below. */
 const MEDALS = ["🥇", "🥈", "🥉"];
 
@@ -62,7 +58,9 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, playedToday = true, note, renderForDate, onClose }: Props) {
   const isToday = variant === "today";
   const [period, setPeriod] = useState<LeaderboardPeriod>(isToday ? "day" : "all");
-  const [dayDate, setDayDate] = useState<string>(() => todayKey());
+  // The bucket being browsed: any date inside it. Reset to today when the period
+  // changes, so each tab opens on the current window and steps back from there.
+  const [anchor, setAnchor] = useState<string>(() => todayKey());
   const [rows, setRows] = useState<LeaderboardEntry[] | null>(null);
   const [total, setTotal] = useState(0);
   const [standing, setStanding] = useState<GameStanding | null>(null);
@@ -75,10 +73,21 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, p
   const today = todayKey();
   const browsingDay = !isToday && period === "day";
   const oneDay = isToday || browsingDay;
-  const forDate = isToday ? today : browsingDay ? dayDate : null;
-  // Today's board is earned by playing: hide it (and skip the fetch) until the
-  // viewer has played today's board of this game. Past days stay browsable.
-  const locked = !playedToday && (isToday || (browsingDay && dayDate === today));
+  // Pin the board to a past bucket only when one is being browsed. On the current
+  // week/month, `for_date` stays null and the RPC uses its own current-window
+  // branch, which is exactly what these tabs sent before periods became
+  // browsable — so this board behaves identically on a database that hasn't had
+  // the period migration applied yet.
+  const pastBucket = !isToday && period !== "all" && periodStart(period, anchor) !== periodStart(period, today);
+  const forDate = isToday ? today : browsingDay || pastBucket ? anchor : null;
+  // Only the window CONTAINING today is earned by playing: hidden (and not
+  // fetched) until the viewer has played today's board of this game. That gates
+  // the current week every day of the week, not just the Monday when it happens
+  // to BE today's board, since today's scores are folded into it throughout. Step
+  // back one bucket and it opens; All time stays open too, being a window a
+  // single day can't be read back out of.
+  const currentBucket = !isToday && period !== "all" && !pastBucket;
+  const locked = !playedToday && (isToday || currentBucket);
 
   useEffect(() => {
     let live = true;
@@ -116,7 +125,7 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, p
         {isToday
           ? `Today’s ${label} board`
           : browsingDay
-            ? `${label} №${dailyNumber(dayDate)}`
+            ? `${label} №${dailyNumber(anchor)}`
             : `${label} rankings`}
       </div>
 
@@ -124,33 +133,21 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, p
         <div className="lb-controls">
           <div className="lb-segs">
             {PERIODS.map((p) => (
-              <button key={p.k} className={`lb-seg${period === p.k ? " is-on" : ""}`} onClick={() => setPeriod(p.k)}>
+              <button
+                key={p.k}
+                className={`lb-seg${period === p.k ? " is-on" : ""}`}
+                onClick={() => { setPeriod(p.k); setAnchor(today); }}
+              >
                 {p.label}
               </button>
             ))}
           </div>
-          {browsingDay && (
-            <div className="lb-daynav">
-              <button
-                className="lb-daynav-btn"
-                onClick={() => setDayDate((d) => stepDate(d, -1))}
-                disabled={dayDate <= DAILY_EPOCH}
-                aria-label="Previous day"
-              >‹</button>
-              <span className="lb-daynav-lbl">№{dailyNumber(dayDate)} · {dayDate}{dayDate === today && " · today"}</span>
-              <button
-                className="lb-daynav-btn"
-                onClick={() => setDayDate((d) => stepDate(d, 1))}
-                disabled={dayDate >= today}
-                aria-label="Next day"
-              >›</button>
-            </div>
-          )}
+          <PeriodNav period={period} date={anchor} onChange={setAnchor} />
         </div>
       )}
 
       {locked ? (
-        <p className="stats-empty">Play today’s {label} to see the leaderboard of the day.</p>
+        <p className="stats-empty">Play today’s {label} to see {windowNoun(isToday ? "day" : period)}.</p>
       ) : rows === null ? (
         <p className="stats-empty">Loading…</p>
       ) : rows.length === 0 ? (
@@ -175,7 +172,10 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, p
                       <span className="lb-rowstreak" title={`${streaks[r.display_name]}-day win streak`}>🔥{streaks[r.display_name]}</span>
                     )}
                   </span>
-                  {!oneDay && <span className="lb-meta" title="wins / games played">{r.wins}/{r.games}</span>}
+                  {/* Wins only, no "of games played": the board drops 0-point rows,
+                      and a Kinship/Lineage loss always scores 0, so the denominator
+                      could only ever equal the wins (see grid_leaderboard). */}
+                  {!oneDay && <span className="lb-meta" title="boards won">{r.wins}</span>}
                   <span className="lb-score">{r.total_score}</span>
                 </div>
               );

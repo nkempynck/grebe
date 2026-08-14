@@ -3,6 +3,7 @@ import { normalizeName } from "../core/resolve";
 import type { TaxonNode, Tree } from "../core/types";
 import taxonomy from "./taxonomy.json";
 import { CLADE_COMMON } from "./cladeNames";
+import { SPECIES_COMMON } from "./speciesCommon";
 import { SYNONYMS } from "./synonyms";
 
 /**
@@ -48,16 +49,17 @@ export function loadRichTree(): Promise<Tree> {
 }
 
 async function build(rawNodes: TaxonNode[]): Promise<Tree> {
-  // Clade common names are DERIVED at build time (GBIF vernaculars, baked into
-  // taxonomy.json). CLADE_COMMON is kept only as a CORRECTION layer: a curated entry
-  // OVERRIDES the baked name, so we can fix GBIF's junk/ambiguous clade vernaculars
-  // without regenerating. Clades with neither stay scientific-only. (The augment's
-  // extra clades pass through here too, so the same corrections apply to them.)
-  const nodes = rawNodes.map((n) =>
-    n.rank !== "species" && CLADE_COMMON[n.sciName]
-      ? { ...n, common: CLADE_COMMON[n.sciName] }
-      : n
-  );
+  // Common names are DERIVED at build time (GBIF vernaculars, baked into taxonomy.json).
+  // CLADE_COMMON and SPECIES_COMMON are kept only as a CORRECTION layer: a curated entry
+  // OVERRIDES the baked name, so we can fix GBIF's junk/ambiguous vernaculars without
+  // regenerating. Taxa with neither stay scientific-only. Both maps apply to the augment
+  // as well, which for SPECIES matters more than it looks: species-level fixes otherwise
+  // live in scripts/common-name-overrides.mjs, which only build-names.mjs reads, and
+  // build-augment.mjs does not — so an augment species had no correction route at all.
+  const nodes = rawNodes.map((n) => {
+    const fixed = n.rank === "species" ? SPECIES_COMMON[n.sciName] : CLADE_COMMON[n.sciName];
+    return fixed ? { ...n, common: fixed } : n;
+  });
   const tree = buildTree(nodes);
 
   // Attach curated synonyms: resolve each alternate name to a node via its

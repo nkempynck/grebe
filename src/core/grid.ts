@@ -48,6 +48,13 @@ export interface GridBoard {
 // direct children; instead we pick pairwise-disjoint theme clades and set
 // difficulty by how deep their common container sits.
 const MIN_THEME_LEAVES = GRID_GROUP_SIZE; // need at least four to sample
+// TRIED AND REVERTED at 50. It looks like free variety — 79 above-floor clades sit in 26-50
+// and read as perfectly good categories (Beeches & oaks, Dolphins, Lemurs, Voles & hamsters)
+// — but a clade that becomes a theme is offered UPWARD as ONE group and swallows the finer
+// groups beneath it: "Cats" replaces the individual cat genera, "Woodpeckers" the woodpecker
+// genera. Measured over a year it went backwards on every count: distinct groups 224 -> 215,
+// near-repeats 127 -> 158, and boards with no confusable pair 18 -> 58, because broad groups
+// sit further apart. Variety here comes from FINER groups, not bigger ones.
 const MAX_THEME_LEAVES = 25;
 
 // ---- deterministic RNG (mulberry32 over an xmur3 seed) ----
@@ -131,12 +138,29 @@ function nameWords(tree: Tree, id: string): string[] {
  *  carries a few distinct taxa under one vernacular ("Pitcher plant" ×3 Nepenthes) and even
  *  true synonym duplicates (Alpaca = Lama pacos & Vicugna pacos), and two tiles with the
  *  identical label is a confusing, unsolvable giveaway. */
-function pickMembers(tree: Tree, pool: string[], n: number, rng: () => number, wordCap: number): string[] {
+function pickMembers(
+  tree: Tree,
+  pool: string[],
+  n: number,
+  rng: () => number,
+  wordCap: number,
+  latinPool: string[] = [],
+  latinAllowance = 0,
+  ageOf?: (speciesId: string) => number
+): string[] {
   const views = (id: string) => tree.byId.get(id)?.views ?? 0;
+  // Species shown recently sort last, so a group that comes back brings different tiles.
+  // Without this the weighted draw is memoryless and fame dominates, so a returning group
+  // re-showed 60-65% of the same four species and about 155 times a year came back with all
+  // four identical — measured, and unchanged by every board-level fix. The GROUP is what a
+  // player has to recognise, and its recognisability floor is computed from the clade's top
+  // members rather than the four on screen, so demoting a seen species just takes the next
+  // most famous unseen one. Two buckets, not raw age: fame must still order within them.
+  const stale = (id: string) => (ageOf && ageOf(id) < SPECIES_REPEAT_WINDOW ? 1 : 0);
   // Weighted-random order: higher views → key nearer 1 → earlier, but not deterministic.
   const seq = pool
-    .map((id) => ({ id, key: Math.pow(rng(), 1 / Math.max(views(id), 1)) }))
-    .sort((a, b) => b.key - a.key || (a.id < b.id ? -1 : 1))
+    .map((id) => ({ id, stale: stale(id), key: Math.pow(rng(), 1 / Math.max(views(id), 1)) }))
+    .sort((a, b) => a.stale - b.stale || b.key - a.key || (a.id < b.id ? -1 : 1))
     .map((x) => x.id);
   const chosen: string[] = [];
   const wordCount = new Map<string, number>();
@@ -149,6 +173,18 @@ function pickMembers(tree: Tree, pool: string[], n: number, rng: () => number, w
     if (words.some((w) => (wordCount.get(w) ?? 0) >= wordCap)) continue;
     chosen.push(id);
     if (common) usedNames.add(common);
+    for (const w of words) wordCount.set(w, (wordCount.get(w) ?? 0) + 1);
+  }
+  // Still short? Fill the last seat from the Latin pool, but only where the caller allows it
+  // (a picture is showing) and never more than `latinAllowance` of them. Deliberately a
+  // fallback, not a preference: a named tile is always taken first.
+  let latinUsed = 0;
+  for (const id of latinPool) {
+    if (chosen.length >= n || latinUsed >= latinAllowance) break;
+    const words = nameWords(tree, id);
+    if (words.some((w) => (wordCount.get(w) ?? 0) >= wordCap)) continue;
+    chosen.push(id);
+    latinUsed++;
     for (const w of words) wordCount.set(w, (wordCount.get(w) ?? 0) + 1);
   }
   return chosen; // may be < n → theme is a giveaway at this cap, caller skips it
@@ -166,11 +202,72 @@ function themePool(tree: Tree, leaves: string[]): string[] {
 interface Theme {
   cladeId: string;
   leaves: string[];
+  /** Leaves with NO common name, best-viewed first. A tile showing a bare binomial is only
+   *  fair when a picture is showing, so these are drawn from on picture days only, at most
+   *  one per group, and only to fill a group that would otherwise come up short. Worth 48
+   *  extra themes (45 above the fame floor), concentrated where the pool is thinnest:
+   *  Willow, Barberry, Banana, Combretaceae, earthworms, oysters, Microhylidae. */
+  latinPool: string[];
   named: boolean; // has a common name → nicer group label
   fame: number; // median views of the four species we'd show (difficulty currency)
+  /** max(fame, the clade's own article views) — "would a player recognise this group?",
+   *  which is NOT the same question as "are its species individually famous". Read only by
+   *  the MIN_BOARD_FAME / MIN_BOARD_FAME_RELAXED floors, never by difficulty tiering. */
+  recognisability: number;
 }
 
 const isLeaf = (tree: Tree, id: string) => (tree.childrenOf.get(id) ?? []).length === 0;
+
+/** O(1) "is a inside b" for a whole tree, from one iterative DFS. `isAncestor` in ./tree
+ *  walks parent links, which is fine for a handful of calls and far too slow here: container
+ *  discovery asks it O(n^2) times per container for the disjoint-count test and again for
+ *  the pairwise separation table, and once containers could hold overlapping themes that
+ *  turned first-board generation into a 16-SECOND stall. Cached per tree, like discovery. */
+interface Euler { enter: Map<string, number>; exit: Map<string, number> }
+const eulerCache = new WeakMap<Tree, Euler>();
+function eulerOf(tree: Tree): Euler {
+  const hit = eulerCache.get(tree);
+  if (hit) return hit;
+  const enter = new Map<string, number>();
+  const exit = new Map<string, number>();
+  let clock = 0;
+  // Iterative: the tree is deep enough that recursion has blown the stack here before.
+  const stack: Array<[string, boolean]> = [[tree.rootId, false]];
+  while (stack.length) {
+    const [id, done] = stack.pop()!;
+    if (done) { exit.set(id, clock++); continue; }
+    enter.set(id, clock++);
+    stack.push([id, true]);
+    for (const c of tree.childrenOf.get(id) ?? []) stack.push([c, false]);
+  }
+  const e = { enter, exit };
+  eulerCache.set(tree, e);
+  return e;
+}
+/** True when `a` contains `b`, or they are the same node. */
+const contains = (e: Euler, a: string, b: string) => {
+  const ea = e.enter.get(a), eb = e.enter.get(b);
+  if (ea === undefined || eb === undefined) return false;
+  return ea <= eb && (e.exit.get(b) ?? 0) <= (e.exit.get(a) ?? 0);
+};
+/** Either node inside the other — the test for "these two can never share a board". */
+const overlaps = (e: Euler, a: string, b: string) => contains(e, a, b) || contains(e, b, a);
+
+/** Separation for a pair of clades, memoised per tree. Containers overlap heavily — a theme
+ *  belongs to every container above it — so discovery asks for the same pair many times, and
+ *  each miss walks both ancestry chains to find the MRCA. */
+const sepMemoCache = new WeakMap<Tree, Map<string, number>>();
+function pairSeparation(tree: Tree, a: string, b: string): number {
+  let memo = sepMemoCache.get(tree);
+  if (!memo) { memo = new Map(); sepMemoCache.set(tree, memo); }
+  const k = sepKey(a, b);
+  let v = memo.get(k);
+  if (v === undefined) {
+    v = separationTierOf(tree, mrca(tree, a, b));
+    memo.set(k, v);
+  }
+  return v;
+}
 
 /** Every clade that could serve as one group: an internal node with a coherent
  *  number of NAMED member species (Latin-only leaves are unusable as tiles, so a
@@ -183,9 +280,22 @@ function allThemes(tree: Tree): Map<string, Theme> {
     // A theme must have a name to reveal on solve. The flattened tree keeps some
     // bare junction nodes (no scientific name) — those can't label a group.
     if (!node.sciName && !node.common) continue;
-    const named = leavesUnder(tree, node.id).filter((id) => tree.byId.get(id)?.common);
-    if (named.length < MIN_THEME_LEAVES || named.length > MAX_THEME_LEAVES) continue;
-    out.set(node.id, { cladeId: node.id, leaves: named, named: Boolean(node.common), fame: fameOf(tree, named) });
+    const all = leavesUnder(tree, node.id);
+    const named = all.filter((id) => tree.byId.get(id)?.common);
+    const latin = all.filter((id) => !tree.byId.get(id)?.common).sort((a, b) => viewsOf(tree, b) - viewsOf(tree, a));
+    // Four named members, or three plus a Latin one to fill the fourth seat.
+    if (named.length > MAX_THEME_LEAVES) continue;
+    if (named.length < MIN_THEME_LEAVES && !(named.length === MIN_THEME_LEAVES - 1 && latin.length > 0)) continue;
+    out.set(node.id, {
+      cladeId: node.id,
+      leaves: named,
+      latinPool: latin,
+      named: Boolean(node.common),
+      fame: fameOf(tree, named),
+      // Recognisability = the better of "are its species known" and "is the GROUP known".
+      // Only the fame floors read this; difficulty tiering still uses `fame` alone.
+      recognisability: Math.max(fameOf(tree, named), node.cladeViews ?? 0),
+    });
   }
   return out;
 }
@@ -198,11 +308,25 @@ interface Container {
   themes: Theme[];
   /** Broad group this container sits in (Mammalia/Aves/…), set in discover(). */
   group?: string;
-  /** Median pageviews of the (floored) groups this container would show — the DIFFICULTY
-   *  signal. Famous species are easy to recognise however tightly grouped; obscure ones
-   *  are hard however broad. Set in discover(). */
+  /** Median pageviews of the (floored) groups this container would show. Sets the
+   *  container's ORDER in its group and nothing else: difficulty is separation (see
+   *  boardSeparation), fame is only a floor. Set in discover(). */
   fame?: number;
+  /** Separation tier for every pair of this container's themes, keyed "idA|idB" with the
+   *  ids sorted. A container's themes never change, so this is computed once at discovery
+   *  and the per-day gate check becomes six lookups instead of six MRCA walks. Without it
+   *  the gates cost hours over a year: they reject most candidates, so the score===0 early
+   *  exit in boardForDay stops firing and every day surveys every container. */
+  pairSep?: Map<string, number>;
+  /** The confusable-pair floor that applies to this container's class (see discover). */
+  tightestFloor?: number;
+  /** cladeId → recognisability, so boardForDay can gate on how NAMEABLE a board's groups
+   *  are without recomputing. Set at discovery. */
+  recog?: Map<string, number>;
 }
+
+/** Key into Container.pairSep. */
+const sepKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
 /** In one bottom-up pass compute, for every node, two disjoint-theme lists:
  *  • OFFERED — the shallowest theme in each branch, contributed UPWARD to a parent
@@ -222,6 +346,7 @@ interface Container {
  *  the extra boards are a win instead of the imbalance a fame-only tier produced. */
 const FAMILY_AS_CONTAINER = true;
 function containers(tree: Tree, themes: Map<string, Theme>): Container[] {
+  const e = eulerOf(tree);
   const offered = new Map<string, Theme[]>();
   const belowOf = new Map<string, Theme[]>();
   const compute = (id: string): Theme[] => {
@@ -246,12 +371,35 @@ function containers(tree: Tree, themes: Map<string, Theme>): Container[] {
   };
   compute(tree.rootId);
 
-  // A container is a node offering ≥4 disjoint themes upward (offered). With
-  // FAMILY_AS_CONTAINER, a named family also hosts a board of its own sub-themes (below).
+  // A container's candidates are its own disjoint groups PLUS one level finer: the groups
+  // each of those could be broken into. Committing to a single granularity for all 365 days
+  // is what made a board like Panthera / Lynx / Dogs / Bears impossible, and that board is
+  // exactly the Mon/Tue shape the gates ask for — one genuinely confusable pair (two cat
+  // genera, separation 6) with the rest merely related (separation 3). It also stranded
+  // groups outright: a node whose two children each hold three usable groups offers only
+  // two, too few for a board, while neither child can host one either, so six good groups
+  // became unreachable.
+  //
+  // ONE level, not the whole subtree. Unbounded, the root would offer all ~1,300 themes and
+  // every node's list would be its entire subtree: discovery computes pairwise separations
+  // per container (O(n^2)) and container fame would stop describing anything.
+  //
+  // The list is therefore NO LONGER pairwise disjoint, which two things now depend on:
+  // buildBoard skips a theme nested with one already chosen, and discover ignores ancestor
+  // pairs when looking for a confusable pair.
   const out: Container[] = [];
   for (const [id, off] of offered) {
-    const list = FAMILY_AS_CONTAINER && (belowOf.get(id)?.length ?? 0) >= off.length ? belowOf.get(id)! : off;
-    if (list.length >= GRID_GROUPS) out.push({ id, depth: tree.depthOf.get(id) ?? 0, themes: list });
+    const base = FAMILY_AS_CONTAINER && (belowOf.get(id)?.length ?? 0) >= off.length ? belowOf.get(id)! : off;
+    const seen = new Set(base.map((t) => t.cladeId));
+    const list = [...base];
+    for (const t of base)
+      for (const finer of belowOf.get(t.cladeId) ?? [])
+        if (!seen.has(finer.cladeId)) { seen.add(finer.cladeId); list.push(finer); }
+    // Admission counts the DISJOINT groups available, not the list length: a list of one
+    // clade plus its three children looks like four groups and can only ever field three.
+    // On a tree the leaf-most themes are a maximum antichain, so counting them is exact.
+    const disjoint = list.filter((t) => !list.some((o) => o.cladeId !== t.cladeId && contains(e, t.cladeId, o.cladeId))).length;
+    if (disjoint >= GRID_GROUPS) out.push({ id, depth: tree.depthOf.get(id) ?? 0, themes: list });
   }
   return out;
 }
@@ -259,12 +407,60 @@ function containers(tree: Tree, themes: Map<string, Theme>): Container[] {
 /** Seeded ordering of a container's themes, named ones first (their revealed group
  *  labels read nicely) then the rest, each block shuffled for daily variety. Returns
  *  the WHOLE list, not just four: buildBoard walks it and takes the first four themes
- *  that can field a giveaway-free group at the day's word cap, skipping any that can't. */
-function orderedThemes(list: Theme[], rng: () => number): Theme[] {
+ *  that can field a giveaway-free group at the day's word cap, skipping any that can't.
+ *
+ *  Above-floor themes come before relaxed (500-2000 fame) ones regardless of naming, so a
+ *  board takes its best three or four first and only reaches into the relaxed band when it
+ *  is short a slot. Without this the relaxed theme would be just as likely to land in slot
+ *  one, which is not what it is for.
+ *
+ *  `ageOf` gives the ordering a MEMORY of what has been played, and without it the shuffle
+ *  is the main source of near-repeats. A container with six usable themes can field 15
+ *  different boards; for any one of them, 1 of the other 14 repeats all four groups and 8
+ *  repeat exactly three, so two memoryless draws from that container land three-or-more
+ *  apart 60% of the time. It also wasted containers outright: boardForDay rejects any board
+ *  carrying a group seen in the last GRID_GROUP_ANTI_REPEAT_WINDOW days, so a blind draw
+ *  would hand back a doomed board and the container counted as unusable that day even when
+ *  a perfectly good subset of its themes was free.
+ *
+ *  Bucketed, not sorted on raw age, and applied only AFTER the fame/named ranks: sorting on
+ *  exact age would make the pick a function of history alone and kill the day-to-day
+ *  rotation the shuffle exists to provide, and putting it ahead of fame would let a stale
+ *  board beat a recognisable one.
+ *
+ *  `speciesAgeOf` then breaks the remaining ties by how much UNSHOWN stock a theme still
+ *  holds. Distinct species over a year is capped not by the memory in pickMembers but by
+ *  the pools of the themes that get picked: a theme seen n times can show at most 4n
+ *  species, and measured over a year 116 of 218 used groups had already shown every member
+ *  they have, while big pools sat idle (Paridae 22 species on ONE board, Thraupidae 20 on
+ *  one). Preferring the theme with fresh stock spends the idle pools instead of re-spending
+ *  exhausted ones, and demotes four-species themes, which can never rotate at all. */
+function orderedThemes(
+  list: Theme[],
+  rng: () => number,
+  ageOf?: (cladeId: string) => number,
+  speciesAgeOf?: (speciesId: string) => number
+): Theme[] {
   const shuffled = shuffle([...list], rng);
-  const named = shuffled.filter((t) => t.named);
-  const rest = shuffled.filter((t) => !t.named);
-  return [...named, ...rest];
+  const rank = (t: Theme) => (t.recognisability >= MIN_BOARD_FAME ? 0 : 1) * 2 + (t.named ? 0 : 1);
+  // Enough unshown members to field a whole fresh group, enough for some rotation, or none.
+  const stock = (t: Theme) => {
+    if (!speciesAgeOf) return 0;
+    let fresh = 0;
+    for (const id of t.leaves) if (speciesAgeOf(id) >= SPECIES_REPEAT_WINDOW) fresh++;
+    return fresh >= GRID_GROUP_SIZE ? 0 : fresh > 0 ? 1 : 2;
+  };
+  const recency = (t: Theme) => {
+    if (!ageOf) return 0;
+    const age = ageOf(t.cladeId);
+    // free · costs group spacing · barred outright by the hard gate.
+    // TRIED AND REVERTED: a fourth bucket putting NEVER-shown themes ahead of merely-stale
+    // ones. It sounds like more variety and measures worse on both test windows (distinct
+    // four-group sets 238 -> 232 and 235 -> 225), because spending the unseen themes on
+    // sight forces the reused ones back sooner.
+    return age >= GRID_GROUP_SPACING ? 0 : age >= GRID_GROUP_ANTI_REPEAT_WINDOW ? 1 : 2;
+  };
+  return shuffled.sort((a, b) => rank(a) - rank(b) || recency(a) - recency(b) || stock(a) - stock(b));
 }
 
 const label = (tree: Tree, id: string) => {
@@ -280,25 +476,42 @@ const label = (tree: Tree, id: string) => {
 // Because a board's four groups always come from one CONTAINER (a single tree node)
 // tagged with this group, staying within one group is automatic — the container can't
 // span two of them. (Config: the game's own notion of a broad group, not taxonomy.)
-// minTier gates only the STRUCTURALLY hard groups off the easy days (plants, molluscs,
-// spiders — unfamiliar however famous the species). Every animal group is allowed from
-// Monday; the fame band then decides which actually appear (a group only surfaces on an
-// easy day if it has a famous-enough container — famous sharks/crocs/butterflies do,
-// obscure ones don't). This keeps the easy end varied instead of always mammals/birds.
-const BROAD_GROUPS: Array<{ group: string; minTier: number; markers: string[] }> = [
-  { group: "Mammals", minTier: 1, markers: ["Mammalia"] },
-  { group: "Birds", minTier: 1, markers: ["Aves"] },
-  { group: "Fish", minTier: 1, markers: ["Actinopterygii", "Elasmobranchii", "Chondrichthyes"] },
-  { group: "Reptiles", minTier: 1, markers: ["Squamata", "Testudines", "Crocodylia"] },
-  { group: "Amphibians", minTier: 1, markers: ["Amphibia"] },
-  { group: "Insects", minTier: 1, markers: ["Insecta"] },
-  { group: "Plants", minTier: 4, markers: ["Magnoliopsida", "Liliopsida", "Pinopsida", "Polypodiopsida"] },
-  { group: "Molluscs", minTier: 4, markers: ["Gastropoda", "Bivalvia", "Cephalopoda"] },
-  { group: "Spiders", minTier: 5, markers: ["Arachnida"] },
+// Every animal group is allowed all week; the fame floors then decide which actually
+// appear (a group only surfaces on an easy day if its container is famous enough — famous
+// sharks/crocs/butterflies do, obscure ones don't). This keeps the easy end varied instead
+// of always mammals/birds.
+// Which weekday tiers each broad group may appear on. This is about the REVEAL MODE, not
+// difficulty: Mon-Wed (1-3) shows name + picture, Thu-Fri (4-5) name only, Sat-Sun (6-7)
+// picture only. A group whose organisms are recognised by SIGHT rather than by name must
+// not land on the name-only days.
+//
+// Plants are the case that forced this. They used to be a `minTier: 4` floor, i.e. allowed
+// on 4-7, and they ended up almost entirely on Thu/Fri — 30 of 53 Thursdays — because the
+// weekend band asks for separation >= 4.5 and botany has no rank between family and order,
+// so plants top out at 3-4 and the band penalty pushed them off 6-7. That left them stranded
+// on precisely the two days with no pictures, where four plant families are close to
+// unplayable. They now get Wednesday (name + picture, and the easy band's 3-3.5 window is
+// exactly where plant separation sits) and the picture-only weekend.
+// `minGap` — days that must pass before this class may host another board. Only the
+// occasional-guest classes set it. Without it, restricting a class to few tiers backfires:
+// plants sit at separation 3, which is exactly the easy band's window, so once they were
+// limited to Wednesday they won 51 of 52 Wednesdays outright and Wednesday became plant day.
+const ALL_TIERS = [1, 2, 3, 4, 5, 6, 7];
+const BROAD_GROUPS: Array<{ group: string; tiers: number[]; markers: string[]; minGap?: number }> = [
+  { group: "Mammals", tiers: ALL_TIERS, markers: ["Mammalia"] },
+  { group: "Birds", tiers: ALL_TIERS, markers: ["Aves"] },
+  { group: "Fish", tiers: ALL_TIERS, markers: ["Actinopterygii", "Elasmobranchii", "Chondrichthyes"] },
+  { group: "Reptiles", tiers: ALL_TIERS, markers: ["Squamata", "Testudines", "Crocodylia"] },
+  { group: "Amphibians", tiers: ALL_TIERS, markers: ["Amphibia"] },
+  { group: "Insects", tiers: ALL_TIERS, markers: ["Insecta"] },
+  { group: "Plants", tiers: [3, 6, 7], minGap: 21, markers: ["Magnoliopsida", "Liliopsida", "Pinopsida", "Polypodiopsida"] },
+  { group: "Molluscs", tiers: [3, 6, 7], minGap: 21, markers: ["Gastropoda", "Bivalvia", "Cephalopoda"] },
+  { group: "Spiders", tiers: [6, 7], minGap: 28, markers: ["Arachnida"] },
 ];
 const MARKER_TO_GROUP = new Map<string, string>();
 for (const g of BROAD_GROUPS) for (const m of g.markers) MARKER_TO_GROUP.set(m, g.group);
-const GROUP_MIN_TIER = new Map(BROAD_GROUPS.map((g) => [g.group, g.minTier]));
+const GROUP_TIERS = new Map(BROAD_GROUPS.map((g) => [g.group, new Set(g.tiers)]));
+const GROUP_MIN_GAP = new Map(BROAD_GROUPS.flatMap((g) => (g.minGap ? [[g.group, g.minGap] as const] : [])));
 
 /** A container's FAME — the primary difficulty signal (median fame of its floored
  *  themes; each theme's fame set in allThemes). Famous groups are easier to place, but
@@ -314,32 +527,53 @@ function containerFame(c: Container): number {
 // spanning a CLASS are trivially separable. This is the "sub-collection harder than
 // super-collection" rule made precise: a sub-collection's groups share a deeper ancestor.
 
-// Fame → tier (1 famous/easy … 7 obscure/hard): the ORIGINAL obscurity signal, preserved
-// so our existing hard boards (obscure but well-separated families) stay hard.
-const FAME_TIER_CUTS = [15000, 10000, 7500, 6000, 5000, 4000]; // ≥cut[i] → tier i+1; below all → 7
-function fameToTier(fame: number): number {
-  for (let i = 0; i < FAME_TIER_CUTS.length; i++) if (fame >= FAME_TIER_CUTS[i]) return i + 1;
-  return 7;
-}
-
-/** A BOARD's difficulty tier (1 easy … 7 hard) from its four actual groups. TWO
- *  independent reasons a board is hard — take the stronger:
- *   • SEPARATION — the MEDIAN over the six group-pairs of their MRCA-rank separation.
- *     Median (not the single all-four MRCA) is robust to an outlier: three near-identical
- *     salmonid genera + one distant viperfish still reads as tight, because most pairs
- *     share a deep ancestor. A famous "four cat genera" board (pairs = family) is hard
- *     however recognisable the cats are.
- *   • OBSCURITY — the fame tier, so an obscure "four beetle families" board (well
- *     separated but unfamiliar) also stays hard.
- *  A famous, well-separated board (porpoise / giraffe / deer / kob — pairs at order) is
- *  easy on both counts and can no longer land on a brutal day. */
-function boardDiffTier(tree: Tree, groupIds: string[], fame: number): number {
+/** A BOARD's separation profile, read off its four groups alone: for each of the six
+ *  group-pairs, the MRCA-rank separation, summarised three ways.
+ *   • med — the board's overall tightness, and its DIFFICULTY. Median (not the single
+ *     all-four MRCA) is robust to an outlier: three near-identical salmonid genera + one
+ *     distant viperfish still reads as tight, because most pairs share a deep ancestor.
+ *   • min — the LOOSEST pair. Low means one group is a giveaway nobody can misplace.
+ *   • max — the TIGHTEST pair, i.e. is there anything here to confuse at all.
+ *
+ *  Obscurity is deliberately NOT part of difficulty. It used to be (difficulty was the
+ *  stronger of separation and a fame tier), and that was wrong twice over. It let boards
+ *  through the floor for the wrong reason: of the 44 trivially-separable boards in a
+ *  generated year, ALL 44 cleared the old floor on obscurity alone, and 16 of them landed
+ *  Mon–Wed, where the tile NAMES are printed and obscurity cannot bite — those are the
+ *  walkovers (real play: 08-12 took 1.00 of available points, 08-03 and 08-11 0.97). And
+ *  where obscurity did bite it made boards unplayable rather than interesting: the two
+ *  worst of 22 played boards were obscure and well separated (cutworm moths + Lymantriidae
+ *  0.02, four beetle families 0.11), while the tightest famous board — Small cats / Big
+ *  cats / Lynxes / Spotted cats, separation 6 — scored 0.64 at a 78% win rate. Eight
+ *  similar well-known monkeys beat four obscure moths plus four obscure butterflies.
+ *  Fame survives only as a fairness FLOOR (MIN_BOARD_FAME): can players name the group. */
+function boardSeparation(
+  tree: Tree,
+  groupIds: string[],
+  pairSep?: Map<string, number>
+): { med: number; min: number; max: number; core: number } {
+  const n = groupIds.length;
+  const m: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
   const pairs: number[] = [];
-  for (let i = 0; i < groupIds.length; i++)
-    for (let j = i + 1; j < groupIds.length; j++)
-      pairs.push(separationTierOf(tree, mrca(tree, groupIds[i], groupIds[j])));
-  const separation = Math.round(medianOf(pairs));
-  return Math.max(1, Math.min(7, Math.max(separation, fameToTier(fame))));
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++) {
+      const memo = pairSep?.get(sepKey(groupIds[i], groupIds[j]));
+      const v = memo ?? pairSeparation(tree, groupIds[i], groupIds[j]);
+      m[i][j] = m[j][i] = v;
+      pairs.push(v);
+    }
+  // CORE — the tightest three-way trap on the board: over every triple, how close its
+  // LOOSEST pair is; take the best triple. A board earns its difficulty from having three
+  // groups you can genuinely confuse, not from all four being mildly related.
+  let core = 0;
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      for (let k = j + 1; k < n; k++) {
+        const t = Math.min(m[i][j], m[i][k], m[j][k]);
+        if (t > core) core = t;
+      }
+  pairs.sort((a, b) => a - b);
+  return { med: medianOf(pairs), min: pairs[0], max: pairs[pairs.length - 1], core };
 }
 
 // Difficulty is carried mostly by the REVEAL MODE (GridGame: name+picture Mon–Wed →
@@ -349,20 +583,75 @@ function boardDiffTier(tree: Tree, groupIds: string[], fame: number): number {
 // and each band draws from a WIDE, overlapping fame window: pools stay large, boards
 // stay varied, and difficulty is a tendency rather than a knife-edge. Band by weekday
 // tier (1=Mon … 7=Sun): Mon–Wed easy, Thu–Fri medium, Sat–Sun hard.
-const WEEKDAY_BAND = [0, 0, 0, 0, 1, 1, 2, 2]; // index by weekday tier 1…7 (index 0 unused)
-// Each band's window over a BOARD's difficulty tier (boardDiffTier: 1 easy … 7 hard —
-// group separation or obscurity, whichever is stronger). Wide and overlapping on purpose:
-// the band is a lean, not a gate; the reveal mode does the real work. Easy days lean to
-// well-separated super-collections; hard days to tight sub-collections + obscure groups,
-// but each can still run the other since the picture/name aids recognition.
-// Floors are one above the easy band's so a board that's easy on BOTH axes — famous AND
-// loosely separated (a Deer/Pig/Oryx-style diff-3 board) — can't land on a medium/hard
-// day; it belongs Mon–Wed. The tops stay wide so pools remain large and varied.
+// Wednesday sits in the MEDIUM band even though it keeps both aids. Difficulty is reveal
+// mode plus separation, so a day that shows the name AND the picture can carry a tighter
+// MRCA for the same total: Mon/Tue and Wed were previously identical on both axes (measured
+// mean separation 3.54 / 3.56 / 3.40), which made the "seven-tier ramp" really a three-step
+// one with three days stacked on each of the first two steps.
+const WEEKDAY_BAND = [0, 0, 0, 1, 1, 1, 2, 2]; // index by weekday tier 1…7 (index 0 unused)
+// Each band's window over a board's separation (boardSeparation.med, fractional because it
+// is a median of six). Wide and overlapping on purpose: the band is a lean, not a gate;
+// the reveal mode does the real work. Every board now clears the gates below, so the whole
+// scale starts at 3 — the bands lean within "already worth playing", they no longer have to
+// hold the trivial end out. Easy days lean to super-collections a rank or two apart, hard
+// days to sub-collections sharing a family or genus.
 const BAND_TIER_WINDOW: Array<[number, number]> = [
-  [1, 4], // easy  (Mon–Wed, name + picture)
-  [4, 6], // medium (Thu–Fri, name only)
-  [5, 7], // hard  (Sat–Sun, picture only)
+  [3, 3.5], // easy  (Mon–Wed, name + picture)
+  [3.5, 4.5], // medium (Thu–Fri, name only)
+  [4.5, 7], // hard  (Sat–Sun, picture only)
 ];
+// Closeness is one currency but it does not buy the same difficulty in every class.
+// Measured over 730 boards, closeness is flat across classes (mammals 3.87, birds 3.92)
+// while fame is not: a mammal tile carries 7383 median pageviews against a bird's 4120,
+// and a mammal GROUP 13532 against 7595. Difficulty is deliberately blind to fame (see
+// the block above boardSeparation), so mammals ride easy inside whatever tier they land
+// in — four mammal families at separation 3 separate themselves on sight, where four
+// snake families at separation 3 genuinely do not. Shift the band for the classes players
+// can eyeball, so those boards must sit closer to earn the same weekday. Applied per
+// CONTAINER, not per day, since class varies candidate to candidate. Soft, like the band
+// itself: a class that cannot go tighter is not banned, it just loses ties.
+const CLASS_BAND_SHIFT: Record<string, number> = { Mammals: 0.5 };
+/** Separation is a rank tier, so the window can never be pushed past the top of it. */
+const MAX_SEPARATION = 7;
+
+// TWO structural gates, applied to every candidate board on EVERY day. Unlike the band
+// these are hard: `offBand` is only a +1 tiebreak, so a fresh-but-trivial board still won
+// on score, which is how the walkovers got through.
+//
+// No pair of groups may be further apart than this, i.e. no group is a giveaway that
+// nobody could misplace. The loosest pair is the best single board-level predictor of how
+// players actually did (r = -0.487 against normalised score over 22 played boards, versus
+// -0.412 for the median), and it is what makes a board with three tempting groups and one
+// obvious one collapse to a three-way choice.
+const MIN_PAIR_SEPARATION = 3;
+// …but that applies only on the picture-only weekend, where every group should be
+// confusable. Mon-Fri a board may take the Connections shape instead: a real three-way trap
+// plus one group you get for free. That is a better puzzle than four mildly-related groups,
+// and demanding all six pairs be close is what made a group with no close companion unusable
+// at all, costing 108 of 261 groups over a year. The fourth group is floored too, just
+// lower — it must still be a relative (same superorder or closer), never an unrelated
+// organism. The loosest board this admits is [2,2,2,4,4,4], median exactly 3, so the 3+1
+// shape lands on easy days and four-tight boards still land on hard ones: the bands need no
+// change. A board whose four groups are all mutually close still passes, trivially.
+const FOURTH_GROUP_MIN = 2;
+/** How many groups must form the board's trap, by weekday tier (index 0 unused). Two
+ *  confusable groups are enough on Mon/Tue; from Wednesday the board should hold a real
+ *  three-way trap. `sep.max` is the tightest PAIR, `sep.core` the tightest TRIPLE. */
+const TRAP_SIZE = [0, 2, 2, 3, 3, 3, 3, 3];
+// …and at least one pair must be genuinely close, so every board has two groups you can
+// honestly mix up. Without this a board can clear the floor above while still being four
+// mutually-distant groups, none of them confusable with any other.
+const MIN_TIGHTEST_PAIR = 4;
+/** Tiers from which the board is picture-only (Sat-Sun) — mirrors GridGame's own constant. */
+const PICTURE_ONLY_MIN_TIER = 6;
+// …relaxed to this for a class whose tree simply isn't ranked finely enough to reach it
+// (plants), rather than dropping the class. Still a real demand: at 3 the two groups share
+// an order, e.g. four families inside Asparagales.
+const MIN_TIGHTEST_PAIR_RELAXED = 3;
+// A class keeps the full floor only if it can still field this many containers under it.
+// Chosen so no class is left with a handful of containers cycling on repeat: plants clear
+// 4 on 13 containers, which the anti-repeat window would grind into the same few boards.
+const MIN_VIABLE_CONTAINERS = 25;
 // A GROUP whose four shown species have a median below this is never used — so no board
 // ever contains a brutally obscure, unplaceable group (e.g. an obscure salamander
 // family). Kept modest (not high): difficulty now comes from the reveal mode, not fame,
@@ -370,6 +659,41 @@ const BAND_TIER_WINDOW: Array<[number, number]> = [
 // picture-only weekend, where you recognise by sight. Lowering this widens the container
 // pool (more reptile/amphibian/plant variety). (Applied per theme in discover.)
 const MIN_BOARD_FAME = 2000;
+/** Below this a group is one most players cannot NAME even once they have solved it —
+ *  `Petrogale`, `Potoroidae`, `Microhyloidea`. One or two of those on a board is the game
+ *  teaching you something; a whole board of them is unplayable and unrewarding. */
+const GROUP_NAMEABLE = 4000;
+/** How many such groups a board may carry. The fame floors are all PER GROUP, so nothing
+ *  stopped four marginal ones sitting together: measured over 730 boards, 103 (14%) had
+ *  three or more and one had four — a picture-only Sunday of Potoroidae / Dendrolagus /
+ *  Petrogale / Osphranter, i.e. separate rock-wallabies from tree-kangaroos from bettongs
+ *  by sight, with four Latin labels as the reward. */
+const MAX_OBSCURE_GROUPS = 2;
+
+// …except that ONE group per board may sit below that, down to this harder floor, and only
+// when the rest of the board is comfortably recognisable (RELAXED_COMPANION_MIN).
+//
+// The justification is elimination, not obscurity: three groups you can name plus one odd
+// set left over is solvable, because the leftovers identify themselves. Four obscure groups
+// is a wall — the live scores are unambiguous, every board that landed at 2-11% of available
+// points had EVERY group obscure (four moth families, four beetle families).
+//
+// So the companion floor is what makes this safe, and it is not theoretical. Measured over
+// a year of boards, the band filled 27 slots: 12 sat beside strong companions (Buteogallus
+// with a weakest companion of 8712) and 15 did not (Torpediniformes with a weakest companion
+// of 2364, on tiers 6 and 7 where everything else is obscure too). Only the first kind is
+// the puzzle we want.
+//
+// NOTE what this band does NOT do. It was first written for groups whose fame lives in the
+// group rather than its species — clownfish, octopus, nightjars. It never reached them: a
+// relaxed theme is only considered when a CONTAINER RUNS SHORT, and short containers sit in
+// obscure corners of the tree, while Amphiprion's container already had four better themes.
+// That case is handled properly by Theme.recognisability instead (see patch-clade-views.mjs).
+// What actually lands here is genuinely obscure: rain frogs, silversides, yellowthroats.
+const MIN_BOARD_FAME_RELAXED = 500;
+const MAX_SUB_FLOOR_GROUPS = 1;
+// Every group ALREADY on the board must clear this before a relaxed one may join it.
+const RELAXED_COMPANION_MIN = 5000;
 
 interface Discovered {
   /** Each broad group's containers. */
@@ -396,19 +720,64 @@ function broadGroupOf(tree: Tree, id: string): string {
  *  a cross-class container (group "other") can't host a board, so no board ever mixes two
  *  classes. (Board difficulty is scored later, per board, in boardForDay.) */
 function discover(tree: Tree): Discovered | null {
+  const eu = eulerOf(tree);
   const candidates = containers(tree, allThemes(tree)).filter((c) => broadGroupOf(tree, c.id) !== "other");
   if (candidates.length === 0) return null;
 
   const byGroup = new Map<string, Container[]>();
+  const prepared: { c: Container; tightest: number }[] = [];
   for (const c of candidates) {
-    // Drop themes below the floor so no OBSCURE group is ever shown (an unplaceable
-    // group is what makes a board brutal). A container needs four survivors to field a
-    // board; its fame is then the median of the groups it can actually show.
-    c.themes = c.themes.filter((t) => t.fame >= MIN_BOARD_FAME);
+    // Drop themes below the RELAXED floor outright; keep the 500-2000 band because a board
+    // may spend one slot down there (see MIN_BOARD_FAME_RELAXED). A container still needs
+    // enough above-floor themes to fill every slot but the relaxed one, so it can never be
+    // mostly obscure.
+    c.themes = c.themes.filter((t) => t.recognisability >= MIN_BOARD_FAME_RELAXED);
+    const aboveFloor = c.themes.filter((t) => t.recognisability >= MIN_BOARD_FAME);
     if (c.themes.length < GRID_GROUPS) continue;
+    if (aboveFloor.length < GRID_GROUPS - MAX_SUB_FLOOR_GROUPS) continue;
     c.group = broadGroupOf(tree, c.id);
-    c.fame = containerFame(c);
-    (byGroup.get(c.group) ?? byGroup.set(c.group, []).get(c.group)!).push(c);
+    // Fame stays the median of the ABOVE-floor themes: those are what a board is normally
+    // built from, and scoring the container on the one relaxed theme it may never use would
+    // shift its difficulty tier (and hence its weekday band) for the wrong reason.
+    c.fame = containerFame({ ...c, themes: aboveFloor });
+    // Pairwise separations, once. A container whose themes are ALL mutually distant can
+    // never field a board with a confusable pair, so it is dropped below rather than
+    // rebuilt and rejected on every one of the ~365 days it would be surveyed.
+    c.recog = new Map(c.themes.map((t) => [t.cladeId, t.recognisability]));
+    c.pairSep = new Map();
+    let tightest = 0;
+    for (let i = 0; i < c.themes.length; i++)
+      for (let j = i + 1; j < c.themes.length; j++) {
+        const a = c.themes[i].cladeId, b = c.themes[j].cladeId;
+        // A nested pair can never share a board, and its "separation" is the rank of the
+        // outer clade itself — a large number that would fake a confusable pair and let a
+        // container through the floor on a board it cannot build.
+        if (overlaps(eu, a, b)) continue;
+        const s = pairSeparation(tree, a, b);
+        c.pairSep.set(sepKey(a, b), s);
+        if (s > tightest) tightest = s;
+      }
+    prepared.push({ c, tightest });
+  }
+
+  // How close two groups can get is capped by how finely the tree is RANKED there, and that
+  // varies by class in a way that has nothing to do with how confusable the groups are.
+  // Botany has no rank between family and order, so four Asparagales families — as
+  // temptingly alike as four owl genera — top out at separation 3 and an absolute floor of
+  // 4 would silently ban plants outright (it did: 0 plant boards in a generated year). So
+  // the floor is per class: ask for a genuinely confusable pair, but never ask for more
+  // than the class can supply. Measured per container over its own themes: birds field 85
+  // containers at 4+, mammals 80, fish 43, insects 42 — plants only 13, against 68 at 3+.
+  const tightestFloor = new Map<string, number>();
+  for (const g of new Set(prepared.map((p) => p.c.group!))) {
+    const viable = prepared.filter((p) => p.c.group === g && p.tightest >= MIN_TIGHTEST_PAIR).length;
+    tightestFloor.set(g, viable >= MIN_VIABLE_CONTAINERS ? MIN_TIGHTEST_PAIR : MIN_TIGHTEST_PAIR_RELAXED);
+  }
+  for (const { c, tightest } of prepared) {
+    const floor = tightestFloor.get(c.group!) ?? MIN_TIGHTEST_PAIR;
+    if (tightest < floor) continue;
+    c.tightestFloor = floor;
+    (byGroup.get(c.group!) ?? byGroup.set(c.group!, []).get(c.group!)!).push(c);
   }
   for (const cs of byGroup.values()) cs.sort((a, b) => (b.fame! - a.fame!) || (a.id < b.id ? -1 : 1));
 
@@ -420,7 +789,7 @@ function discover(tree: Tree): Discovered | null {
   const tierPool = new Map<number, Container[]>();
   const all = [...byGroup.values()].flat();
   for (let tier = 1; tier <= 7; tier++) {
-    tierPool.set(tier, all.filter((c) => (GROUP_MIN_TIER.get(c.group!) ?? 1) <= tier));
+    tierPool.set(tier, all.filter((c) => GROUP_TIERS.get(c.group!)?.has(tier) ?? true));
   }
   return { byGroup, tierPool };
 }
@@ -443,6 +812,22 @@ function shiftDate(dateKey: string, delta: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Would putting this theme on the board read as one group nested inside another? The four
+ *  groups are always disjoint CLADES, but their NAMES can still overlap, and the player
+ *  only sees names. The base tree's "Bovinae" holds Bos taurus while the augment's separate
+ *  "Bos" node holds Bos mutus, so a board offers both and asks you to sort one Bos into
+ *  Bovinae and another into Bos. Detected by the visible evidence rather than by topology:
+ *  one group's scientific name IS the genus of another group's member species. (Fixing the
+ *  augment's stale grafts is the real cure; this keeps such a pair off a board meanwhile.) */
+function nestsWithAny(tree: Tree, cladeId: string, memberIds: string[], groups: GridGroup[]): boolean {
+  const genusOf = (id: string) => (tree.byId.get(id)?.sciName ?? "").split(" ")[0];
+  const sci = tree.byId.get(cladeId)?.sciName ?? "";
+  const myGenera = new Set(memberIds.map(genusOf));
+  return groups.some(
+    (g) => (sci && g.memberIds.some((m) => genusOf(m) === sci)) || (g.sciLabel && myGenera.has(g.sciLabel))
+  );
+}
+
 /** Build the board for a specific CONTAINER on a date, or null if this container can't
  *  field four giveaway-free groups at the day's word cap. Deterministic on (date,
  *  container) so a container yields the same board whenever it's the day's pick, but a
@@ -450,22 +835,71 @@ function shiftDate(dateKey: string, delta: number): string {
  *  themes in preference order and takes the first four that each fill four members
  *  WITHOUT exceeding the word cap; a theme that can't (a whole genus sharing one word) is
  *  skipped. If fewer than four survive, the container is unusable today → null. */
-function buildBoard(tree: Tree, container: Container, dateKey: string, tier: number): GridBoard | null {
+function buildBoard(
+  tree: Tree,
+  container: Container,
+  dateKey: string,
+  tier: number,
+  hist?: History
+): GridBoard | null {
+  const eb = eulerOf(tree);
   const rng = mulberry32(xmur3(`grebe:grid:${dateKey}:${container.id}`));
+  // Which of this container's themes are still fresh (see orderedThemes). Optional so the
+  // function stays usable without history; with it the board is a function of (date,
+  // container, tier) AND what came before, which the sequential replay always has.
+  const ageOf = hist
+    ? (id: string) => {
+        const seen = hist.groupSeenAt.get(id);
+        return seen === undefined ? Infinity : hist.idx - seen;
+      }
+    : undefined;
+  const speciesAgeOf = hist
+    ? (id: string) => {
+        const seen = hist.speciesSeenAt.get(id);
+        return seen === undefined ? Infinity : hist.idx - seen;
+      }
+    : undefined;
   // Shared-word cap: at most 2 members share a distinctive word on the easy early-week
   // days (their species are famous and recognisable, so a shared name would only hand the
   // group away), loosening to 3 on the harder days (tier ≥ 4) where the species are
   // obscurer and a little name overlap is fair help — and on the picture-only weekend the
   // names are hidden during play anyway.
   const wordCap = tier >= 4 ? 3 : 2;
+  // Thu-Fri (4-5) are the name-only days: there the tile name IS the tile, so a bare
+  // binomial is a dud you cannot reason about. Everywhere else a picture is showing.
+  const latinAllowance = tier <= 3 || tier >= 6 ? 1 : 0;
   const groups: GridGroup[] = [];
-  for (const t of orderedThemes(container.themes, rng)) {
+  let subFloor = 0; // groups taken from the relaxed fame band — at most MAX_SUB_FLOOR_GROUPS
+  const accepted: number[] = []; // recognisability of each group already on the board
+  for (const t of orderedThemes(container.themes, rng, ageOf, speciesAgeOf)) {
     if (groups.length >= GRID_GROUPS) break;
-    const memberIds = pickMembers(tree, themePool(tree, t.leaves), GRID_GROUP_SIZE, rng, wordCap);
+    const relaxed = t.recognisability < MIN_BOARD_FAME;
+    if (relaxed && subFloor >= MAX_SUB_FLOOR_GROUPS) continue;
+    // An odd group only works if its companions are ones a player can actually name — that
+    // is what makes the leftovers identifiable. Tested against the groups accepted SO FAR,
+    // which is sound because orderedThemes puts every above-floor theme first.
+    if (relaxed && accepted.some((f) => f < RELAXED_COMPANION_MIN)) continue;
+    const memberIds = pickMembers(tree, themePool(tree, t.leaves), GRID_GROUP_SIZE, rng, wordCap, t.latinPool, latinAllowance, speciesAgeOf);
     if (memberIds.length < GRID_GROUP_SIZE) continue; // theme would self-label — skip it
+    // Two groups may not carry the SAME label. The tree still holds ~49 duplicate scientific
+    // names as base-vs-augment pairs (the base "Colobus" and the augment's auggen_Colobus),
+    // which no taxonomy rebuild fixes because the augment is not rebuilt, and a board
+    // offering "Cebidae" twice is unsolvable by inspection.
+    const lbl = label(tree, t.cladeId);
+    if (groups.some((g) => g.label === lbl)) continue;
+    // A container's themes may now overlap (see containers), so disjointness is enforced
+    // here rather than guaranteed by the list: a group that CONTAINS another group on the
+    // same board leaves the puzzle with no correct answer.
+    if (groups.some((g) => overlaps(eb, t.cladeId, g.cladeId))) continue;
+    if (nestsWithAny(tree, t.cladeId, memberIds, groups)) continue; // reads as a group inside a group
+    // Count the allowance only once the theme is actually ACCEPTED: pickMembers can still
+    // reject it on the word cap, and spending the allowance on a theme that never made the
+    // board would leave the board a slot short for no reason.
+    if (relaxed) subFloor++;
+    accepted.push(t.recognisability);
     groups.push({
       cladeId: t.cladeId,
-      label: label(tree, t.cladeId),
+      label: lbl,
       sciLabel: tree.byId.get(t.cladeId)?.sciName ?? "",
       memberIds,
       level: 0, // assigned below
@@ -503,8 +937,36 @@ function buildBoard(tree: Tree, container: Container, dateKey: string, tier: num
 /** A board's four categories, order-independent — the anti-repeat key. */
 const groupSig = (b: GridBoard) => b.groups.map((g) => g.cladeId).sort().join(",");
 
-/** Days a board's group-SET should stay clear of its recent predecessors. */
+/** Days a board's group-SET may not return at all. A HARD gate, like the group rule below
+ *  and unlike the soft cost this used to be. As a cost it competed on equal terms with
+ *  everything else and lost: a set returning after 60 days charged 90-60 = 30, while missing
+ *  the day's difficulty band charges 45 per rank, so the scorer would replay all four groups
+ *  from two months ago rather than accept a slightly off-band board. Measured over a year
+ *  that let 26 sets return inside the window, one after 49 days, where the pre-branch
+ *  generator never repeated a set inside 90 days at all. Replaying the identical four groups
+ *  is the worst outcome on offer, so it does not get a price. */
 const GRID_ANTI_REPEAT_WINDOW = 90;
+/** Beyond the hard window a repeated set still costs something, decaying to zero here — the
+ *  same shape as GRID_GROUP_SPACING, and for the same reason: without it a set returns the
+ *  day its gate expires. */
+const GRID_SET_SPACING = 180;
+
+/** Days an individual SPECIES should stay off the board before it is a preferred tile
+ *  again (pickMembers). A preference, never a gate: a group with exactly four named
+ *  members has no choice, and forbidding a repeat there would just delete the group. */
+const SPECIES_REPEAT_WINDOW = 45;
+/** What one recently-shown TILE costs a candidate board, in the same currency as group
+ *  spacing and the band penalty. Until this existed the score was blind to species: a board
+ *  of sixteen fresh species and one of sixteen seen last month scored the same, and every
+ *  species rule lived in tile selection, i.e. after the board had already been chosen.
+ *  Scored per board rather than as a theme-ordering preference on purpose — demoting
+ *  species-exhausted THEMES also demotes them out of use entirely, which cost 14 distinct
+ *  four-group combinations when tried. Sixteen tiles, so the cap is 16x this.
+ *  Swept at 2/4/8/16 over two years. 16 edges it on raw variety (combinations 252 vs 247,
+ *  distinct species 1544 vs 1529) but 8 is clearly better on repetition, which is the
+ *  complaint this exists to answer: near-repeat boards 65 vs 72, and group returns with all
+ *  four tiles identical 34 vs 52. */
+const SPECIES_REPEAT_COST = 8;
 
 /** Days an INDIVIDUAL group (clade) should stay clear of its recent predecessors —
  *  the dominant anti-repeat rule. The set-level window above only forbids the exact
@@ -513,8 +975,27 @@ const GRID_ANTI_REPEAT_WINDOW = 90;
  *  from the day before (a Mon/Tue board sharing Drums, Billfish and Rockcods). Barring
  *  any single group from reappearing within a week stops that: consecutive boards no
  *  longer echo yesterday's categories. Graceful — if a tier genuinely can't avoid a
- *  group repeat, boardForDay picks the board with the FEWEST recent groups. */
-const GRID_GROUP_ANTI_REPEAT_WINDOW = 8;
+ *  group repeat, boardForDay picks the board with the FEWEST recent groups.
+ *
+ *  SWEPT, leave it alone: 10/12/14/16/18/21 over two independent years put distinct
+ *  four-group combinations at 229·228, 230·226, 238·235, 226·241, 241·234, 233·235 — a
+ *  range with no trend, i.e. window-to-window noise. Relaxing it does NOT recover the
+ *  combination count against the pre-branch generator (266); the gate limits WHEN a
+ *  combination may be used, not which ones exist, so loosening it only lets the scorer
+ *  revisit recent groups instead of exploring. Tightening to 21 does buy the fewest
+ *  near-repeats (103·111) but the most identical group returns (125·111). */
+const GRID_GROUP_ANTI_REPEAT_WINDOW = 14;
+// Beyond the hard window, a group still costs something, decaying linearly to zero at this
+// age. This is what stops a board reassembling itself the moment its groups expire.
+const GRID_GROUP_SPACING = 45;
+// Missing the day's band costs the same currency as group spacing, or it may as well not
+// exist: spacing reaches ~124 for a board of four recently-seen groups, so the old flat +1
+// was numerically invisible once spacing replaced the small binary weights, and the weekday
+// ramp inverted. One rank off band is priced like reusing a group the day its hard window expires.
+// Swept against 90, which bought a slightly stronger ramp (1.20-1.36 vs 1.16-1.22) for real
+// variety: 187 distinct groups over 120 days instead of 197, and set repeats at 35d not 43d.
+const BAND_PENALTY_PER_RANK = 45;
+const BAND_PENALTY_CAP = 135;
 
 /** The anti-repeat replay anchor: a fixed date safely BEFORE any viewable (pre-launch
  *  preview) day, so consecutive days — including the pre-launch shakedown ones the app
@@ -524,11 +1005,6 @@ const GRID_GROUP_ANTI_REPEAT_WINDOW = 8;
  *  every date at-or-before it to EMPTY history, so back-to-back pre-launch days repeated. */
 const ANTIREPEAT_ANCHOR = "2026-06-22";
 
-/** Board fame: the median across the four groups of each group's shown-member fame. */
-function boardFame(tree: Tree, board: GridBoard): number {
-  return medianOf(board.groups.map((g) => fameOf(tree, g.memberIds)));
-}
-
 /** One day's board. Surveys EVERY eligible container that day (tierPool) in a stable
  *  per-date order and scores each buildable board, lowest-is-best, on three ordered
  *  criteria — then returns the best (breaking ties by the stable survey order):
@@ -536,9 +1012,11 @@ function boardFame(tree: Tree, board: GridBoard): number {
  *       GRID_GROUP_ANTI_REPEAT_WINDOW days. This dominates: a board must not echo the
  *       previous days' categories, even at the cost of the two criteria below.
  *    2. SET staleness — the exact four-category set reused within GRID_ANTI_REPEAT_WINDOW.
- *    3. OFF-BAND — its own difficulty (boardDiffTier over the four groups) outside the
- *       day's band window (variety/freshness beats hitting the exact difficulty; the
+ *    3. OFF-BAND — its own separation (boardSeparation.med over the four groups) outside
+ *       the day's band window (variety/freshness beats hitting the exact difficulty; the
  *       reveal mode carries most of the difficulty anyway).
+ *  Boards failing either structural gate (MIN_PAIR_SEPARATION, MIN_TIGHTEST_PAIR) are not
+ *  candidates at all, and are kept only as a last-resort fallback.
  *  Containers that can't field a giveaway-free board today (buildBoard → null) are
  *  skipped. `seenAt` maps a category-set, and `groupSeenAt` an individual clade id, to
  *  the day index it last appeared. Returns null only if no container fields a clean
@@ -548,32 +1026,111 @@ function boardForDay(
   pool: Container[],
   dateKey: string,
   tier: number,
-  seenAt: Map<string, number>,
-  groupSeenAt: Map<string, number>,
-  dayIdx: number
+  hist: History
 ): GridBoard | null {
-  const [lo, hi] = BAND_TIER_WINDOW[WEEKDAY_BAND[tier] ?? 0];
+  const { seenAt, groupSeenAt, classSeenAt, idx: dayIdx } = hist;
+  const [bandLo, bandHi] = BAND_TIER_WINDOW[WEEKDAY_BAND[tier] ?? 0];
   // Stable per-date survey order, so the pick varies day to day.
   const order = shuffle([...pool], mulberry32(xmur3(`grebe:grid:${dateKey}:${tier}:order`)));
   let best: GridBoard | null = null;
   let bestScore = Infinity;
+  // Below-floor boards are kept only as a last resort, so a class whose containers are
+  // ALL trivial still yields a board rather than a blank day.
+  let floorFallback: GridBoard | null = null;
+  let floorFallbackScore = Infinity;
   for (const c of order) {
-    const board = buildBoard(tree, c, dateKey, tier);
+    const board = buildBoard(tree, c, dateKey, tier, hist);
     if (!board) continue; // container can't avoid a giveaway today
-    const recentGroups = board.groups.reduce((n, g) => {
-      const s = groupSeenAt.get(g.cladeId);
-      return n + (s !== undefined && dayIdx - s < GRID_GROUP_ANTI_REPEAT_WINDOW ? 1 : 0);
-    }, 0);
+    // Group spacing, as one age-decaying cost rather than a window that switches off. The
+    // old binary window let an ENTIRE board come back the day it expired: at exactly 14 days
+    // all four groups stop counting at once, so the whole set returns in a single step. No
+    // weighting could fix that — a 14-day set repeat had to cost MORE than one recent group
+    // to be avoided, and a stale set had to cost LESS than one recent group for the reverse
+    // to hold. So the window is now a hard gate (measured affordable: every day of a 140-day
+    // replay had candidates free of any recent group, median 48 of them), and beyond it the
+    // cost decays to zero over GRID_GROUP_SPACING, which pushes a repeat of all four groups
+    // far out without ever forbidding it.
+    let recentGroups = 0, spacing = 0;
+    for (const g of board.groups) {
+      const seen = groupSeenAt.get(g.cladeId);
+      if (seen === undefined) continue;
+      const age = dayIdx - seen;
+      if (age < GRID_GROUP_ANTI_REPEAT_WINDOW) recentGroups++;
+      else spacing += Math.max(0, GRID_GROUP_SPACING - age);
+    }
+    // The set penalty decays over its own declared window, exactly as group spacing does.
+    // As a flat charge it was inconsistent with the rest of the score and left a boundary
+    // case: an exact four-set could return at 30 days because the flat amount happened to
+    // beat the alternatives that day.
     const seen = seenAt.get(groupSig(board));
-    const setStale = seen !== undefined && dayIdx - seen < GRID_ANTI_REPEAT_WINDOW;
-    const bd = boardDiffTier(tree, board.groups.map((g) => g.cladeId), boardFame(tree, board));
-    const offBand = bd < lo || bd > hi;
-    // Weighted so recent-group overlap outranks set staleness outranks off-band.
-    const score = recentGroups * 4 + (setStale ? 2 : 0) + (offBand ? 1 : 0);
+    const setAge = seen === undefined ? Infinity : dayIdx - seen;
+    const setTooSoon = setAge < GRID_ANTI_REPEAT_WINDOW;
+    const setCost = Math.max(0, GRID_SET_SPACING - setAge);
+    // How much of this board the player has seen recently, tile by tile.
+    let staleTiles = 0;
+    for (const g of board.groups)
+      for (const m of g.memberIds) {
+        const shown = hist.speciesSeenAt.get(m);
+        if (shown !== undefined && dayIdx - shown < SPECIES_REPEAT_WINDOW) staleTiles++;
+      }
+    const speciesCost = staleTiles * SPECIES_REPEAT_COST;
+    const sep = boardSeparation(tree, board.groups.map((g) => g.cladeId), c.pairSep);
+    // How far outside the day's band, not merely whether — and it costs more than it used
+    // to. As a flat +1 the band was decorative: with difficulty now meaning closeness, a
+    // fresh board two whole ranks off still won on score, so Monday 2026-08-17 drew
+    // Bos/Bovinae/Tragelaphus/Kobus at separation 6/6/6 (the tightest board possible, on
+    // the easiest day) while that Saturday drew the loosest board of its week. Capped at 3
+    // so it stays below one recent group (4): freshness still wins, but only just.
+    // The band this CLASS has to hit, which may sit above the day's own (CLASS_BAND_SHIFT).
+    const shift = CLASS_BAND_SHIFT[c.group!] ?? 0;
+    const lo = Math.min(bandLo + shift, MAX_SEPARATION);
+    const hi = Math.min(bandHi + shift, MAX_SEPARATION);
+    const offBy = Math.max(0, lo - sep.med, sep.med - hi);
+    // Ordering matters more than the exact weights, and it used to be wrong: at 2, a board
+    // whose ENTIRE four-group set was a repeat scored better than one reusing a single group
+    // (4), so once the difficulty gates tightened the pool the generator started preferring
+    // to replay a whole board. A repeated set must cost more than a repeated group.
+    const score = spacing + setCost + speciesCost + Math.min(BAND_PENALTY_CAP, offBy * BAND_PENALTY_PER_RANK);
+    const gap = GROUP_MIN_GAP.get(c.group!);
+    const classSeen = classSeenAt.get(c.group!);
+    const classTooSoon = gap !== undefined && classSeen !== undefined && dayIdx - classSeen < gap;
+    const obscureGroups = board.groups.filter((g) => (c.recog?.get(g.cladeId) ?? Infinity) < GROUP_NAMEABLE).length;
+    const tooObscure = obscureGroups > MAX_OBSCURE_GROUPS;
+    // Two shapes are worth playing, and a weekday accepts EITHER — a union, so both are more
+    // available than the single old rule, not less:
+    //   TRAP     a set of groups close enough to genuinely confuse, plus others that are
+    //            still relatives but an easier read (the Connections shape).
+    //   UNIFORM  no trap that sharp, but every group close to every other (the old rule).
+    // Requiring the trap ALONE looked right and measured worse: three groups mutually close
+    // is a stronger demand than "all six pairs >= 3" is on four, so distinct groups over a
+    // year fell 214 -> 202 even as boards with no trap at all fell 102 -> 26.
+    // The TRAP GROWS through the week (TRAP_SIZE): two confusable groups carry a Monday,
+    // three are wanted once the reveal aids start coming off. The weekend is picture-only
+    // and hard on purpose, so it demands both shapes at once.
+    const coreFloor = c.tightestFloor ?? MIN_TIGHTEST_PAIR;
+    const pairTrap = sep.max >= coreFloor;              // two groups you can genuinely confuse
+    const tripleTrap = sep.core >= coreFloor;           // three of them
+    const uniform = sep.min >= MIN_PAIR_SEPARATION;     // nothing is a giveaway
+    const riderOk = sep.min >= FOURTH_GROUP_MIN;        // free groups are still relatives
+    // A pair trap is required EVERY day and is never traded away — offering it as one arm of
+    // a union let 69 boards through with nothing confusable on them at all. Above that floor
+    // the demand grows through the week: Mon/Tue are content with the pair, Wed-Fri want
+    // either a three-way trap or uniform closeness, and the picture-only weekend wants a
+    // three-way trap AND no giveaway.
+    const shapeOk =
+      tier >= PICTURE_ONLY_MIN_TIER
+        ? tripleTrap && uniform
+        : (TRAP_SIZE[tier] ?? 3) >= 3
+        ? pairTrap && riderOk && (tripleTrap || uniform)
+        : pairTrap && riderOk;
+    if (classTooSoon || recentGroups > 0 || setTooSoon || tooObscure || !shapeOk) {
+      if (score < floorFallbackScore) { floorFallback = board; floorFallbackScore = score; }
+      continue; // giveaway group, or nothing on the board to confuse — see the gates
+    }
     if (score < bestScore) { best = board; bestScore = score; }
     if (score === 0) break; // fresh groups, fresh set, on-band → nothing beats it
   }
-  return best;
+  return best ?? floorFallback;
 }
 
 /**
@@ -596,23 +1153,95 @@ function tierPoolOf(d: Discovered, tier: number): Container[] {
   return d.tierPool.get(tier) ?? [...d.byGroup.values()].flat();
 }
 
+/** The replayed anti-repeat history, as a cursor sitting just BEFORE `dk`. Every day of the
+ *  replay is generated at its own weekday tier (tierForDate), never at the tier the caller
+ *  asked for — only the target day uses that — so one history serves all seven tiers and
+ *  every caller. Recomputing it per call made the work quadratic in days-since-anchor and
+ *  paid it again for each tier: the tests ask for seven tiers across many dates and were
+ *  replaying the same days dozens of times. Advancing forward is amortised O(1) per day.
+ *  Never holds the target day itself, which is why the cache is safe: the target is scored
+ *  at the requested tier and deliberately not committed. */
+interface History {
+  idx: number;
+  seenAt: Map<string, number>;        // category-set → day index last shown
+  groupSeenAt: Map<string, number>;   // clade id → day index last shown
+  classSeenAt: Map<string, number>;   // broad group → day index last shown (see GROUP_MIN_GAP)
+  speciesSeenAt: Map<string, number>; // species leaf id → day index last shown
+}
+interface ReplayCursor extends History {
+  dk: string;
+}
+/** A board generated with no history to avoid — pre-anchor days and arbitrary seeds. */
+const emptyHistory = (): History => ({
+  idx: 0, seenAt: new Map(), groupSeenAt: new Map(), classSeenAt: new Map(), speciesSeenAt: new Map(),
+});
+const cloneHistory = (h: History): History => ({
+  idx: h.idx,
+  seenAt: new Map(h.seenAt),
+  groupSeenAt: new Map(h.groupSeenAt),
+  classSeenAt: new Map(h.classSeenAt),
+  speciesSeenAt: new Map(h.speciesSeenAt),
+});
+const replayCache = new WeakMap<Tree, ReplayCursor>();
+// Periodic snapshots so going BACKWARD is cheap too. A cursor only moves forward, and
+// callers do jump back: asking for the same span of dates at each of the seven tiers
+// restarts at the earliest date every time, which replayed the whole history seven times.
+// Cloning the two maps every REPLAY_CHECKPOINT days costs a dozen clones a year and bounds
+// any backward jump to that many days of replay.
+const REPLAY_CHECKPOINT = 32;
+const checkpoints = new WeakMap<Tree, ReplayCursor[]>();
+/** date → that day's natural-weekday-tier board, the only thing a replayed day contributes. */
+const dayBoards = new WeakMap<Tree, Map<string, GridBoard | null>>();
+
 export function generateGridBoard(tree: Tree, dateKey: string, tier: number): GridBoard | null {
   const d = getDiscovered(tree);
   if (!d) return null;
-  if (dateKey < ANTIREPEAT_ANCHOR) return boardForDay(tree, tierPoolOf(d, tier), dateKey, tier, new Map(), new Map(), 0);
+  if (dateKey < ANTIREPEAT_ANCHOR) return boardForDay(tree, tierPoolOf(d, tier), dateKey, tier, emptyHistory());
 
-  const seenAt = new Map<string, number>();      // category-set → day index last shown
-  const groupSeenAt = new Map<string, number>(); // clade id → day index last shown
-  let idx = 0;
-  for (let dk = ANTIREPEAT_ANCHOR; ; dk = shiftDate(dk, 1), idx++) {
-    const t = dk === dateKey ? tier : tierForDate(dk);
-    const board = boardForDay(tree, tierPoolOf(d, t), dk, t, seenAt, groupSeenAt, idx);
-    if (dk === dateKey) return board;
+  let cur = replayCache.get(tree);
+  if (!cur || cur.dk > dateKey) {
+    const saved = checkpoints.get(tree) ?? [];
+    // newest checkpoint at or before the target, else start over from the anchor
+    const cp = saved.filter((c) => c.dk <= dateKey).pop();
+    cur = cp
+      ? { dk: cp.dk, ...cloneHistory(cp) }
+      : { dk: ANTIREPEAT_ANCHOR, ...emptyHistory() };
+  }
+  // The board a replayed day CONTRIBUTES is always its natural-weekday-tier board, and that
+  // is a pure function of the day and the history before it — both deterministic — so it is
+  // computed at most once per date however many times the history is walked. This is what
+  // makes the replay cheap: without it every tier pass recomputed the same days (a board
+  // costs ~14ms, so the seven-tier test spans replayed ~800 days of identical work).
+  let days = dayBoards.get(tree);
+  if (!days) { days = new Map(); dayBoards.set(tree, days); }
+  while (cur.dk < dateKey) {
+    const t = tierForDate(cur.dk);
+    let board = days.get(cur.dk);
+    if (board === undefined) {
+      board = boardForDay(tree, tierPoolOf(d, t), cur.dk, t, cur);
+      days.set(cur.dk, board);
+    }
     if (board) {
-      seenAt.set(groupSig(board), idx);
-      for (const g of board.groups) groupSeenAt.set(g.cladeId, idx);
+      cur.seenAt.set(groupSig(board), cur.idx);
+      for (const g of board.groups) {
+        cur.groupSeenAt.set(g.cladeId, cur.idx);
+        for (const m of g.memberIds) cur.speciesSeenAt.set(m, cur.idx);
+      }
+      // Recomputed rather than stored on the board: GridBoard is the pinned payload shape.
+      cur.classSeenAt.set(broadGroupOf(tree, board.groups[0].cladeId), cur.idx);
+    }
+    cur = { ...cur, dk: shiftDate(cur.dk, 1), idx: cur.idx + 1 };
+    if (cur.idx % REPLAY_CHECKPOINT === 0) {
+      const saved = checkpoints.get(tree) ?? [];
+      if (!saved.some((c) => c.dk === cur!.dk)) {
+        saved.push({ dk: cur.dk, ...cloneHistory(cur) });
+        saved.sort((a, b) => (a.dk < b.dk ? -1 : 1));
+        checkpoints.set(tree, saved);
+      }
     }
   }
+  replayCache.set(tree, cur);
+  return boardForDay(tree, tierPoolOf(d, tier), dateKey, tier, cur);
 }
 
 /** A single board from an ARBITRARY seed string + tier, with no anti-repeat
@@ -622,7 +1251,7 @@ export function generateGridBoard(tree: Tree, dateKey: string, tier: number): Gr
  *  (seed, tier); the seed is used purely to drive the RNG. */
 export function gridBoardForSeed(tree: Tree, seed: string, tier: number): GridBoard | null {
   const d = getDiscovered(tree);
-  return d ? boardForDay(tree, tierPoolOf(d, tier), seed, tier, new Map(), new Map(), 0) : null;
+  return d ? boardForDay(tree, tierPoolOf(d, tier), seed, tier, emptyHistory()) : null;
 }
 
 /** Which solution group a set of four selected tiles forms, plus a Connections

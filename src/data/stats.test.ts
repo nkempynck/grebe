@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  adoptServerPoints,
   derive,
   localStoreTrusted,
   mergeMissingDailies,
@@ -261,5 +262,92 @@ describe("per-clade scoring beyond Lineage", () => {
     expect(d.kinship.groups.find((x) => x.id === BIRDS)?.avgPoints).toBe(100);
     expect(d.branches.groups.find((x) => x.id === BIRDS)?.avgPoints).toBe(20);
     expect(d.daily.groups).toEqual([]);
+  });
+});
+
+// The server's frozen score is the one the boards rank on, so it wins over the
+// local copy. See supabase/stats-truth-2026-08-06.sql.
+describe("server points win over the local freeze", () => {
+  const day = (points?: number): DailyEntry => ({ status: "won", guesses: 3, hints: 0, tier: 1, points });
+
+  it("overwrites a day the server knows, and counts it", () => {
+    const s = store({ "2026-08-01": day(118), "2026-08-02": day(90) });
+    const moved = adoptServerPoints(s, [
+      { game: "lineage", day: "2026-08-01", points: 119 },
+      { game: "lineage", day: "2026-08-02", points: 90 }, // already equal, not a change
+    ]);
+    expect(moved).toBe(1);
+    expect(s.history["2026-08-01"].points).toBe(119);
+    expect(s.history["2026-08-02"].points).toBe(90);
+  });
+
+  it("leaves a signed-out day the server never saw", () => {
+    const s = store({ "2026-08-01": day(118) });
+    expect(adoptServerPoints(s, [])).toBe(0);
+    expect(s.history["2026-08-01"].points).toBe(118);
+  });
+
+  it("never invents a day the store doesn't have", () => {
+    const s = store({});
+    expect(adoptServerPoints(s, [{ game: "lineage", day: "2026-08-01", points: 119 }])).toBe(0);
+    expect(s.history["2026-08-01"]).toBeUndefined();
+  });
+
+  it("routes each game to its own section", () => {
+    const s: StatsStore = {
+      version: 6,
+      history: { "2026-08-01": day(10) },
+      clades: {},
+      kinship: { "2026-08-01": { status: "won", mistakes: 0, reveals: 0, tier: 1, points: 20 } },
+      branches: { "2026-08-01": { won: true, total: 8, correct: 8, hinted: 0, peeked: 0, mistakes: 0, tier: 1, points: 30 } },
+    };
+    const moved = adoptServerPoints(s, [
+      { game: "lineage", day: "2026-08-01", points: 11 },
+      { game: "kinship", day: "2026-08-01", points: 21 },
+      { game: "branches", day: "2026-08-01", points: 31 },
+    ]);
+    expect(moved).toBe(3);
+    expect([s.history["2026-08-01"].points, s.kinship["2026-08-01"].points, s.branches["2026-08-01"].points]).toEqual([11, 21, 31]);
+  });
+
+  it("ignores a junk score rather than writing NaN into the store", () => {
+    const s = store({ "2026-08-01": day(118) });
+    expect(adoptServerPoints(s, [{ game: "lineage", day: "2026-08-01", points: Number.NaN }])).toBe(0);
+    expect(s.history["2026-08-01"].points).toBe(118);
+  });
+
+  it("makes the derived total match the sum of the server's scores", () => {
+    const s = store({ "2026-08-01": day(118), "2026-08-02": day(90) });
+    adoptServerPoints(s, [
+      { game: "lineage", day: "2026-08-01", points: 119 },
+      { game: "lineage", day: "2026-08-02", points: 91 },
+    ]);
+    expect(derive(s, "2026-08-03").daily.points.total).toBe(210);
+  });
+});
+
+// The boards compute round(sum(raw)). The panel must do the same arithmetic, not
+// sum(round(raw)) — that difference IS the drift. So raw server values are kept as
+// they are and only the total is rounded.
+describe("totals round the way the boards round", () => {
+  const day = (points: number): DailyEntry => ({ status: "won", guesses: 3, hints: 0, tier: 1, points });
+
+  it("rounds the sum, not each game", () => {
+    // Each game is just under a whole point: sum(round) drops all three fractions
+    // and gives 68 + 34 + 73 = 175. round(sum) keeps them, 176.2 → 176, which is
+    // the number the board prints.
+    const s = store({
+      "2026-08-01": day(68.4),
+      "2026-08-02": day(34.4),
+      "2026-08-03": day(73.4),
+    });
+    expect(derive(s, "2026-08-04").daily.points.total).toBe(176);
+  });
+
+  it("never shows a fractional total, average or best", () => {
+    const s = store({ "2026-08-01": day(68.5714285714), "2026-08-02": day(34.1463414634) });
+    const p = derive(s, "2026-08-03").daily.points;
+    expect(Number.isInteger(p.total) && Number.isInteger(p.avg) && Number.isInteger(p.best)).toBe(true);
+    expect(p.best).toBe(69);
   });
 });

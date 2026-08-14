@@ -4,7 +4,7 @@ import { inducedSubtree, dailyNumber, boardSpoilers, namesTell, tellingWords, wi
 import { resolveDailyRules } from "../data/dailySchedule";
 import { GameHeader } from "./GameHeader";
 import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame";
-import { branchesPoints, tierWeight } from "../data/score";
+import { BRANCHES_MAX_HINTS, branchesPoints, tierWeight } from "../data/score";
 import { fetchWikiImage, type WikiImage } from "../data/wikipedia";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } from "./cladoLayout";
 import { WikiCard } from "./WikiCard";
@@ -12,7 +12,7 @@ import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
 import { DiscussionPanel } from "./DiscussionPanel";
 import { todayKey } from "../core/daily";
-import { gameUrl } from "./share";
+import { branchesShareRows, gameUrl } from "./share";
 import { PlaytestBar } from "./PlaytestBar";
 import { useDev } from "../data/devMode";
 
@@ -110,6 +110,9 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   const [trayOver, setTrayOver] = useState(false);
   const [wikiId, setWikiId] = useState<string | null>(null);
   const [pendingPeek, setPendingPeek] = useState<string | null>(null);
+  // A hint asked for but not yet paid for: the button only opens this warning, the
+  // reveal happens on the confirm.
+  const [pendingHint, setPendingHint] = useState(false);
   const [pendingRead, setPendingRead] = useState<{ id: string; url: string } | null>(null);
   const [mode, setMode] = useState<BranchesView>("radial");
   const [copied, setCopied] = useState(false);
@@ -253,15 +256,16 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   const won = g.won;
   const points = g.result ? branchesPoints(g.tier, won, g.result.total, g.result.correct, g.result.mistakes, g.result.hinted, g.result.peeked) : 0;
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
-  // Shareable result grid: one square per slot in board order. The answer species
-  // are never encoded — only whether each was placed right, and with what help —
-  // so the grid is safe to post. Clean correct 🟩, hint-revealed 🟨, peeked 🟦,
-  // never-placed (on a loss) ⬛.
+  // Shareable result grid: one row per submit (see branchesShareRows). The answer
+  // species are never encoded — only whether each was placed right, and with what
+  // help — so the grid is safe to post. Clean correct 🟩, hint-revealed 🟨,
+  // peeked 🟦, wrong (or never placed, on a loss) ⬛.
   const shareSquare = (s: string) =>
     g.placements[s] !== s ? "⬛" : g.hints.includes(s) ? "🟨" : g.peeked.includes(s) ? "🟦" : "🟩";
+  const shareRows = branchesShareRows(board.slotIds, g.attempts, shareSquare);
   const shareText = (() => {
     const head = `🌿 Grebe Branches · №${dailyNumber(g.date)}${rules.difficulty ? ` · ${rules.difficulty}` : ""}`;
-    const grid = board.slotIds.map(shareSquare).join("");
+    const grid = shareRows.join("\n");
     const tags = [
       g.result?.mistakes ? plural(g.result.mistakes, "mistake") : "",
       g.result?.hinted ? plural(g.result.hinted, "hint") : "",
@@ -320,6 +324,12 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   // whole board down, which quietly makes a lookup cheaper. Not worth surfacing, since
   // help getting cheaper because you already blundered is a strange thing to advertise.
   const lookupCost = Math.round((tierWeight(g.tier) * 0.5) / board.slotIds.length);
+  // A hint forfeits the WHOLE slot where a lookup forfeits half, so it prices at twice
+  // the lookup. Same "up to": a mistake already scaled the board down, and a slot that
+  // was looked up first has half its value gone, so the hint can only take the rest.
+  const hintCost = Math.round(tierWeight(g.tier) / board.slotIds.length);
+  const hintSpent = g.hints.length >= BRANCHES_MAX_HINTS;
+  const confirmHint = () => { setPendingHint(false); g.hint(); };
   const confirmRead = () => {
     if (!pendingRead) return;
     g.readFull(pendingRead.id);
@@ -402,7 +412,18 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         dayName={rules.dayName}
         difficulty={rules.difficulty}
         onHowItWorks={onHowItWorks}
-        blurb="Drag each species onto the clade it belongs to, then Submit. Correct slots lock in. A wrong board costs a mistake and sends the misplaced tiles back. A species already placed is a worked example to build from. Reading a clade's card is free (species you still have to place are blanked out of the text). Looking up a species you have to place costs points, and so does opening the full Wikipedia article, where nothing is blanked out."
+        blurb={
+          <>
+            Drag each species onto the clade it belongs to, then Submit. Correct slots lock in. A wrong board costs a
+            mistake and sends the misplaced tiles back. A species already placed is a worked example to build from.
+            Reading a clade's card is free (species you still have to place are blanked out of the text). Looking up a
+            species you have to place costs points, and so does opening the full Wikipedia article, where nothing is
+            blanked out.
+            <span className="gamehead-blurb-note">
+              No outside lookups. The fun is working out the tree from what you already know.
+            </span>
+          </>
+        }
       >
         <div className="branches-viewtoggle" role="tablist" aria-label="Tree view">
           <button role="tab" aria-selected={!radial} className={`branches-viewseg${!radial ? " is-on" : ""}`} onClick={() => setMode("tree")}>Tree</button>
@@ -553,13 +574,35 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
             )}
           </div>
           <div className="branches-actions">
-            <button className="linkbtn" onClick={g.hint} disabled={board.slotIds.every((s) => g.placements[s] === s)}>
-              Hint: reveal one
+            <button
+              className="linkbtn"
+              title={hintSpent ? "You've used this board's hint" : `Reveal one species (costs up to ${hintCost} pts)`}
+              onClick={() => setPendingHint(true)}
+              disabled={hintSpent || board.slotIds.every((s) => g.placements[s] === s)}
+            >
+              {hintSpent ? "Hint used" : "Hint: reveal one"}
             </button>
             <button className="branches-submit" onClick={g.submit} disabled={!g.canSubmit}>
               Submit
             </button>
           </div>
+
+          {/* The hint warning sits right under the button that opened it — the peek
+              confirm can afford to live at the page foot because a lookup starts from
+              a tile anywhere on the board, but this one has a fixed origin. */}
+          {pendingHint && (
+            <div className="branches-confirm" role="alertdialog" aria-label="Confirm hint">
+              <p>
+                Reveal one species? It locks a slot in correct, but a hinted slot scores nothing,
+                so it forfeits that whole slot: <b>up to {hintCost} points</b>. This is the board's
+                only hint.
+              </p>
+              <div className="branches-confirm-actions">
+                <button className="linkbtn" onClick={() => setPendingHint(false)}>Cancel</button>
+                <button className="branches-submit" onClick={confirmHint}>Reveal one (−{hintCost} pts)</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -584,8 +627,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
           )}
           <div className="share">
             <div className="share-head">🌿 Grebe Branches <span>· №{dailyNumber(g.date)}{rules.difficulty ? ` · ${rules.difficulty}` : ""}</span></div>
-            <div className="share-grid" aria-label={`placements: ${board.slotIds.map(shareSquare).join("")}`}>
-              {board.slotIds.map(shareSquare).join("")}
+            <div className="share-grid" aria-label={`placements: ${shareRows.join(", ")}`}>
+              {shareRows.map((row, i) => <div key={i}>{row}</div>)}
             </div>
             <div className="share-verdict">
               {won ? "Solved 😎" : "Missed it"} · {g.result.correct}/{g.result.total} placed

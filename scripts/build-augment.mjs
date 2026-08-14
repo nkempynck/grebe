@@ -28,6 +28,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { latinBinomialTest } from "./latin-name.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const C = resolve(ROOT, "node_modules/.cache");
 
@@ -56,19 +57,83 @@ const classify = JSON.parse(readFileSync(resolve(C, "sel-classify-otl.json"), "u
 const familyAnchor = JSON.parse(readFileSync(resolve(C, "sel-family-anchors.json"), "utf8")).byFamily;
 
 // ---- existing tree structure we graft onto ----
-const genusNodeBySci = new Map(); // genus sci -> genus node id
-const famNodeBySci = new Map();   // family sci -> family node id
-const insetOtt = new Set();       // every in-set clade node id of the form ott<n>
+// A GENUS NAME IS NOT A KEY. Prunella is both a bird genus (the accentors) and a mint
+// (selfheal), and both have a node in the base tree. Holding them in a plain
+// name -> id Map kept only one, so the augment grafted Prunella collaris and P.
+// montanella into Lamiaceae and Wednesday plant boards dealt "Catnip · Selfheal ·
+// Nepeta × faassenii · Alpine accentor" thirteen times over two years. Keep every
+// candidate and disambiguate with the species' own family; drop it if that can't
+// separate them, because a wrong graft is worse than a missing species.
+const genusNodesBySci = new Map(); // genus sci -> [genus node id]
+const famNodeBySci = new Map();    // family sci -> family node id
+const insetOtt = new Set();        // every in-set clade node id of the form ott<n>
 const allNodeIds = new Set();
+const nodeById = new Map();
 for (const n of tax.nodes) {
   allNodeIds.add(n.id);
+  nodeById.set(n.id, n);
   if (/^ott\d+$/.test(n.id)) insetOtt.add(n.id);
-  if (n.rank === "genus" && n.sciName) genusNodeBySci.set(n.sciName, n.id);
+  if (n.rank === "genus" && n.sciName) {
+    const list = genusNodesBySci.get(n.sciName) ?? genusNodesBySci.set(n.sciName, []).get(n.sciName);
+    list.push(n.id);
+  }
   if (n.rank === "family" && n.sciName) famNodeBySci.set(n.sciName, n.id);
+}
+
+/** The family a base node sits in, or null when its ancestry carries no family rank. */
+function familyOf(id) {
+  for (let c = id; c; c = nodeById.get(c)?.parentId) {
+    const n = nodeById.get(c);
+    if (n?.rank === "family" && n.sciName) return n.sciName;
+  }
+  return null;
+}
+/** Which node a genus NAME means for a species of this family. One candidate: that one,
+ *  unchanged. Several: the one sitting in the species' own family. No match: null, and the
+ *  species is skipped rather than guessed at. */
+function genusNodeFor(genusSci, family) {
+  const ids = genusNodesBySci.get(genusSci);
+  if (!ids?.length) return null;
+  if (ids.length === 1) return ids[0];
+  if (!family) return null;
+  return ids.find((id) => familyOf(id) === family) ?? null;
 }
 const inSetSci = new Set();
 for (const n of tax.nodes) if (n.rank === "species") inSetSci.add(n.sciName);
-const genusIdToSci = new Map([...genusNodeBySci].map(([sci, id]) => [id, sci]));
+// Genera the base tree holds SPECIES of but has no genus NODE for, mapped to where those
+// species actually hang. Genus injection rejects a genus whose species aren't monophyletic
+// in our topology — Bison nests inside Bos, so there is no `Bos` node even though Bos taurus
+// and Bos primigenius are in the tree, sitting under Bovinae. Minting `auggen_Bos` for the
+// remaining Bos species then produces the board that asks you to sort one Bos into "Bovinae"
+// and another into "Bos". Grafting them where their relatives already live avoids inventing
+// a second home for one genus.
+// Keyed genus -> family -> parent, for the same homonym reason as above: this join is on a
+// genus name too, and taking the first species' parent would graft into whichever homonym
+// happened to come first. With one family under a name this behaves exactly as before.
+const baseParentByGenus = new Map(); // genus sci -> Map(family|"" -> parent id)
+const inSetCountByGenusName = new Map();
+for (const n of tax.nodes) {
+  if (n.rank !== "species") continue;
+  const g = n.sciName.split(/\s+/)[0];
+  inSetCountByGenusName.set(g, (inSetCountByGenusName.get(g) ?? 0) + 1);
+  if (genusNodesBySci.has(g)) continue;
+  const byFam = baseParentByGenus.get(g) ?? baseParentByGenus.set(g, new Map()).get(g);
+  const fam = familyOf(n.parentId) ?? "";
+  if (!byFam.has(fam)) byFam.set(fam, n.parentId);
+}
+/** Where a genus with no node of its own hangs, for a species of this family. Unambiguous
+ *  (one family under the name): that one, as before. Ambiguous: only an exact family match. */
+function baseParentFor(genusSci, family) {
+  const byFam = baseParentByGenus.get(genusSci);
+  if (!byFam?.size) return null;
+  if (byFam.size === 1) return [...byFam.values()][0];
+  return byFam.get(family ?? "") ?? null;
+}
+// Names already spoken for anywhere in the base tree — never mint a second node for one.
+const inSetCladeNames = new Set();
+for (const n of tax.nodes) if (n.rank !== "species" && n.sciName) inSetCladeNames.add(n.sciName);
+const genusIdToSci = new Map();
+for (const [sci, ids] of genusNodesBySci) for (const id of ids) genusIdToSci.set(id, sci);
 const inSetCountByGenus = new Map(); // genus sci -> # in-set species already shipped
 for (const n of tax.nodes) {
   if (n.rank !== "species") continue;
@@ -77,24 +142,44 @@ for (const n of tax.nodes) {
 }
 
 // ---- bucket candidate species by graft kind ----
-const named = (s) => s.article && s.article.toLowerCase() !== s.sci.toLowerCase() && s.sci.split(/\s+/).length === 2;
+// A species counts as NAMED only if its Wikipedia title is genuinely a vernacular. Equality
+// with our own binomial was never enough: Wikipedia files plenty of species under a
+// SYNONYM, and that title is a different binomial that used to pass straight through.
+const isLatinName = latinBinomialTest(pool);
+const named = (s) =>
+  s.article &&
+  s.article.toLowerCase() !== s.sci.toLowerCase() &&
+  !isLatinName(s.article) &&
+  s.sci.split(/\s+/).length === 2;
 const augId = (s) => `aug${s.gbif ?? s.qid ?? s.sci.replace(/\s+/g, "_")}`;
 const genusNodeId = (genus) => `auggen_${genus.replace(/[^A-Za-z0-9]+/g, "_")}`;
 
-const genusBuckets = new Map(); // genus sci -> { isNew, parentId, species: [] }  (DEPTH + BREADTH-genus)
+// Buckets are keyed genus + PARENT, not genus alone: under a homonym the two nodes are
+// different grafts and must not merge into one bucket.
+const genusBuckets = new Map(); // `${genus}|${parentId}` -> { genus, isNew, parentId, species: [] }
 const famBuckets = new Map();   // family sci -> { ott, genera: Map(genus->[]) }   (BREADTH-family)
+const bucket = (genus, parentId, isNew) => {
+  const k = `${genus}|${parentId}`;
+  let b = genusBuckets.get(k);
+  if (!b) genusBuckets.set(k, (b = { genus, isNew, parentId, species: [] }));
+  return b;
+};
+let homonymSkipped = 0;
 for (const s of pool) {
   if (inSetSci.has(s.sci)) continue;
   if (EXCLUDE_SCI.has(s.sci)) continue; // cryptid / disputed non-species
   if (!named(s)) continue;
-  if (genusNodeBySci.has(s.genus)) {
-    let b = genusBuckets.get(s.genus);
-    if (!b) genusBuckets.set(s.genus, (b = { isNew: false, parentId: genusNodeBySci.get(s.genus), species: [] }));
-    b.species.push({ ...s, common: s.article });
+  const gNode = genusNodeFor(s.genus, s.family);
+  const baseParent = gNode ? null : baseParentFor(s.genus, s.family);
+  if (gNode) {
+    bucket(s.genus, gNode, false).species.push({ ...s, common: s.article });
+  } else if (genusNodesBySci.has(s.genus) || baseParentByGenus.has(s.genus)) {
+    // The name exists in the base tree but resolves to more than one place and the family
+    // did not separate them. Skipping is the whole point of the check.
+    if (baseParent) bucket(s.genus, baseParent, false).species.push({ ...s, common: s.article });
+    else homonymSkipped++;
   } else if (s.family && famNodeBySci.has(s.family)) {
-    let b = genusBuckets.get(s.genus);
-    if (!b) genusBuckets.set(s.genus, (b = { isNew: true, parentId: famNodeBySci.get(s.family), species: [] }));
-    b.species.push({ ...s, common: s.article });
+    bucket(s.genus, famNodeBySci.get(s.family), true).species.push({ ...s, common: s.article });
   } else if (s.family && classify[s.family]?.ott) {
     let f = famBuckets.get(s.family);
     if (!f) famBuckets.set(s.family, (f = { ott: classify[s.family].ott, genera: new Map() }));
@@ -122,17 +207,19 @@ function takeSpecies(list, room, parentId) {
 }
 
 // 1+2) DEPTH and BREADTH-genus
-for (const [genus, b] of genusBuckets) {
+for (const b of genusBuckets.values()) {
+  const genus = b.genus;
   if (b.isNew) {
     const gid = genusNodeId(genus);
     if (allNodeIds.has(gid) || usedId.has(gid)) continue;
+    if (inSetCladeNames.has(genus)) continue; // the name is already someone else's node
     const sp = takeSpecies(b.species, AUG_PER_GENUS, gid);
     if (sp.length < NEW_GENUS_MIN) continue; // can't field a group — skip the whole genus
     usedId.add(gid);
     nodes.push({ id: gid, sciName: genus, rank: "genus", parentId: b.parentId }, ...sp);
     breadthGenera++;
   } else {
-    const room = AUG_PER_GENUS - (inSetCountByGenus.get(genus) ?? 0);
+    const room = AUG_PER_GENUS - (inSetCountByGenus.get(genus) ?? inSetCountByGenusName.get(genus) ?? 0);
     if (room <= 0) continue;
     const sp = takeSpecies(b.species, room, b.parentId);
     if (sp.length) { nodes.push(...sp); depthGenera++; }
@@ -146,12 +233,13 @@ for (const [family, f] of famBuckets) {
   if (!anchor || !insetOtt.has(anchor)) continue; // unplaceable → skip (no class wiring guessed)
   const famId = `ott${f.ott}`;
   if (allNodeIds.has(famId) || usedId.has(famId)) continue;
+  if (inSetCladeNames.has(family)) continue; // the name is already someone else's node
   // Build this family's genus nodes + species first, so we know if it's eligible.
   const famNodes = [];
   let leaves = 0, hasGenusTheme = false;
   for (const [genus, list] of f.genera) {
     const gid = genusNodeId(genus);
-    if (allNodeIds.has(gid) || usedId.has(gid)) continue;
+    if (allNodeIds.has(gid) || usedId.has(gid) || inSetCladeNames.has(genus)) continue;
     const sp = takeSpecies(list, AUG_PER_GENUS, gid);
     if (!sp.length) continue;
     usedId.add(gid);
@@ -176,4 +264,5 @@ console.log(`✓ augment: ${species} species, ${breadthGenera + newFamGenera} ne
 console.log(`  1. depth  (top-up in-set genera):            ${depthGenera} genera`);
 console.log(`  2. breadth (new genera / in-set families):   ${breadthGenera} genera`);
 console.log(`  3. breadth (new families via OTL topology):  ${newFamilies} families, ${newFamGenera} genera`);
+console.log(`  skipped, genus name ambiguous in the base tree: ${homonymSkipped} species`);
 console.log(`  wrote ${OUT} (${(Buffer.byteLength(JSON.stringify({ nodes })) / 1024).toFixed(0)} KB)`);

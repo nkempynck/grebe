@@ -8,7 +8,7 @@ import { loadGridProgress, saveGridProgress } from "../data/gridProgress";
 import { markCountedElsewhere } from "../data/playCount";
 import { boardGroupOf } from "../data/clades";
 import { fetchTodayGrid } from "../data/games";
-import { KINSHIP_FREE_REVEALS } from "../data/score";
+import { kinshipFreeReveals } from "../data/score";
 
 /** Wrong guesses allowed before the board is lost (matches Connections). */
 export const GRID_MAX_MISTAKES = 4;
@@ -184,7 +184,7 @@ export function useGridGame(
       setAttempts(prog.attempts);
       setRevealed(prog.revealed ?? []);
       // Older saves predate paidReveals — fall back to the end-state minimum.
-      setPaidReveals(prog.paidReveals ?? Math.max(0, (prog.revealed?.length ?? 0) - (KINSHIP_FREE_REVEALS + prog.solved.length)));
+      setPaidReveals(prog.paidReveals ?? Math.max(0, (prog.revealed?.length ?? 0) - (kinshipFreeReveals(computed?.tier ?? 0) + prog.solved.length)));
       setStatus(prog.status);
     } else {
       setSolved([]);
@@ -298,9 +298,10 @@ export function useGridGame(
   const reveal = useCallback(
     (id: string) => {
       if (!board || status !== "playing" || revealed.includes(id)) return;
-      // Free-peek balance BEFORE this peek: 3 (+1 per solved group) minus peeks already
-      // spent, plus those already billed. At or below zero means this peek is paid.
-      const balance = KINSHIP_FREE_REVEALS + solved.length + paidReveals - revealed.length;
+      // Free-peek balance BEFORE this peek: the day's starting budget (+1 per solved group)
+      // minus peeks already spent, plus those already billed. At or below zero means this
+      // peek is paid. A free peek earned later never refunds one already billed.
+      const balance = kinshipFreeReveals(board.tier) + solved.length + paidReveals - revealed.length;
       if (balance <= 0) setPaidReveals((p) => p + 1);
       setRevealed((r) => [...r, id]);
     },
