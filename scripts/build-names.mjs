@@ -9,6 +9,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { COMMON_NAME_OVERRIDES } from "./common-name-overrides.mjs";
+import { latinBinomialTest } from "./latin-name.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const C = resolve(ROOT, "node_modules/.cache");
 const WDQS = "https://query.wikidata.org/sparql";
@@ -45,14 +46,20 @@ const bySci = new Map(inset.map((s) => [s.sci, s]));
 
 // ---- species: Wikipedia title, else queue for P1843 ----
 const speciesNodes = nodes.filter((n) => n.rank === "species");
+const isLatinName = latinBinomialTest(inset);
+let latinTitles = 0;
 const needP1843 = []; // {node, qid}
 for (const n of speciesNodes) {
   const rec = bySci.get(n.sciName);
   const title = rec?.article;
-  if (title && title.toLowerCase() !== n.sciName.toLowerCase()) n.common = title;         // Wikipedia common name
+  // A title that is itself a binomial is Wikipedia filing the species under a SYNONYM, not
+  // a vernacular — see latin-name.mjs. Leaving it in place made the tile read as Latin
+  // while still counting as named, which bypasses the Latin-tile budget in grid.ts.
+  if (title && title.toLowerCase() !== n.sciName.toLowerCase() && !isLatinName(title)) n.common = title;
+  else if (title && isLatinName(title)) latinTitles++;                                     // Wikipedia common name
   else if (rec?.qid) needP1843.push({ node: n, qid: rec.qid });                            // Latin-only -> try P1843
 }
-console.log(`species: ${speciesNodes.filter((n) => n.common).length} named from Wikipedia titles; ${needP1843.length} to try via P1843`);
+console.log(`species: ${speciesNodes.filter((n) => n.common).length} named from Wikipedia titles; ${needP1843.length} to try via P1843; ${latinTitles} titles rejected as scientific synonyms`);
 
 async function p1843ByQid(items) {
   const found = new Map();
