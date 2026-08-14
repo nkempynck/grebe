@@ -22,6 +22,10 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
   const [wiki, setWiki] = useState<WikiSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [img, setImg] = useState<WikiImage | null>(null);
+  // The card's photo is 96px square and cropped, which is fine for recognising a
+  // fox and useless for telling two beetles apart. Tapping it opens the full-size
+  // image, the same gesture the Kinship tiles and the Branches tray already use.
+  const [zoomed, setZoomed] = useState(false);
   useEffect(() => {
     let live = true;
     setLoading(true);
@@ -36,6 +40,7 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
     if (hideImage) { setImg(null); return; }
     let live = true;
     setImg(null);
+    setZoomed(false); // a card reused for another node must not open on the old photo
     fetchWikiImage(node).then((i) => { if (live) setImg(i); });
     return () => { live = false; };
   }, [node.id, hideImage]);
@@ -45,6 +50,9 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
   // the word stays out of the DOM, and a constant width keeps the name's length
   // from being a clue.
   const url = wiki?.pageUrl ?? wikiUrlFor(node);
+  // Whatever the header shows, so the zoom caption and the alt text can never name a
+  // species the board is deliberately keeping Latin.
+  const shownName = latinTitle ? node.sciName ?? node.common : node.common ?? node.sciName;
   const segments = redactSpoilers(wiki?.extract ?? "", redact ?? []);
   const prose = isFullyRedacted(segments)
     ? "Summary hidden: it names species you still have to place."
@@ -56,7 +64,18 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
   return (
     <div className="clado-wiki">
       <button className="clado-wiki-close" onClick={onClose} aria-label="Close">×</button>
-      {!hideImage && img?.thumb && <img src={img.thumb} alt={node.common ?? node.sciName} />}
+      {!hideImage && img?.thumb && (
+        <button
+          type="button"
+          className="clado-wiki-shot"
+          onClick={() => setZoomed(true)}
+          title="Enlarge picture"
+          aria-label={`Enlarge ${shownName} picture`}
+        >
+          <img src={img.thumb} alt={shownName} />
+          <span className="clado-wiki-shot-icon" aria-hidden="true">⤢</span>
+        </button>
+      )}
       <div className="clado-wiki-body">
         <div className="clado-wiki-rank">{node.rank} · {sub}</div>
         <h3>{latinTitle ? node.sciName ?? node.common : node.common ?? node.sciName}</h3>
@@ -70,6 +89,17 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
           <a href={url} target="_blank" rel="noreferrer">Read on Wikipedia →</a>
         )}
       </div>
+      {zoomed && img && (
+        <div
+          className="clado-zoom"
+          role="dialog"
+          aria-label={`${shownName} picture`}
+          onClick={() => setZoomed(false)}
+        >
+          <img src={img.full ?? img.thumb} alt={shownName} />
+          <span className="clado-zoom-cap">{shownName} · tap to close</span>
+        </div>
+      )}
     </div>
   );
 }

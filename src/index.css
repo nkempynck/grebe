@@ -542,6 +542,23 @@ body {
   width: 96px; height: 96px; object-fit: cover; border-radius: var(--radius);
   flex: none; filter: saturate(0.9);
 }
+/* The photo is a button now (tap to enlarge), so it has to shed the button chrome
+   and keep the exact footprint the bare <img> had, or the card's layout shifts. */
+.clado-wiki-shot {
+  position: relative; padding: 0; border: 0; background: none; line-height: 0;
+  flex: none; cursor: zoom-in; border-radius: var(--radius);
+}
+.clado-wiki-shot-icon {
+  position: absolute; right: 4px; bottom: 4px;
+  width: 18px; height: 18px; display: grid; place-items: center;
+  font-size: 10px; line-height: 1; color: var(--on-accent);
+  background: rgba(20, 18, 12, 0.55); border-radius: 5px;
+  opacity: 0; transition: opacity 0.15s ease;
+}
+.clado-wiki-shot:hover .clado-wiki-shot-icon,
+.clado-wiki-shot:focus-visible .clado-wiki-shot-icon { opacity: 1; }
+/* Touch has no hover, so the affordance stays visible there. */
+@media (hover: none) { .clado-wiki-shot-icon { opacity: 1; } }
 .clado-wiki-body { min-width: 0; }
 .clado-wiki-rank {
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
@@ -1012,6 +1029,25 @@ button.pin-cell:hover { outline: 1px solid var(--brass); outline-offset: 1px; }
 .acct-switch:focus-visible { outline: 2px solid var(--brass-bright); outline-offset: 2px; }
 
 /* Signed-out footer under the post-game share block (shared across games). */
+/* Signed-out state for the whole leaderboard tab. One card rather than a heading
+   floating above a mono box: the nudge style is built for a single line and a
+   three-line paragraph inside it reads as an error, not an invitation. */
+.lb-locked {
+  max-width: 40ch; margin: 28px auto; padding: 26px 24px 24px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--bg-2); text-align: center;
+}
+.lb-locked-icon { font-size: 26px; line-height: 1; }
+.lb-locked-title {
+  margin: 12px 0 0; font-family: var(--font-body); font-size: 17px;
+  font-weight: 600; color: var(--ink);
+}
+.lb-locked-body {
+  margin: 8px 0 0; font-family: var(--font-body); font-size: 14px;
+  line-height: 1.55; color: var(--ink-soft);
+}
+.lb-locked-cta { margin-top: 16px; font-size: 12px; padding: 8px 16px; }
+
 .lb-nudge {
   margin: 12px 0 0; padding: 9px 13px; border-radius: var(--radius);
   background: var(--bg-2); border: 1px solid var(--line);
@@ -1929,18 +1965,18 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .branches-chip-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* enlarged species picture (tap anywhere to close) — shared by Branches + Kinship */
-.branches-zoom, .grid-zoom {
+.branches-zoom, .grid-zoom, .clado-zoom {
   position: fixed; inset: 0; z-index: 50; cursor: zoom-out;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
   padding: 32px; background: color-mix(in srgb, var(--bg) 40%, rgba(20, 18, 12, 0.82));
   backdrop-filter: blur(3px);
 }
-.branches-zoom img, .grid-zoom img {
+.branches-zoom img, .grid-zoom img, .clado-zoom img {
   max-width: min(560px, 90vw); max-height: 74vh; width: auto; height: auto;
   border-radius: 10px; border: 1px solid var(--line-soft);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
 }
-.branches-zoom-cap, .grid-zoom-cap {
+.branches-zoom-cap, .grid-zoom-cap, .clado-zoom-cap {
   font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
   color: var(--on-accent); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
 }
@@ -2136,6 +2172,13 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .bell-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
 .bell-item { border-bottom: 1px solid var(--line-soft); padding-bottom: 8px; }
 .bell-item:last-child { border-bottom: none; padding-bottom: 0; }
+/* Unseen replies keep a mark after the count clears, so opening the bell doesn't
+   erase which ones were actually new. */
+.bell-item.is-new { background: color-mix(in srgb, var(--brass) 7%, transparent); }
+.bell-dot {
+  display: inline-block; width: 6px; height: 6px; margin-right: 5px;
+  border-radius: 50%; background: var(--brass); vertical-align: middle;
+}
 .bell-item-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
 .bell-item-meta b { color: var(--ink); font-weight: 600; }
 .bell-item-body {
