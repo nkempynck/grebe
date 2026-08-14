@@ -177,6 +177,13 @@ export default function App() {
   const playedTodayKinship = stats.kinship.playedDates.includes(dayKey);
   const playedTodayBranches = stats.branches.playedDates.includes(dayKey);
   const playedTodayAny = playedTodayLineage || playedTodayKinship || playedTodayBranches;
+  // The combined board is earned by playing ANY of a day's three puzzles, so its
+  // discussion unlocks on the union of the three played-date lists — matching what
+  // has_played() allows for the 'combined' key on the server.
+  const playedDatesAny = useMemo(
+    () => [...new Set([...stats.daily.playedDates, ...stats.kinship.playedDates, ...stats.branches.playedDates])],
+    [stats.daily.playedDates, stats.kinship.playedDates, stats.branches.playedDates]
+  );
 
   // Prime the frozen pins for the past dates these lookups touch — the player's
   // local Lineage history, plus a recent window for the admin leaderboard preview.
@@ -206,7 +213,7 @@ export default function App() {
   // window; older days get nothing rather than an error. Per game, keyed off that
   // game's own played-dates so the client lock matches what the server will allow.
   const discussionFor = useCallback(
-    (game: "lineage" | "kinship" | "branches", playedDates: string[]) =>
+    (game: "lineage" | "kinship" | "branches" | "combined", playedDates: string[]) =>
       (date: string) => {
         if (date > dayKey || date < prevDayKey) return null;
         return (
@@ -901,7 +908,28 @@ export default function App() {
           )}
         </div>
       )}
-      {view === "leaderboard" && (
+      {/* Leaderboards are account-only, all of them. A signed-out visitor used to get
+          today's board with the filterable panel replaced by a nudge, which meant the
+          tab half-worked: scores could be seen but never joined, and the discussion
+          boards mounted under them belong to people with names. The TAB stays in the
+          nav on purpose — hiding it would make leaderboards undiscoverable, which is
+          the opposite of what an account is being offered for. */}
+      {view === "leaderboard" && !canBrowseBoards && (
+        <div className="lb-locked">
+          <div className="lb-locked-icon" aria-hidden="true">🏆</div>
+          <h2 className="lb-locked-title">Leaderboards need an account</h2>
+          <p className="lb-locked-body">
+            Scores, streaks and past days are tied to your account. Puzzles you have already
+            finished are added to the board when you sign in.
+          </p>
+          {player.configured && (
+            <button className="disc-btn is-primary lb-locked-cta" onClick={() => setView("account")}>
+              Create an account or sign in
+            </button>
+          )}
+        </div>
+      )}
+      {view === "leaderboard" && canBrowseBoards && (
         <>
           <div className="lb-gametabs" role="tablist" aria-label="Leaderboard game">
             <button role="tab" aria-selected={lbGame === "combined"} className={`lb-seg${lbGame === "combined" ? " is-on" : ""}`} onClick={() => setLbGame("combined")}>🏆 Combined</button>
@@ -909,44 +937,36 @@ export default function App() {
             <button role="tab" aria-selected={lbGame === "kinship"} className={`lb-seg${lbGame === "kinship" ? " is-on" : ""}`} onClick={() => setLbGame("kinship")}>🧩 Kinship</button>
             <button role="tab" aria-selected={lbGame === "branches"} className={`lb-seg${lbGame === "branches" ? " is-on" : ""}`} onClick={() => setLbGame("branches")}>🌿 Branches</button>
           </div>
-          {/* Signed out: today's board only. The filterable panel (past days,
-              weeks, months, all time) is what an account buys, so it's replaced
-              by the nudge rather than shown locked. Today's board still obeys
-              the play wall above it. */}
+          {/* Two boards per game: today's, and the filterable one (past days, weeks,
+              months, all time). Both are signed-in only now, so neither is guarded here;
+              today's board still obeys the play wall above it.
+
+              The DISCUSSION hangs off the filterable board only, at the bottom, and only
+              when that board is showing a single day. Under the fixed today board it was
+              a second copy of the same conversation, and it gave the day's discussion no
+              way to be reached the morning after — which is the whole point of the
+              server's two-day read window. Set the period to Day and step back instead. */}
           {lbGame === "combined" ? (
             <>
-              <CombinedLeaderboard me={boardName} variant="today" playedToday={playedTodayAny} />
-              {canBrowseBoards && <CombinedLeaderboard me={boardName} variant="config" playedToday={playedTodayAny} />}
-              {/* The cross-game board: same daily lifetime as the rest, but earned by
-                  playing ANY of the day's three puzzles. CombinedLeaderboard takes no
-                  renderForDate slot — it spans games rather than dates — so this one
-                  mounts directly and pins to today. */}
-              <DiscussionPanel
-                board="combined"
-                date={dayKey}
-                configured={player.configured}
-                signedIn={!!player.session}
-                played={playedTodayAny}
-                label="today’s puzzles"
-              />
+              <CombinedLeaderboard me={boardName} variant="today" playedToday={playedTodayAny} renderForDate={discussionFor("combined", playedDatesAny)} />
+              <CombinedLeaderboard me={boardName} variant="config" playedToday={playedTodayAny} renderForDate={discussionFor("combined", playedDatesAny)} />
             </>
           ) : lbGame === "lineage" ? (
             <>
-              <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} renderForDate={discussionFor("lineage", stats.daily.playedDates)} />
-              {canBrowseBoards && <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} renderForDate={discussionFor("lineage", stats.daily.playedDates)} />}
+              <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} />
+              <LeaderboardPanel me={boardName} variant="config" canPreview={player.isAdmin} answerForDate={dailyAnswerOf} streak={stats.daily.currentStreak} playedToday={playedTodayLineage} renderForDate={discussionFor("lineage", stats.daily.playedDates)} />
             </>
           ) : lbGame === "kinship" ? (
             <>
-              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="today" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." renderForDate={discussionFor("kinship", stats.kinship.playedDates)} />
-              {canBrowseBoards && <Leaderboard game="kinship" label="Kinship" me={boardName} variant="config" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." renderForDate={discussionFor("kinship", stats.kinship.playedDates)} />}
+              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="today" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
+              <Leaderboard game="kinship" label="Kinship" me={boardName} variant="config" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." renderForDate={discussionFor("kinship", stats.kinship.playedDates)} />
             </>
           ) : (
             <>
-              <Leaderboard game="branches" label="Branches" me={boardName} variant="today" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." renderForDate={discussionFor("branches", stats.branches.playedDates)} />
-              {canBrowseBoards && <Leaderboard game="branches" label="Branches" me={boardName} variant="config" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." renderForDate={discussionFor("branches", stats.branches.playedDates)} />}
+              <Leaderboard game="branches" label="Branches" me={boardName} variant="today" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
+              <Leaderboard game="branches" label="Branches" me={boardName} variant="config" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." renderForDate={discussionFor("branches", stats.branches.playedDates)} />
             </>
           )}
-          <LeaderboardNudge show={player.configured && !canBrowseBoards} kind="browse" />
         </>
       )}
       {view === "stats" && <StatsTabs stats={stats} field={field} player={player} />}
