@@ -3,7 +3,7 @@ import type { Tree } from "../core";
 import { dailyNumber } from "../core";
 import { useGridGame, PRESHOW_MAX_TIER, type GridComplete } from "../hooks/useGridGame";
 import { resolveDailyRules } from "../data/dailySchedule";
-import { kinshipPoints, KINSHIP_FREE_REVEALS } from "../data/score";
+import { kinshipPoints, kinshipFreeReveals } from "../data/score";
 import { fetchWikiImage } from "../data/wikipedia";
 import { GameHeader } from "./GameHeader";
 import { WikiCard } from "./WikiCard";
@@ -194,10 +194,17 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   // Points a NEW reveal costs right now: 0 within the free three (and on the "free"
   // reveal of each pair past it), about a mistake's worth on the others. Measured as
   // the points a clean win would lose by taking one more reveal at this tier.
+  // The day's STARTING free budget. Must be the tier-aware value, not the flat
+  // constant: the picture-only weekend starts with four, and useGridGame charges on
+  // that basis. Reading the constant here told a weekend player their fourth peek
+  // would cost points and popped the confirm for it, while the hook then billed
+  // nothing — the counter and the charge disagreed.
+  const freeReveals = kinshipFreeReveals(g.tier);
+
   const revealCostOf = (usedBefore: number) => {
     // Free-peek balance at `usedBefore` peeks: 3 + one per solved group, minus peeks
     // spent, plus those already billed. Above zero → the next peek is free.
-    const balance = KINSHIP_FREE_REVEALS + g.solvedGroups.length + g.paidReveals - usedBefore;
+    const balance = freeReveals + g.solvedGroups.length + g.paidReveals - usedBefore;
     if (balance > 0) return 0;
     return kinshipPoints(true, g.tier, 0, g.paidReveals) - kinshipPoints(true, g.tier, 0, g.paidReveals + 1);
   };
@@ -277,7 +284,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   const usedReveals = g.revealed.length;
   // Free-peek balance now: 3 + one per solved group, minus peeks spent, plus those
   // already billed. The score cost so far is the penalty on the PAID peeks.
-  const freeBalance = KINSHIP_FREE_REVEALS + g.solvedGroups.length + g.paidReveals - usedReveals;
+  const freeBalance = freeReveals + g.solvedGroups.length + g.paidReveals - usedReveals;
   const revealCost = kinshipPoints(true, g.tier, 0, 0) - kinshipPoints(true, g.tier, 0, g.paidReveals);
   const earned = g.solvedGroups.length > 0 ? ` (+${g.solvedGroups.length} earned)` : "";
   const revealStatus =
@@ -565,7 +572,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       {pendingReveal && (
         <div className="grid-confirm" role="alertdialog" aria-label="Confirm reveal" ref={confirmRef}>
           <p>
-            You’ve used your {KINSHIP_FREE_REVEALS} free reveals. Showing this{" "}
+            You’ve used your {freeReveals} free reveals. Showing this{" "}
             {pictureMode ? "name" : "picture"} deducts <b>{revealCostOf(g.revealed.length)}</b> of your{" "}
             <b>{kinshipPoints(true, g.tier, 0)}</b> points.
           </p>
