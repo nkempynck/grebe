@@ -36,9 +36,14 @@ describe("puzzle resolver parity", () => {
       );
     }
     // Two Kinship generations per date, each replaying the anti-repeat history from the
-    // anchor, so this sits just over vitest's 5s default once GRID_GROUP_ANTI_REPEAT_WINDOW
+    // anchor, so this sits well over vitest's 5s default once GRID_GROUP_ANTI_REPEAT_WINDOW
     // is widened (a wider window rarely finds a zero-score board to break the scan early).
-  }, 20_000);
+    //
+    // 60s, not 20s: it takes ~7s alone, but the 2026-08-14 generator work (mixed-granularity
+    // containers, so more candidates per day) pushed the loaded-machine case past 20 and made
+    // this the one flaky test in the suite. The headroom is the point — a parity check that
+    // fails at random teaches people to ignore a red suite.
+  }, 60_000);
 });
 
 describe("puzzle encode/decode round-trip", () => {
