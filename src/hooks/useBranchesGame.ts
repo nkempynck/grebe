@@ -148,6 +148,16 @@ function boardSig(b: BranchesBoard | null): string {
   return b ? JSON.stringify({ t: b.tier, r: b.rootId, s: b.slotIds, a: b.anchorIds, ry: b.tray }) : "";
 }
 
+/** What the in-memory round was hydrated for: the board AND the day it belongs to.
+ *  The DATE is the part that matters and the part that used to be missing. Two
+ *  effects below depend on `date`, and effects in one commit see the NEW date while
+ *  the state is still the OLD day's — so a tab left open across the 09:00 rollover
+ *  wrote yesterday's finished result under today's key, and the player lost a board
+ *  they had never seen. Checking the board alone cannot catch it: the board has not
+ *  changed yet either, because the pinned board is state cleared in an async .then().
+ *  Mirrors hydratedFor/hydrationToken in useGame, which already worked this way. */
+export const hydrationToken = (date: string, b: BranchesBoard | null): string => `${date}|${boardSig(b)}`;
+
 export function useBranchesGame(
   tree: Tree | null,
   onComplete?: (r: BranchesComplete) => void,
@@ -242,7 +252,7 @@ export function useBranchesGame(
     }
     setHeld(null);
     setWrongSlots([]);
-    setHydratedSig(boardSig(board));
+    setHydratedSig(hydrationToken(date, board));
   }, [board, date, devActive]);
 
   // Persist every change against today's board — but never a playtest board.
@@ -252,7 +262,7 @@ export function useBranchesGame(
     // above has run for this board, the state may still be the previous board's
     // (a stale tab crossing the daily rollover), which must not be written under
     // the new day's key.
-    if (hydratedSig !== boardSig(board)) return;
+    if (hydratedSig !== hydrationToken(date, board)) return;
     // Belt-and-braces: never downgrade today's finished result back to "playing"
     // (a fast remount could still fire this with a pre-restore "playing" render).
     if (status === "playing") {
@@ -270,7 +280,7 @@ export function useBranchesGame(
   const cloudRestored = useRef<string | null>(null);
   useEffect(() => {
     if (devActive || !board || !userId) return;
-    if (hydratedSig !== boardSig(board)) return; // wait for local hydration
+    if (hydratedSig !== hydrationToken(date, board)) return; // wait for local hydration
     const key = `${userId}:${date}`;
     if (cloudRestored.current === key) return;
     // Local storage already has a finished board (same-device replay): keep it —
