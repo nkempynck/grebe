@@ -32,6 +32,10 @@ import { todayKey } from "../core/daily";
  *  the settings and reroll at will. */
 export type GameMode = "daily" | "free";
 
+/** Why the hint button is (un)available. Two distinct dead ends that used to share
+ *  one label: hints all used, versus no named ancestor left to reveal. */
+export type HintState = "available" | "spent" | "exhausted";
+
 /** Token identifying which (mode, date, answer) the in-memory round was hydrated
  *  for. The MODE is part of it deliberately — see `hydratedFor` below. */
 export const hydrationToken = (mode: GameMode, date: string, answerId: string) =>
@@ -105,6 +109,11 @@ export interface UseGame {
   revealHint: () => void;
   /** Whether there's still a deeper branch a hint could reveal. */
   canHint: boolean;
+  /** WHY canHint is false, so the button can say which. "spent" = both hints used;
+   *  "exhausted" = hints remain but the answer has no named ancestor left below what
+   *  the guesses already reach (common when the answer hangs off an unnamed OTL
+   *  polytomy), which is a different thing to tell the player. */
+  hintState: HintState;
   /** True when today's daily was restored from a prior attempt (cloud or local)
    *  — it's already recorded, so it shouldn't be counted again. */
   dailyLocked: boolean;
@@ -230,7 +239,10 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
   // Two hints per board, then the button is spent — a third would leave 10% of the
   // day, which isn't a choice worth offering. Also still bounded by nextHint: a
   // board can run out of named ancestors to reveal before it hits the cap.
-  const canHint = status === "playing" && nextHint !== null && hintIds.length < LINEAGE_MAX_HINTS;
+  // "spent" wins the tie: if both hints are gone, that's the truthful reason.
+  const hintState: HintState =
+    hintIds.length >= LINEAGE_MAX_HINTS ? "spent" : nextHint === null ? "exhausted" : "available";
+  const canHint = status === "playing" && hintState === "available";
 
   const revealHint = useCallback(() => {
     if (nextHint) setHintIds((h) => (h.includes(nextHint) ? h : [...h, nextHint]));
@@ -447,6 +459,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     hintIds,
     revealHint,
     canHint,
+    hintState,
     dailyLocked,
   };
 }

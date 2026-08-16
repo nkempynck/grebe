@@ -256,7 +256,11 @@ function LineageBench({ tree }: { tree: Tree }) {
         <GuessInput tree={tree} config={g.config} disabled={over} onSubmit={g.submit} onOutOfSetGuess={g.submitGraft} focusCladeId={g.assist ? g.focusCladeId : null} guesses={g.guesses} />
         <div className="errline">{g.error}</div>
         <div className="subactions">
-          {!over && <button className="linkbtn" onClick={g.revealHint} disabled={!g.canHint}>Hint: reveal next branch</button>}
+          {!over && (
+            <button className="linkbtn" onClick={g.revealHint} disabled={!g.canHint}>
+              {g.hintState === "exhausted" ? "Nothing left to reveal" : g.hintState === "spent" ? "No hint left" : "Hint: reveal next branch"}
+            </button>
+          )}
           {!over && <button className="linkbtn" onClick={g.newRandom}>New random specimen</button>}
         </div>
       </div>

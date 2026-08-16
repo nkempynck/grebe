@@ -746,7 +746,13 @@ export default function App() {
               }}
               disabled={!g.canHint}
             >
-              {!g.canHint ? "No hint left" : hintArmed ? "Confirm hint" : "Hint: reveal next branch"}
+              {g.hintState === "exhausted"
+                ? "Nothing left to reveal"
+                : !g.canHint
+                  ? "No hint left"
+                  : hintArmed
+                    ? "Confirm hint"
+                    : "Hint: reveal next branch"}
             </button>
           )}
           {!roundOver && hintArmed && (
