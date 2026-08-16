@@ -145,7 +145,11 @@ describe("no cross-class boards", () => {
       const top = Math.max(...counts.values()) / many.length;
       expect(top, `tier ${tier}: ${[...counts].map(([k, v]) => `${k}:${v}`).join(" ")}`).toBeLessThan(0.35);
     }
-  });
+    // 2100 boards across the two halves. Comfortable alone (~1.5s) but it shares the machine
+    // with the rest of the suite, where it has been measured at 5.5s — over the 5s default,
+    // so it failed only ever in a full parallel run. Same treatment as the other heavy
+    // deterministic ones (antirepeat, pinnedPuzzles).
+  }, 30_000);
 });
 
 function findByCommon(sub: string): string | null {
