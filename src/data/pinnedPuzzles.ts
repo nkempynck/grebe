@@ -137,7 +137,16 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   hard-to-name groups, two accentors left the mint family they had been grafted into,
   //   and 51 Latin-synonym "common names" became Latin-pool filler. Board identity changed
   //   at most dates → re-pin un-played future dates.
-  version: 7,
+  // v8 (2026-08-16): two rank-free distance gates. Separation is read off the RANK of a
+  //   pair's MRCA and most of the tree carries no rank to read — 88% of fish boards and 82%
+  //   of bird ones resolve all the way up to `infraclass` — so those classes scored a
+  //   near-constant 4 and four different bird ORDERS cleared every difficulty gate onto a
+  //   Sunday. Counting splits needs no ranks: every day a board's tightest pair must be
+  //   genuinely tight (110 boards in two years had nothing confusable on them at all → 0),
+  //   and the picture-only weekend also caps the median spread (37 → 0). Amphibians get one
+  //   unit of slack, their subtree being too coarse to reach the flat cap. Board identity
+  //   changed at most dates → re-pin un-played future dates.
+  version: 8,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;

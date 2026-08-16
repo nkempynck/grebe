@@ -102,6 +102,50 @@ export function medianSeparationTier(tree: Tree, ids: string[]): number {
   return pairs.length % 2 ? pairs[m] : (pairs[m - 1] + pairs[m]) / 2;
 }
 
+// BRANCH DISTANCE — a rank-free second opinion on how far apart two groups are, and the
+// only honest one available for most of the tree.
+//
+// separationTierOf above is rank-based on purpose (see its comment), and that works where
+// the tree carries ranks. Over two generated years it does not: the MRCA resolves to
+// `infraclass` for 88% of fish boards and 82% of bird ones, against 1% of mammal boards and
+// 0% of reptile ones. Whole order-level nodes are simply missing — Charadriiformes,
+// Pelecaniformes and Coraciiformes are absent from the flattened tree — so four shorebird
+// genera inside ONE order walk eight unranked levels and land on Neognathae, returning the
+// identical answer to a toucan beside a hawk. Separation is therefore very nearly constant
+// across the two largest classes in the game, and it let four different bird orders onto a
+// Sunday, the day that asks for the tightest board of the week.
+//
+// Counting splits needs no ranks, so it sees what the walk cannot: that Sunday board scores
+// 12.5 where a real hard board (four duck genera) scores 2.5 and the weekend median is 6-7.
+//
+// It is NOT a difficulty scale and must not be used as one. The count conflates "far apart"
+// with "densely sampled here": two passerine families are twenty splits apart where two duck
+// genera are three, because the passerine corner of the tree holds far more species. Trying
+// to normalise that away (dividing by group depth) destroys the signal — it drags the Sunday
+// walkover to 0.18, below the median Monday. So this is used only as a one-sided CAP at the
+// loose end, where the classes agree and the walkovers all live.
+/** Number of splits between two nodes: the edges from each up to their MRCA. */
+export function branchDistance(tree: Tree, a: string, b: string): number {
+  const m = mrca(tree, a, b);
+  const da = tree.depthOf.get(a) ?? 0;
+  const db = tree.depthOf.get(b) ?? 0;
+  const dm = tree.depthOf.get(m) ?? 0;
+  return da + db - 2 * dm;
+}
+
+/** MEDIAN branch distance over all pairs of `ids` — a board's overall spread. Median, like
+ *  medianSeparationTier, so one distant outlier among otherwise-tight groups doesn't
+ *  dominate. Returns 0 for fewer than two ids. */
+export function medianBranchDistance(tree: Tree, ids: string[]): number {
+  const pairs: number[] = [];
+  for (let i = 0; i < ids.length; i++)
+    for (let j = i + 1; j < ids.length; j++) pairs.push(branchDistance(tree, ids[i], ids[j]));
+  if (pairs.length === 0) return 0;
+  pairs.sort((a, b) => a - b);
+  const m = Math.floor(pairs.length / 2);
+  return pairs.length % 2 ? pairs[m] : (pairs[m - 1] + pairs[m]) / 2;
+}
+
 /** Is `maybeAncestor` on the path from `id` to the root? (inclusive) */
 export function isAncestor(tree: Tree, maybeAncestor: string, id: string): boolean {
   let cur: string | null = id;

@@ -12,7 +12,7 @@
 // Pure: imports only the tree engine — no React, no DOM, no data layer.
 
 import type { Tree } from "./types";
-import { leavesUnder, mrca, separationTierOf } from "./tree";
+import { branchDistance, leavesUnder, mrca, separationTierOf } from "./tree";
 
 export const GRID_GROUPS = 4;
 export const GRID_GROUP_SIZE = 4;
@@ -318,6 +318,9 @@ interface Container {
    *  the gates cost hours over a year: they reject most candidates, so the score===0 early
    *  exit in boardForDay stops firing and every day surveys every container. */
   pairSep?: Map<string, number>;
+  /** Branch distance for every pair, same key and the same reason: precomputed once so the
+   *  weekend spread cap costs six lookups a day, not six more MRCA walks. */
+  pairDist?: Map<string, number>;
   /** The confusable-pair floor that applies to this container's class (see discover). */
   tightestFloor?: number;
   /** cladeId → recognisability, so boardForDay can gate on how NAMEABLE a board's groups
@@ -576,6 +579,43 @@ function boardSeparation(
   return { med: medianOf(pairs), min: pairs[0], max: pairs[pairs.length - 1], core };
 }
 
+/** A board's SPREAD in branch distance, the rank-free mirror of boardSeparation:
+ *   • med — how wide the board is overall (MAX_WEEKEND_BRANCH_DISTANCE).
+ *   • min — its TIGHTEST pair, i.e. whether anything on it is confusable at all
+ *     (MAX_TIGHTEST_PAIR_DISTANCE).
+ *   • core — its tightest TRIPLE. Not gated on: see the note by MAX_TIGHTEST_PAIR_DISTANCE
+ *     for why the species set cannot currently afford it.
+ *  Takes the container's precomputed distances when it has them, exactly as
+ *  boardSeparation does — the gate runs on every candidate of every day. */
+function boardBranchSpread(
+  tree: Tree,
+  groupIds: string[],
+  pairDist?: Map<string, number>
+): { med: number; min: number; core: number } {
+  const n = groupIds.length;
+  const m: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
+  const pairs: number[] = [];
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++) {
+      const memo = pairDist?.get(sepKey(groupIds[i], groupIds[j]));
+      const v = memo ?? branchDistance(tree, groupIds[i], groupIds[j]);
+      m[i][j] = m[j][i] = v;
+      pairs.push(v);
+    }
+  // CORE — the tightest TRIPLE: over every triple, its widest pair; keep the best triple.
+  // The rank-free mirror of boardSeparation's `core`, and the measure that actually says
+  // whether a board holds a puzzle.
+  let core = Infinity;
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      for (let k = j + 1; k < n; k++) {
+        const t = Math.max(m[i][j], m[i][k], m[j][k]);
+        if (t < core) core = t;
+      }
+  pairs.sort((a, b) => a - b);
+  return { med: medianOf(pairs), min: pairs[0], core: core === Infinity ? pairs[0] : core };
+}
+
 // Difficulty is carried mostly by the REVEAL MODE (GridGame: name+picture Mon–Wed →
 // name-only Thu–Fri → picture-only Sat–Sun), not by a precise fame ramp — a strict
 // 7-level fame curve starved the easy days of variety (too few clades are famous
@@ -644,6 +684,90 @@ const TRAP_SIZE = [0, 2, 2, 3, 3, 3, 3, 3];
 const MIN_TIGHTEST_PAIR = 4;
 /** Tiers from which the board is picture-only (Sat-Sun) — mirrors GridGame's own constant. */
 const PICTURE_ONLY_MIN_TIER = 6;
+// SPREAD CAP, weekend only. The gates above are all expressed in separation tiers, and for
+// most of the tree separation cannot see what it claims to (see branchDistance in ./tree:
+// the MRCA resolves to `infraclass` for 88% of fish boards and 82% of bird ones, so those
+// classes score a near-constant 4 whatever the groups are). A board of four different bird
+// ORDERS therefore reads [4,4,4,4,4,4] — clearing tripleTrap and uniform outright — and
+// Sunday 2026-08-16 served Pteroglossus / Buteo / Ninox / Alcedinidae, a toucan beside a
+// hawk beside an owl beside a kingfisher, on the hardest day of the week.
+//
+// So the weekend gets one rank-free cap on top: the median branch distance over the six
+// pairs. It is deliberately ONE-SIDED and set loose. Distance is not a difficulty scale and
+// is not comparable class to class (see ./tree), but at the loose end the classes agree, and
+// that is the only end this is asked about. Measured over 208 weekend boards in two years,
+// a cap of 10 rejects 37 and every one of them is a board you would call a walkover on
+// sight: the six fish sets spanning Teleostei (Rockcods / Moray eels / Catfish / Flounders
+// at distance 32.5), Hummingbirds / Falcons / Ibises / Swamphen, Ants / Bees / Leaf-footed
+// bugs / Carpenter bees, and the whole toucan-hawk-owl-kingfisher family that produced the
+// Sunday above. A tight board is nowhere near it — four duck genera score 2.5, four
+// sheep-and-goat relatives 2, and the weekend median is 6-7.
+//
+// 10 rather than 8 because 8 empties two classes off the weekend entirely (reptiles 20 -> 8
+// boards, amphibians 4 -> 0) for a handful more rejections. The honest limit of the measure
+// sits right at the threshold: at exactly 10 it keeps True frogs / True toads / Chorus frogs
+// / Microhylidae, which is a fair picture-only board, and also Monitor lizards / Pit vipers
+// / Geckos / Skinks, which is not. Distance cannot separate those two. It is unambiguous
+// about the walkovers, which is what it is here for.
+//
+// Mon-Fri is not capped on the MEDIAN: those days print the group names, the band already
+// leans them loose, and a wide board there is the Connections shape the gates want. They get
+// the tightest-pair rule below instead.
+const MAX_WEEKEND_BRANCH_DISTANCE = 10;
+// …and EVERY day, the rank-free mirror of pairTrap: the board's tightest pair must be
+// genuinely tight. A board with nothing confusable on it is a walkover on Monday exactly as
+// it is on Sunday — the reveal mode changes how much help you get, not whether there is a
+// puzzle — and pairTrap, which exists to prevent precisely that, reads the same blind
+// separation as everything else. The Sunday board scored sep.max 4 and cleared it; its
+// tightest pair is eight splits apart.
+//
+// It is safe for the Connections shape — a real trap plus a group you get for free. Measured
+// over two years, every board of that shape has a tightest pair 2 or 3 splits apart
+// (Porpoises / Sheep & goats / Gazella / Oryx: median 9, tightest pair 2). Capping the MEDIAN
+// Mon-Fri would have killed those; capping the tightest pair leaves all of them.
+//
+// WHAT THIS DOES NOT CATCH, and why it is set here anyway. The honest rule is stricter: a
+// board should hold three groups that hang together, not two, and the four-bird-orders family
+// — Ramphastidae / Trogonidae / Alcedinidae / Buteo and its permutations — slips through with
+// mid-range pairs of 5 to 7 and a tightest TRIPLE of 10. boardBranchSpread computes that
+// triple, and gating on it is a one-line change. It is not made because the species set
+// cannot pay for it. Measured over two generated years, against 387 distinct boards and 153
+// near-repeat pairs on the shipped generator:
+//
+//   pair <= 7 (this)          405 boards, 147 near-repeats   <- the only setting that
+//   pair <= 7 + triple <= 9   343 boards, 173 near-repeats      beats the shipped generator
+//   triple <= 6 from Wed      309 boards, 300 near-repeats
+//   pair <= 4                 310 boards, 267 near-repeats
+//   triple <= 6 every day     281 boards, 395 near-repeats
+//
+// Every rule strict enough to remove those boards roughly doubles the near-repeat rate: too
+// few clades have genuine near-siblings to fill 365 days, so demanding one daily forces the
+// generator to recycle the handful that do. Trading a board a fortnight that reads easy for
+// boards that visibly repeat is the worse deal. The real fix is a larger species set, after
+// which this should become the triple.
+const MAX_TIGHTEST_PAIR_DISTANCE = 7;
+
+// …plus slack for a class whose corner of the tree is too COARSE to reach it — the same
+// argument as MIN_TIGHTEST_PAIR_RELAXED one measure over. Branch distance counts splits, so
+// where the tree holds few of them a class's tightest available pair sits further out however
+// alike its groups look, and a flat cap judges every class by the best-resolved one.
+//
+// Only amphibians need it, and the number is not a guess: EVERY amphibian board in two
+// generated years sits at median distance 9-16, and the ones a flat 7 rejects are True frogs
+// / True toads / Chorus Frogs / Microhylidae at exactly 8 — four families of small brown
+// frogs, as confusable by picture as anything in the game. One unit recovers those and
+// nothing else; Newts & salamanders / True frogs / True toads / Chorus Frogs still fails,
+// correctly, on the weekend median (16).
+//
+// FISH deliberately get NO slack, though they look like the same case and lose more boards
+// (105 -> 82). They are the opposite case, and the fame numbers settle it: their WIDE boards
+// are their FAMOUS ones — median group recognisability 7983 at distance 13+ against 6304 at
+// 4 or less, the rejects being Moray eels (33646), Billfish (24370), Needlefish (13652).
+// A board whose four groups you can all name and which look nothing alike is not hard
+// because its species are unfamiliar; it is just easy, and obscurity is not difficulty
+// (see boardSeparation). What survives — salmonids, sharks, the Cottales/Perches sets — is
+// the genuinely confusable end of the class.
+const CLASS_TRAP_DISTANCE_SHIFT: Record<string, number> = { Amphibians: 1 };
 // …relaxed to this for a class whose tree simply isn't ranked finely enough to reach it
 // (plants), rather than dropping the class. Still a real demand: at 3 the two groups share
 // an order, e.g. four families inside Asparagales.
@@ -745,6 +869,7 @@ function discover(tree: Tree): Discovered | null {
     // rebuilt and rejected on every one of the ~365 days it would be surveyed.
     c.recog = new Map(c.themes.map((t) => [t.cladeId, t.recognisability]));
     c.pairSep = new Map();
+    c.pairDist = new Map();
     let tightest = 0;
     for (let i = 0; i < c.themes.length; i++)
       for (let j = i + 1; j < c.themes.length; j++) {
@@ -755,6 +880,7 @@ function discover(tree: Tree): Discovered | null {
         if (overlaps(eu, a, b)) continue;
         const s = pairSeparation(tree, a, b);
         c.pairSep.set(sepKey(a, b), s);
+        c.pairDist.set(sepKey(a, b), branchDistance(tree, a, b));
         if (s > tightest) tightest = s;
       }
     prepared.push({ c, tightest });
@@ -773,6 +899,7 @@ function discover(tree: Tree): Discovered | null {
     const viable = prepared.filter((p) => p.c.group === g && p.tightest >= MIN_TIGHTEST_PAIR).length;
     tightestFloor.set(g, viable >= MIN_VIABLE_CONTAINERS ? MIN_TIGHTEST_PAIR : MIN_TIGHTEST_PAIR_RELAXED);
   }
+
   for (const { c, tightest } of prepared) {
     const floor = tightestFloor.get(c.group!) ?? MIN_TIGHTEST_PAIR;
     if (tightest < floor) continue;
@@ -1117,12 +1244,20 @@ function boardForDay(
     // the demand grows through the week: Mon/Tue are content with the pair, Wed-Fri want
     // either a three-way trap or uniform closeness, and the picture-only weekend wants a
     // three-way trap AND no giveaway.
+    // …and the rank-free gates on top, because every tier read above is blind wherever the
+    // tree carries no ranks (see MAX_TIGHTEST_PAIR_DISTANCE). `hasTrap` mirrors pairTrap and
+    // applies every day; `notTooWide` mirrors uniform and applies only to the picture-only
+    // weekend, since a wide board with a real trap is the shape Mon-Fri wants.
+    const spread = boardBranchSpread(tree, board.groups.map((g) => g.cladeId), c.pairDist);
+    const hasTrap = spread.min <= MAX_TIGHTEST_PAIR_DISTANCE + (CLASS_TRAP_DISTANCE_SHIFT[c.group!] ?? 0);
+    const notTooWide = spread.med <= MAX_WEEKEND_BRANCH_DISTANCE;
     const shapeOk =
-      tier >= PICTURE_ONLY_MIN_TIER
-        ? tripleTrap && uniform
+      hasTrap &&
+      (tier >= PICTURE_ONLY_MIN_TIER
+        ? tripleTrap && uniform && notTooWide
         : (TRAP_SIZE[tier] ?? 3) >= 3
         ? pairTrap && riderOk && (tripleTrap || uniform)
-        : pairTrap && riderOk;
+        : pairTrap && riderOk);
     if (classTooSoon || recentGroups > 0 || setTooSoon || tooObscure || !shapeOk) {
       if (score < floorFallbackScore) { floorFallback = board; floorFallbackScore = score; }
       continue; // giveaway group, or nothing on the board to confuse — see the gates
