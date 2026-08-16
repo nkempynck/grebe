@@ -1660,12 +1660,16 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   to { opacity: 1; transform: scaleY(1); }
 }
 
-/* GUESS ANIMATION, beat 1 — the POP, on the real tiles, before the guess resolves. No
-   colour change: this plays for a wrong guess too, and tinting here would give the answer
-   away a beat early. Overshoot is in the curve (y > 1) so it springs rather than eases. */
+/* GUESS ANIMATION, beat 1 — on the real tiles, before the guess resolves. No colour change:
+   this plays for a wrong guess too, and tinting here would give the answer away a beat
+   early.
+   Deliberately NOT a scale. Enlarging a grid tile makes it overlap its neighbours, and with
+   four of them lifting at once the whole board appears to twitch. This changes no geometry
+   at all — the tiles brighten and gain a little depth where they stand. */
 .grid-tile.is-pop {
-  transform: scale(1.06); z-index: 3;
-  transition: transform 0.42s cubic-bezier(0.34, 1.6, 0.64, 1);
+  filter: brightness(1.14);
+  box-shadow: 0 0 0 3px var(--sel), 0 4px 14px rgba(0, 0, 0, 0.3);
+  transition: filter 0.34s ease, box-shadow 0.34s ease;
 }
 
 /* Beats 2 and 3 — copies of the four tiles taking on the group colour, then flying into
@@ -1676,11 +1680,13 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   display: grid; place-items: center; overflow: hidden;
   text-align: center; hyphens: auto; overflow-wrap: anywhere;
   border-radius: var(--radius);
-  /* The ghost takes over from a tile that was SELECTED and popped, so it must start looking
-     exactly like one — same fill, same selection ring. Starting from the plain tile colour
-     put a blue-to-dark snap at the handover, before the group colour had even begun. */
+  /* The ghost takes over from a tile that was SELECTED and lit, so it must start looking
+     exactly like one — same fill, same ring, same depth, same brightness. Starting from the
+     plain tile colour put a blue-to-dark snap at the handover, before the group colour had
+     even begun. */
   background: var(--sel); color: #fff; border: 1px solid var(--sel);
-  box-shadow: 0 0 0 3px var(--sel);
+  box-shadow: 0 0 0 3px var(--sel), 0 4px 14px rgba(0, 0, 0, 0.3);
+  filter: brightness(1.14);
   font-family: var(--font-body); font-size: 13px; font-weight: 600; line-height: 1.18;
   /* the FLIGHT beat. Slow-in/slow-out on position so the tiles arc away and settle, with
      opacity held back (ease-in) so they stay solid most of the way and only dissolve as
@@ -1692,10 +1698,14 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
     opacity 0.76s cubic-bezier(0.8, 0, 0.9, 1),
     /* beat 2 runs on its own, faster clock — the colour lands well before the flight */
     background-color 0.42s ease, border-color 0.42s ease, color 0.42s ease,
-    box-shadow 0.42s ease;
+    box-shadow 0.42s ease, filter 0.42s ease;
 }
-/* beat 2, the LIGHT: the four take on their group's colour, in place, before they move */
-.grid-ghost.is-lit { color: #17150f; border-color: transparent; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.32); }
+/* beat 2, the LIGHT: the four take on their group's colour, in place, before they move.
+   Brightness returns to normal here — it was only ever standing in for the selected tile. */
+.grid-ghost.is-lit {
+  color: #17150f; border-color: transparent; filter: none;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.32);
+}
 .grid-ghost.is-lit.lvl-0 { background: var(--g0); }
 .grid-ghost.is-lit.lvl-1 { background: var(--g1); }
 .grid-ghost.is-lit.lvl-2 { background: var(--g2); }

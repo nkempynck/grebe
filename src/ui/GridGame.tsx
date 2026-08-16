@@ -65,9 +65,12 @@ const GRID_GROUP_SIZE = 4;
 /** The guess animation runs in three beats, and the first one happens BEFORE the guess is
  *  resolved, which is the whole point of splitting it up:
  *
- *   1. POP    the four selected tiles swell in place, keeping their normal colours. This
- *             fires on every guess, right or wrong, because at this moment the game has not
- *             told you which it is — colouring here would give the answer away early.
+ *   1. LIFT   the four selected tiles brighten and gain depth where they stand, keeping
+ *             their normal colours. This fires on every guess, right or wrong, because at
+ *             this moment the game has not told you which it is — colouring here would give
+ *             the answer away early. It changes no geometry: scaling a grid tile makes it
+ *             overlap its neighbours, and four of them lifting at once read as the whole
+ *             board twitching.
  *   2. LIGHT  only on a correct guess: the four take on their group's colour, so you see the
  *             set resolve as a set.
  *   3. FLIGHT they gather into the bar, staggered so it reads as four things arriving rather
@@ -693,13 +696,14 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       {fly?.ids.map((id, i) => {
         const r = fly.rects[id];
         if (!r) return null;
-        // The ghost takes over from a tile that is already popped, so it starts at the popped
-        // scale and stays there until it flies — no second bounce.
-        const at = { left: r.left, top: r.top, width: r.width, height: r.height, transform: "scale(1.06)" };
+        // Starts exactly where the tile stood, at its own size — the beat before this one
+        // changes no geometry either, so nothing jumps at the handover. The only scaling
+        // happens in flight, away from the board, as the tile shrinks into the bar.
+        const at = { left: r.left, top: r.top, width: r.width, height: r.height };
         const style =
           flyPhase === "go" && flyTo
             ? { left: flyTo.x - r.width / 2, top: flyTo.y - r.height / 2, width: r.width, height: r.height,
-                opacity: 0, transform: "scale(0.3)", transitionDelay: `${i * FLY_STAGGER_MS}ms` }
+                opacity: 0, transform: "scale(0.45)", transitionDelay: `${i * FLY_STAGGER_MS}ms` }
             : at;
         return (
           <div
