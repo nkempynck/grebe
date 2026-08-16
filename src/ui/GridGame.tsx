@@ -94,7 +94,7 @@ const reducedMotion = () =>
 function GroupBar({ tree, group, dimmed, fresh, onPick }: { tree: Tree; group: GridGroup; dimmed?: boolean; fresh?: boolean; onPick?: (id: string) => void }) {
   const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
   return (
-    <div className={`grid-solved lvl-${group.level}${dimmed ? " is-dim" : ""}${fresh ? " is-fresh" : ""}`} data-solved={group.cladeId}>
+    <div className={`grid-solved lvl-${group.level}${dimmed ? " is-dim" : ""}${fresh ? " is-fresh" : ""}`}>
       <div className="grid-solved-label">
         {group.label}
         {group.sciLabel && group.sciLabel !== group.label && <span className="grid-solved-sci"> · {group.sciLabel}</span>}
@@ -151,8 +151,18 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   // path, and inside scoring and persistence with it) we photograph the four tiles just
   // BEFORE submitting and fly copies of them to the bar afterwards. If any of it fails or
   // is skipped, the game underneath has already moved on correctly.
+  //
+  // The board is FROZEN while it plays. Letting the real board update underneath was the
+  // whole problem: solving removes four tiles and inserts a bar, so in one frame the grid
+  // reflows 16 cells to 12 and everything below drops by the bar's height — while the ghosts,
+  // fixed to the viewport at the coordinates the tiles used to occupy, stay put. The result
+  // reads as the board tearing. So for the duration the grid keeps rendering its pre-solve
+  // tiles (the flown four as invisible placeholders, holding their cells open) and the new
+  // bar is withheld. Everything changes once, at the end, as the ghosts arrive.
   const boardRef = useRef<HTMLDivElement | null>(null);
-  const [fly, setFly] = useState<{ ids: string[]; rects: Record<string, DOMRect>; level: number; cladeId: string } | null>(null);
+  const [fly, setFly] = useState<{ ids: string[]; rects: Record<string, DOMRect>; level: number; cladeId: string; frozen: string[] } | null>(null);
+  /** The bar that just finished receiving its tiles — the only one that animates in. */
+  const [freshBar, setFreshBar] = useState<string | null>(null);
   const [flyTo, setFlyTo] = useState<{ x: number; y: number } | null>(null);
   /** "start" = mounted over the popped tiles, uncoloured. "lit" = wearing the group colour.
    *  "go" = flying into the bar. */
@@ -180,6 +190,9 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       if (el) rects[id] = el.getBoundingClientRect();
     }
     const ids = [...g.selected];
+    // The grid exactly as it stands now, so it can go on being rendered while the ghosts fly
+    // and the real board moves on underneath.
+    const frozen = [...g.remaining];
     setPopping(ids);
     popTimer.current = setTimeout(() => {
       popTimer.current = null;
@@ -190,31 +203,32 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       // painted by the same frame that takes the tiles away.
       const grp = gRef.current.board?.groups.find((gr) => ids.every((id) => gr.memberIds.includes(id)));
       setPopping(null);
-      if (grp) setFly({ ids, rects, level: grp.level, cladeId: grp.cladeId });
+      if (grp) setFly({ ids, rects, level: grp.level, cladeId: grp.cladeId, frozen });
       gRef.current.submit();
     }, POP_MS);
   }
 
-  // Measure the bar only once it is actually laid out, then hand the ghosts their
-  // destination on the NEXT frame so they paint at the start position first — set both in
-  // one frame and the browser has nothing to interpolate from.
   useLayoutEffect(() => {
     if (!fly) return;
-    if (!document.querySelector(`[data-solved="${CSS.escape(fly.cladeId)}"]`)) { setFly(null); return; }
     // Frame 1 paints the ghosts uncoloured, exactly over where the popped tiles were; frame 2
     // lights them. Both in one frame and the browser has nothing to interpolate from.
     const raf = requestAnimationFrame(() => setFlyPhase("lit"));
-    // The bar is measured at TAKE-OFF rather than now: it is still opening underneath, and
-    // measuring late costs nothing while keeping the target right if the page has shifted.
+    // They aim at the TOP OF THE BOARD, not at the bar: the bar is deliberately not rendered
+    // yet (it would shove the whole page down mid-flight), so there is nothing to measure.
+    // The top edge is where it will appear, which is the same place to the eye.
     const go = setTimeout(() => {
-      const bar = document.querySelector(`[data-solved="${CSS.escape(fly.cladeId)}"]`);
-      if (!bar) { setFly(null); return; }
-      const r = bar.getBoundingClientRect();
+      const b = boardRef.current?.getBoundingClientRect();
+      if (!b) { setFly(null); return; }
       setFlyPhase("go");
-      setFlyTo({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      setFlyTo({ x: b.left + b.width / 2, y: b.top });
     }, LIGHT_MS);
     const done = setTimeout(
-      () => { setFly(null); setFlyTo(null); setFlyPhase("start"); },
+      () => {
+        setFly(null); setFlyTo(null); setFlyPhase("start");
+        // Only now does the board catch up — placeholders go, bar arrives, one reflow.
+        setFreshBar(fly.cladeId);
+        setTimeout(() => setFreshBar(null), 900);
+      },
       LIGHT_MS + FLY_MS + FLY_STAGGER_MS * 3 + 80
     );
     return () => { cancelAnimationFrame(raf); clearTimeout(go); clearTimeout(done); };
@@ -507,12 +521,14 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
           ordered by difficulty level so the colours read as a scale, like
           Connections (easiest/yellow at top, trickiest/purple at the bottom). */}
       {[
-        ...g.solvedGroups.map((grp) => ({ grp, dimmed: false })),
+        // The group currently in flight is withheld: showing its bar now would push the
+        // board down by the bar's height while the ghosts are still crossing it.
+        ...g.solvedGroups.filter((grp) => grp.cladeId !== fly?.cladeId).map((grp) => ({ grp, dimmed: false })),
         ...(g.status === "lost" ? unsolved.map((grp) => ({ grp, dimmed: true })) : []),
       ]
         .sort((a, b) => a.grp.level - b.grp.level)
         .map(({ grp, dimmed }) => (
-          <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === fly?.cladeId} onPick={over ? setWikiId : undefined} />
+          <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === freshBar} onPick={over ? setWikiId : undefined} />
         ))}
       {over && <p className="grid-peek-note">Tap any species to read about it on Wikipedia.</p>}
 
@@ -520,7 +536,10 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       {!over && (
         <>
           <div className="grid-board" role="group" aria-label="Species tiles" ref={boardRef}>
-            {g.remaining.map((id) => {
+            {(fly ? fly.frozen : g.remaining).map((id) => {
+              // A tile that has flown: its cell stays, empty and invisible, so the grid keeps
+              // its shape until the animation is over and everything reflows at once.
+              if (fly?.ids.includes(id)) return <div key={id} className="grid-tile-ghosted" aria-hidden="true" />;
               const on = g.selected.includes(id);
               const hasImg = !!thumbs[id];
               // Picture mode: the image is the tile, the name is revealed. Normal:

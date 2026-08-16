@@ -1650,10 +1650,10 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .grid-solved-label { font-family: var(--font-display); font-weight: 800; font-size: 15px; }
 .grid-solved-sci { font-weight: 600; font-style: italic; opacity: 0.75; font-size: 13px; }
 .grid-solved-members { font-size: 13px; margin-top: 2px; }
-/* the bar opens as the tiles land in it — delayed past the hold beat so it is still
-   arriving while they fly, not sitting there waiting. Only for the group just solved, never
-   for bars restored on a reload or a tab switch (see GroupBar's `fresh`). */
-.grid-solved.is-fresh { animation: grid-solved-in 0.7s cubic-bezier(0.34, 1.25, 0.64, 1) 0.42s both; }
+/* the bar opens the moment the tiles have finished arriving — it is withheld until then, so
+   no delay here. Only for the group just solved, never for bars restored on a reload or a
+   tab switch (see GroupBar's `fresh`). */
+.grid-solved.is-fresh { animation: grid-solved-in 0.5s cubic-bezier(0.34, 1.25, 0.64, 1) both; }
 @keyframes grid-solved-in {
   from { opacity: 0; transform: scaleY(0.4); }
   60% { opacity: 1; }
@@ -1666,6 +1666,8 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
    Deliberately NOT a scale. Enlarging a grid tile makes it overlap its neighbours, and with
    four of them lifting at once the whole board appears to twitch. This changes no geometry
    at all — the tiles brighten and gain a little depth where they stand. */
+/* a cell held open for a tile that is mid-flight — same footprint, nothing drawn */
+.grid-tile-ghosted { aspect-ratio: 1; visibility: hidden; }
 .grid-tile.is-pop {
   filter: brightness(1.14);
   box-shadow: 0 0 0 3px var(--sel), 0 4px 14px rgba(0, 0, 0, 0.3);
