@@ -52,11 +52,24 @@ const needP1843 = []; // {node, qid}
 for (const n of speciesNodes) {
   const rec = bySci.get(n.sciName);
   const title = rec?.article;
-  // A title that is itself a binomial is Wikipedia filing the species under a SYNONYM, not
-  // a vernacular — see latin-name.mjs. Leaving it in place made the tile read as Latin
-  // while still counting as named, which bypasses the Latin-tile budget in grid.ts.
-  if (title && title.toLowerCase() !== n.sciName.toLowerCase() && !isLatinName(title)) n.common = title;
-  else if (title && isLatinName(title)) latinTitles++;                                     // Wikipedia common name
+  // A title that DIFFERS from the scientific name but is itself a binomial is Wikipedia
+  // filing the species under a SYNONYM, not a vernacular — see latin-name.mjs. Leaving it in
+  // place made the tile read as Latin while still counting as named, which bypasses the
+  // Latin-tile budget in grid.ts.
+  //
+  // `differs` is load-bearing and used to be missing from the second branch. Most obscure
+  // species have a Wikipedia article titled with their scientific name, which isLatinName
+  // also answers true for — so 1611 of 3844 species fell into the synonym bucket and never
+  // reached the P1843 lookup that would have found their vernacular. A rebuild therefore
+  // dropped 1119 common names (3332 named species down to 2223): Chilean Lantern Tree, Palo
+  // santo and Gumbo limbo simply vanished. Only 13 titles are real synonyms.
+  //
+  // NOT YET EXERCISED END TO END: fixing the order is provably right by inspection, but the
+  // P1843 pass it re-enables has not been re-run. Before accepting any future rebuild, diff
+  // the new taxonomy.json against the old one and check the common-name count went UP.
+  const differs = title && title.toLowerCase() !== n.sciName.toLowerCase();
+  if (differs && !isLatinName(title)) n.common = title;                                    // Wikipedia common name
+  else if (differs && isLatinName(title)) latinTitles++;                                   // filed under a synonym
   else if (rec?.qid) needP1843.push({ node: n, qid: rec.qid });                            // Latin-only -> try P1843
 }
 console.log(`species: ${speciesNodes.filter((n) => n.common).length} named from Wikipedia titles; ${needP1843.length} to try via P1843; ${latinTitles} titles rejected as scientific synonyms`);

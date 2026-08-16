@@ -240,6 +240,60 @@ const injectNames = (groups, keyOf, rank, dropRedundant = false) => {
   console.log(`injected ${r.injected} parent-taxon clades (${r.taken} already named, ${r.collided} name taken elsewhere, ${r.redundant} redundant, ${r.rejects.length} impure); ranked ${ranked}, ${ambiguous} ambiguous`);
 }
 
+// ---- 6. ORDER injection (the coarse layer, for SEPARATION only) ----
+// Step 5 keys off Wikidata's parent-taxon property, which returns the IMMEDIATE parent, and
+// its rank varies by lineage. For plants that lands on orders and the layer works. For birds
+// it does not: Scolopacidae -> Charadriiformes but Alcidae -> Pan-Alcidae and Laridae -> Lari,
+// so one order arrives as three names, none of whose species form a clean clade, and all
+// three are rejected as impure. Charadriiformes, Coraciiformes and Pelecaniformes were
+// missing from the tree entirely, which left 82% of bird boards — and 88% of fish ones —
+// walking all the way up to Neognathae/Teleostei (infraclass) for their separation. A whole
+// class scoring one near-constant number is what put four different bird ORDERS on a Sunday.
+//
+// So this asks Open Tree for each family's order directly rather than climbing P171 (whose
+// intermediate names — Lari, Alcedines, Ardei — Open Tree has never heard of). Runs AFTER
+// step 5 so the finer layer claims its nodes first; this only ever names what is still
+// anonymous above them.
+//
+// This stamps a RANK and deliberately does NOT set a name, which is why it does not go
+// through injectNames. Two reasons, and the first is a regression this caused when it did:
+//
+//   - Branches builds its groups from the shallowest NAMED clade in a branch, so naming
+//     these nodes changed its grouping underneath it and left tier 7 unable to field a board
+//     for some seeds. Nothing about separation needs a label.
+//   - Skipping the naming also lets it rank nodes that ALREADY have a name, which
+//     injectNames passes over. That is most of them: 161 of the order MRCAs were already
+//     labelled by a finer step, and they need the rank just as much.
+//
+// The rank lands in `sepRank`, NEVER in `rank`, for exactly the reason given in step 5:
+// Lineage's nearestAncestorOfRank stops at the first ancestor ranked above the one it wants,
+// so a real "order" here would silently move win targets on already-pinned days.
+// separationTierOf reads sepRank ?? rank; nothing else looks at it.
+{
+  const orderOfFamily = JSON.parse(readFileSync(resolve(C, "sel-family-order.json"), "utf8"));
+  const famBySpecies = new Map();
+  for (const s of inset) if (s.gbif && s.family) famBySpecies.set(String(s.gbif), s.family);
+  const orderOf = (id) => { const f = famBySpecies.get(id); return (f && orderOfFamily[f]) || null; };
+  const byOrder = new Map();
+  for (const n of nodes.values()) { if (n.rank !== "species") continue; const o = orderOf(n.id); if (o) (byOrder.get(o) ?? byOrder.set(o, []).get(o)).push(n.id); }
+  let ranked = 0, impure = 0, tooSmall = 0, alreadyRanked = 0;
+  for (const [name, sp] of byOrder) {
+    if (sp.length < 2) { tooSmall++; continue; }
+    const m = mrca(sp); const node = m && nodes.get(m);
+    if (!node || node.rank === "species") continue;
+    // Purity, exactly as injectNames demands it: the node must hold this order and nothing
+    // else, or we would be calling some broader clade an order.
+    if (leavesN(m).some((id) => orderOf(id) !== name)) { impure++; continue; }
+    // Never overwrite a rank the tree already carries — a real `order` from OTL, or a finer
+    // rank from an earlier step, is better information than this.
+    if (node.rank && node.rank !== "clade" && node.rank !== "no rank") { alreadyRanked++; continue; }
+    if (node.sepRank) { alreadyRanked++; continue; }
+    node.sepRank = "order";
+    ranked++;
+  }
+  console.log(`ranked ${ranked} order clades via sepRank (${alreadyRanked} already ranked, ${impure} impure, ${tooSmall} single-species)`);
+}
+
 // ---- report ----
 const list = [...nodes.values()];
 writeFileSync(resolve(C, "sel-nodes.json"), JSON.stringify(list));
