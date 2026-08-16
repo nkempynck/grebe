@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Tree } from "../core";
 import { dailyNumber } from "../core";
 import { useGridGame, PRESHOW_MAX_TIER, type GridComplete } from "../hooks/useGridGame";
@@ -60,10 +60,38 @@ const PICTURE_MODE_MIN_TIER = 6;
  *  information than four unnamed photos did, and it gives every player somewhere to begin. */
 const MIXED_PICTURE_COUNT = 2;
 
-function GroupBar({ tree, group, dimmed, onPick }: { tree: Tree; group: GridGroup; dimmed?: boolean; onPick?: (id: string) => void }) {
+/** How many tiles make a group — the count the solve animation photographs. */
+const GRID_GROUP_SIZE = 4;
+/** The guess animation runs in three beats, and the first one happens BEFORE the guess is
+ *  resolved, which is the whole point of splitting it up:
+ *
+ *   1. POP    the four selected tiles swell in place, keeping their normal colours. This
+ *             fires on every guess, right or wrong, because at this moment the game has not
+ *             told you which it is — colouring here would give the answer away early.
+ *   2. LIGHT  only on a correct guess: the four take on their group's colour, so you see the
+ *             set resolve as a set.
+ *   3. FLIGHT they gather into the bar, staggered so it reads as four things arriving rather
+ *             than one block sliding.
+ *
+ *  Beat 1 delays the guess itself by POP_MS. That is the cost of showing it before the
+ *  outcome, and it is why input is locked for that window (see handleSubmit) — otherwise a
+ *  second click would resolve a selection different from the one on screen. */
+const POP_MS = 420;
+const LIGHT_MS = 420;
+const FLY_MS = 760;
+const FLY_STAGGER_MS = 80;
+/** Honour the OS "reduce motion" setting: no photograph is taken and no ghost is rendered,
+ *  so the board just updates instantly as it did before. */
+const reducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+/** `fresh` is the group solved in THIS session, just now — only it animates in. Without the
+ *  distinction every bar would replay its entrance whenever the component remounts, so
+ *  coming back to the tab with three groups solved would pop all three. */
+function GroupBar({ tree, group, dimmed, fresh, onPick }: { tree: Tree; group: GridGroup; dimmed?: boolean; fresh?: boolean; onPick?: (id: string) => void }) {
   const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
   return (
-    <div className={`grid-solved lvl-${group.level}${dimmed ? " is-dim" : ""}`}>
+    <div className={`grid-solved lvl-${group.level}${dimmed ? " is-dim" : ""}${fresh ? " is-fresh" : ""}`} data-solved={group.cladeId}>
       <div className="grid-solved-label">
         {group.label}
         {group.sciLabel && group.sciLabel !== group.label && <span className="grid-solved-sci"> · {group.sciLabel}</span>}
@@ -92,13 +120,103 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   // Species with no Wikipedia image (fetch resolved empty) — in picture mode their
   // name shows as a fallback rather than flashing every name before images load.
   const [noImg, setNoImg] = useState<Set<string>>(new Set());
-  const [flipped, setFlipped] = useState<Set<string>>(new Set());
+  // Which tiles are showing their hidden half. This is DERIVED from g.revealed rather than
+  // tracked alongside it, because g.revealed is persisted and this component is not: every
+  // tab switch unmounts GridGame (App renders it behind `view === "kinship"`), and when a
+  // plain `flipped` set lived here the board came back face-down while the reveals stayed
+  // spent — and paid for. Re-clicking was at least free, since doFlip only bills a tile
+  // absent from g.revealed, but it read as having lost the peek.
+  //
+  // So the only local state is the inverse: tiles the player deliberately flipped BACK.
+  // That one is right to lose on unmount — it is a momentary "hide this again", not
+  // something bought.
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const flipped = useMemo(
+    () => new Set(g.revealed.filter((id) => !hidden.has(id))),
+    [g.revealed, hidden]
+  );
   // Full-res image per species for the click-to-enlarge overlay (fetched alongside
   // the thumbnail, so no extra request), and which tile is currently enlarged.
   const [fulls, setFulls] = useState<Record<string, string>>({});
   const [zoomId, setZoomId] = useState<string | null>(null);
   // Post-game Wikipedia reader.
   const [wikiId, setWikiId] = useState<string | null>(null);
+  // SOLVE ANIMATION — the four tiles gather and lift into their group bar, as Connections
+  // does. It is deliberately a decoration LAYERED OVER the real board rather than part of
+  // it: the hook moves a solved group out of `remaining` the instant the guess lands, so
+  // instead of delaying that (which would put a ~half-second animation inside the guess
+  // path, and inside scoring and persistence with it) we photograph the four tiles just
+  // BEFORE submitting and fly copies of them to the bar afterwards. If any of it fails or
+  // is skipped, the game underneath has already moved on correctly.
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const [fly, setFly] = useState<{ ids: string[]; rects: Record<string, DOMRect>; level: number; cladeId: string } | null>(null);
+  const [flyTo, setFlyTo] = useState<{ x: number; y: number } | null>(null);
+  /** "start" = mounted over the popped tiles, uncoloured. "lit" = wearing the group colour.
+   *  "go" = flying into the bar. */
+  const [flyPhase, setFlyPhase] = useState<"start" | "lit" | "go">("start");
+  /** The tiles mid-POP, i.e. a guess is on screen but not yet resolved. Non-null also means
+   *  the board is locked — see handleSubmit. */
+  const [popping, setPopping] = useState<string[] | null>(null);
+  const popTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The timeout below resolves the guess a beat later, so it must call the CURRENT submit,
+  // not the one captured when the button was clicked.
+  const gRef = useRef(g);
+  gRef.current = g;
+  useEffect(() => () => { if (popTimer.current) clearTimeout(popTimer.current); }, []);
+
+  // Pop first, resolve after. Nothing here can lose a guess: every path ends in submit(),
+  // and if the tiles can't be measured the animation is simply skipped.
+  function handleSubmit() {
+    if (popping) return; // a guess is already playing out — ignore the second click
+    if (g.selected.length !== GRID_GROUP_SIZE || reducedMotion()) { g.submit(); return; }
+    // Measured NOW, before the pop scales them: a scaled element reports its scaled box, and
+    // the ghosts need the tiles' real footprint to start from.
+    const rects: Record<string, DOMRect> = {};
+    for (const id of g.selected) {
+      const el = boardRef.current?.querySelector(`[data-tile="${CSS.escape(id)}"]`);
+      if (el) rects[id] = el.getBoundingClientRect();
+    }
+    const ids = [...g.selected];
+    setPopping(ids);
+    popTimer.current = setTimeout(() => {
+      popTimer.current = null;
+      // Read the outcome off the board directly instead of waiting to see a group appear in
+      // g.solvedGroups. Watching for it meant reacting in an effect a render LATE, which left
+      // one frame with the tiles already removed and no ghosts yet — a visible blink at the
+      // handover. Deciding here lets both state changes land in one commit, so the ghosts are
+      // painted by the same frame that takes the tiles away.
+      const grp = gRef.current.board?.groups.find((gr) => ids.every((id) => gr.memberIds.includes(id)));
+      setPopping(null);
+      if (grp) setFly({ ids, rects, level: grp.level, cladeId: grp.cladeId });
+      gRef.current.submit();
+    }, POP_MS);
+  }
+
+  // Measure the bar only once it is actually laid out, then hand the ghosts their
+  // destination on the NEXT frame so they paint at the start position first — set both in
+  // one frame and the browser has nothing to interpolate from.
+  useLayoutEffect(() => {
+    if (!fly) return;
+    if (!document.querySelector(`[data-solved="${CSS.escape(fly.cladeId)}"]`)) { setFly(null); return; }
+    // Frame 1 paints the ghosts uncoloured, exactly over where the popped tiles were; frame 2
+    // lights them. Both in one frame and the browser has nothing to interpolate from.
+    const raf = requestAnimationFrame(() => setFlyPhase("lit"));
+    // The bar is measured at TAKE-OFF rather than now: it is still opening underneath, and
+    // measuring late costs nothing while keeping the target right if the page has shifted.
+    const go = setTimeout(() => {
+      const bar = document.querySelector(`[data-solved="${CSS.escape(fly.cladeId)}"]`);
+      if (!bar) { setFly(null); return; }
+      const r = bar.getBoundingClientRect();
+      setFlyPhase("go");
+      setFlyTo({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    }, LIGHT_MS);
+    const done = setTimeout(
+      () => { setFly(null); setFlyTo(null); setFlyPhase("start"); },
+      LIGHT_MS + FLY_MS + FLY_STAGGER_MS * 3 + 80
+    );
+    return () => { cancelAnimationFrame(raf); clearTimeout(go); clearTimeout(done); };
+  }, [fly]);
+
   // A tile whose reveal would cost score, awaiting confirmation (null = none). The
   // confirm sits below the board, so scroll it into view when it appears — on a tall
   // board it would otherwise open off-screen and look like nothing happened.
@@ -211,14 +329,26 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
 
   // Actually flip a tile to its picture (reveal on first flip, then just toggle).
   function doFlip(id: string) {
-    if (!g.revealed.includes(id)) g.reveal(id);
+    // A FIRST flip always ends up shown; only a later one toggles. Without the distinction
+    // the first flip would reveal the tile and immediately hide it again, since `hidden`
+    // starts empty for a tile nobody has hidden yet.
+    const first = !g.revealed.includes(id);
+    if (first) g.reveal(id);
     if (!thumbs[id]) {
       const node = tree.byId.get(id);
       if (node) fetchWikiImage(node).then((img) => {
         if (img) { setThumbs((t) => ({ ...t, [id]: img.thumb })); setFulls((f) => ({ ...f, [id]: img.full })); }
       });
     }
-    setFlipped((f) => { const n = new Set(f); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    // g.reveal above is what makes a tile show; this only tracks a deliberate flip BACK,
+    // so toggling is "un-hide or hide" rather than "add or remove from shown".
+    setHidden((h) => {
+      const n = new Set(h);
+      if (first) n.delete(id);
+      else if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   }
 
   // A first reveal that would cost points warns first; free flips (and toggling an
@@ -379,14 +509,14 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       ]
         .sort((a, b) => a.grp.level - b.grp.level)
         .map(({ grp, dimmed }) => (
-          <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} onPick={over ? setWikiId : undefined} />
+          <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === fly?.cladeId} onPick={over ? setWikiId : undefined} />
         ))}
       {over && <p className="grid-peek-note">Tap any species to read about it on Wikipedia.</p>}
 
       {/* The live board. */}
       {!over && (
         <>
-          <div className="grid-board" role="group" aria-label="Species tiles">
+          <div className="grid-board" role="group" aria-label="Species tiles" ref={boardRef}>
             {g.remaining.map((id) => {
               const on = g.selected.includes(id);
               const hasImg = !!thumbs[id];
@@ -418,9 +548,12 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
               return (
                 <button
                   key={id}
-                  className={`grid-tile${on ? " is-sel" : ""}${imgShown ? " is-flipped" : ""}`}
+                  data-tile={id}
+                  className={`grid-tile${on ? " is-sel" : ""}${imgShown ? " is-flipped" : ""}${popping?.includes(id) ? " is-pop" : ""}`}
                   aria-pressed={on}
-                  onClick={() => g.toggle(id)}
+                  // Locked while a guess is popping: the selection on screen must be the one
+                  // that gets resolved when the beat ends.
+                  onClick={() => { if (!popping) g.toggle(id); }}
                 >
                   {imgShown && <img className="grid-tile-bg" src={thumbs[id]} alt="" aria-hidden="true" />}
                   {imgShown && <img className="grid-tile-img" src={thumbs[id]} alt="" />}
@@ -486,14 +619,14 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
           {g.feedback && <div className="grid-feedback" role="status">{g.feedback}</div>}
 
           <div className="grid-controls">
-            <button className="linkbtn" onClick={g.shuffle}>Shuffle</button>
-            <button className="linkbtn" onClick={g.deselectAll} disabled={g.selected.length === 0}>
+            <button className="linkbtn" onClick={g.shuffle} disabled={!!popping}>Shuffle</button>
+            <button className="linkbtn" onClick={g.deselectAll} disabled={g.selected.length === 0 || !!popping}>
               Deselect all
             </button>
             <button
               className="grid-submit"
-              onClick={g.submit}
-              disabled={g.selected.length !== 4}
+              onClick={handleSubmit}
+              disabled={g.selected.length !== 4 || !!popping}
             >
               Guess
             </button>
@@ -552,6 +685,34 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         played={over}
         label="today’s Kinship"
       />
+
+      {/* Solve animation: copies of the four tiles, flying into their group bar. Fixed to
+          the viewport because the board reflows underneath them the moment the group is
+          removed — anchoring to the page would drag them along with it. Purely visual, and
+          inert: aria-hidden and pointer-events: none, so nothing here is reachable. */}
+      {fly?.ids.map((id, i) => {
+        const r = fly.rects[id];
+        if (!r) return null;
+        // The ghost takes over from a tile that is already popped, so it starts at the popped
+        // scale and stays there until it flies — no second bounce.
+        const at = { left: r.left, top: r.top, width: r.width, height: r.height, transform: "scale(1.06)" };
+        const style =
+          flyPhase === "go" && flyTo
+            ? { left: flyTo.x - r.width / 2, top: flyTo.y - r.height / 2, width: r.width, height: r.height,
+                opacity: 0, transform: "scale(0.3)", transitionDelay: `${i * FLY_STAGGER_MS}ms` }
+            : at;
+        return (
+          <div
+            key={id}
+            className={`grid-ghost lvl-${fly.level}${flyPhase === "start" ? "" : " is-lit"}`}
+            style={style}
+            aria-hidden="true"
+          >
+            {thumbs[id] && <img src={thumbs[id]} alt="" />}
+            <span>{nameOf(id)}</span>
+          </div>
+        );
+      })}
 
       {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} />}
 

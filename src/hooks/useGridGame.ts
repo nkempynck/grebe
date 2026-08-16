@@ -159,7 +159,6 @@ export function useGridGame(
   const [paidReveals, setPaidReveals] = useState(0);
   const [status, setStatus] = useState<GridStatus>("playing");
   const [feedback, setFeedback] = useState<string | null>(null);
-  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Signature of the board the current state has been restored for. The save
   // effect refuses to persist until this matches the live board, so a render that
   // carries the previous board's finished state (e.g. an open tab crossing the
@@ -271,16 +270,17 @@ export function useGridGame(
   const remaining = useMemo(() => order.filter((id) => !solvedTiles.has(id)), [order, solvedTiles]);
   const solvedGroups = useMemo(() => (board ? solved.map((i) => board.groups[i]) : []), [board, solved]);
 
-  const flash = useCallback((msg: string) => {
-    setFeedback(msg);
-    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = setTimeout(() => setFeedback(null), 2200);
-  }, []);
-  useEffect(() => () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); }, []);
+  // Feedback stays until the player DOES something, rather than expiring on a timer. It
+  // used to clear itself after 2.2s, which is long enough to read but not long enough to
+  // think with: "One away…" is the single most useful thing the game tells you, and it
+  // vanished while you were still looking at the board deciding which tile to swap. Every
+  // action below clears it, so it never goes stale — it is always about the last guess.
+  const flash = useCallback((msg: string) => setFeedback(msg), []);
 
   const toggle = useCallback(
     (id: string) => {
       if (status !== "playing" || solvedTiles.has(id)) return;
+      setFeedback(null);
       setSelected((sel) => {
         if (sel.includes(id)) return sel.filter((x) => x !== id);
         if (sel.length >= GRID_GROUP_SIZE) return sel;
@@ -290,8 +290,8 @@ export function useGridGame(
     [status, solvedTiles]
   );
 
-  const deselectAll = useCallback(() => setSelected([]), []);
-  const shuffle = useCallback(() => setOrder((o) => shuffled(o)), []);
+  const deselectAll = useCallback(() => { setFeedback(null); setSelected([]); }, []);
+  const shuffle = useCallback(() => { setFeedback(null); setOrder((o) => shuffled(o)); }, []);
 
   // Test bench only: mark every group solved and win. onComplete never fires from
   // here, and a playtest board isn't recorded anyway.
@@ -308,6 +308,7 @@ export function useGridGame(
   const reveal = useCallback(
     (id: string) => {
       if (!board || status !== "playing" || revealed.includes(id)) return;
+      setFeedback(null);
       // Free-peek balance BEFORE this peek: the day's starting budget (+1 per solved group)
       // minus peeks already spent, plus those already billed. At or below zero means this
       // peek is paid. A free peek earned later never refunds one already billed.
@@ -320,6 +321,10 @@ export function useGridGame(
 
   const submit = useCallback(() => {
     if (!board || status !== "playing" || selected.length !== GRID_GROUP_SIZE) return;
+    // Clear first: a correct guess does not always flash (Mon-Wed have no free peek to
+    // announce), and without this the previous guess's "Not a group" would sit there
+    // through a right answer.
+    setFeedback(null);
     const row = selected.map((id) => levelOf(id));
     const { solvedIndex, oneAway } = checkGridSelection(board, selected);
     setAttempts((a) => [...a, row]);
