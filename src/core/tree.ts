@@ -70,7 +70,21 @@ export const MRCA_TIER: Record<string, number> = {
   subgenus: 7, "species group": 7, "species subgroup": 7, genus: 7,
   subtribe: 6, tribe: 6, subfamily: 6, family: 6, section: 6,
   superfamily: 5,
-  infraorder: 4, parvorder: 4, suborder: 4, infraclass: 4,
+  infraorder: 4, parvorder: 4, suborder: 4,
+  // `infraclass` sat at 4 beside the suborders, which read as a plausible mid-rank and was
+  // not. In practice the only infraclasses this walk lands on are Neognathae and Teleostei —
+  // ALL modern birds and ALL modern bony fish — so it fired whenever two groups had nothing
+  // closer in common, i.e. exactly when they were furthest apart. It scored a toucan against
+  // an owl the same as two suborders of the same order. That is the whole reason a hawk, a
+  // trogon, a kingfisher and an owl cleared every gate onto a Sunday: the ruler was blind,
+  // and 4 is the trap floor, so "I cannot tell" was being read as "confusably close".
+  //
+  // Reaching one of these means the pair diverged at the base of its class, so it belongs at
+  // the far end with `class` and `subclass`. This only became safe once the orders below it
+  // carried a rank of their own (54 nodes, stamped as `sepRank` by
+  // scripts/patch-order-sepranks.mjs) — without them, correcting this drags honest bird and
+  // fish boards down along with the walkovers, which is what it did when tried alone.
+  infraclass: 1,
   order: 3,
   magnorder: 2, superorder: 2, cohort: 2, subcohort: 2,
   subclass: 1, class: 1, subphylum: 1, phylum: 1, superclass: 1, subterclass: 1,

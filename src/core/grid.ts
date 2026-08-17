@@ -776,6 +776,28 @@ const MIN_TIGHTEST_PAIR_RELAXED = 3;
 // Chosen so no class is left with a handful of containers cycling on repeat: plants clear
 // 4 on 13 containers, which the anti-repeat window would grind into the same few boards.
 const MIN_VIABLE_CONTAINERS = 25;
+// …and a class whose ORDERS are the right unit of confusion takes the relaxed floor
+// outright, regardless of how many containers it can field.
+//
+// The self-calibration above asks "can this class still fill a year at 4?", which birds and
+// fish both answer yes to (98 and 43 containers against a threshold of 25) — measured per
+// CONTAINER, where one close pair among a container's themes is enough. It says nothing
+// about the boards actually drawn from them, and those collapse: holding birds at 4 costs
+// 240 boards a year down to 118, and fish 105 down to 28.
+//
+// The floor is a rank, and a rank means different things in different corners of the tree.
+// A bird order is TIGHT — kingfishers, bee-eaters and rollers really are confusable on
+// sight — where Carnivora spans cats to seals. Demanding the same number from both is what
+// made the honest fix look like a regression the first two times it was tried. Requiring
+// "same order" of birds and fish is a real demand, not a waiver: it still throws out every
+// cross-order board, which is the entire complaint (a hawk beside a trogon beside a
+// kingfisher beside an owl, 38 occurrences over two years → 0).
+//
+// Measured over 730 days against live, this is the variant that wins on the metric that was
+// supposed to be the cost: 420 distinct boards (live 405), 725 near-repeats inside 60 days
+// (live 925), 1695 distinct species (live 1723). Birds settle at 197 and fish RISE to 150,
+// their tree finally being read honestly rather than defaulting to the trap floor.
+const CLASS_TIGHTEST_FLOOR: Record<string, number> = { Birds: 3, Fish: 3 };
 // A GROUP whose four shown species have a median below this is never used — so no board
 // ever contains a brutally obscure, unplaceable group (e.g. an obscure salamander
 // family). Kept modest (not high): difficulty now comes from the reveal mode, not fame,
@@ -897,7 +919,8 @@ function discover(tree: Tree): Discovered | null {
   const tightestFloor = new Map<string, number>();
   for (const g of new Set(prepared.map((p) => p.c.group!))) {
     const viable = prepared.filter((p) => p.c.group === g && p.tightest >= MIN_TIGHTEST_PAIR).length;
-    tightestFloor.set(g, viable >= MIN_VIABLE_CONTAINERS ? MIN_TIGHTEST_PAIR : MIN_TIGHTEST_PAIR_RELAXED);
+    const byClass = CLASS_TIGHTEST_FLOOR[g];
+    tightestFloor.set(g, byClass ?? (viable >= MIN_VIABLE_CONTAINERS ? MIN_TIGHTEST_PAIR : MIN_TIGHTEST_PAIR_RELAXED));
   }
 
   for (const { c, tightest } of prepared) {

@@ -146,7 +146,21 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   and the picture-only weekend also caps the median spread (37 → 0). Amphibians get one
   //   unit of slack, their subtree being too coarse to reach the flat cap. Board identity
   //   changed at most dates → re-pin un-played future dates.
-  version: 8,
+  // v9 (2026-08-17): the separation ruler can finally see birds and fish, and the anti-repeat
+  //   memory is no longer fiction. `infraclass` scored 4 — the trap floor — but the only
+  //   infraclasses the walk reaches are Neognathae and Teleostei, so "these two share nothing
+  //   below all modern birds" read as "confusably close" and four different bird ORDERS
+  //   cleared every gate (38 such boards over two years → 0). Corrected to 1, which is only
+  //   safe now that the 54 orders below it carry a sepRank of their own; and birds and fish
+  //   take the relaxed tightest-pair floor, their orders being the honest unit of confusion
+  //   (a bird order is kingfishers-and-rollers tight, Carnivora spans cats to seals). Variety
+  //   improves rather than pays for it: 420 distinct boards over 730 days against 405, and
+  //   725 near-repeats against 925. SEPARATELY, the anti-repeat replay now takes the boards
+  //   really served from the pinned rows instead of regenerating the past with today's code
+  //   (see setServedGridHistory) — every generator change had been rewriting the history it
+  //   was meant to avoid. Board identity changed at most dates → re-pin un-played future
+  //   dates.
+  version: 9,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -194,7 +208,13 @@ const branchesResolver: Resolver<"branches"> = {
   // or npm run pin -- --force); past pins stay frozen.
   // v6 (2026-08-14): no Branches code change, but it reads the same rich tree Kinship does,
   //   and that tree changed (accentor re-parenting, 51 cleared Latin names). Re-pin.
-  version: 6,
+  // v7 (2026-08-17): again no Branches rule change, and again the ground moved under it.
+  //   Branches grades a board by the same medianSeparationTier Kinship does, so correcting
+  //   `infraclass` and ranking the 54 orders re-scores its bird and fish boards too: 130 of
+  //   365 days draw a different board, none fails to generate, no weekday tier moves. Its
+  //   anti-repeat replay also takes the really-served boards now (setServedBranchesHistory).
+  //   Re-pin un-played future dates.
+  version: 7,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
