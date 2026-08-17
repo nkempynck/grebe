@@ -214,7 +214,18 @@ const branchesResolver: Resolver<"branches"> = {
   //   365 days draw a different board, none fails to generate, no weekday tier moves. Its
   //   anti-repeat replay also takes the really-served boards now (setServedBranchesHistory).
   //   Re-pin un-played future dates.
-  version: 7,
+  // v8 (2026-08-17): a PER-GROUP anti-repeat window, the counterpart to the grid's. Branches
+  //   guarded only the exact board signature, so a board counted as fresh the moment one
+  //   species differed and individual groups came straight back: over a year 1368 group
+  //   reappearances, 210 inside a week, 63 inside three days, the soonest the very next day.
+  //   Two boards four days apart shared three of six groups. Now a board reusing a group seen
+  //   inside 14 days ranks below one that does not, and when every candidate repeats — thin
+  //   classes like amphibians and bivalves field few containers — the mildest repeat wins
+  //   rather than the first found. Measured over 365 days: repeats inside a week 210 -> 37,
+  //   inside three days 63 -> 10, most-used group 32 -> 20, median gap 36 -> 46 days, all 365
+  //   days still field a board and the separation gradient is unmoved (2.44 -> 2.47).
+  //   Re-pin un-played future dates.
+  version: 8,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;

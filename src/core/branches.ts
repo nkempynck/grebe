@@ -599,17 +599,39 @@ const BRANCHES_ATTEMPTS = 24;
 // The pinned rows are the record of what was really served and carry the ids boardSig is
 // built from, so injecting them lets the replay count the real boards and generate only the
 // days that were never served.
-let servedBranches: Map<string, string> | null = null;
-/** Install (or clear, with null) the boards really served, keyed by date. The value is the
- *  pinned board's identity; the signature is derived here so callers need not know its
- *  shape. */
+let servedBranches: Map<string, { sig: string; groupIds: string[] }> | null = null;
+/** Install (or clear, with null) the boards really served, keyed by date. Takes the pinned
+ *  payload's ids; the signature is derived here so callers need not know its shape. groupIds
+ *  matter as much as the signature — they feed the per-group window below, and a served day
+ *  that contributed no groups would let the very boards people just played come straight
+ *  back. */
 export function setServedBranchesHistory(
-  served: Map<string, { slotIds: string[]; anchorIds: string[] }> | null
+  served: Map<string, { slotIds: string[]; anchorIds: string[]; groupIds?: string[] }> | null
 ): void {
   servedBranches = served && served.size
-    ? new Map([...served].map(([dk, p]) => [dk, p.slotIds.concat(p.anchorIds).map((id) => id).sort().join(",")]))
+    ? new Map([...served].map(([dk, p]) => [dk, {
+        sig: p.slotIds.concat(p.anchorIds).map((id) => id).sort().join(","),
+        groupIds: p.groupIds ?? [],
+      }]))
     : null;
 }
+
+// PER-GROUP ANTI-REPEAT, the counterpart to the grid's GRID_GROUP_ANTI_REPEAT_WINDOW.
+//
+// Until this existed Branches guarded only the exact board SIGNATURE (slots + anchors), so
+// any board counted as fresh the moment one species differed, and individual groups came
+// back almost immediately: over a year, 1368 group reappearances, 354 of them inside a
+// fortnight, 65 inside three days, the soonest on the very next day. Two boards four days
+// apart shared three of their six groups (Geometroidea, Arctiinae and Tineidae), and
+// Rhacophoridae ran twice in three days. The signature window cannot see any of that.
+//
+// A board that repeats a recent group is not rejected outright, only ranked below one that
+// does not — see the two ladders in boardForDay. Branches locks its broad class for the day
+// before it surveys containers, so a hard ban would push thin classes onto their last-resort
+// board rather than simply preferring a fresher one.
+const BRANCHES_GROUP_ANTI_REPEAT_WINDOW = 14;
+/** A candidate board plus how badly it repeats, so the fallback can take the mildest. */
+type Scored = { board: BranchesBoard; cost: number } | null;
 
 /** The day's board. Surveys up to BRANCHES_ATTEMPTS containers (each attempt re-seeds
  *  pickContainer, which balances broad classes) and returns the first that is fresh AND
@@ -620,28 +642,57 @@ export function setServedBranchesHistory(
  *  balance, so it merely breaks ties. Falls back: fresh+floor → fresh+in-band → fresh →
  *  any valid board (attempts are null when a container is too Latin-only to field a board).
  *  Returns null only if NO attempt yields a valid board. */
-function boardForDay(tree: Tree, dateKey: string, tier: number, avoid: (s: string) => boolean): BranchesBoard | null {
+function boardForDay(
+  tree: Tree,
+  dateKey: string,
+  tier: number,
+  avoid: (s: string) => boolean,
+  repeatCost: (groupIds: string[]) => number = () => 0
+): BranchesBoard | null {
   // Lock the day's broad class ONCE (uniform over eligible classes) — every attempt stays
   // within it, so the class distribution is balanced and the shared-word floor is a
   // best-effort within the class, never the thing that picks the class.
   const group = pickGroup(tree, tier, mulberry32(xmur3(`grebe:branches:${dateKey}:${tier}:group`)));
   if (!group) return null;
-  let freshFloor: BranchesBoard | null = null;
-  let freshInBand: BranchesBoard | null = null;
-  let firstFresh: BranchesBoard | null = null;
+  // The same preference ladder is kept TWICE: `n` for boards reusing no group seen inside
+  // BRANCHES_GROUP_ANTI_REPEAT_WINDOW, `r` for boards that do. Every `n` beats every `r`, so a
+  // repeat is taken only when the day has nothing else. That matters because Branches locks
+  // its broad class before it surveys containers: a hard ban would strand a thin class
+  // (molluscs field three containers) on its last-resort board rather than a fresher one.
+  //
+  // Within `r` the LOWEST repeatCost wins rather than the first found. Taking the first left
+  // some group coming back the very next day at every window size — the fallback was choosing
+  // arbitrarily among repeats, so widening the window only reshuffled which ones landed. Cost
+  // grades by how recent and how many, so when a repeat is unavoidable it is the mildest one
+  // on offer. With the window off, cost is always 0, `r` is never populated, and the ladder
+  // collapses to exactly what it was before.
+  let nFloor: BranchesBoard | null = null, nInBand: BranchesBoard | null = null, nFirst: BranchesBoard | null = null;
+  let rIdeal: Scored = null, rFloor: Scored = null, rInBand: Scored = null, rFirst: Scored = null;
   let anyValid: BranchesBoard | null = null;
+  const better = (cur: Scored, board: BranchesBoard, cost: number): Scored =>
+    !cur || cost < cur.cost ? { board, cost } : cur;
   for (let attempt = 0; attempt < BRANCHES_ATTEMPTS; attempt++) {
     const board = selectBoard(tree, group, dateKey, tier, attempt);
     if (!board) continue;                            // Latin-only container — unusable
     if (!anyValid) anyValid = board;                 // last-resort (may repeat)
     if (avoid(boardSig(board))) continue;            // a recent repeat — skip
     const floor = meetsFloor(tree, board);
-    if (floor && inSepBand(tree, board)) return board; // fresh, look-alikes, on-band → ideal
-    if (floor && !freshFloor) freshFloor = board;    // look-alikes (firm) → primary fallback
-    if (inSepBand(tree, board) && !freshInBand) freshInBand = board; // on-band → secondary
-    if (!firstFresh) firstFresh = board;             // any fresh → last fresh option
+    const band = inSepBand(tree, board);
+    const cost = repeatCost(board.groupIds);
+    if (cost === 0) {
+      if (floor && band) return board;               // fresh, look-alikes, on-band → ideal
+      if (floor && !nFloor) nFloor = board;          // look-alikes (firm) → primary fallback
+      if (band && !nInBand) nInBand = board;         // on-band → secondary
+      if (!nFirst) nFirst = board;                   // any fresh → last fresh option
+    } else {
+      if (floor && band) rIdeal = better(rIdeal, board, cost);
+      if (floor) rFloor = better(rFloor, board, cost);
+      if (band) rInBand = better(rInBand, board, cost);
+      rFirst = better(rFirst, board, cost);
+    }
   }
-  return freshFloor ?? freshInBand ?? firstFresh ?? anyValid;
+  return nFloor ?? nInBand ?? nFirst
+    ?? rIdeal?.board ?? rFloor?.board ?? rInBand?.board ?? rFirst?.board ?? anyValid;
 }
 
 /**
@@ -658,20 +709,38 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
   const queue: string[] = [];
   const counts = new Map<string, number>();
   const avoid = (s: string) => (counts.get(s) ?? 0) > 0;
+  // Day index each group last appeared on, for the per-group window.
+  const groupSeenAt = new Map<string, number>();
+  let idx = 0;
+  // 0 when nothing recurs. Otherwise each offending group contributes how much of the window
+  // it still has to run, so yesterday hurts most and a group about to age out barely counts —
+  // and two repeats beat one only if both are old.
+  const repeatCost = (groupIds: string[]) =>
+    groupIds.reduce((sum, id) => {
+      const seen = groupSeenAt.get(id);
+      if (seen === undefined) return sum;
+      const age = idx - seen;
+      return age < BRANCHES_GROUP_ANTI_REPEAT_WINDOW
+        ? sum + (BRANCHES_GROUP_ANTI_REPEAT_WINDOW - age)
+        : sum;
+    }, 0);
 
-  for (let dk = DAILY_EPOCH; ; dk = shiftDate(dk, 1)) {
-    if (dk === dateKey) return boardForDay(tree, dk, tier, avoid);
+  for (let dk = DAILY_EPOCH; ; dk = shiftDate(dk, 1), idx++) {
+    if (dk === dateKey) return boardForDay(tree, dk, tier, avoid, repeatCost);
 
     // A day that was really served contributes the board that was really served; only days
     // with no pin are generated.
-    const servedSig = servedBranches?.get(dk);
+    const served = servedBranches?.get(dk);
     let sig: string;
-    if (servedSig !== undefined) {
-      sig = servedSig;
+    let groupIds: string[];
+    if (served !== undefined) {
+      sig = served.sig;
+      groupIds = served.groupIds;
     } else {
-      const board = boardForDay(tree, dk, tierForDate(dk), avoid);
+      const board = boardForDay(tree, dk, tierForDate(dk), avoid, repeatCost);
       if (!board) continue; // a day with no valid board contributes nothing to anti-repeat
       sig = boardSig(board);
+      groupIds = board.groupIds;
     }
     queue.push(sig);
     counts.set(sig, (counts.get(sig) ?? 0) + 1);
@@ -681,6 +750,7 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
       if (c <= 0) counts.delete(old);
       else counts.set(old, c);
     }
+    for (const id of groupIds) groupSeenAt.set(id, idx);
   }
 }
 

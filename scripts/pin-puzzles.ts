@@ -91,14 +91,6 @@ async function main() {
   }
   const games = only ? GAMES.filter((g) => g === only) : GAMES;
 
-  // Build every (game, date) row from the shared registry.
-  //
-  // Under --force the upsert REWRITES whatever it is given, and `from` defaults to the
-  // launch epoch, so an unguarded `npm run pin -- --force` would recompute every day since
-  // launch and silently rewrite the boards people already played — which is exactly what
-  // pinning exists to prevent. repinFuture() in pinnedPuzzles.ts has always refused to
-  // touch the past; this is the same rule for the CLI. Insert-if-absent runs are harmless
-  // (an existing row is never overwritten), so the guard applies only to --force.
   // SEED THE ANTI-REPEAT HISTORY WITH WHAT WAS REALLY SERVED.
   //
   // Kinship and Branches both decide "don't repeat this" from a memory of recent boards that
@@ -128,14 +120,14 @@ async function main() {
       process.exit(1);
     }
     const grid = new Map<string, ServedGridDay>();
-    const branch = new Map<string, { slotIds: string[]; anchorIds: string[] }>();
+    const branch = new Map<string, { slotIds: string[]; anchorIds: string[]; groupIds: string[] }>();
     for (const r of data ?? []) {
       if (r.game === "kinship") {
         const p = decodePuzzle("kinship", r.payload);
         if (p) grid.set(r.puzzle_date as string, { groups: p.groups });
       } else if (r.game === "branches") {
         const p = decodePuzzle("branches", r.payload);
-        if (p) branch.set(r.puzzle_date as string, { slotIds: p.slotIds, anchorIds: p.anchorIds });
+        if (p) branch.set(r.puzzle_date as string, { slotIds: p.slotIds, anchorIds: p.anchorIds, groupIds: p.groupIds });
       }
     }
     setServedGridHistory(grid);
@@ -151,6 +143,14 @@ async function main() {
     }
   }
 
+  // Build every (game, date) row from the shared registry.
+  //
+  // Under --force the upsert REWRITES whatever it is given, and `from` defaults to the
+  // launch epoch, so an unguarded `npm run pin -- --force` would recompute every day since
+  // launch and silently rewrite the boards people already played — which is exactly what
+  // pinning exists to prevent. repinFuture() in pinnedPuzzles.ts has always refused to
+  // touch the past; this is the same rule for the CLI. Insert-if-absent runs are harmless
+  // (an existing row is never overwritten), so the guard applies only to --force.
   const today = new Date().toISOString().slice(0, 10);
   const rows: { game: string; puzzle_date: string; payload: unknown; version: number }[] = [];
   let skipped = 0;
