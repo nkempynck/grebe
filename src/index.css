@@ -2266,3 +2266,34 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   margin: 9px 0 0; font-family: var(--font-body); font-style: italic;
   font-size: 11.5px; color: var(--ink-faint);
 }
+
+/* ---- BLUR (prototype) ---------------------------------------------------- */
+.blur { display: flex; flex-direction: column; gap: 1rem; max-width: 34rem; margin: 0 auto; }
+.blur-stage { position: relative; aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: var(--line, #ddd); }
+/* The rung images are a handful of pixels wide; letting the browser smooth them upward is
+   what makes a 3px JPEG read as a blur rather than as visible squares. */
+.blur-img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: auto; }
+.blur-img.is-done { cursor: zoom-in; }
+.blur-img.is-zoom { object-fit: contain; background: #000; cursor: zoom-out; }
+.blur-rung {
+  position: absolute; left: .6rem; bottom: .6rem; padding: .25rem .6rem; border-radius: 999px;
+  background: rgba(0,0,0,.62); color: #fff; font-size: .74rem; font-variant-numeric: tabular-nums;
+}
+.blur-verdict { display: flex; flex-direction: column; gap: .2rem; padding: .8rem 1rem; border-radius: 12px; background: var(--card, #fff); border: 1px solid var(--line, #ddd); }
+.blur-verdict.won { border-color: #2e7d5b; }
+.blur-verdict em { opacity: .7; font-style: italic; }
+.blur-verdict small { opacity: .65; font-size: .72rem; }
+.blur-filters { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+.blur-filters-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6; margin-right: .2rem; }
+.blur-chip { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; cursor: pointer; }
+.blur-chip.on { border-color: currentColor; font-weight: 600; }
+.blur-table-wrap { overflow-x: auto; }
+.blur-table { border-collapse: collapse; width: 100%; font-size: .8rem; }
+.blur-table th, .blur-table td { padding: .35rem .5rem; text-align: center; white-space: nowrap; }
+.blur-table thead th { font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
+.blur-table tbody th { text-align: left; font-weight: 600; }
+.blur-table td.yes { background: rgba(46,125,91,.22); }
+.blur-table td.no  { background: rgba(140,140,140,.14); opacity: .65; }
+.blur-table td.na  { opacity: .35; }
+.blur-table tr.hit tbody th, .blur-table tr.hit th { color: #2e7d5b; }
+.blur-giveup { align-self: flex-start; background: none; border: 0; color: inherit; opacity: .6; text-decoration: underline; cursor: pointer; font-size: .82rem; }

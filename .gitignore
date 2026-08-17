@@ -33,3 +33,6 @@ scripts/name-review.tsv
 taxonomy.backup.json
 src/data/taxonomy.json.bak
 taxon_index.backup.*.json
+
+# Blur prototype images, regenerated locally by scripts/blur-stage.mjs
+public/blur/

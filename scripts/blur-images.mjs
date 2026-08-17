@@ -106,9 +106,9 @@ async function attribution(fileTitle) {
 
 /** The ladder for one image buffer: JPEGs at each width, square-cropped so every rung frames
  *  the subject identically (a changing aspect ratio is itself a clue). */
-export async function ladderFor(buf) {
+export async function ladderFor(buf, widths = LADDER) {
   const out = [];
-  for (const w of LADDER) {
+  for (const w of widths) {
     const img = sharp(buf).rotate();
     const meta = await img.metadata();
     const side = Math.min(meta.width ?? 512, meta.height ?? 512);
@@ -139,10 +139,10 @@ async function source(title, cacheDir) {
   return { lead, attribution: attr, buf };
 }
 
-export async function buildFor(title, cacheDir) {
+export async function buildFor(title, cacheDir, widths = LADDER) {
   const s = await source(title, cacheDir);
   if (!s) return null;
-  return { title, lead: s.lead, attribution: s.attribution, rungs: await ladderFor(s.buf) };
+  return { title, lead: s.lead, attribution: s.attribution, rungs: await ladderFor(s.buf, widths) };
 }
 
 // ---- CLI ----
