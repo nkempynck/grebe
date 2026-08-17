@@ -45,6 +45,9 @@ export interface GridDevOpts {
 
 export interface UseGridGame {
   board: GridBoard | null;
+  /** True while the board is still being fetched. `board === null` means either "loading"
+   *  or "there is no puzzle", and the UI must not show the second while the first is true. */
+  boardLoading: boolean;
   date: string;
   tier: number;
   /** True once today's real board is finished (restored or just now) and no
@@ -105,6 +108,11 @@ function boardSig(b: GridBoard | null): string {
  *  Mirrors hydratedFor/hydrationToken in useGame, which already worked this way. */
 export const hydrationToken = (date: string, b: GridBoard | null): string => `${date}|${boardSig(b)}`;
 
+/** The board for a date, remembered across mounts. Switching tabs unmounts GridGame, and
+ *  without this every return trip would re-fetch the pin and show the loading line again.
+ *  Keyed by date, so the 09:00 rollover simply misses and fetches once. */
+const boardMemo = new Map<string, GridBoard>();
+
 export function useGridGame(
   tree: Tree | null,
   onComplete?: (r: GridComplete) => void,
@@ -116,30 +124,54 @@ export function useGridGame(
 ): UseGridGame {
   const date = todayKey();
   const devActive = !!dev;
-  // The board defaults to the deterministic generator (instant, offline). If a
-  // frozen pin exists for today AND differs (i.e. the generator changed since it
-  // was pinned), the pinned board takes over — the pin is the authoritative record.
-  // Under a playtest override the board is generated fresh from the override seed
-  // instead (no pin, no saved progress).
+  // Under a playtest override the board is generated fresh from the override seed (no pin,
+  // no saved progress); otherwise it comes from the pin — see the effect below.
   const devOpts = dev ? { tier: dev.tier, reshuffle: dev.nonce } : undefined;
-  const computed = useMemo(
-    () => (tree ? gridBoardFor(tree, date, devOpts) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tree, date, devActive, dev?.tier, dev?.nonce]
-  );
-  const [pinned, setPinned] = useState<GridBoard | null>(null);
-  const board = pinned ?? computed;
+  const [board, setBoard] = useState<GridBoard | null>(null);
+  /** True until the board is known. Distinct from "no board": one is a spinner, the other
+   *  is an apology, and showing the apology while still loading is a bug. */
+  const [boardLoading, setBoardLoading] = useState(true);
 
+  // THE PIN IS FETCHED FIRST, AND GENERATION ONLY HAPPENS WITHOUT ONE.
+  //
+  // This used to generate the board eagerly in a useMemo and treat the pin as a correction,
+  // on the premise — stated in the old comment here — that the generator is "instant,
+  // offline". It is not, and the gap grows daily. Measured on a laptop, opening Kinship cost
+  // 4.75s of blocking main-thread work: 2.8s to survey every candidate group in the tree,
+  // plus 36ms for each day replayed since ANTIREPEAT_ANCHOR (2026-06-22) to rebuild the
+  // anti-repeat history. The anchor never moves, so that second term grows forever — about
+  // 13s of replay per year — and on a phone it is several times worse. All of it was then
+  // thrown away, because a pin exists for every real day and the pin wins.
+  //
+  // The old code compared the two and swapped only when they differed, which reads careful
+  // and bought nothing: identical means either will do, different means the pin is right. So
+  // there is no case where generating first is needed. Now it fetches one row and generates
+  // only when there is no pin — the test bench, a pre-launch preview, or a fetch that failed
+  // (offline still works, just slowly, which is the right way round).
   useEffect(() => {
-    if (!tree || devActive) { setPinned(null); return; }
+    if (!tree) { setBoard(null); setBoardLoading(false); return; }
     let live = true;
-    fetchPinnedPuzzle("kinship", date).then((p) => {
-      if (!live) return;
-      const frozen = p ? kinshipBoard(tree, date, p) : null;
-      setPinned(frozen && boardSig(frozen) !== boardSig(computed) ? frozen : null);
-    });
+    // The bench has no pins and must stay instant, so it keeps generating.
+    if (devActive) { setBoard(gridBoardFor(tree, date, devOpts)); setBoardLoading(false); return; }
+    const seen = boardMemo.get(date);
+    if (seen) { setBoard(seen); setBoardLoading(false); return; }
+    // Drop any board still held from the previous day before waiting on the new one, so a
+    // tab open across the rollover can never show yesterday's board under today's date.
+    setBoard(null);
+    setBoardLoading(true);
+    fetchPinnedPuzzle("kinship", date)
+      .then((p) => (p ? kinshipBoard(tree, date, p) : null))
+      .catch(() => null) // offline, or a payload we can't decode — fall back to generating
+      .then((frozen) => {
+        if (!live) return;
+        const b = frozen ?? gridBoardFor(tree, date);
+        if (b) boardMemo.set(date, b);
+        setBoard(b);
+        setBoardLoading(false);
+      });
     return () => { live = false; };
-  }, [tree, date, computed, devActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tree, date, devActive, dev?.tier, dev?.nonce]);
 
   // Latest onComplete, held in a ref so submit() doesn't need it as a dependency
   // (and so it fires with the current closure, not a stale one).
@@ -193,7 +225,7 @@ export function useGridGame(
       setAttempts(prog.attempts);
       setRevealed(prog.revealed ?? []);
       // Older saves predate paidReveals — fall back to the end-state minimum.
-      setPaidReveals(prog.paidReveals ?? Math.max(0, (prog.revealed?.length ?? 0) - (kinshipFreeReveals(computed?.tier ?? 0) + prog.solved.length)));
+      setPaidReveals(prog.paidReveals ?? Math.max(0, (prog.revealed?.length ?? 0) - (kinshipFreeReveals(board?.tier ?? 0) + prog.solved.length)));
       setStatus(prog.status);
     } else {
       setSolved([]);
@@ -357,6 +389,7 @@ export function useGridGame(
 
   return {
     board,
+    boardLoading,
     date,
     tier: board?.tier ?? 0,
     locked: !devActive && status !== "playing",

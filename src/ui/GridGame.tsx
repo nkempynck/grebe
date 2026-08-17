@@ -378,6 +378,8 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
     doFlip(id);
   }
 
+  // The board now arrives from the pin, so there is a moment with no board and no problem.
+  if (g.boardLoading) return <p className="empty">Loading today’s board…</p>;
   if (!g.board) return <p className="empty">No grid puzzle available today.</p>;
 
   const over = g.status !== "playing";
