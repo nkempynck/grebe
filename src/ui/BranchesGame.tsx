@@ -211,6 +211,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
     }
   }, [layout, radial, nodeById, g.status, g.tier, placementSig]);
 
+  // The board now arrives from the pin, so there is a moment with no board and no problem.
+  if (g.boardLoading) return <p className="empty">Loading today’s board…</p>;
   if (!g.board || !layout) return <p className="empty">No Branches puzzle available today.</p>;
 
   const board = g.board;

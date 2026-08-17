@@ -48,6 +48,9 @@ export interface BranchesResult {
 
 export interface UseBranchesGame {
   board: BranchesBoard | null;
+  /** True while the board is still being fetched. `board === null` means either "loading" or
+   *  "there is no puzzle", and the UI must not show the second while the first is true. */
+  boardLoading: boolean;
   date: string;
   tier: number;
   /** True once today's real board is resolved (restored or just now) and no
@@ -158,6 +161,10 @@ function boardSig(b: BranchesBoard | null): string {
  *  Mirrors hydratedFor/hydrationToken in useGame, which already worked this way. */
 export const hydrationToken = (date: string, b: BranchesBoard | null): string => `${date}|${boardSig(b)}`;
 
+/** The board for a date, remembered across mounts so a tab switch doesn't re-fetch the pin
+ *  and flash the loading line. Keyed by date, so the rollover simply misses once. */
+const boardMemo = new Map<string, BranchesBoard>();
+
 export function useBranchesGame(
   tree: Tree | null,
   onComplete?: (r: BranchesComplete) => void,
@@ -170,13 +177,9 @@ export function useBranchesGame(
   const date = todayKey();
   const devActive = !!dev;
   const devOpts = dev ? { tier: dev.tier, seed: dev.nonce > 0 ? `n${dev.nonce}` : "" } : undefined;
-  const computed = useMemo(
-    () => (tree ? branchesBoardFor(tree, date, devOpts) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tree, date, devActive, dev?.tier, dev?.nonce]
-  );
-  const [pinned, setPinned] = useState<BranchesBoard | null>(null);
-  const board = pinned ?? computed;
+  const [board, setBoard] = useState<BranchesBoard | null>(null);
+  /** True while the board is still being fetched — distinct from "there is no board". */
+  const [boardLoading, setBoardLoading] = useState(true);
   const allowance = board ? branchesAllowance(board.tier) : 1;
   // The board's clade group, reported with the result so the stats page can bucket
   // the day. Clade ids first: they resolve in the base tree too, which is what the
@@ -186,18 +189,40 @@ export function useBranchesGame(
     [tree, board]
   );
 
-  // A frozen pin takes over only if it differs from the freshly computed board —
-  // and never under a playtest override (that board is generated fresh).
+  // THE PIN IS FETCHED FIRST, AND GENERATION ONLY HAPPENS WITHOUT ONE — the same change made
+  // to Kinship, for the same reason and a tenth of the cost. This used to generate eagerly in
+  // a useMemo and treat the pin as a correction; generating a Branches board measures 569 ms
+  // on a laptop (container discovery plus a replay of every day since the epoch), all of it
+  // discarded once the pin arrived, because the pin is authoritative for every real day.
+  // Smaller than Kinship's 4750 ms but the same shape, and the replay term grows daily.
+  //
+  // Comparing the two bought nothing: identical means either will do, different means the pin
+  // wins. Generation now happens only when there is no pin — the bench, a pre-launch preview,
+  // or a failed fetch, so offline still works, just slowly.
   useEffect(() => {
-    if (!tree || devActive) { setPinned(null); return; }
+    if (!tree) { setBoard(null); setBoardLoading(false); return; }
     let live = true;
-    fetchPinnedPuzzle("branches", date).then((p) => {
-      if (!live) return;
-      const frozen = p ? rebuildBranches(date, p) : null;
-      setPinned(frozen && boardSig(frozen) !== boardSig(computed) ? frozen : null);
-    });
+    // The bench has no pins and must stay instant, so it keeps generating.
+    if (devActive) { setBoard(branchesBoardFor(tree, date, devOpts)); setBoardLoading(false); return; }
+    const seen = boardMemo.get(date);
+    if (seen) { setBoard(seen); setBoardLoading(false); return; }
+    // Drop yesterday's board before waiting on today's, so a tab open across the 09:00
+    // rollover can never show the old board under the new date.
+    setBoard(null);
+    setBoardLoading(true);
+    fetchPinnedPuzzle("branches", date)
+      .then((p) => (p ? rebuildBranches(date, p) : null))
+      .catch(() => null)
+      .then((frozen) => {
+        if (!live) return;
+        const b = frozen ?? branchesBoardFor(tree, date);
+        if (b) boardMemo.set(date, b);
+        setBoard(b);
+        setBoardLoading(false);
+      });
     return () => { live = false; };
-  }, [tree, date, computed, devActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tree, date, devActive, dev?.tier, dev?.nonce]);
 
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -521,6 +546,7 @@ export function useBranchesGame(
 
   return {
     board,
+    boardLoading,
     date,
     tier: board?.tier ?? 0,
     locked: !devActive && status === "done",
