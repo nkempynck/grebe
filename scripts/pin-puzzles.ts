@@ -26,7 +26,9 @@ import augment from "../src/data/taxonomyAugment.json";
 import { buildTree, DAILY_EPOCH, type TaxonNode, type Tree } from "../src/core";
 import { CLADE_COMMON } from "../src/data/cladeNames";
 import { SPECIES_COMMON } from "../src/data/speciesCommon";
-import { computePuzzle, encodePuzzle, puzzleVersion, type Game } from "../src/data/pinnedPuzzles";
+import { computePuzzle, decodePuzzle, encodePuzzle, puzzleVersion, type Game } from "../src/data/pinnedPuzzles";
+import { setServedGridHistory, type ServedGridDay } from "../src/core/grid";
+import { setServedBranchesHistory } from "../src/core/branches";
 
 const GAMES: Game[] = ["lineage", "kinship", "branches"];
 const CHUNK = 500;
@@ -97,6 +99,58 @@ async function main() {
   // pinning exists to prevent. repinFuture() in pinnedPuzzles.ts has always refused to
   // touch the past; this is the same rule for the CLI. Insert-if-absent runs are harmless
   // (an existing row is never overwritten), so the guard applies only to --force.
+  // SEED THE ANTI-REPEAT HISTORY WITH WHAT WAS REALLY SERVED.
+  //
+  // Kinship and Branches both decide "don't repeat this" from a memory of recent boards that
+  // they rebuild by REGENERATING every past day with the current generator. That memory is
+  // correct only while the generator never changes, and this script exists to run after it
+  // has: on the v8→v9 move every one of the most recent already-served days regenerated as a
+  // different board, so the windows were protecting boards nobody saw while the ones players
+  // had just played counted as unseen and were free to come round again within the week.
+  //
+  // The rows already in the table ARE the record of what was served, so read the ones before
+  // `from` and hand them to the generators. Days with no row (pre-launch, or a gap) still
+  // regenerate, which is right: nobody saw them either.
+  //
+  // Deliberately unfiltered by version. An old row is still what was on the screen, and that
+  // is the only question the anti-repeat window asks.
+  const seeded: Record<string, number> = {};
+  if (games.includes("kinship") || games.includes("branches")) {
+    const { data, error } = await client
+      .from("daily_puzzles")
+      .select("game, puzzle_date, payload")
+      .in("game", ["kinship", "branches"])
+      .lt("puzzle_date", from)
+      .order("puzzle_date");
+    if (error) {
+      console.error(`Could not read served history (${error.message}). Refusing to pin blind: ` +
+        `a repin without it will happily repeat boards that were served days ago.`);
+      process.exit(1);
+    }
+    const grid = new Map<string, ServedGridDay>();
+    const branch = new Map<string, { slotIds: string[]; anchorIds: string[] }>();
+    for (const r of data ?? []) {
+      if (r.game === "kinship") {
+        const p = decodePuzzle("kinship", r.payload);
+        if (p) grid.set(r.puzzle_date as string, { groups: p.groups });
+      } else if (r.game === "branches") {
+        const p = decodePuzzle("branches", r.payload);
+        if (p) branch.set(r.puzzle_date as string, { slotIds: p.slotIds, anchorIds: p.anchorIds });
+      }
+    }
+    setServedGridHistory(grid);
+    setServedBranchesHistory(branch);
+    seeded.kinship = grid.size;
+    seeded.branches = branch.size;
+    console.log(
+      `Seeded anti-repeat history from rows before ${from}: ` +
+      `kinship ${grid.size}, branches ${branch.size} real boards.`
+    );
+    if (!grid.size && !branch.size) {
+      console.log("  (none found — every day will be generated, as on a first run)");
+    }
+  }
+
   const today = new Date().toISOString().slice(0, 10);
   const rows: { game: string; puzzle_date: string; payload: unknown; version: number }[] = [];
   let skipped = 0;

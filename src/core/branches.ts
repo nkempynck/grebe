@@ -592,6 +592,25 @@ function inSepBand(tree: Tree, b: BranchesBoard): boolean {
 const BRANCHES_ANTI_REPEAT_WINDOW = 60;
 const BRANCHES_ATTEMPTS = 24;
 
+// SERVED HISTORY — see the same block in ./grid, which explains it at length.
+//
+// The epoch replay below rebuilds the anti-repeat window by REGENERATING every past day with
+// the current generator, so a version bump silently rewrites the past it is meant to avoid.
+// The pinned rows are the record of what was really served and carry the ids boardSig is
+// built from, so injecting them lets the replay count the real boards and generate only the
+// days that were never served.
+let servedBranches: Map<string, string> | null = null;
+/** Install (or clear, with null) the boards really served, keyed by date. The value is the
+ *  pinned board's identity; the signature is derived here so callers need not know its
+ *  shape. */
+export function setServedBranchesHistory(
+  served: Map<string, { slotIds: string[]; anchorIds: string[] }> | null
+): void {
+  servedBranches = served && served.size
+    ? new Map([...served].map(([dk, p]) => [dk, p.slotIds.concat(p.anchorIds).map((id) => id).sort().join(",")]))
+    : null;
+}
+
 /** The day's board. Surveys up to BRANCHES_ATTEMPTS containers (each attempt re-seeds
  *  pickContainer, which balances broad classes) and returns the first that is fresh AND
  *  meets the shared-word floor — the firm difficulty signal (meaningful head-noun
@@ -641,12 +660,19 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
   const avoid = (s: string) => (counts.get(s) ?? 0) > 0;
 
   for (let dk = DAILY_EPOCH; ; dk = shiftDate(dk, 1)) {
-    const t = dk === dateKey ? tier : tierForDate(dk);
-    const board = boardForDay(tree, dk, t, avoid);
-    if (dk === dateKey) return board;
-    if (!board) continue; // a day with no valid board contributes nothing to anti-repeat
+    if (dk === dateKey) return boardForDay(tree, dk, tier, avoid);
 
-    const sig = boardSig(board);
+    // A day that was really served contributes the board that was really served; only days
+    // with no pin are generated.
+    const servedSig = servedBranches?.get(dk);
+    let sig: string;
+    if (servedSig !== undefined) {
+      sig = servedSig;
+    } else {
+      const board = boardForDay(tree, dk, tierForDate(dk), avoid);
+      if (!board) continue; // a day with no valid board contributes nothing to anti-repeat
+      sig = boardSig(board);
+    }
     queue.push(sig);
     counts.set(sig, (counts.get(sig) ?? 0) + 1);
     if (queue.length > BRANCHES_ANTI_REPEAT_WINDOW) {

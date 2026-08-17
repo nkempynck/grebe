@@ -354,6 +354,18 @@ export function encodePuzzle<G extends Game>(game: G, puzzle: PuzzleByGame[G]): 
   return RESOLVERS[game].encode(puzzle);
 }
 
+/** Decode a stored payload back into a puzzle. Exported for the prefill script, which reads
+ *  already-served rows with the service key to seed the generators' anti-repeat history —
+ *  see setServedGridHistory in core/grid. Returns null on anything unparseable, so one bad
+ *  row degrades that day to "unknown" rather than failing the run. */
+export function decodePuzzle<G extends Game>(game: G, raw: unknown): PuzzleByGame[G] | null {
+  try {
+    return RESOLVERS[game].decode(raw as StoredPayload) as PuzzleByGame[G];
+  } catch {
+    return null;
+  }
+}
+
 /** The frozen puzzle for a date from Supabase, or null when there's no backend,
  *  no pinned row, or the day hasn't arrived (RLS hides future rows from players).
  *  Best-effort: never throws — a failed fetch just falls back to computePuzzle. */

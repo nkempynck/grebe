@@ -1317,16 +1317,58 @@ const cloneHistory = (h: History): History => ({
   classSeenAt: new Map(h.classSeenAt),
   speciesSeenAt: new Map(h.speciesSeenAt),
 });
-const replayCache = new WeakMap<Tree, ReplayCursor>();
+let replayCache = new WeakMap<Tree, ReplayCursor>();
 // Periodic snapshots so going BACKWARD is cheap too. A cursor only moves forward, and
 // callers do jump back: asking for the same span of dates at each of the seven tiers
 // restarts at the earliest date every time, which replayed the whole history seven times.
 // Cloning the two maps every REPLAY_CHECKPOINT days costs a dozen clones a year and bounds
 // any backward jump to that many days of replay.
 const REPLAY_CHECKPOINT = 32;
-const checkpoints = new WeakMap<Tree, ReplayCursor[]>();
+let checkpoints = new WeakMap<Tree, ReplayCursor[]>();
 /** date → that day's natural-weekday-tier board, the only thing a replayed day contributes. */
-const dayBoards = new WeakMap<Tree, Map<string, GridBoard | null>>();
+let dayBoards = new WeakMap<Tree, Map<string, GridBoard | null>>();
+
+// SERVED HISTORY — the boards players were actually shown.
+//
+// The replay above rebuilds "what has been on recently" by REGENERATING every past day with
+// the current generator. That is fine while the generator never changes, and a lie the
+// moment it does: after a version bump the memory describes boards nobody ever saw. Measured
+// on the v8→v9 move, all six of the most recent already-served days regenerated as something
+// else, so the anti-repeat windows were protecting phantom boards while the real ones — the
+// birds people had just played — counted as unseen and were free to come round again.
+//
+// The pinned rows are the record of what was really served, and they carry exactly what the
+// history is keyed on (clade ids + member ids). Inject them and the replay commits the REAL
+// board for any date it has one for, generating only the days that have never been served.
+//
+// Consequence, stated plainly: with a seed installed a board is a function of (date, tree,
+// what was actually served) rather than (date, tree) alone, so a repin is reproducible only
+// against the same database. That is the point — the past is an input, not a re-derivation.
+// With nothing injected every path below behaves exactly as it did before.
+export interface ServedGridDay {
+  groups: { cladeId: string; memberIds: string[] }[];
+}
+let servedGrid: Map<string, ServedGridDay> | null = null;
+/** Install (or clear, with null) the real boards to replay instead of regenerating. Drops
+ *  every replay cache: they hold histories built under the previous seed. */
+export function setServedGridHistory(served: Map<string, ServedGridDay> | null): void {
+  servedGrid = served && served.size ? served : null;
+  replayCache = new WeakMap();
+  checkpoints = new WeakMap();
+  dayBoards = new WeakMap();
+}
+/** Fold one day's groups into the rolling windows. Takes the groups rather than a GridBoard
+ *  so a decoded pin (which has no labels or tiles) can be committed the same way. */
+function commitDay(tree: Tree, cur: History, groups: { cladeId: string; memberIds: string[] }[]): void {
+  if (!groups.length) return;
+  cur.seenAt.set(groups.map((g) => g.cladeId).sort().join(","), cur.idx);
+  for (const g of groups) {
+    cur.groupSeenAt.set(g.cladeId, cur.idx);
+    for (const m of g.memberIds) cur.speciesSeenAt.set(m, cur.idx);
+  }
+  // Recomputed rather than stored on the board: GridBoard is the pinned payload shape.
+  cur.classSeenAt.set(broadGroupOf(tree, groups[0].cladeId), cur.idx);
+}
 
 export function generateGridBoard(tree: Tree, dateKey: string, tier: number): GridBoard | null {
   const d = getDiscovered(tree);
@@ -1351,19 +1393,18 @@ export function generateGridBoard(tree: Tree, dateKey: string, tier: number): Gr
   if (!days) { days = new Map(); dayBoards.set(tree, days); }
   while (cur.dk < dateKey) {
     const t = tierForDate(cur.dk);
-    let board = days.get(cur.dk);
-    if (board === undefined) {
-      board = boardForDay(tree, tierPoolOf(d, t), cur.dk, t, cur);
-      days.set(cur.dk, board);
-    }
-    if (board) {
-      cur.seenAt.set(groupSig(board), cur.idx);
-      for (const g of board.groups) {
-        cur.groupSeenAt.set(g.cladeId, cur.idx);
-        for (const m of g.memberIds) cur.speciesSeenAt.set(m, cur.idx);
+    // A day that was really served contributes the board that was really served. Only days
+    // with no pin are generated — pre-launch dates, and any gap in the record.
+    const served = servedGrid?.get(cur.dk);
+    if (served) {
+      commitDay(tree, cur, served.groups);
+    } else {
+      let board = days.get(cur.dk);
+      if (board === undefined) {
+        board = boardForDay(tree, tierPoolOf(d, t), cur.dk, t, cur);
+        days.set(cur.dk, board);
       }
-      // Recomputed rather than stored on the board: GridBoard is the pinned payload shape.
-      cur.classSeenAt.set(broadGroupOf(tree, board.groups[0].cladeId), cur.idx);
+      if (board) commitDay(tree, cur, board.groups);
     }
     cur = { ...cur, dk: shiftDate(cur.dk, 1), idx: cur.idx + 1 };
     if (cur.idx % REPLAY_CHECKPOINT === 0) {
