@@ -30,7 +30,7 @@ Run the long ones under `caffeinate -i` (Mac won't sleep). Logs: `/tmp/grebe-*.l
 | extras  | `inject-extras.mjs` | add curated icons the pull can't reach (article on a non-taxon item: cat, horse, coconut…) from `curated-extras.mjs`. **Run after build-pool, before topology.** |
 | topology| `pull-topology.mjs` | TNRS pool → OTT ids, OTL induced_subtree → `sel-topology.json` |
 | in-set  | `build-inset.mjs` | `INSET_FLOOR` (default 1500) + cap 3/genus + prominence-scaled family cap → `sel-inset.json` |
-| assemble| `assemble-taxonomy.mjs` | prune tree to in-set tips → nodes; rank clades; inject genus, family and parent-taxon names → `sel-nodes.json` |
+| assemble| `assemble-taxonomy.mjs` | prune tree to in-set tips → nodes; rank clades; inject genus, family and parent-taxon names → `sel-nodes.json`. `--rank-orders` additionally stamps order `sepRank` (off by default: changes difficulty, see below) |
 | names   | `build-names.mjs` | species = Wikipedia title else Wikidata P1843; clades = P1843; `common-name-overrides.mjs` win → `sel-nodes-named.json` |
 | finalize| `finalize-taxonomy.mjs` | write `src/data/taxonomy.json` + provenance (OTL synth + Wikidata date) + scopes |
 | wiki titles | `patch-wiki-titles.mjs` | clade `wikiTitle` from Wikidata (P9157 → enwiki article), keyed on the OTT id so homonyms can't collide. Patches `src/data/taxonomy.json` in place |
@@ -38,11 +38,28 @@ Run the long ones under `caffeinate -i` (Mac won't sleep). Logs: `/tmp/grebe-*.l
 | merged clades | `patch-merged-clades.mjs` | names ~140 anonymous clades whose children are each too small to be a group, by joining them ("Vicugna & Lama"). Only where nothing below is ALREADY a group, so a name adds a group and costs none. No network |
 | out-of-set | `build-taxon-index.mjs` | pool taxa NOT in in-set → `src/data/guessIndex.generated.json` (graft lineage from topology, + views). Needs `node --max-old-space-size=8192` |
 
-`npm run build:taxonomy` chains assemble→names→finalize. `npm run build:guessindex` = build-taxon-index.
+`npm run build:taxonomy` chains assemble→names→finalize→**wiki-titles→clade-views→merged-clades**.
+`npm run build:guessindex` = build-taxon-index.
 
-**Re-run `patch-wiki-titles.mjs`, `patch-clade-views.mjs` AND `patch-merged-clades.mjs`
-after any finalize** — all three write fields finalize doesn't know about, so a rebuild
-drops them. Losing the merged-clade names costs ~24 distinct Kinship groups a year.
+The three patches are IN the chain because all three write fields finalize doesn't know
+about, so a rebuild that stops at finalize drops them — losing the merged-clade names alone
+costs ~24 distinct Kinship groups a year. Leaving them as a documented manual step did not
+work: a rebuild on 2026-08-16 dropped 1119 common names and 140 clade labels.
+
+**A rebuild is verified reproducible** (2026-08-17, full chain against the shipped tree):
+0 id drift, and rank / parentId / sepRank / cladeViews / views identical on all 10850 nodes.
+Named counts land exactly (3332 species, 790 clades). The residue is upstream drift, not
+loss: 9 species where Wikidata now prefers a different vernacular, 1 wikiTitle, and 2 merged
+labels. **Diff before accepting any rebuild** — those merged labels are Kinship group names,
+so losing one silently removes a group.
+
+Two traps that made an earlier rebuild destructive, both now fixed:
+- `build-names.mjs` built its Latin-synonym test from the 3.8k in-set instead of the 18k
+  pool, and only applied it to Wikipedia titles. Both halves matter — the test needs the
+  first word to be a known genus AND the second a known epithet, so the narrow list simply
+  failed to recognise a synonym.
+- assemble's order-`sepRank` step is a DIFFICULTY change, so it is now off unless you pass
+  `--rank-orders`. The shipped tree carries 164 `sepRank` nodes; that step takes it to 218.
 
 Without wiki titles, clades fetch Wikipedia by bare Latin name, and uninomial names aren't
 unique: "Linaria" the finch loses to Linaria the toadflax, "Acer" to Acer Inc., "Glycine"

@@ -269,7 +269,18 @@ const injectNames = (groups, keyOf, rank, dropRedundant = false) => {
 // Lineage's nearestAncestorOfRank stops at the first ancestor ranked above the one it wants,
 // so a real "order" here would silently move win targets on already-pinned days.
 // separationTierOf reads sepRank ?? rank; nothing else looks at it.
-{
+//
+// OFF BY DEFAULT, and it must stay that way until the finer bird ranks land. Stamping these
+// 54 orders is a DIFFICULTY CHANGE, not a data refresh: it is what separationTierOf reads, and
+// on its own it removes the four-bird-order walkovers at the cost of halving bird boards
+// (240 -> 118 over two years), because an honest bird board then scores 1 or 3 against a trap
+// floor of 4. The shipped tree carries 164 sepRank nodes; this step takes it to 218. Leaving
+// it on would mean a routine `npm run build:taxonomy` silently reranked every pinned day.
+// Enable deliberately with `node scripts/assemble-taxonomy.mjs --rank-orders`, or apply it to
+// the shipped snapshot with patch-order-sepranks.mjs.
+if (!process.argv.includes("--rank-orders")) {
+  console.log("skipped order sepRank injection (pass --rank-orders to enable; changes difficulty)");
+} else {
   const orderOfFamily = JSON.parse(readFileSync(resolve(C, "sel-family-order.json"), "utf8"));
   const famBySpecies = new Map();
   for (const s of inset) if (s.gbif && s.family) famBySpecies.set(String(s.gbif), s.family);

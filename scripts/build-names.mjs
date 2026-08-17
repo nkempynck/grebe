@@ -43,10 +43,17 @@ function cleanCladeName(name) {
 const nodes = JSON.parse(readFileSync(resolve(C, "sel-nodes.json"), "utf8"));
 const inset = JSON.parse(readFileSync(resolve(C, "sel-inset.json"), "utf8"));
 const bySci = new Map(inset.map((s) => [s.sci, s]));
+const poolRaw = JSON.parse(readFileSync(resolve(C, "sel-pool.json"), "utf8"));
+const pool = Array.isArray(poolRaw) ? poolRaw : Object.values(poolRaw);
 
 // ---- species: Wikipedia title, else queue for P1843 ----
 const speciesNodes = nodes.filter((n) => n.rank === "species");
-const isLatinName = latinBinomialTest(inset);
+// Built from the POOL (18k species), not the in-set 3.8k: the test needs the first word to be
+// a known genus AND the second a known epithet, so a narrow list simply fails to recognise a
+// synonym. patch-latin-names and build-augment always used the pool; this one did not, and
+// five synonyms shipped as vernaculars because of it — Hepatica nobilis labelled "Anemone
+// hepatica", Palaemonetes paludosus labelled "Palaemon paludosus".
+const isLatinName = latinBinomialTest(pool);
 let latinTitles = 0;
 const needP1843 = []; // {node, qid}
 for (const n of speciesNodes) {
@@ -64,9 +71,10 @@ for (const n of speciesNodes) {
   // dropped 1119 common names (3332 named species down to 2223): Chilean Lantern Tree, Palo
   // santo and Gumbo limbo simply vanished. Only 13 titles are real synonyms.
   //
-  // NOT YET EXERCISED END TO END: fixing the order is provably right by inspection, but the
-  // P1843 pass it re-enables has not been re-run. Before accepting any future rebuild, diff
-  // the new taxonomy.json against the old one and check the common-name count went UP.
+  // Re-run and diffed against the shipped tree on 2026-08-17: 1117 names recovered from
+  // P1843, 3332 -> 3337 named species, ZERO lost. Still diff before accepting a rebuild —
+  // the name sources drift, and that run also moved 14 names (Wikidata picking a different
+  // vernacular) which is expected and fine, but is the sort of thing worth eyeballing.
   const differs = title && title.toLowerCase() !== n.sciName.toLowerCase();
   if (differs && !isLatinName(title)) n.common = title;                                    // Wikipedia common name
   else if (differs && isLatinName(title)) latinTitles++;                                   // filed under a synonym
@@ -88,7 +96,9 @@ async function p1843ByQid(items) {
 }
 const spFound = await p1843ByQid(needP1843);
 let spFilled = 0;
-for (const { node, qid } of needP1843) { const cn = (spFound.get(qid) ?? []).map(cleanCommon).find((c) => c && c.toLowerCase() !== node.sciName.toLowerCase()); if (cn) { node.common = cn; spFilled++; } }
+// P1843 is a vernacular-name property, but it is user-maintained and occasionally holds a
+// synonym, so it gets the same Latin guard as the Wikipedia titles above.
+for (const { node, qid } of needP1843) { const cn = (spFound.get(qid) ?? []).map(cleanCommon).find((c) => c && c.toLowerCase() !== node.sciName.toLowerCase() && !isLatinName(c)); if (cn) { node.common = cn; spFilled++; } }
 process.stderr.write("\n");
 console.log(`species: +${spFilled} filled from P1843`);
 
