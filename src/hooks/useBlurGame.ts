@@ -33,16 +33,39 @@ export interface UseBlurGame {
   setFocusCladeId: (id: string | null) => void;
   guess: (id: string) => void;
   giveUp: () => void;
+  /** PROTOTYPE affordances: jump to another locally staged day. */
+  staged: string[];
+  sample: () => void;
+  /** True when this date has no staged image — a prototype condition, not a game state. */
+  missing: boolean;
+  onImageError: () => void;
 }
 
-export function useBlurGame(tree: Tree | null, date = todayKey()): UseBlurGame {
+export function useBlurGame(tree: Tree | null, dateOverride?: string): UseBlurGame {
+  // PROTOTYPE: images are staged per date under public/blur, and today is often not one of
+  // them (staging a week from tomorrow left today with no picture at all, which showed up as a
+  // broken-image icon rather than anything a playtester could act on). The sampler walks the
+  // dates that actually exist locally.
+  const [staged, setStaged] = useState<string[]>([]);
+  const [pick, setPick] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/blur/index.json")
+      .then((r) => (r.ok ? r.json() : []))
+      .catch(() => [])
+      .then((d: string[]) => { if (live) setStaged(Array.isArray(d) ? d : []); });
+    return () => { live = false; };
+  }, []);
+  const today = todayKey();
+  const date = dateOverride ?? pick ?? (staged.includes(today) ? today : staged[0] ?? today);
+  const [missing, setMissing] = useState(false);
   const [guesses, setGuesses] = useState<BlurGuess[]>([]);
   const [gaveUp, setGaveUp] = useState(false);
   const [focusCladeId, setFocusCladeId] = useState<string | null>(null);
   const [credit, setCredit] = useState<BlurCredit | null>(null);
 
   // A new day is a new game.
-  useEffect(() => { setGuesses([]); setGaveUp(false); setFocusCladeId(null); }, [date]);
+  useEffect(() => { setGuesses([]); setGaveUp(false); setFocusCladeId(null); setMissing(false); }, [date]);
 
   const answerId = useMemo(() => (tree ? blurAnswerFor(tree, date) : null), [tree, date]);
 
@@ -87,5 +110,13 @@ export function useBlurGame(tree: Tree | null, date = todayKey()): UseBlurGame {
     setFocusCladeId,
     guess,
     giveUp: () => setGaveUp(true),
+    staged,
+    sample: () => {
+      if (!staged.length) return;
+      const i = staged.indexOf(date);
+      setPick(staged[(i + 1 + staged.length) % staged.length]);
+    },
+    missing,
+    onImageError: () => setMissing(true),
   };
 }

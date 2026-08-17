@@ -73,15 +73,14 @@ describe("blur board", () => {
     }
   });
 
-  it("does not serve the same answer on consecutive days", () => {
+  it("does not repeat an answer inside the anti-repeat window", () => {
     const seen: string[] = [];
     for (let i = 0; i < 60; i++) {
       const d = new Date(Date.UTC(2026, 8, 1) + i * 86400000).toISOString().slice(0, 10);
       seen.push(blurAnswerFor(tree, d)!);
     }
-    for (let i = 1; i < seen.length; i++) expect(seen[i]).not.toBe(seen[i - 1]);
-    // and it should not be drawing from a tiny corner of the pool
-    expect(new Set(seen).size).toBeGreaterThan(50);
+    // no repeat anywhere in a 60-day run (the window is 45)
+    expect(new Set(seen).size).toBe(seen.length);
   });
 
   it("scores an exact guess as correct and all-matching", () => {

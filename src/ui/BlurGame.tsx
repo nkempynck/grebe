@@ -49,13 +49,21 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
   return (
     <div className="blur">
       <div className="blur-stage">
-        <img
-          key={g.imageUrl}
-          className={`blur-img${done ? " is-done" : ""}${zoom ? " is-zoom" : ""}`}
-          src={g.imageUrl}
-          alt={done ? (answer?.common ?? answer?.sciName ?? "") : "Unidentified organism, heavily pixelated"}
-          onClick={() => done && setZoom((z) => !z)}
-        />
+        {g.missing ? (
+          <div className="blur-nostage">
+            <strong>No image staged for {g.date}</strong>
+            <span>node scripts/blur-stage.mjs --from {g.date} --days 14</span>
+          </div>
+        ) : (
+          <img
+            key={g.imageUrl}
+            className={`blur-img${done ? " is-done" : ""}${zoom ? " is-zoom" : ""}`}
+            src={g.imageUrl}
+            alt={done ? (answer?.common ?? answer?.sciName ?? "") : "Unidentified organism, heavily pixelated"}
+            onClick={() => done && setZoom((z) => !z)}
+            onError={g.onImageError}
+          />
+        )}
         {!done && (
           <span className="blur-rung">
             {g.rungWidth}px · {g.guessesLeft} {g.guessesLeft === 1 ? "guess" : "guesses"} left
@@ -139,9 +147,16 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
         </div>
       )}
 
-      {!done && (
-        <button className="blur-giveup" onClick={g.giveUp}>Give up</button>
-      )}
+      <div className="blur-devbar">
+        {!done && <button className="blur-giveup" onClick={g.giveUp}>Give up</button>}
+        <button className="blur-sample" onClick={g.sample} disabled={g.staged.length < 2}>
+          New sample →
+        </button>
+        <span className="blur-devnote">
+          {g.date}
+          {g.staged.length ? ` · ${g.staged.indexOf(g.date) + 1}/${g.staged.length} staged` : " · none staged"}
+        </span>
+      </div>
     </div>
   );
 }

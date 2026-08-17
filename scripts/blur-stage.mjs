@@ -77,4 +77,6 @@ for (const d of schedule) {
     process.stderr.write(`FAILED ${e.message}\n`);
   }
 }
+// An index the prototype UI reads so its "new sample" button knows what exists locally.
+writeFileSync(resolve(ROOT, "public/blur/index.json"), JSON.stringify(Object.keys(index).sort()));
 console.error(`\nstaged ${Object.keys(index).length}/${schedule.length} days into public/blur/`);
