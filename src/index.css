@@ -2326,7 +2326,8 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .blur-cand:hover { border-color: currentColor; }
 .blur-lookup { display: flex; flex-direction: column; gap: .3rem; }
 .blur-lookup input { width: 100%; padding: .4rem .6rem; border-radius: 8px; border: 1px solid var(--line, #ddd); background: transparent; color: inherit; font: inherit; font-size: .85rem; }
-.blur-lookup-hits, .blur-lookup-chain { display: flex; flex-wrap: wrap; gap: .3rem; }
+.blur-lookup-hits { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8rem; overflow-y: auto; }
+.blur-lookup-chain { display: flex; flex-wrap: wrap; gap: .3rem; }
 .blur-table td.prox { font-size: .74rem; opacity: .8; white-space: nowrap; background: none; }
 
 /* The two panels do DIFFERENT things and were reading as one long list of identical chips:
@@ -2337,7 +2338,8 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .blur-box-label { font-size: .66rem; text-transform: uppercase; letter-spacing: .1em; opacity: .5; font-weight: 700; }
 .blur-lookupbox input { width: 100%; padding: .4rem .6rem; border-radius: 8px; border: 1px solid var(--line, #ddd); background: transparent; color: inherit; font: inherit; font-size: .85rem; }
 .blur-lookup-said { margin: 0; font-size: .78rem; opacity: .75; }
-.blur-lookup-hits, .blur-lookup-chain { display: flex; flex-wrap: wrap; gap: .3rem; }
+.blur-lookup-hits { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8rem; overflow-y: auto; }
+.blur-lookup-chain { display: flex; flex-wrap: wrap; gap: .3rem; }
 /* Square-ended, to look nothing like the round drill chips. */
 .blur-path { border: 1px dashed var(--line, #ddd); background: transparent; color: inherit; border-radius: 4px; padding: .22rem .55rem; font-size: .78rem; cursor: pointer; }
 .blur-path b { font-variant-numeric: tabular-nums; opacity: .5; margin-left: .15rem; }

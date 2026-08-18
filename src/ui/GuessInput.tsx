@@ -24,6 +24,10 @@ interface Props {
   focusCladeId: string | null;
   /** Guesses so far, to mark already-guessed entries. */
   guesses: GuessResult[];
+  /** Offer species only, never clades. Lineage lets you name a GROUP to scout ("snakes") and
+   *  that is part of its game; in Blur the answer is always one species, so a group is never
+   *  something you would want to submit and only clutters the list. */
+  speciesOnly?: boolean;
 }
 
 interface Cand {
@@ -44,7 +48,7 @@ const label = (c: Cand) => (c.common ? `${c.common} (${c.sci})` : c.sci);
  *  matches themselves are never capped. */
 const OOS_TOPUP_TO = 8;
 
-export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses }: Props) {
+export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses, speciesOnly = false }: Props) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -82,10 +86,10 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
       if (focusCladeId && !isAncestor(tree, focusCladeId, node.id)) continue;
       const isLeaf = (tree.childrenOf.get(node.id) ?? []).length === 0;
       if (isLeaf) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "species" });
-      else if (node.sciName) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "group" });
+      else if (node.sciName && !speciesOnly) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "group" });
     }
     return out;
-  }, [tree, config, focusCladeId]);
+  }, [tree, config, focusCladeId, speciesOnly]);
 
   // id → candidate, so a synonym match can pull in its target species (only if
   // that species is itself in scope/focus and therefore guessable).
@@ -186,7 +190,9 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
   const speciesCount = candidates.reduce((n, c) => (c.kind === "species" ? n + 1 : n), 0);
   const placeholder = focusNode
     ? `Name a species in ${focusNode.common ?? focusNode.sciName}… (${speciesCount} options)`
-    : "Name a species, or a group like 'snakes' to scout…";
+    : speciesOnly
+      ? "Name the species…"
+      : "Name a species, or a group like 'snakes' to scout…";
 
   const choose = (c: Cand) => {
     if (c.oos && c.graft && onOutOfSetGuess) onOutOfSetGuess(c.graft);

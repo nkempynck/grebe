@@ -178,8 +178,13 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
             />
             {lookup.trim().length > 1 && !looked && tree && (
               <div className="blur-lookup-hits">
-                {suggestGuesses(tree, lookup, 6)
+                {/* Ask for a lot and filter to SPECIES before trimming. suggestGuesses returns
+                    every prefix match before any substring one, so "fox" spent its whole budget
+                    on Foxglove, Fox moth and Foxface rabbitfish and never reached Red fox or
+                    Arctic fox — and clades were being dropped after the slice, not before. */}
+                {suggestGuesses(tree, lookup, 400)
                   .filter((n) => (tree.childrenOf.get(n.id) ?? []).length === 0)
+                  .slice(0, 40)
                   .map((n) => (
                     <button key={n.id} className="blur-cand" onClick={() => setLooked(n.id)}>
                       {n.common ?? n.sciName}
@@ -215,6 +220,7 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
             onSubmit={submit}
             focusCladeId={g.focusCladeId}
             guesses={asGuessResults}
+            speciesOnly
           />
         </>
       )}
