@@ -166,6 +166,30 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
           </details>
         </div>
 
+        <div className="about-game" id="about-mosaic">
+          <div className="about-game-hd">
+            <span className="about-game-ico" aria-hidden="true">🖼</span>
+            <b>Mosaic</b>
+            <span className="about-game-src">a Grebe original</span>
+          </div>
+          <p>
+            Name the animal. Its photograph has been cut into tiles and shuffled, and every wrong
+            guess puts a little more of it back together, so the picture is clearest on your last
+            guess rather than your first. Beside it, a table shows which <b>traits</b> your guess
+            shares with the answer, things like how many legs it has, whether it flies, whether it
+            lives in water and what covers it. Those are traits, <b>not relatedness</b>: a dolphin
+            and a shark agree on almost every row and are not close relatives at all.
+          </p>
+          <p>
+            What changes through the week is not the picture but the <b>help</b>. Early on you can
+            narrow the field to a group and look any animal up to see where it sits, and a wrong
+            guess tells you the rank you share, <i>same family</i>, <i>same order</i>. Midweek that
+            reading drops to a bare <b>temperature</b>, warmer being closer, and the lookup goes;
+            by the weekend it is the photograph and the table alone. The answer is always an
+            animal well known enough to have a decent picture, and it never repeats inside 45 days.
+          </p>
+        </div>
+
         <div className="about-game is-soon">
           <div className="about-game-hd">
             <span className="about-game-ico" aria-hidden="true">🌱</span>

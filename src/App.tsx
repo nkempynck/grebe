@@ -81,6 +81,26 @@ const VIEWS = ["home", "lineage", "kinship", "branches", "mosaic", "leaderboard"
 type View = (typeof VIEWS)[number];
 const VIEW_KEY = "grebe.view";
 
+/** The games, in the order the sub-nav lists them. Still real top-level views, so a session
+ *  that remembered "kinship" from an older build still opens Kinship. */
+const GAME_VIEWS = ["lineage", "kinship", "branches", "mosaic"] as const;
+type GameView = (typeof GAME_VIEWS)[number];
+const GAME_KEY = "grebe.game";
+const isGameView = (v: View): v is GameView => (GAME_VIEWS as readonly string[]).includes(v);
+
+/** What the top row shows. "games" is a nav section, not a view: selecting it opens a game. */
+const SECTIONS = ["home", "games", "leaderboard", "stats", "account", "about"] as const;
+
+const GAME_ICONS: Record<GameView, string> = {
+  lineage: "🧬", kinship: "🧩", branches: "🌿", mosaic: "🖼",
+};
+
+const SECTION_LABELS: Record<(typeof SECTIONS)[number] | GameView, string> = {
+  home: "Home", games: "Games", leaderboard: "Leaderboard", stats: "Stats",
+  account: "Account", about: "About",
+  lineage: "Lineage", kinship: "Kinship", branches: "Branches", mosaic: "Mosaic",
+};
+
 const WIN_GAME_LABEL: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches" };
 
 /** The celebration line for one source's newly-seen wins. Topping the combined
@@ -245,6 +265,27 @@ export default function App() {
   useEffect(() => {
     try {
       sessionStorage.setItem(VIEW_KEY, view);
+    } catch {
+      /* private mode */
+    }
+  }, [view]);
+
+  /** Which game the Games tab reopens. Remembered so leaving for the leaderboard and coming
+   *  back does not dump you on a different game than the one you were mid-way through. */
+  const [lastGame, setLastGame] = useState<GameView>(() => {
+    try {
+      const saved = sessionStorage.getItem(GAME_KEY);
+      if (saved && (GAME_VIEWS as readonly string[]).includes(saved)) return saved as GameView;
+    } catch {
+      /* private mode */
+    }
+    return "lineage";
+  });
+  useEffect(() => {
+    if (!isGameView(view)) return;
+    setLastGame(view);
+    try {
+      sessionStorage.setItem(GAME_KEY, view);
     } catch {
       /* private mode */
     }
@@ -847,23 +888,49 @@ export default function App() {
         </div>
       )}
 
+      {/* The games sit behind ONE tab. Four of them in the top row alongside Leaderboard,
+          Stats, Account and About made an eight-tab bar that wrapped on a phone and buried
+          everything that is not a game. "Games" is selected whenever any game is open and
+          returns you to the one you were last playing; the row underneath switches between
+          them. */}
       <nav className="topnav" role="tablist" aria-label="Sections">
-        {VIEWS.map((v) => {
-          if (v === "account" && !player.configured) return null;
-          const labels = { home: "Home", lineage: "Lineage", kinship: "Kinship", branches: "Branches", mosaic: "Mosaic", leaderboard: "Leaderboard", stats: "Stats", account: "Account", about: "About" };
+        {SECTIONS.map((s) => {
+          if (s === "account" && !player.configured) return null;
+          const on = s === "games" ? isGameView(view) : view === s;
           return (
             <button
-              key={v}
+              key={s}
               role="tab"
-              aria-selected={view === v}
-              className={`topnav-tab${view === v ? " is-on" : ""}`}
-              onClick={() => { if (v === "about") setAboutFocus(null); setView(v); }}
+              aria-selected={on}
+              className={`topnav-tab${on ? " is-on" : ""}`}
+              onClick={() => {
+                if (s === "about") setAboutFocus(null);
+                setView(s === "games" ? lastGame : s);
+              }}
             >
-              {labels[v]}
+              {SECTION_LABELS[s]}
             </button>
           );
         })}
       </nav>
+
+      {isGameView(view) && (
+        <nav className="gamenav" role="tablist" aria-label="Games">
+          {GAME_VIEWS.map((v) => (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={view === v}
+              className={`gamenav-tab${view === v ? " is-on" : ""}`}
+              data-game={v}
+              onClick={() => setView(v)}
+            >
+              <span className="gamenav-ico" aria-hidden="true">{GAME_ICONS[v]}</span>
+              {SECTION_LABELS[v]}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {winNudge.map(({ source, dates }) => (
         <div className={`winbanner${source === "overall" ? " is-overall" : ""}`} role="status" key={source}>
@@ -901,7 +968,9 @@ export default function App() {
       )}
       {view === "mosaic" && (
         <div className="gameview" data-game="mosaic">
-          <MosaicGame tree={g.tree} />
+          {/* Base tree, not the rich one: Mosaic's pool is fame-filtered species that have a
+              usable photograph, and the augment's leaves have neither. */}
+          <MosaicGame tree={g.tree} onHowItWorks={() => openAbout("about-mosaic")} />
         </div>
       )}
       {view === "branches" && (

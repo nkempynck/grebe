@@ -1,14 +1,39 @@
-// PROTOTYPE UI for Mosaic. Enough to play a day and judge it; no share card, no stats, no
-// leaderboard, no result card.
+// Mosaic: identify an animal from a photograph broken into shuffled tiles, with a
+// Mastermind-style character table beside it. Every wrong guess puts the picture back together
+// a little more.
+//
+// What varies across the week is not the picture but the HELP — see mosaicAids. This component
+// renders panels that today's aids allow and simply does not render the others, so there is
+// never a disabled control explaining what you are not allowed to do.
 import { useMemo, useState } from "react";
 import type { Tree, GameConfig, GuessResult } from "../core";
 import { isAncestor, resolveGuess, suggestGuesses } from "../core";
 import { CHARACTERS } from "../core/mosaicChars";
 import { useMosaicGame } from "../hooks/useMosaicGame";
+import { useDev } from "../data/devMode";
+import { GameHeader } from "./GameHeader";
 import { GuessInput } from "./GuessInput";
+import { PlaytestBar } from "./PlaytestBar";
+import { MosaicBench } from "./MosaicBench";
 
-export function MosaicGame({ tree, date }: { tree: Tree | null; date?: string }) {
-  const g = useMosaicGame(tree, date);
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+/** Same bands, same words as Lineage's ramp — see DIFFICULTY in data/dailySchedule. */
+const DIFFICULTY = ["Gentle", "Gentle", "Tricky", "Harder", "Harder", "Brutal", "Brutal"];
+
+interface Props {
+  tree: Tree | null;
+  date?: string;
+  onHowItWorks?: () => void;
+  /** Render inside the admin test bench: playtest controls, never recorded. */
+  sandbox?: boolean;
+}
+
+export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
+  const devSettings = useDev();
+  const g = useMosaicGame(tree, {
+    date,
+    dev: sandbox ? { tier: devSettings.tier, nonce: devSettings.nonce } : null,
+  });
   const [zoom, setZoom] = useState(false);
   const [reject, setReject] = useState<string | null>(null);
   const [lookup, setLookup] = useState("");
@@ -51,63 +76,47 @@ export function MosaicGame({ tree, date }: { tree: Tree | null; date?: string })
 
   const answer = tree.byId.get(g.answerId);
   const done = g.status !== "playing";
+  const { aids } = g;
 
   return (
     <div className="mosaic">
-      <div className="mosaic-setup">
-        <span className="mosaic-setup-label">Mechanic</span>
-        {(["blur", "shuffle"] as const).map((m) => (
-          <button
-            key={m}
-            className={`mosaic-chip${g.mechanic === m ? " on" : ""}`}
-            onClick={() => g.setMechanic(m)}
-          >
-            {m}
-          </button>
-        ))}
-        <span className="mosaic-setup-label">Rung</span>
-        <input
-          type="range"
-          min={0}
-          max={g.rungCount - 1}
-          value={g.rung}
-          onChange={(e) => g.setRungOverride(Number(e.target.value))}
-          aria-label="Inspect a rung without guessing"
-        />
-        <button
-          className="mosaic-chip"
-          onClick={() => g.setRungOverride(null)}
-          disabled={g.rungOverride === null}
-        >
-          follow game
-        </button>
-        <button
-          className={`mosaic-chip${g.showProximity ? " on" : ""}`}
-          onClick={() => g.setShowProximity(!g.showProximity)}
-        >
-          proximity {g.showProximity ? "on" : "off"}
-        </button>
-      </div>
+      <GameHeader
+        game="mosaic"
+        tier={aids.tier}
+        dayName={DAY_NAMES[aids.tier - 1]}
+        difficulty={DIFFICULTY[aids.tier - 1]}
+        onHowItWorks={onHowItWorks}
+        blurb={
+          <>
+            Name the animal. The photograph is cut into tiles and shuffled, and every wrong
+            guess puts more of it back together. The table shows which traits your guess shares
+            with the answer.
+            <span className="gamehead-blurb-note">{aidsNote(aids.lookup, aids.subset)}</span>
+          </>
+        }
+      />
+
+      {sandbox && <MosaicBench g={g} />}
 
       <div className="mosaic-stage">
         {g.missing ? (
           <div className="mosaic-nostage">
-            <strong>No image staged for {g.date}</strong>
-            <span>node scripts/mosaic-stage.mjs --from {g.date} --days 14</span>
+            <strong>No picture for {g.date}</strong>
+            <span>Nothing to identify — please try again later.</span>
           </div>
         ) : (
           <img
             key={g.imageUrl}
             className={`mosaic-img${done ? " is-done" : ""}${zoom ? " is-zoom" : ""}`}
             src={g.imageUrl}
-            alt={done ? (answer?.common ?? answer?.sciName ?? "") : "Unidentified organism, heavily pixelated"}
+            alt={done ? (answer?.common ?? answer?.sciName ?? "") : "Unidentified animal, cut into shuffled tiles"}
             onClick={() => done && setZoom((z) => !z)}
             onError={g.onImageError}
           />
         )}
         {!done && (
           <span className="mosaic-rung">
-            {g.rungLabel} · {g.guessesLeft} {g.guessesLeft === 1 ? "guess" : "guesses"} left
+            {g.guessesLeft} {g.guessesLeft === 1 ? "guess" : "guesses"} left
           </span>
         )}
       </div>
@@ -130,87 +139,90 @@ export function MosaicGame({ tree, date }: { tree: Tree | null; date?: string })
 
       {!done && (
         <>
-          <div className="mosaic-drill">
-            <span className="mosaic-box-label">Narrow down</span>
-            <div className="mosaic-crumbs">
-              <button className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(0); }}>All animals</button>
-              {g.path.map((p, i) => (
-                <button key={p.id} className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(i + 1); }}>
-                  <span aria-hidden="true">›</span> {p.label}
-                </button>
-              ))}
-              <span className="mosaic-remaining">{g.remaining} left</span>
-            </div>
-            <div className="mosaic-options">
-              {g.options.slice(0, 24).map((o) => (
-                <button key={o.id} className="mosaic-opt" onClick={() => { setReject(null); g.drillInto(o.id); }}>
-                  {o.label} <b>{o.count}</b>
-                </button>
-              ))}
-              {g.options.length === 0 && g.candidates.length === 0 && (
-                <span className="mosaic-opt-none">Nothing finer to narrow to — name it.</span>
+          {aids.subset && (
+            <div className="mosaic-drill">
+              <span className="mosaic-box-label">Narrow down</span>
+              <div className="mosaic-crumbs">
+                <button className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(0); }}>All animals</button>
+                {g.path.map((p, i) => (
+                  <button key={p.id} className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(i + 1); }}>
+                    <span aria-hidden="true">›</span> {p.label}
+                  </button>
+                ))}
+                <span className="mosaic-remaining">{g.remaining} left</span>
+              </div>
+              <div className="mosaic-options">
+                {g.options.slice(0, 24).map((o) => (
+                  <button key={o.id} className="mosaic-opt" onClick={() => { setReject(null); g.drillInto(o.id); }}>
+                    {o.label} <b>{o.count}</b>
+                  </button>
+                ))}
+                {g.options.length === 0 && g.candidates.length === 0 && (
+                  <span className="mosaic-opt-none">Nothing finer to narrow to — name it.</span>
+                )}
+              </div>
+              {g.candidates.length > 0 && (
+                <div className="mosaic-cands">
+                  {/* Recall is the wrong ask when the answer is a kinkajou. Once the filter is
+                      this narrow, show the names: recognising one of twelve is winnable. */}
+                  <span className="mosaic-cands-label">{g.candidates.length} it could be</span>
+                  <div className="mosaic-cands-list">
+                    {g.candidates.map((c) => (
+                      <button key={c.id} className="mosaic-cand" onClick={() => { setReject(null); g.guess(c.id); }}>
+                        {c.common ?? c.sciName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
-            {g.candidates.length > 0 && (
-              <div className="mosaic-cands">
-                {/* Recall is the wrong ask when the answer is a kinkajou. Once the filter is
-                    this narrow, show the names: recognising one of twelve is winnable. */}
-                <span className="mosaic-cands-label">{g.candidates.length} it could be</span>
-                <div className="mosaic-cands-list">
-                  {g.candidates.map((c) => (
-                    <button key={c.id} className="mosaic-cand" onClick={() => { setReject(null); g.guess(c.id); }}>
-                      {c.common ?? c.sciName}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          )}
 
-
-          <div className="mosaic-lookupbox">
-            <span className="mosaic-box-label">Look up an animal</span>
-            <input
-              value={lookup}
-              onChange={(e) => { setLookup(e.target.value); setLooked(null); }}
-              placeholder="e.g. arctic fox — see which groups it sits in"
-              aria-label="Look up an animal to scope by its groups"
-            />
-            {lookup.trim().length > 1 && !looked && tree && (
-              <div className="mosaic-lookup-hits">
-                {/* Ask for a lot and filter to SPECIES before trimming. suggestGuesses returns
-                    every prefix match before any substring one, so "fox" spent its whole budget
-                    on Foxglove, Fox moth and Foxface rabbitfish and never reached Red fox or
-                    Arctic fox — and clades were being dropped after the slice, not before. */}
-                {suggestGuesses(tree, lookup, 400)
-                  .filter((n) => (tree.childrenOf.get(n.id) ?? []).length === 0)
-                  .slice(0, 40)
-                  .map((n) => (
-                    <button key={n.id} className="mosaic-cand" onClick={() => setLooked(n.id)}>
-                      {n.common ?? n.sciName}
-                    </button>
-                  ))}
-              </div>
-            )}
-            {looked && tree && (
-              <>
-                <p className="mosaic-lookup-said">
-                  <b>{tree.byId.get(looked)?.common ?? tree.byId.get(looked)?.sciName}</b> sits in — tap one to narrow to it
-                </p>
-                <div className="mosaic-lookup-chain">
-                  {g.lineageOf(looked).map((l) => (
-                    <button
-                      key={l.id}
-                      className="mosaic-path"
-                      onClick={() => { setReject(null); g.setPath([l.id]); setLookup(""); setLooked(null); }}
-                    >
-                      {l.label} <b>{l.count}</b>
-                    </button>
-                  ))}
+          {aids.lookup && (
+            <div className="mosaic-lookupbox">
+              <span className="mosaic-box-label">Look up an animal</span>
+              <input
+                value={lookup}
+                onChange={(e) => { setLookup(e.target.value); setLooked(null); }}
+                placeholder="e.g. arctic fox — see which groups it sits in"
+                aria-label="Look up an animal to scope by its groups"
+              />
+              {lookup.trim().length > 1 && !looked && (
+                <div className="mosaic-lookup-hits">
+                  {/* Ask for a lot and filter to SPECIES before trimming. suggestGuesses returns
+                      every prefix match before any substring one, so "fox" spent its whole budget
+                      on Foxglove, Fox moth and Foxface rabbitfish and never reached Red fox or
+                      Arctic fox — and clades were being dropped after the slice, not before. */}
+                  {suggestGuesses(tree, lookup, 400)
+                    .filter((n) => (tree.childrenOf.get(n.id) ?? []).length === 0)
+                    .slice(0, 40)
+                    .map((n) => (
+                      <button key={n.id} className="mosaic-cand" onClick={() => setLooked(n.id)}>
+                        {n.common ?? n.sciName}
+                      </button>
+                    ))}
                 </div>
-              </>
-            )}
-          </div>
+              )}
+              {looked && (
+                <>
+                  <p className="mosaic-lookup-said">
+                    <b>{tree.byId.get(looked)?.common ?? tree.byId.get(looked)?.sciName}</b> sits in — tap one to narrow to it
+                  </p>
+                  <div className="mosaic-lookup-chain">
+                    {g.lineageOf(looked).map((l) => (
+                      <button
+                        key={l.id}
+                        className="mosaic-path"
+                        onClick={() => { setReject(null); g.setPath([l.id]); setLookup(""); setLooked(null); }}
+                      >
+                        {l.label} <b>{l.count}</b>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {reject && <p className="mosaic-reject">{reject}</p>}
           <GuessInput
@@ -222,6 +234,7 @@ export function MosaicGame({ tree, date }: { tree: Tree | null; date?: string })
             guesses={asGuessResults}
             speciesOnly
           />
+          <button className="mosaic-giveup linkbtn" onClick={g.giveUp}>Give up</button>
         </>
       )}
 
@@ -234,7 +247,9 @@ export function MosaicGame({ tree, date }: { tree: Tree | null; date?: string })
             <thead>
               <tr>
                 <th>Guess</th>
-                {g.showProximity && <th>How far</th>}
+                <th title={aids.proximity === "named" ? "The rank you share, never which one" : "Warmer is closer, 100 is the answer"}>
+                  {aids.proximity === "named" ? "How close" : "°"}
+                </th>
                 {CHARACTERS.map((c) => <th key={c.id}>{c.label}</th>)}
               </tr>
             </thead>
@@ -242,7 +257,9 @@ export function MosaicGame({ tree, date }: { tree: Tree | null; date?: string })
               {g.guesses.map((row) => (
                 <tr key={row.node.id} className={row.correct ? "hit" : ""}>
                   <th scope="row">{row.node.common ?? row.node.sciName}</th>
-                  {g.showProximity && <td className="prox">{row.proximity}</td>}
+                  <td className="prox">
+                    {aids.proximity === "named" ? row.proximity : `${row.degrees}°`}
+                  </td>
                   {row.cells.map((c) => (
                     <td
                       key={c.characterId}
@@ -258,16 +275,15 @@ export function MosaicGame({ tree, date }: { tree: Tree | null; date?: string })
         </div>
       )}
 
-      <div className="mosaic-devbar">
-        {!done && <button className="mosaic-giveup" onClick={g.giveUp}>Give up</button>}
-        <button className="mosaic-sample" onClick={g.sample} disabled={g.staged.length < 2}>
-          New sample →
-        </button>
-        <span className="mosaic-devnote">
-          {g.date}
-          {g.staged.length ? ` · ${g.staged.indexOf(g.date) + 1}/${g.staged.length} staged` : " · none staged"}
-        </span>
-      </div>
+      {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
     </div>
   );
+}
+
+/** One line telling you what today does and does not give you, so a missing panel reads as the
+ *  day's rule rather than as something broken. */
+function aidsNote(lookup: boolean, subset: boolean): string {
+  if (lookup && subset) return "Today you can narrow by group and look species up.";
+  if (subset) return "Today you can narrow by group, but there are no species lookups.";
+  return "Today it is the picture and the table alone — no narrowing, no lookups.";
 }

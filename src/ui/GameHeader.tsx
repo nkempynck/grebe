@@ -1,11 +1,16 @@
 import type { ReactNode } from "react";
 
-export type GameId = "lineage" | "kinship" | "branches";
+/** Games that have a header. Deliberately NOT data/games' GameId, which is the scored,
+ *  persisted, leaderboarded set — Mosaic has a header long before it has any of that, and
+ *  widening the scoring type to give it one would ripple into stats and the database. */
+export type HeaderGameId = "lineage" | "kinship" | "branches" | "mosaic";
 
-const LABEL: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches" };
+const LABEL: Record<HeaderGameId, string> = {
+  lineage: "Lineage", kinship: "Kinship", branches: "Branches", mosaic: "Mosaic",
+};
 
 interface Props {
-  game: GameId;
+  game: HeaderGameId;
   /** Weekday difficulty tier 1–7. Omit for un-tiered modes (e.g. free play). */
   tier?: number;
   dayName?: string;

@@ -12,6 +12,7 @@ import { clearGridProgress } from "../data/gridProgress";
 import { clearBranchesProgress } from "../data/branchesProgress";
 import { GridGame } from "./GridGame";
 import { BranchesGame } from "./BranchesGame";
+import { MosaicGame } from "./MosaicGame";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { useGame } from "../hooks/useGame";
 import { loadRichTree } from "../data/loadTaxonomy";
@@ -272,7 +273,7 @@ function LineageBench({ tree }: { tree: Tree }) {
  *  boards, autosolve. Nothing played here is recorded to stats or the leaderboard,
  *  so the real dailies and standings stay untouched. */
 function TestBench({ tree, richTree }: { tree: Tree; richTree: Tree }) {
-  const [game, setGame] = useState<"lineage" | "kinship" | "branches">("kinship");
+  const [game, setGame] = useState<"lineage" | "kinship" | "branches" | "mosaic">("kinship");
   const [cleared, setCleared] = useState(false);
   const resetToday = () => {
     clearDailyProgress();
@@ -300,10 +301,16 @@ function TestBench({ tree, richTree }: { tree: Tree; richTree: Tree }) {
         <button role="tab" aria-selected={game === "lineage"} className={`lb-seg${game === "lineage" ? " is-on" : ""}`} onClick={() => setGame("lineage")}>🧬 Lineage</button>
         <button role="tab" aria-selected={game === "kinship"} className={`lb-seg${game === "kinship" ? " is-on" : ""}`} onClick={() => setGame("kinship")}>🧩 Kinship</button>
         <button role="tab" aria-selected={game === "branches"} className={`lb-seg${game === "branches" ? " is-on" : ""}`} onClick={() => setGame("branches")}>🌿 Branches</button>
+        <button role="tab" aria-selected={game === "mosaic"} className={`lb-seg${game === "mosaic" ? " is-on" : ""}`} onClick={() => setGame("mosaic")}>🖼 Mosaic</button>
       </div>
       <ErrorBoundary key={game} label={`${game} test bench`}>
         <div className="gameview admin-testbench-stage" data-game={game}>
-          {game === "lineage" ? <LineageBench tree={tree} /> : game === "kinship" ? <GridGame tree={richTree} sandbox /> : <BranchesGame tree={richTree} sandbox />}
+          {game === "lineage" ? <LineageBench tree={tree} />
+            : game === "kinship" ? <GridGame tree={richTree} sandbox />
+            : game === "branches" ? <BranchesGame tree={richTree} sandbox />
+            // Mosaic runs on the BASE tree: its pool is fame-filtered species with photographs,
+            // and the augment's leaves have neither the views nor the images.
+            : <MosaicGame tree={tree} sandbox />}
         </div>
       </ErrorBoundary>
     </div>

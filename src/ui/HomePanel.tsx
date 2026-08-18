@@ -1,7 +1,7 @@
 import { dailyLabel, todayKey } from "../core/daily";
 
 interface Props {
-  onPlay: (view: "lineage" | "kinship" | "branches") => void;
+  onPlay: (view: "lineage" | "kinship" | "branches" | "mosaic") => void;
 }
 
 const GAMES = [
@@ -27,6 +27,14 @@ const GAMES = [
     name: "Branches",
     tagline:
       "Rebuild a slice of the tree: drag each species onto the branch it belongs to, using the worked examples already in place as your guide.",
+    inspired: null,
+  },
+  {
+    id: "mosaic" as const,
+    icon: "🖼",
+    name: "Mosaic",
+    tagline:
+      "Name the animal in a photograph that has been cut into tiles and shuffled. Every wrong guess puts a little more of the picture back together.",
     inspired: null,
   },
 ];

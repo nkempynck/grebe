@@ -34,6 +34,7 @@
   --cold: #3f7d86;         /* distant clade — verdigris teal */
   --vermilion: #c68a22;    /* win / the answer — ochre gold */
   --danger: #c0463b;       /* error — cochineal red */
+  --indigo: #5a5486;       /* Mosaic — indigo, the fourth dye in the box */
   --on-accent: #f7f2e4;    /* ink on a filled accent surface (e.g. buttons) */
 
   --clado-line: #d3c6a6;
@@ -69,6 +70,7 @@
     --cold: #5aa6b2;
     --vermilion: #e3b24a;
     --danger: #e0574e;
+    --indigo: #8b83c4;
     --on-accent: #10140b;
 
     --clado-line: #3c3d30;
@@ -96,6 +98,7 @@
   --cold: #5aa6b2;
   --vermilion: #e3b24a;
   --danger: #e0574e;
+  --indigo: #8b83c4;
   --on-accent: #10140b;
 
   --clado-line: #3c3d30;
@@ -198,6 +201,23 @@ body {
 }
 .topnav-tab:hover { color: var(--ink); }
 .topnav-tab.is-on { color: var(--brass); border-bottom-color: var(--brass); }
+
+/* ---- Which game, under the Games tab. Each carries its own accent, so the row reads as
+   four things rather than four words, and the selected one names the colour the header,
+   pips and controls below it are already using. ---- */
+.gamenav { display: flex; flex-wrap: wrap; gap: 6px; margin: -6px 0 16px; }
+.gamenav-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  background: none; border: 1px solid var(--line); color: var(--ink-soft);
+  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+.gamenav-ico { font-size: 13px; line-height: 1; }
+.gamenav-tab:hover { color: var(--ink); border-color: var(--game, var(--brass)); }
+.gamenav-tab.is-on {
+  color: var(--game); border-color: var(--game); background: var(--bg-3); font-weight: 700;
+}
 
 /* ---- Mode switch: Daily vs Free play ---- */
 .modeswitch { display: flex; gap: 8px; margin-bottom: 20px; }
@@ -831,6 +851,7 @@ button.pin-cell:hover { outline: 1px solid var(--brass); outline-offset: 1px; }
   font-weight: 700; color: var(--game, var(--brass));
 }
 .playtest-field { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-soft); }
+.playtest-field input[type="range"] { flex: 1 1 7rem; min-width: 5rem; }
 .playtest-field select {
   font-family: var(--font-mono); font-size: 12px; padding: 4px 8px;
   background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
@@ -1869,6 +1890,7 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 [data-game="lineage"] { --game: var(--brass); }
 [data-game="kinship"] { --game: var(--cold); }
 [data-game="branches"] { --game: var(--vermilion); }
+[data-game="mosaic"] { --game: var(--indigo); }
 
 .gamehead { margin-bottom: 16px; }
 .gamehead-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px 18px; flex-wrap: wrap; }
@@ -2283,10 +2305,6 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .mosaic-verdict.won { border-color: #2e7d5b; }
 .mosaic-verdict em { opacity: .7; font-style: italic; }
 .mosaic-verdict small { opacity: .65; font-size: .72rem; }
-.mosaic-filters { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
-.mosaic-filters-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6; margin-right: .2rem; }
-.mosaic-chip { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; cursor: pointer; }
-.mosaic-chip.on { border-color: currentColor; font-weight: 600; }
 .mosaic-table-wrap { overflow-x: auto; }
 .mosaic-table { border-collapse: collapse; width: 100%; font-size: .8rem; }
 .mosaic-table th, .mosaic-table td { padding: .35rem .5rem; text-align: center; white-space: nowrap; }
@@ -2295,14 +2313,16 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .mosaic-table td.yes { background: rgba(46,125,91,.22); }
 .mosaic-table td.no  { background: rgba(140,140,140,.14); opacity: .65; }
 .mosaic-table td.na  { opacity: .35; }
+/* Proximity sits apart from the trait cells: it is a different kind of statement, and colouring
+   it like a match would read as a sixth shared trait. */
+.mosaic-table td.prox {
+  font-size: .74rem; opacity: .8; white-space: nowrap; background: none;
+  font-variant-numeric: tabular-nums; border-right: 1px solid var(--line, #ddd);
+}
 .mosaic-table tr.hit tbody th, .mosaic-table tr.hit th { color: #2e7d5b; }
 .mosaic-giveup { align-self: flex-start; background: none; border: 0; color: inherit; opacity: .6; text-decoration: underline; cursor: pointer; font-size: .82rem; }
 .mosaic-nostage { display: flex; flex-direction: column; gap: .4rem; align-items: center; justify-content: center; height: 100%; padding: 1rem; text-align: center; }
-.mosaic-nostage span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .7rem; opacity: .65; word-break: break-all; }
-.mosaic-devbar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; padding-top: .2rem; border-top: 1px dashed var(--line, #ddd); }
-.mosaic-sample { background: none; border: 1px solid var(--line, #ddd); border-radius: 999px; padding: .25rem .7rem; font-size: .8rem; cursor: pointer; color: inherit; }
-.mosaic-sample:disabled { opacity: .4; cursor: default; }
-.mosaic-devnote { font-size: .72rem; opacity: .55; font-variant-numeric: tabular-nums; margin-left: auto; }
+.mosaic-nostage span { font-size: .78rem; opacity: .65; }
 .mosaic-drill { display: flex; flex-direction: column; gap: .45rem; }
 .mosaic-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem; font-size: .82rem; }
 .mosaic-crumb { background: none; border: 0; color: inherit; cursor: pointer; padding: .1rem .25rem; border-radius: 6px; }
@@ -2316,19 +2336,11 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .mosaic-opt-none { font-size: .78rem; opacity: .6; }
 .mosaic-table-note { font-size: .72rem; opacity: .55; margin: 0 0 .3rem; }
 .mosaic-reject { margin: 0; font-size: .8rem; color: #a2402f; }
-.mosaic-setup { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .5rem .6rem; border: 1px dashed var(--line, #ddd); border-radius: 10px; }
-.mosaic-setup-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }
-.mosaic-setup input[type="range"] { flex: 1 1 8rem; min-width: 6rem; }
 .mosaic-cands { display: flex; flex-direction: column; gap: .3rem; padding-top: .2rem; }
 .mosaic-cands-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }
 .mosaic-cands-list { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 9rem; overflow-y: auto; }
 .mosaic-cand { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 8px; padding: .22rem .55rem; font-size: .8rem; cursor: pointer; }
 .mosaic-cand:hover { border-color: currentColor; }
-.mosaic-lookup { display: flex; flex-direction: column; gap: .3rem; }
-.mosaic-lookup input { width: 100%; padding: .4rem .6rem; border-radius: 8px; border: 1px solid var(--line, #ddd); background: transparent; color: inherit; font: inherit; font-size: .85rem; }
-.mosaic-lookup-hits { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8rem; overflow-y: auto; }
-.mosaic-lookup-chain { display: flex; flex-wrap: wrap; gap: .3rem; }
-.mosaic-table td.prox { font-size: .74rem; opacity: .8; white-space: nowrap; background: none; }
 
 /* The two panels do DIFFERENT things and were reading as one long list of identical chips:
    "Narrow down" walks the tree you are searching in, "Look up" tells you where one animal
