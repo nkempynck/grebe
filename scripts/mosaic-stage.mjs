@@ -1,5 +1,5 @@
-// Stage Blur's ladder images for local play: work out each day's answer, build its ladder, and
-// write it under public/blur/<date>/<rung>.jpg so the dev server can serve it.
+// Stage Mosaic’s ladder images for local play: work out each day's answer, build its ladder, and
+// write it under public/mosaic/<date>/<rung>.jpg so the dev server can serve it.
 //
 // PROTOTYPE SCAFFOLDING. In production these belong in object storage, written at pin time and
 // addressed by a neutral name so the URL gives nothing away — public/ is fine for playtesting
@@ -7,7 +7,7 @@
 // of the game is that the client is never sent anything that identifies the answer, so the
 // filename is the rung index and nothing else.
 //
-//   node scripts/blur-stage.mjs [--from 2026-08-18] [--days 14]
+//   node scripts/mosaic-stage.mjs [--from 2026-08-18] [--days 14]
 import { mkdirSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,21 +25,21 @@ const shift = (d, n) => {
 };
 
 // The answer picker lives in TypeScript, so bundle it once and ask it for the schedule.
-const bundle = resolve(ROOT, "node_modules/.cache/blur-schedule.mjs");
-const entry = resolve(ROOT, "node_modules/.cache/blur-schedule-entry.ts");
+const bundle = resolve(ROOT, "node_modules/.cache/mosaic-schedule.mjs");
+const entry = resolve(ROOT, "node_modules/.cache/mosaic-schedule-entry.ts");
 mkdirSync(dirname(entry), { recursive: true });
 writeFileSync(entry, `
 import taxonomy from "${resolve(ROOT, "src/data/taxonomy.json")}";
 import { buildTree } from "${resolve(ROOT, "src/core/index.ts")}";
-import { blurAnswerFor, BLUR_LADDER } from "${resolve(ROOT, "src/core/blur.ts")}";
+import { mosaicAnswerFor, MOSAIC_BLUR_LADDER } from "${resolve(ROOT, "src/core/mosaic.ts")}";
 const tree = buildTree((taxonomy as any).nodes);
 const out: any[] = [];
 for (const d of process.argv[2].split(",")) {
-  const id = blurAnswerFor(tree, d);
+  const id = mosaicAnswerFor(tree, d);
   const n = id ? tree.byId.get(id) : null;
   out.push({ date: d, id, common: n?.common ?? null, sci: n?.sciName ?? null });
 }
-process.stdout.write(JSON.stringify({ days: out, ladder: [...BLUR_LADDER] }));
+process.stdout.write(JSON.stringify({ days: out, ladder: [...MOSAIC_BLUR_LADDER] }));
 `);
 execFileSync("npx", ["esbuild", entry, "--bundle", "--platform=node", "--format=esm",
   "--define:import.meta.env={}", "--loader:.json=json", "--external:@supabase/supabase-js",
@@ -50,18 +50,18 @@ const days = Number(arg("days", "14"));
 const dates = Array.from({ length: days }, (_, i) => shift(from, i));
 const { days: schedule, ladder } = JSON.parse(execFileSync("node", [bundle, dates.join(",")], { cwd: ROOT }).toString());
 
-const { buildFor, shuffledFor, SHUFFLE_LADDER } = await import(resolve(ROOT, "scripts/blur-images.mjs"));
-const cache = resolve(ROOT, "node_modules/.cache/blur");
+const { buildFor, shuffledFor, SHUFFLE_LADDER } = await import(resolve(ROOT, "scripts/mosaic-images.mjs"));
+const cache = resolve(ROOT, "node_modules/.cache/mosaic");
 mkdirSync(cache, { recursive: true });
 const index = {};
 for (const d of schedule) {
   if (!d.id) { console.error(`  ${d.date}  no answer`); continue; }
   const title = d.common ?? d.sci;
-  const dir = resolve(ROOT, "public/blur", d.date);
+  const dir = resolve(ROOT, "public/mosaic", d.date);
   if (existsSync(resolve(dir, "0.jpg"))) { console.error(`  ${d.date}  ${title} (cached)`); index[d.date] = d; continue; }
   process.stderr.write(`  ${d.date}  ${title} … `);
   try {
-    // The SHIPPING ladder, not the research continuum blur-images defaults to.
+    // The SHIPPING ladder, not the research continuum mosaic-images defaults to.
     // ladder + 0: the rungs you play against, plus full resolution for the reveal.
     const built = await buildFor(title, cache, [...ladder, 0]);
     if (!built) { process.stderr.write("no image\n"); continue; }
@@ -84,10 +84,10 @@ for (const d of schedule) {
 // An index the prototype UI reads so its "new sample" button knows what exists locally.
 // Built by SCANNING the directory, not from this run's days: staging two dates used to
 // overwrite the index with just those two and silently orphan everything staged before.
-const blurRoot = resolve(ROOT, "public/blur");
-const staged = readdirSync(blurRoot, { withFileTypes: true })
-  .filter((e) => e.isDirectory() && existsSync(resolve(blurRoot, e.name, "0.jpg")))
+const mosaicRoot = resolve(ROOT, "public/mosaic");
+const staged = readdirSync(mosaicRoot, { withFileTypes: true })
+  .filter((e) => e.isDirectory() && existsSync(resolve(mosaicRoot, e.name, "0.jpg")))
   .map((e) => e.name)
   .sort();
-writeFileSync(resolve(blurRoot, "index.json"), JSON.stringify(staged));
-console.error(`\nstaged ${Object.keys(index).length}/${schedule.length} days into public/blur/`);
+writeFileSync(resolve(mosaicRoot, "index.json"), JSON.stringify(staged));
+console.error(`\nstaged ${Object.keys(index).length}/${schedule.length} days into public/mosaic/`);

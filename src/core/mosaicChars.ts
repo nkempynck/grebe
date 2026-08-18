@@ -1,4 +1,4 @@
-// BLUR — the character table.
+// MOSAIC — the character table.
 //
 // Each column is a trait the player can judge about their OWN guess ("I guessed a lion, a lion
 // has four legs and fur"), shown beside the answer's value so a wrong guess still narrows the

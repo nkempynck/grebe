@@ -1,4 +1,4 @@
-// BLUR game — build the progressive-reveal image ladder for a species.
+// MOSAIC — build the progressive-reveal image ladder for a species.
 //
 // WHY DOWNSAMPLE RATHER THAN BLUR. The other games fetch Wikipedia images live and show them
 // at full size, which is fine when the picture is the reward. Here the picture IS the puzzle,
@@ -13,7 +13,7 @@
 // Licence metadata is captured HERE, at build time, because the attribution has to be shown
 // on solve and the runtime never sees the Commons file page.
 //
-//   node scripts/blur-images.mjs --out <dir> [--species "A,B,C"]
+//   node scripts/mosaic-images.mjs --out <dir> [--species "A,B,C"]
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import sharp from "sharp";
@@ -194,7 +194,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     "Common chiffchaff", "Harbour porpoise", "Atlantic salmon",
   ];
   const names = (arg("species") ?? DEFAULT.join(",")).split(",").map((s) => s.trim()).filter(Boolean);
-  const outDir = arg("out", "node_modules/.cache/blur");
+  const outDir = arg("out", "node_modules/.cache/mosaic");
   mkdirSync(outDir, { recursive: true });
 
   const built = [];

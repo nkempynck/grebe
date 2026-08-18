@@ -1,14 +1,14 @@
-// PROTOTYPE UI for Blur. Enough to play a day and judge it; no share card, no stats, no
+// PROTOTYPE UI for Mosaic. Enough to play a day and judge it; no share card, no stats, no
 // leaderboard, no result card.
 import { useMemo, useState } from "react";
 import type { Tree, GameConfig, GuessResult } from "../core";
 import { isAncestor, resolveGuess, suggestGuesses } from "../core";
-import { CHARACTERS } from "../core/blurChars";
-import { useBlurGame } from "../hooks/useBlurGame";
+import { CHARACTERS } from "../core/mosaicChars";
+import { useMosaicGame } from "../hooks/useMosaicGame";
 import { GuessInput } from "./GuessInput";
 
-export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
-  const g = useBlurGame(tree, date);
+export function MosaicGame({ tree, date }: { tree: Tree | null; date?: string }) {
+  const g = useMosaicGame(tree, date);
   const [zoom, setZoom] = useState(false);
   const [reject, setReject] = useState<string | null>(null);
   const [lookup, setLookup] = useState("");
@@ -53,19 +53,19 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
   const done = g.status !== "playing";
 
   return (
-    <div className="blur">
-      <div className="blur-setup">
-        <span className="blur-setup-label">Mechanic</span>
+    <div className="mosaic">
+      <div className="mosaic-setup">
+        <span className="mosaic-setup-label">Mechanic</span>
         {(["blur", "shuffle"] as const).map((m) => (
           <button
             key={m}
-            className={`blur-chip${g.mechanic === m ? " on" : ""}`}
+            className={`mosaic-chip${g.mechanic === m ? " on" : ""}`}
             onClick={() => g.setMechanic(m)}
           >
             {m}
           </button>
         ))}
-        <span className="blur-setup-label">Rung</span>
+        <span className="mosaic-setup-label">Rung</span>
         <input
           type="range"
           min={0}
@@ -75,30 +75,30 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
           aria-label="Inspect a rung without guessing"
         />
         <button
-          className="blur-chip"
+          className="mosaic-chip"
           onClick={() => g.setRungOverride(null)}
           disabled={g.rungOverride === null}
         >
           follow game
         </button>
         <button
-          className={`blur-chip${g.showProximity ? " on" : ""}`}
+          className={`mosaic-chip${g.showProximity ? " on" : ""}`}
           onClick={() => g.setShowProximity(!g.showProximity)}
         >
           proximity {g.showProximity ? "on" : "off"}
         </button>
       </div>
 
-      <div className="blur-stage">
+      <div className="mosaic-stage">
         {g.missing ? (
-          <div className="blur-nostage">
+          <div className="mosaic-nostage">
             <strong>No image staged for {g.date}</strong>
-            <span>node scripts/blur-stage.mjs --from {g.date} --days 14</span>
+            <span>node scripts/mosaic-stage.mjs --from {g.date} --days 14</span>
           </div>
         ) : (
           <img
             key={g.imageUrl}
-            className={`blur-img${done ? " is-done" : ""}${zoom ? " is-zoom" : ""}`}
+            className={`mosaic-img${done ? " is-done" : ""}${zoom ? " is-zoom" : ""}`}
             src={g.imageUrl}
             alt={done ? (answer?.common ?? answer?.sciName ?? "") : "Unidentified organism, heavily pixelated"}
             onClick={() => done && setZoom((z) => !z)}
@@ -106,14 +106,14 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
           />
         )}
         {!done && (
-          <span className="blur-rung">
+          <span className="mosaic-rung">
             {g.rungLabel} · {g.guessesLeft} {g.guessesLeft === 1 ? "guess" : "guesses"} left
           </span>
         )}
       </div>
 
       {done && (
-        <div className={`blur-verdict ${g.status}`}>
+        <div className={`mosaic-verdict ${g.status}`}>
           <strong>{g.status === "won" ? "Got it" : "The answer was"}</strong>{" "}
           {answer?.common ?? answer?.sciName}
           {answer?.common && answer.sciName ? <em> ({answer.sciName})</em> : null}
@@ -130,35 +130,35 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
 
       {!done && (
         <>
-          <div className="blur-drill">
-            <span className="blur-box-label">Narrow down</span>
-            <div className="blur-crumbs">
-              <button className="blur-crumb" onClick={() => { setReject(null); g.drillTo(0); }}>All animals</button>
+          <div className="mosaic-drill">
+            <span className="mosaic-box-label">Narrow down</span>
+            <div className="mosaic-crumbs">
+              <button className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(0); }}>All animals</button>
               {g.path.map((p, i) => (
-                <button key={p.id} className="blur-crumb" onClick={() => { setReject(null); g.drillTo(i + 1); }}>
+                <button key={p.id} className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(i + 1); }}>
                   <span aria-hidden="true">›</span> {p.label}
                 </button>
               ))}
-              <span className="blur-remaining">{g.remaining} left</span>
+              <span className="mosaic-remaining">{g.remaining} left</span>
             </div>
-            <div className="blur-options">
+            <div className="mosaic-options">
               {g.options.slice(0, 24).map((o) => (
-                <button key={o.id} className="blur-opt" onClick={() => { setReject(null); g.drillInto(o.id); }}>
+                <button key={o.id} className="mosaic-opt" onClick={() => { setReject(null); g.drillInto(o.id); }}>
                   {o.label} <b>{o.count}</b>
                 </button>
               ))}
               {g.options.length === 0 && g.candidates.length === 0 && (
-                <span className="blur-opt-none">Nothing finer to narrow to — name it.</span>
+                <span className="mosaic-opt-none">Nothing finer to narrow to — name it.</span>
               )}
             </div>
             {g.candidates.length > 0 && (
-              <div className="blur-cands">
+              <div className="mosaic-cands">
                 {/* Recall is the wrong ask when the answer is a kinkajou. Once the filter is
                     this narrow, show the names: recognising one of twelve is winnable. */}
-                <span className="blur-cands-label">{g.candidates.length} it could be</span>
-                <div className="blur-cands-list">
+                <span className="mosaic-cands-label">{g.candidates.length} it could be</span>
+                <div className="mosaic-cands-list">
                   {g.candidates.map((c) => (
-                    <button key={c.id} className="blur-cand" onClick={() => { setReject(null); g.guess(c.id); }}>
+                    <button key={c.id} className="mosaic-cand" onClick={() => { setReject(null); g.guess(c.id); }}>
                       {c.common ?? c.sciName}
                     </button>
                   ))}
@@ -168,8 +168,8 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
           </div>
 
 
-          <div className="blur-lookupbox">
-            <span className="blur-box-label">Look up an animal</span>
+          <div className="mosaic-lookupbox">
+            <span className="mosaic-box-label">Look up an animal</span>
             <input
               value={lookup}
               onChange={(e) => { setLookup(e.target.value); setLooked(null); }}
@@ -177,7 +177,7 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
               aria-label="Look up an animal to scope by its groups"
             />
             {lookup.trim().length > 1 && !looked && tree && (
-              <div className="blur-lookup-hits">
+              <div className="mosaic-lookup-hits">
                 {/* Ask for a lot and filter to SPECIES before trimming. suggestGuesses returns
                     every prefix match before any substring one, so "fox" spent its whole budget
                     on Foxglove, Fox moth and Foxface rabbitfish and never reached Red fox or
@@ -186,7 +186,7 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
                   .filter((n) => (tree.childrenOf.get(n.id) ?? []).length === 0)
                   .slice(0, 40)
                   .map((n) => (
-                    <button key={n.id} className="blur-cand" onClick={() => setLooked(n.id)}>
+                    <button key={n.id} className="mosaic-cand" onClick={() => setLooked(n.id)}>
                       {n.common ?? n.sciName}
                     </button>
                   ))}
@@ -194,14 +194,14 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
             )}
             {looked && tree && (
               <>
-                <p className="blur-lookup-said">
+                <p className="mosaic-lookup-said">
                   <b>{tree.byId.get(looked)?.common ?? tree.byId.get(looked)?.sciName}</b> sits in — tap one to narrow to it
                 </p>
-                <div className="blur-lookup-chain">
+                <div className="mosaic-lookup-chain">
                   {g.lineageOf(looked).map((l) => (
                     <button
                       key={l.id}
-                      className="blur-path"
+                      className="mosaic-path"
                       onClick={() => { setReject(null); g.setPath([l.id]); setLookup(""); setLooked(null); }}
                     >
                       {l.label} <b>{l.count}</b>
@@ -212,7 +212,7 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
             )}
           </div>
 
-          {reject && <p className="blur-reject">{reject}</p>}
+          {reject && <p className="mosaic-reject">{reject}</p>}
           <GuessInput
             tree={tree}
             config={config}
@@ -226,11 +226,11 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
       )}
 
       {g.guesses.length > 0 && (
-        <div className="blur-table-wrap">
+        <div className="mosaic-table-wrap">
           {/* Says what it is. Five green ticks on a spider monkey when the answer is a bobcat
               reads as "you were close" when it only means "both are furry quadrupeds". */}
-          <p className="blur-table-note">Traits you share with the answer — not how closely related you are.</p>
-          <table className="blur-table">
+          <p className="mosaic-table-note">Traits you share with the answer — not how closely related you are.</p>
+          <table className="mosaic-table">
             <thead>
               <tr>
                 <th>Guess</th>
@@ -258,12 +258,12 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
         </div>
       )}
 
-      <div className="blur-devbar">
-        {!done && <button className="blur-giveup" onClick={g.giveUp}>Give up</button>}
-        <button className="blur-sample" onClick={g.sample} disabled={g.staged.length < 2}>
+      <div className="mosaic-devbar">
+        {!done && <button className="mosaic-giveup" onClick={g.giveUp}>Give up</button>}
+        <button className="mosaic-sample" onClick={g.sample} disabled={g.staged.length < 2}>
           New sample →
         </button>
-        <span className="blur-devnote">
+        <span className="mosaic-devnote">
           {g.date}
           {g.staged.length ? ` · ${g.staged.indexOf(g.date) + 1}/${g.staged.length} staged` : " · none staged"}
         </span>

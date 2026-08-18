@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import taxonomy from "../data/taxonomy.json";
 import { buildTree } from "./index";
-import { CHARACTERS, characterRow, characterValue, missingCladeNames, NA } from "./blurChars";
-import { blurAnswerFor, blurPool, scoreBlurGuess, blurRung, BLUR_LADDER, BLUR_MAX_GUESSES } from "./blur";
+import { CHARACTERS, characterRow, characterValue, missingCladeNames, NA } from "./mosaicChars";
+import { mosaicAnswerFor, mosaicPool, scoreMosaicGuess, mosaicRung, MOSAIC_BLUR_LADDER, MOSAIC_MAX_GUESSES } from "./mosaic";
 
 type Nodes = Parameters<typeof buildTree>[0];
 const tree = buildTree((taxonomy as { nodes: Nodes }).nodes);
@@ -11,7 +11,7 @@ const idOf = (sci: string) => {
   throw new Error(`no node ${sci}`);
 };
 
-describe("blur characters", () => {
+describe("mosaic characters", () => {
   // The guard that matters most. A rule naming a clade the tree lacks matches NOTHING and
   // fails silently, and the obvious names are exactly the ones missing: there is no
   // Pinnipedia, no Arachnida, no Crocodylia, no Charadriiformes in this tree.
@@ -56,9 +56,9 @@ describe("blur characters", () => {
   });
 });
 
-describe("blur board", () => {
+describe("mosaic board", () => {
   it("draws a famous, common-named species", () => {
-    const pool = blurPool(tree, tree.rootId);
+    const pool = mosaicPool(tree, tree.rootId);
     expect(pool.length).toBeGreaterThan(200);
     for (const id of pool.slice(0, 50)) {
       const n = tree.byId.get(id)!;
@@ -69,7 +69,7 @@ describe("blur board", () => {
 
   it("is a pure function of the date", () => {
     for (const d of ["2026-09-01", "2026-12-25", "2027-03-14"]) {
-      expect(blurAnswerFor(tree, d)).toBe(blurAnswerFor(tree, d));
+      expect(mosaicAnswerFor(tree, d)).toBe(mosaicAnswerFor(tree, d));
     }
   });
 
@@ -77,7 +77,7 @@ describe("blur board", () => {
     const seen: string[] = [];
     for (let i = 0; i < 60; i++) {
       const d = new Date(Date.UTC(2026, 8, 1) + i * 86400000).toISOString().slice(0, 10);
-      seen.push(blurAnswerFor(tree, d)!);
+      seen.push(mosaicAnswerFor(tree, d)!);
     }
     // no repeat anywhere in a 60-day run (the window is 45)
     expect(new Set(seen).size).toBe(seen.length);
@@ -85,15 +85,15 @@ describe("blur board", () => {
 
   it("scores an exact guess as correct and all-matching", () => {
     const answer = idOf("Panthera leo");
-    const g = scoreBlurGuess(tree, answer, answer)!;
+    const g = scoreMosaicGuess(tree, answer, answer)!;
     expect(g.correct).toBe(true);
     expect(g.cells.every((c) => c.match !== false)).toBe(true);
   });
 
   it("scores a near miss as mostly matching and a far miss as mostly not", () => {
     const answer = idOf("Panthera leo");
-    const near = scoreBlurGuess(tree, answer, idOf("Panthera tigris"))!;
-    const far = scoreBlurGuess(tree, answer, idOf("Helianthus annuus"))!;
+    const near = scoreMosaicGuess(tree, answer, idOf("Panthera tigris"))!;
+    const far = scoreMosaicGuess(tree, answer, idOf("Helianthus annuus"))!;
     const hits = (g: typeof near) => g.cells.filter((c) => c.match === true).length;
     expect(near.correct).toBe(false);
     expect(hits(near)).toBe(near.cells.length);
@@ -102,17 +102,17 @@ describe("blur board", () => {
 
   it("never scores n/a as a match either way", () => {
     const answer = idOf("Panthera leo");
-    const plant = scoreBlurGuess(tree, answer, idOf("Helianthus annuus"))!;
+    const plant = scoreMosaicGuess(tree, answer, idOf("Helianthus annuus"))!;
     const legs = plant.cells.find((c) => c.characterId === "legs")!;
     expect(legs.value).toBe(NA);
     expect(legs.match).toBeNull();
   });
 
   it("advances one rung per wrong guess and stops at the clearest", () => {
-    expect(blurRung(0)).toBe(0);
-    expect(blurRung(3)).toBe(3);
-    expect(blurRung(99)).toBe(BLUR_LADDER.length - 1);
+    expect(mosaicRung(0)).toBe(0);
+    expect(mosaicRung(3)).toBe(3);
+    expect(mosaicRung(99)).toBe(MOSAIC_BLUR_LADDER.length - 1);
     // the last guess is made at the clearest rung, not after the reveal
-    expect(BLUR_MAX_GUESSES).toBe(BLUR_LADDER.length + 1);
+    expect(MOSAIC_MAX_GUESSES).toBe(MOSAIC_BLUR_LADDER.length + 1);
   });
 });

@@ -2268,79 +2268,79 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 }
 
 /* ---- BLUR (prototype) ---------------------------------------------------- */
-.blur { display: flex; flex-direction: column; gap: 1rem; max-width: 34rem; margin: 0 auto; }
-.blur-stage { position: relative; aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: var(--line, #ddd); }
+.mosaic { display: flex; flex-direction: column; gap: 1rem; max-width: 34rem; margin: 0 auto; }
+.mosaic-stage { position: relative; aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: var(--line, #ddd); }
 /* The rung images are a handful of pixels wide; letting the browser smooth them upward is
    what makes a 3px JPEG read as a blur rather than as visible squares. */
-.blur-img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: auto; }
-.blur-img.is-done { cursor: zoom-in; }
-.blur-img.is-zoom { object-fit: contain; background: #000; cursor: zoom-out; }
-.blur-rung {
+.mosaic-img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: auto; }
+.mosaic-img.is-done { cursor: zoom-in; }
+.mosaic-img.is-zoom { object-fit: contain; background: #000; cursor: zoom-out; }
+.mosaic-rung {
   position: absolute; left: .6rem; bottom: .6rem; padding: .25rem .6rem; border-radius: 999px;
   background: rgba(0,0,0,.62); color: #fff; font-size: .74rem; font-variant-numeric: tabular-nums;
 }
-.blur-verdict { display: flex; flex-direction: column; gap: .2rem; padding: .8rem 1rem; border-radius: 12px; background: var(--card, #fff); border: 1px solid var(--line, #ddd); }
-.blur-verdict.won { border-color: #2e7d5b; }
-.blur-verdict em { opacity: .7; font-style: italic; }
-.blur-verdict small { opacity: .65; font-size: .72rem; }
-.blur-filters { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
-.blur-filters-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6; margin-right: .2rem; }
-.blur-chip { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; cursor: pointer; }
-.blur-chip.on { border-color: currentColor; font-weight: 600; }
-.blur-table-wrap { overflow-x: auto; }
-.blur-table { border-collapse: collapse; width: 100%; font-size: .8rem; }
-.blur-table th, .blur-table td { padding: .35rem .5rem; text-align: center; white-space: nowrap; }
-.blur-table thead th { font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
-.blur-table tbody th { text-align: left; font-weight: 600; }
-.blur-table td.yes { background: rgba(46,125,91,.22); }
-.blur-table td.no  { background: rgba(140,140,140,.14); opacity: .65; }
-.blur-table td.na  { opacity: .35; }
-.blur-table tr.hit tbody th, .blur-table tr.hit th { color: #2e7d5b; }
-.blur-giveup { align-self: flex-start; background: none; border: 0; color: inherit; opacity: .6; text-decoration: underline; cursor: pointer; font-size: .82rem; }
-.blur-nostage { display: flex; flex-direction: column; gap: .4rem; align-items: center; justify-content: center; height: 100%; padding: 1rem; text-align: center; }
-.blur-nostage span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .7rem; opacity: .65; word-break: break-all; }
-.blur-devbar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; padding-top: .2rem; border-top: 1px dashed var(--line, #ddd); }
-.blur-sample { background: none; border: 1px solid var(--line, #ddd); border-radius: 999px; padding: .25rem .7rem; font-size: .8rem; cursor: pointer; color: inherit; }
-.blur-sample:disabled { opacity: .4; cursor: default; }
-.blur-devnote { font-size: .72rem; opacity: .55; font-variant-numeric: tabular-nums; margin-left: auto; }
-.blur-drill { display: flex; flex-direction: column; gap: .45rem; }
-.blur-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem; font-size: .82rem; }
-.blur-crumb { background: none; border: 0; color: inherit; cursor: pointer; padding: .1rem .25rem; border-radius: 6px; }
-.blur-crumb:hover { text-decoration: underline; }
-.blur-crumb span { opacity: .45; }
-.blur-remaining { margin-left: auto; font-size: .74rem; opacity: .6; font-variant-numeric: tabular-nums; }
-.blur-options { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8.5rem; overflow-y: auto; }
-.blur-opt { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 999px; padding: .22rem .6rem; font-size: .78rem; cursor: pointer; }
-.blur-opt b { font-variant-numeric: tabular-nums; opacity: .5; font-weight: 600; margin-left: .15rem; }
-.blur-opt:hover { border-color: currentColor; }
-.blur-opt-none { font-size: .78rem; opacity: .6; }
-.blur-table-note { font-size: .72rem; opacity: .55; margin: 0 0 .3rem; }
-.blur-reject { margin: 0; font-size: .8rem; color: #a2402f; }
-.blur-setup { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .5rem .6rem; border: 1px dashed var(--line, #ddd); border-radius: 10px; }
-.blur-setup-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }
-.blur-setup input[type="range"] { flex: 1 1 8rem; min-width: 6rem; }
-.blur-cands { display: flex; flex-direction: column; gap: .3rem; padding-top: .2rem; }
-.blur-cands-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }
-.blur-cands-list { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 9rem; overflow-y: auto; }
-.blur-cand { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 8px; padding: .22rem .55rem; font-size: .8rem; cursor: pointer; }
-.blur-cand:hover { border-color: currentColor; }
-.blur-lookup { display: flex; flex-direction: column; gap: .3rem; }
-.blur-lookup input { width: 100%; padding: .4rem .6rem; border-radius: 8px; border: 1px solid var(--line, #ddd); background: transparent; color: inherit; font: inherit; font-size: .85rem; }
-.blur-lookup-hits { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8rem; overflow-y: auto; }
-.blur-lookup-chain { display: flex; flex-wrap: wrap; gap: .3rem; }
-.blur-table td.prox { font-size: .74rem; opacity: .8; white-space: nowrap; background: none; }
+.mosaic-verdict { display: flex; flex-direction: column; gap: .2rem; padding: .8rem 1rem; border-radius: 12px; background: var(--card, #fff); border: 1px solid var(--line, #ddd); }
+.mosaic-verdict.won { border-color: #2e7d5b; }
+.mosaic-verdict em { opacity: .7; font-style: italic; }
+.mosaic-verdict small { opacity: .65; font-size: .72rem; }
+.mosaic-filters { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+.mosaic-filters-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6; margin-right: .2rem; }
+.mosaic-chip { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; cursor: pointer; }
+.mosaic-chip.on { border-color: currentColor; font-weight: 600; }
+.mosaic-table-wrap { overflow-x: auto; }
+.mosaic-table { border-collapse: collapse; width: 100%; font-size: .8rem; }
+.mosaic-table th, .mosaic-table td { padding: .35rem .5rem; text-align: center; white-space: nowrap; }
+.mosaic-table thead th { font-size: .66rem; text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
+.mosaic-table tbody th { text-align: left; font-weight: 600; }
+.mosaic-table td.yes { background: rgba(46,125,91,.22); }
+.mosaic-table td.no  { background: rgba(140,140,140,.14); opacity: .65; }
+.mosaic-table td.na  { opacity: .35; }
+.mosaic-table tr.hit tbody th, .mosaic-table tr.hit th { color: #2e7d5b; }
+.mosaic-giveup { align-self: flex-start; background: none; border: 0; color: inherit; opacity: .6; text-decoration: underline; cursor: pointer; font-size: .82rem; }
+.mosaic-nostage { display: flex; flex-direction: column; gap: .4rem; align-items: center; justify-content: center; height: 100%; padding: 1rem; text-align: center; }
+.mosaic-nostage span { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .7rem; opacity: .65; word-break: break-all; }
+.mosaic-devbar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; padding-top: .2rem; border-top: 1px dashed var(--line, #ddd); }
+.mosaic-sample { background: none; border: 1px solid var(--line, #ddd); border-radius: 999px; padding: .25rem .7rem; font-size: .8rem; cursor: pointer; color: inherit; }
+.mosaic-sample:disabled { opacity: .4; cursor: default; }
+.mosaic-devnote { font-size: .72rem; opacity: .55; font-variant-numeric: tabular-nums; margin-left: auto; }
+.mosaic-drill { display: flex; flex-direction: column; gap: .45rem; }
+.mosaic-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem; font-size: .82rem; }
+.mosaic-crumb { background: none; border: 0; color: inherit; cursor: pointer; padding: .1rem .25rem; border-radius: 6px; }
+.mosaic-crumb:hover { text-decoration: underline; }
+.mosaic-crumb span { opacity: .45; }
+.mosaic-remaining { margin-left: auto; font-size: .74rem; opacity: .6; font-variant-numeric: tabular-nums; }
+.mosaic-options { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8.5rem; overflow-y: auto; }
+.mosaic-opt { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 999px; padding: .22rem .6rem; font-size: .78rem; cursor: pointer; }
+.mosaic-opt b { font-variant-numeric: tabular-nums; opacity: .5; font-weight: 600; margin-left: .15rem; }
+.mosaic-opt:hover { border-color: currentColor; }
+.mosaic-opt-none { font-size: .78rem; opacity: .6; }
+.mosaic-table-note { font-size: .72rem; opacity: .55; margin: 0 0 .3rem; }
+.mosaic-reject { margin: 0; font-size: .8rem; color: #a2402f; }
+.mosaic-setup { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .5rem .6rem; border: 1px dashed var(--line, #ddd); border-radius: 10px; }
+.mosaic-setup-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }
+.mosaic-setup input[type="range"] { flex: 1 1 8rem; min-width: 6rem; }
+.mosaic-cands { display: flex; flex-direction: column; gap: .3rem; padding-top: .2rem; }
+.mosaic-cands-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }
+.mosaic-cands-list { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 9rem; overflow-y: auto; }
+.mosaic-cand { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 8px; padding: .22rem .55rem; font-size: .8rem; cursor: pointer; }
+.mosaic-cand:hover { border-color: currentColor; }
+.mosaic-lookup { display: flex; flex-direction: column; gap: .3rem; }
+.mosaic-lookup input { width: 100%; padding: .4rem .6rem; border-radius: 8px; border: 1px solid var(--line, #ddd); background: transparent; color: inherit; font: inherit; font-size: .85rem; }
+.mosaic-lookup-hits { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8rem; overflow-y: auto; }
+.mosaic-lookup-chain { display: flex; flex-wrap: wrap; gap: .3rem; }
+.mosaic-table td.prox { font-size: .74rem; opacity: .8; white-space: nowrap; background: none; }
 
 /* The two panels do DIFFERENT things and were reading as one long list of identical chips:
    "Narrow down" walks the tree you are searching in, "Look up" tells you where one animal
    sits. Different boxes, different chip shapes, and a label on each. */
-.blur-drill { border: 1px solid var(--line, #ddd); border-radius: 10px; padding: .6rem .7rem; }
-.blur-lookupbox { display: flex; flex-direction: column; gap: .4rem; border: 1px solid var(--line, #ddd); border-left: 3px solid currentColor; border-radius: 10px; padding: .6rem .7rem; opacity: .95; }
-.blur-box-label { font-size: .66rem; text-transform: uppercase; letter-spacing: .1em; opacity: .5; font-weight: 700; }
-.blur-lookupbox input { width: 100%; padding: .4rem .6rem; border-radius: 8px; border: 1px solid var(--line, #ddd); background: transparent; color: inherit; font: inherit; font-size: .85rem; }
-.blur-lookup-said { margin: 0; font-size: .78rem; opacity: .75; }
-.blur-lookup-hits { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8rem; overflow-y: auto; }
-.blur-lookup-chain { display: flex; flex-wrap: wrap; gap: .3rem; }
+.mosaic-drill { border: 1px solid var(--line, #ddd); border-radius: 10px; padding: .6rem .7rem; }
+.mosaic-lookupbox { display: flex; flex-direction: column; gap: .4rem; border: 1px solid var(--line, #ddd); border-left: 3px solid currentColor; border-radius: 10px; padding: .6rem .7rem; opacity: .95; }
+.mosaic-box-label { font-size: .66rem; text-transform: uppercase; letter-spacing: .1em; opacity: .5; font-weight: 700; }
+.mosaic-lookupbox input { width: 100%; padding: .4rem .6rem; border-radius: 8px; border: 1px solid var(--line, #ddd); background: transparent; color: inherit; font: inherit; font-size: .85rem; }
+.mosaic-lookup-said { margin: 0; font-size: .78rem; opacity: .75; }
+.mosaic-lookup-hits { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8rem; overflow-y: auto; }
+.mosaic-lookup-chain { display: flex; flex-wrap: wrap; gap: .3rem; }
 /* Square-ended, to look nothing like the round drill chips. */
-.blur-path { border: 1px dashed var(--line, #ddd); background: transparent; color: inherit; border-radius: 4px; padding: .22rem .55rem; font-size: .78rem; cursor: pointer; }
-.blur-path b { font-variant-numeric: tabular-nums; opacity: .5; margin-left: .15rem; }
-.blur-path:hover { border-style: solid; border-color: currentColor; }
+.mosaic-path { border: 1px dashed var(--line, #ddd); background: transparent; color: inherit; border-radius: 4px; padding: .22rem .55rem; font-size: .78rem; cursor: pointer; }
+.mosaic-path b { font-variant-numeric: tabular-nums; opacity: .5; margin-left: .15rem; }
+.mosaic-path:hover { border-style: solid; border-color: currentColor; }

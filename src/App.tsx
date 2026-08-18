@@ -33,7 +33,7 @@ import { AccountPanel } from "./ui/AccountPanel";
 import { StatsTabs } from "./ui/StatsTabs";
 // PROTOTYPE — a nav tab on this branch only, so it can be played. No stats, no leaderboard,
 // no pinned puzzle, no persistence: none of those answer whether the game is any fun.
-import { BlurGame } from "./ui/BlurGame";
+import { MosaicGame } from "./ui/MosaicGame";
 import { AboutPanel } from "./ui/AboutPanel";
 import { AdminPanel } from "./ui/AdminPanel";
 import { GridGame } from "./ui/GridGame";
@@ -77,7 +77,7 @@ const SCORING_BANNER_UNTIL = "2026-08-08";
 
 /** The top-level sections, in nav order. Also the allowlist for the remembered view
  *  below, so a stored value from an older build can't select a section that's gone. */
-const VIEWS = ["home", "lineage", "kinship", "branches", "blur", "leaderboard", "stats", "account", "about"] as const;
+const VIEWS = ["home", "lineage", "kinship", "branches", "mosaic", "leaderboard", "stats", "account", "about"] as const;
 type View = (typeof VIEWS)[number];
 const VIEW_KEY = "grebe.view";
 
@@ -850,7 +850,7 @@ export default function App() {
       <nav className="topnav" role="tablist" aria-label="Sections">
         {VIEWS.map((v) => {
           if (v === "account" && !player.configured) return null;
-          const labels = { home: "Home", lineage: "Lineage", kinship: "Kinship", branches: "Branches", blur: "Blur", leaderboard: "Leaderboard", stats: "Stats", account: "Account", about: "About" };
+          const labels = { home: "Home", lineage: "Lineage", kinship: "Kinship", branches: "Branches", mosaic: "Mosaic", leaderboard: "Leaderboard", stats: "Stats", account: "Account", about: "About" };
           return (
             <button
               key={v}
@@ -899,9 +899,9 @@ export default function App() {
           )}
         </div>
       )}
-      {view === "blur" && (
-        <div className="gameview" data-game="blur">
-          <BlurGame tree={g.tree} />
+      {view === "mosaic" && (
+        <div className="gameview" data-game="mosaic">
+          <MosaicGame tree={g.tree} />
         </div>
       )}
       {view === "branches" && (

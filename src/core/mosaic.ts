@@ -1,12 +1,12 @@
-// BLUR — the fourth daily. Identify a species from a photograph that starts at a handful of
+// MOSAIC — the fourth daily. Identify a species from a photograph that starts at a handful of
 // pixels and gains resolution with every wrong guess, with a Mastermind-style character table
 // beside it showing which traits your guess shares with the answer.
 //
 // Pure: tree in, board out. No React, no data layer, no image fetching — the ladder images are
-// built at pin time by scripts/blur-images.mjs and addressed by rung index.
+// built at pin time by scripts/mosaic-images.mjs and addressed by rung index.
 import type { TaxonNode, Tree } from "./types";
 import { leavesUnder, mrca } from "./tree";
-import { CHARACTERS, characterValue, NA } from "./blurChars";
+import { CHARACTERS, characterValue, NA } from "./mosaicChars";
 
 /** Rung widths in pixels. Full resolution is deliberately NOT a rung: it is the reward for
  *  finishing, so the last thing you play against is still a puzzle.
@@ -17,35 +17,35 @@ import { CHARACTERS, characterValue, NA } from "./blurChars";
  *  because the eye had already been told what it was looking at. Cold, against several hundred
  *  animals, 3px and 5px are nothing at all and simply cost two guesses before the game starts.
  *
- *  Blur is a RECOGNITION game: the picture is the information channel and the guesses are
+ *  Mosaic is a RECOGNITION game: the picture is the information channel and the guesses are
  *  attempts at it. That only works if the opening rung carries something, so it begins where a
  *  panda reads as a black-and-white blob and a zebra as a striped quadruped. Anything blinder
  *  turns it into deduction, which is Lineage's job. */
-export const BLUR_LADDER = [11, 15, 20, 27, 36, 48, 64] as const;
+export const MOSAIC_BLUR_LADDER = [11, 15, 20, 27, 36, 48, 64] as const;
 
 /** The other mechanic under test: tiles per side, hardest first. Blur and shuffle destroy
  *  opposite halves of the picture — blur keeps silhouette and loses texture, shuffle keeps
  *  every pixel of texture and loses shape. Which is the better puzzle for naming an animal is
  *  a question only playing answers, so the prototype ships both and lets you switch. */
-export const BLUR_SHUFFLE_LADDER = [20, 15, 11, 8, 6, 4, 3] as const;
+export const MOSAIC_SHUFFLE_LADDER = [20, 15, 11, 8, 6, 4, 3] as const;
 
-export type BlurMechanic = "blur" | "shuffle";
+export type MosaicMechanic = "blur" | "shuffle";
 
 /** Guesses allowed. One more than the rungs, so the final guess is made at the clearest rung
  *  rather than the reveal being wasted on a board nobody gets to answer. */
-export const BLUR_MAX_GUESSES = BLUR_LADDER.length + 1;
+export const MOSAIC_MAX_GUESSES = MOSAIC_BLUR_LADDER.length + 1;
 
-/** Blur is an ANIMAL game. Rye, durum wheat and a nematode all cleared the fame floor in the
+/** Mosaic is an ANIMAL game. Rye, durum wheat and a nematode all cleared the fame floor in the
  *  first staged week, and none is a puzzle: a pixelated grass is indistinguishable from any
  *  other pixelated grass, and nobody pictures a nematode. Fame selects for article popularity,
  *  which for a crop has nothing to do with whether its photograph is recognisable. Restricting
  *  the pool is the honest fix; the character table keeps its plant rules for GUESSES, which
  *  stay unrestricted. */
-export const BLUR_SCOPE_SCI = "Metazoa";
+export const MOSAIC_SCOPE_SCI = "Metazoa";
 
 /** The animal root, or the whole tree if this snapshot has no Metazoa node. */
-export function blurScopeId(tree: Tree): string {
-  for (const n of tree.byId.values()) if (n.sciName === BLUR_SCOPE_SCI) return n.id;
+export function mosaicScopeId(tree: Tree): string {
+  for (const n of tree.byId.values()) if (n.sciName === MOSAIC_SCOPE_SCI) return n.id;
   return tree.rootId;
 }
 
@@ -56,9 +56,9 @@ export function blurScopeId(tree: Tree): string {
  *  names are on screen, so an unfamiliar animal is recognisable even when it is not
  *  recallable. 9000 nearly doubles the pool to 942 and pulls the median day well off the
  *  headline species, which was making boards easy on fame alone. */
-export const BLUR_MIN_VIEWS = 9000;
+export const MOSAIC_MIN_VIEWS = 9000;
 
-export interface BlurCell {
+export interface MosaicCell {
   characterId: string;
   /** The guess's own value for this character. */
   value: string;
@@ -67,15 +67,15 @@ export interface BlurCell {
   match: boolean | null;
 }
 
-export interface BlurGuess {
+export interface MosaicGuess {
   node: TaxonNode;
   correct: boolean;
-  cells: BlurCell[];
+  cells: MosaicCell[];
   /** How far it landed. Shown only when the proximity setting is on. */
-  proximity: BlurProximity;
+  proximity: MosaicProximity;
 }
 
-export interface BlurBoard {
+export interface MosaicBoard {
   date: string;
   answerId: string;
   /** Pool the guess bar offers and the answer was drawn from. */
@@ -96,11 +96,11 @@ function xmur3(str: string): number {
 
 /** Species eligible to BE the answer: famous enough to be identifiable from a photo. Sorted so
  *  the pick is stable regardless of tree iteration order. */
-export function blurPool(tree: Tree, scopeRootId: string): string[] {
+export function mosaicPool(tree: Tree, scopeRootId: string): string[] {
   return leavesUnder(tree, scopeRootId)
     .filter((id) => {
       const n = tree.byId.get(id);
-      return n?.rank === "species" && n.common && (n.views ?? 0) >= BLUR_MIN_VIEWS;
+      return n?.rank === "species" && n.common && (n.views ?? 0) >= MOSAIC_MIN_VIEWS;
     })
     .sort();
 }
@@ -120,10 +120,10 @@ function drawFrom(pool: string[], weights: number[], total: number, seed: string
 /** No species may come round again within this many days. The pool is a few hundred animals
  *  and the draw is weighted hard toward the famous end, so without this the same headline
  *  species really does land twice in a week — a test caught the horse on two consecutive days. */
-export const BLUR_ANTI_REPEAT_WINDOW = 45;
+export const MOSAIC_ANTI_REPEAT_WINDOW = 45;
 /** Fixed point the anti-repeat walk starts from, so every date resolves identically whichever
  *  one you ask for. Before it, days are drawn with no history. */
-export const BLUR_ANCHOR = "2026-08-01";
+export const MOSAIC_ANCHOR = "2026-08-01";
 
 const shiftDay = (d: string, n: number) => {
   const t = new Date(`${d}T00:00:00Z`);
@@ -134,15 +134,15 @@ const shiftDay = (d: string, n: number) => {
 /** date -> answer, per (tree, scope). The walk is forward-only and each day is O(pool). */
 const answerCache = new WeakMap<Tree, Map<string, Map<string, string>>>();
 
-/** The day's answer, avoiding anything served in the previous BLUR_ANTI_REPEAT_WINDOW days.
+/** The day's answer, avoiding anything served in the previous MOSAIC_ANTI_REPEAT_WINDOW days.
  *
  *  This REGENERATES the history rather than reading what was really served, which is exactly
- *  the trap the other two games were fixed for. It is correct here only because Blur has never
+ *  the trap the other two games were fixed for. It is correct here only because Mosaic has never
  *  been served: there is no history to read yet. The moment it is pinned it needs the same
  *  treatment (see setServedGridHistory in ./grid). */
-export function blurAnswerFor(tree: Tree, dateKey: string, scopeRootId?: string): string | null {
-  const scope = scopeRootId ?? blurScopeId(tree);
-  const pool = blurPool(tree, scope);
+export function mosaicAnswerFor(tree: Tree, dateKey: string, scopeRootId?: string): string | null {
+  const scope = scopeRootId ?? mosaicScopeId(tree);
+  const pool = mosaicPool(tree, scope);
   if (!pool.length) return null;
   // Flatter than a square root. sqrt still drew the same handful of headliners over and over,
   // which is a second way of making the game easy; this keeps a lean toward the known without
@@ -152,8 +152,8 @@ export function blurAnswerFor(tree: Tree, dateKey: string, scopeRootId?: string)
   for (const w of weights) total += w;
 
   const seedOf = (d: string, attempt: number) =>
-    attempt === 0 ? `grebe:blur:${d}:${scope}` : `grebe:blur:${d}:${scope}:${attempt}`;
-  if (dateKey < BLUR_ANCHOR) return drawFrom(pool, weights, total, seedOf(dateKey, 0));
+    attempt === 0 ? `grebe:mosaic:${d}:${scope}` : `grebe:mosaic:${d}:${scope}:${attempt}`;
+  if (dateKey < MOSAIC_ANCHOR) return drawFrom(pool, weights, total, seedOf(dateKey, 0));
 
   let byScope = answerCache.get(tree);
   if (!byScope) { byScope = new Map(); answerCache.set(tree, byScope); }
@@ -161,7 +161,7 @@ export function blurAnswerFor(tree: Tree, dateKey: string, scopeRootId?: string)
   if (!days) { days = new Map(); byScope.set(scope, days); }
 
   const recent: string[] = [];
-  for (let d = BLUR_ANCHOR; ; d = shiftDay(d, 1)) {
+  for (let d = MOSAIC_ANCHOR; ; d = shiftDay(d, 1)) {
     let pick = days.get(d);
     if (pick === undefined) {
       // Re-roll until the draw is not one of the recent ones. Bounded: a pool of hundreds
@@ -174,15 +174,15 @@ export function blurAnswerFor(tree: Tree, dateKey: string, scopeRootId?: string)
     }
     if (d === dateKey) return pick;
     recent.push(pick);
-    if (recent.length > BLUR_ANTI_REPEAT_WINDOW) recent.shift();
+    if (recent.length > MOSAIC_ANTI_REPEAT_WINDOW) recent.shift();
   }
 }
 
 /** Score one guess against the answer. */
-export function scoreBlurGuess(tree: Tree, answerId: string, guessId: string): BlurGuess | null {
+export function scoreMosaicGuess(tree: Tree, answerId: string, guessId: string): MosaicGuess | null {
   const node = tree.byId.get(guessId);
   if (!node) return null;
-  const cells: BlurCell[] = CHARACTERS.map((c) => {
+  const cells: MosaicCell[] = CHARACTERS.map((c) => {
     const mine = characterValue(tree, c, guessId);
     const theirs = characterValue(tree, c, answerId);
     return {
@@ -191,12 +191,12 @@ export function scoreBlurGuess(tree: Tree, answerId: string, guessId: string): B
       match: mine === NA || theirs === NA ? null : mine === theirs,
     };
   });
-  return { node, correct: guessId === answerId, cells, proximity: blurProximity(tree, answerId, guessId) };
+  return { node, correct: guessId === answerId, cells, proximity: mosaicProximity(tree, answerId, guessId) };
 }
 
 /** Which rung is on screen after `wrong` wrong guesses, clamped to the last one. */
-export function blurRung(wrong: number, mechanic: BlurMechanic = "blur"): number {
-  const len = mechanic === "shuffle" ? BLUR_SHUFFLE_LADDER.length : BLUR_LADDER.length;
+export function mosaicRung(wrong: number, mechanic: MosaicMechanic = "blur"): number {
+  const len = mechanic === "shuffle" ? MOSAIC_SHUFFLE_LADDER.length : MOSAIC_BLUR_LADDER.length;
   return Math.min(Math.max(wrong, 0), len - 1);
 }
 
@@ -208,9 +208,9 @@ export function blurRung(wrong: number, mechanic: BlurMechanic = "blur"): number
  *  direction the picture suggested rather than replacing the picture. Optional for exactly that
  *  reason: with it on, a player can tree-search and ignore the photograph, which is the failure
  *  mode to watch for. */
-export type BlurProximity = "same genus" | "same family" | "same order" | "same class" | "distant";
+export type MosaicProximity = "same genus" | "same family" | "same order" | "same class" | "distant";
 
-const PROXIMITY_BY_RANK: Record<string, BlurProximity> = {
+const PROXIMITY_BY_RANK: Record<string, MosaicProximity> = {
   subgenus: "same genus", "species group": "same genus", "species subgroup": "same genus", genus: "same genus",
   subtribe: "same family", tribe: "same family", subfamily: "same family", family: "same family",
   superfamily: "same order", infraorder: "same order", parvorder: "same order", suborder: "same order", order: "same order",
@@ -220,7 +220,7 @@ const PROXIMITY_BY_RANK: Record<string, BlurProximity> = {
   // Tetrapoda, and superclass read as class. Above class, the honest answer is "distant".
 };
 
-export function blurProximity(tree: Tree, answerId: string, guessId: string): BlurProximity {
+export function mosaicProximity(tree: Tree, answerId: string, guessId: string): MosaicProximity {
   const m = mrca(tree, answerId, guessId);
   if (!m) return "distant";
   for (let c: string | null | undefined = m; c; c = tree.byId.get(c)?.parentId) {
@@ -234,13 +234,13 @@ export function blurProximity(tree: Tree, answerId: string, guessId: string): Bl
 /** Every named clade between the root and a species, broad to narrow, with how many candidate
  *  answers each holds. This is what lets you look a species up and jump the filter straight to
  *  the level you meant — "show me where a fennec fox sits, then scope me to foxes". */
-export function blurLineagePath(
+export function mosaicLineagePath(
   tree: Tree,
   speciesId: string,
   pool: Set<string>,
   scopeRootId?: string
 ): Array<{ id: string; label: string; count: number }> {
-  const scope = scopeRootId ?? blurScopeId(tree);
+  const scope = scopeRootId ?? mosaicScopeId(tree);
   const chain: string[] = [];
   for (let c: string | null | undefined = tree.byId.get(speciesId)?.parentId; c; c = tree.byId.get(c)?.parentId) {
     if (c === scope) break; // the game's own root is where the filter already starts
@@ -305,7 +305,7 @@ export function blurLineagePath(
  *  photo gets. Once the drill is narrow enough, showing the candidates turns it into
  *  recognition — "which of these twelve is what I am looking at" — which is winnable, and
  *  teaches you the animal instead of just failing you. */
-export function blurCandidates(tree: Tree, cladeId: string, pool: Set<string>): TaxonNode[] {
+export function mosaicCandidates(tree: Tree, cladeId: string, pool: Set<string>): TaxonNode[] {
   const out: TaxonNode[] = [];
   const stack = [cladeId];
   while (stack.length) {
@@ -328,7 +328,7 @@ export function blurCandidates(tree: Tree, cladeId: string, pool: Set<string>): 
  *  "Directly below" means the SHALLOWEST NAMED descendants: the tree keeps unnamed junction
  *  nodes that a player cannot reason about, so the walk descends through them and stops at the
  *  first thing with a name. */
-export function blurDrillOptions(
+export function mosaicDrillOptions(
   tree: Tree,
   cladeId: string,
   pool: Set<string>
@@ -389,7 +389,7 @@ export function blurDrillOptions(
 }
 
 /** The answer's own row, for the solved/failed state. */
-export function blurAnswerRow(tree: Tree, answerId: string): BlurCell[] {
+export function mosaicAnswerRow(tree: Tree, answerId: string): MosaicCell[] {
   return CHARACTERS.map((c) => ({
     characterId: c.id,
     value: characterValue(tree, c, answerId),
