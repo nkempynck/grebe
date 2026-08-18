@@ -2,6 +2,7 @@
 // leaderboard, no result card.
 import { useMemo, useState } from "react";
 import type { Tree, GameConfig, GuessResult } from "../core";
+import { isAncestor, resolveGuess } from "../core";
 import { CHARACTERS } from "../core/blurChars";
 import { useBlurGame } from "../hooks/useBlurGame";
 import { GuessInput } from "./GuessInput";
@@ -9,6 +10,29 @@ import { GuessInput } from "./GuessInput";
 export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
   const g = useBlurGame(tree, date);
   const [zoom, setZoom] = useState(false);
+  const [reject, setReject] = useState<string | null>(null);
+
+  /** A typed guess arrives with NO id — GuessInput only supplies one when a suggestion row is
+   *  picked. Ignoring those made the button do nothing at all, silently, which is what
+   *  narrowing the filter looked like from the outside. Resolve the text, then hold it to the
+   *  same filter the suggestions are held to: if you have said "rodents", a duck is not a
+   *  guess you get to make, and it should say so rather than quietly scoring it. */
+  const submit = (text: string, id?: string) => {
+    setReject(null);
+    if (!tree) return;
+    const node = id ? tree.byId.get(id) : resolveGuess(tree, text);
+    if (!node) { setReject(`No organism called “${text.trim()}”.`); return; }
+    if (g.focusCladeId && !isAncestor(tree, g.focusCladeId, node.id)) {
+      const scope = g.path.length ? g.path[g.path.length - 1].label : "this group";
+      setReject(`${node.common ?? node.sciName} is not in ${scope}.`);
+      return;
+    }
+    if ((tree.childrenOf.get(node.id) ?? []).length > 0) {
+      setReject(`${node.common ?? node.sciName} is a group — name a single species.`);
+      return;
+    }
+    g.guess(node.id);
+  };
 
   const config: GameConfig = useMemo(
     () => ({ scopeRootId: tree?.rootId ?? "life", winWithin: 0 }),
@@ -71,9 +95,9 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
         <>
           <div className="blur-drill">
             <div className="blur-crumbs">
-              <button className="blur-crumb" onClick={() => g.drillTo(0)}>All animals</button>
+              <button className="blur-crumb" onClick={() => { setReject(null); g.drillTo(0); }}>All animals</button>
               {g.path.map((p, i) => (
-                <button key={p.id} className="blur-crumb" onClick={() => g.drillTo(i + 1)}>
+                <button key={p.id} className="blur-crumb" onClick={() => { setReject(null); g.drillTo(i + 1); }}>
                   <span aria-hidden="true">›</span> {p.label}
                 </button>
               ))}
@@ -81,7 +105,7 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
             </div>
             <div className="blur-options">
               {g.options.slice(0, 24).map((o) => (
-                <button key={o.id} className="blur-opt" onClick={() => g.drillInto(o.id)}>
+                <button key={o.id} className="blur-opt" onClick={() => { setReject(null); g.drillInto(o.id); }}>
                   {o.label} <b>{o.count}</b>
                 </button>
               ))}
@@ -91,11 +115,12 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
             </div>
           </div>
 
+          {reject && <p className="blur-reject">{reject}</p>}
           <GuessInput
             tree={tree}
             config={config}
             disabled={done}
-            onSubmit={(_text, id) => id && g.guess(id)}
+            onSubmit={submit}
             focusCladeId={g.focusCladeId}
             guesses={asGuessResults}
           />

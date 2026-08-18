@@ -2315,3 +2315,4 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .blur-opt:hover { border-color: currentColor; }
 .blur-opt-none { font-size: .78rem; opacity: .6; }
 .blur-table-note { font-size: .72rem; opacity: .55; margin: 0 0 .3rem; }
+.blur-reject { margin: 0; font-size: .8rem; color: #a2402f; }
