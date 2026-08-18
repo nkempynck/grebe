@@ -5,7 +5,7 @@
 // Pure: tree in, board out. No React, no data layer, no image fetching — the ladder images are
 // built at pin time by scripts/blur-images.mjs and addressed by rung index.
 import type { TaxonNode, Tree } from "./types";
-import { leavesUnder } from "./tree";
+import { leavesUnder, mrca } from "./tree";
 import { CHARACTERS, characterValue, NA } from "./blurChars";
 
 /** Rung widths in pixels. Full resolution is deliberately NOT a rung: it is the reward for
@@ -71,6 +71,8 @@ export interface BlurGuess {
   node: TaxonNode;
   correct: boolean;
   cells: BlurCell[];
+  /** How far it landed. Shown only when the proximity setting is on. */
+  proximity: BlurProximity;
 }
 
 export interface BlurBoard {
@@ -189,13 +191,94 @@ export function scoreBlurGuess(tree: Tree, answerId: string, guessId: string): B
       match: mine === NA || theirs === NA ? null : mine === theirs,
     };
   });
-  return { node, correct: guessId === answerId, cells };
+  return { node, correct: guessId === answerId, cells, proximity: blurProximity(tree, answerId, guessId) };
 }
 
 /** Which rung is on screen after `wrong` wrong guesses, clamped to the last one. */
 export function blurRung(wrong: number, mechanic: BlurMechanic = "blur"): number {
   const len = mechanic === "shuffle" ? BLUR_SHUFFLE_LADDER.length : BLUR_LADDER.length;
   return Math.min(Math.max(wrong, 0), len - 1);
+}
+
+/** How far a guess landed from the answer, WITHOUT naming the shared group.
+ *
+ *  Deliberately coarse. Lineage's mechanic is the named most-recent common ancestor plus a
+ *  temperature, and that IS its game; handing the same thing over would make this one a reskin.
+ *  A rank alone says how far ("same order") without saying which order, so it confirms a
+ *  direction the picture suggested rather than replacing the picture. Optional for exactly that
+ *  reason: with it on, a player can tree-search and ignore the photograph, which is the failure
+ *  mode to watch for. */
+export type BlurProximity = "same genus" | "same family" | "same order" | "same class" | "distant";
+
+const PROXIMITY_BY_RANK: Record<string, BlurProximity> = {
+  subgenus: "same genus", "species group": "same genus", "species subgroup": "same genus", genus: "same genus",
+  subtribe: "same family", tribe: "same family", subfamily: "same family", family: "same family",
+  superfamily: "same order", infraorder: "same order", parvorder: "same order", suborder: "same order", order: "same order",
+  infraclass: "same class", subclass: "same class", class: "same class",
+  // Nothing broader gets a "same" label. superclass was mapped to "same class" and reported a
+  // fennec fox and an AXOLOTL as classmates: their MRCA is unranked, the walk climbed to
+  // Tetrapoda, and superclass read as class. Above class, the honest answer is "distant".
+};
+
+export function blurProximity(tree: Tree, answerId: string, guessId: string): BlurProximity {
+  const m = mrca(tree, answerId, guessId);
+  if (!m) return "distant";
+  for (let c: string | null | undefined = m; c; c = tree.byId.get(c)?.parentId) {
+    const n = tree.byId.get(c);
+    const hit = PROXIMITY_BY_RANK[n?.sepRank ?? n?.rank ?? ""];
+    if (hit) return hit;
+  }
+  return "distant";
+}
+
+/** Every named clade between the root and a species, broad to narrow, with how many candidate
+ *  answers each holds. This is what lets you look a species up and jump the filter straight to
+ *  the level you meant — "show me where a fennec fox sits, then scope me to foxes". */
+export function blurLineagePath(
+  tree: Tree,
+  speciesId: string,
+  pool: Set<string>,
+  scopeRootId?: string
+): Array<{ id: string; label: string; count: number }> {
+  const scope = scopeRootId ?? blurScopeId(tree);
+  const chain: string[] = [];
+  for (let c: string | null | undefined = tree.byId.get(speciesId)?.parentId; c; c = tree.byId.get(c)?.parentId) {
+    if (c === scope) break; // the game's own root is where the filter already starts
+    chain.push(c);
+  }
+  chain.reverse();
+  const countUnder = (id: string) => {
+    let n = 0;
+    const stack = [id];
+    while (stack.length) {
+      const c = stack.pop()!;
+      if (pool.has(c)) n++;
+      for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+    }
+    return n;
+  };
+  // Straight off the tree this reads "Metazoa 942 > Bilateria 936 > Vertebrata 756 >
+  // Gnathostomata 755 > Euteleostomi 729 > Tetrapoda 622 > Amniota 600 > Mammal 236 > Theria
+  // 234 > Eutherians 223 > Boreoeutheria 212 > Laurasiatheria 155 > Carnivora 74 …": sixteen
+  // steps, most of them narrowing by a percent or two, and named for clades nobody scopes by.
+  // A level earns its place by NARROWING, and an opaque scientific name has to narrow harder
+  // than a common one to be worth showing. Result: Mammal > Carnivora > Canoidea > Vulpes.
+  const NARROWS = 0.75;      // must cut at least a quarter of what the last kept level held
+  const NARROWS_SCIENTIFIC = 0.5; // …or half, if the only name it has is a scientific one
+  const out: Array<{ id: string; label: string; count: number }> = [];
+  let prev = Infinity;
+  for (const id of chain) {
+    const n = tree.byId.get(id);
+    if (!n || !(n.common || n.sciName)) continue;
+    const count = countUnder(id);
+    if (count < 1) continue;
+    const ratio = count / prev;
+    const gate = n.common ? NARROWS : NARROWS_SCIENTIFIC;
+    if (ratio > gate) continue;
+    out.push({ id, label: n.common ?? n.sciName, count });
+    prev = count;
+  }
+  return out;
 }
 
 /** Candidate answers under a clade, for the endgame list. Recall is the wrong ask when the

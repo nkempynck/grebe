@@ -8,7 +8,7 @@ import { CLADE_GROUPS } from "../data/clades";
 import { todayKey } from "../core/daily";
 import {
   blurAnswerFor, scoreBlurGuess, blurRung, blurPool, blurScopeId, blurDrillOptions,
-  blurCandidates, BLUR_LADDER, BLUR_SHUFFLE_LADDER, BLUR_MAX_GUESSES,
+  blurCandidates, blurLineagePath, BLUR_LADDER, BLUR_SHUFFLE_LADDER, BLUR_MAX_GUESSES,
   type BlurGuess, type BlurMechanic,
 } from "../core/blur";
 import type { TaxonNode } from "../core";
@@ -38,6 +38,13 @@ export interface UseBlurGame {
   rungCount: number;
   /** Candidate answers inside the current filter, once it is narrow enough to list. */
   candidates: TaxonNode[];
+  /** SETTING: show how far each guess landed. Off by default — see blurProximity. */
+  showProximity: boolean;
+  setShowProximity: (v: boolean) => void;
+  /** Jump the filter straight to a clade chain (from the species lookup). */
+  setPath: (ids: string[]) => void;
+  /** Named clades a species belongs to, broad to narrow, for the lookup panel. */
+  lineageOf: (speciesId: string) => Array<{ id: string; label: string; count: number }>;
   guessesLeft: number;
   imageUrl: string;
   credit: BlurCredit | null;
@@ -85,6 +92,7 @@ export function useBlurGame(tree: Tree | null, dateOverride?: string): UseBlurGa
   const [pathIds, setPathIds] = useState<string[]>([]);
   const [mechanic, setMechanic] = useState<BlurMechanic>("blur");
   const [rungOverride, setRungOverride] = useState<number | null>(null);
+  const [showProximity, setShowProximity] = useState(false);
   const [credit, setCredit] = useState<BlurCredit | null>(null);
 
   // A new day is a new game.
@@ -187,6 +195,10 @@ export function useBlurGame(tree: Tree | null, dateOverride?: string): UseBlurGa
     setRungOverride,
     rungCount: ladder.length,
     candidates,
+    showProximity,
+    setShowProximity,
+    setPath: (ids: string[]) => setPathIds(ids),
+    lineageOf: (speciesId: string) => (tree ? blurLineagePath(tree, speciesId, pool) : []),
     guessesLeft: Math.max(0, BLUR_MAX_GUESSES - guesses.length),
     // On solve the full photo replaces the ladder; until then only the rung earned is fetched,
     // so the clearer images are never even in the browser cache.
