@@ -266,7 +266,9 @@ export function blurLineagePath(
   const NARROWS = 0.75;      // must cut at least a quarter of what the last kept level held
   const NARROWS_SCIENTIFIC = 0.5; // …or half, if the only name it has is a scientific one
   const out: Array<{ id: string; label: string; count: number }> = [];
-  let prev = Infinity;
+  // Starts at what the SCOPE holds, not Infinity: with Infinity the first level always cleared
+  // the gate, which is how "Bilateria 936" kept appearing above a pool of 942.
+  let prev = pool.size;
   for (const id of chain) {
     const n = tree.byId.get(id);
     if (!n || !(n.common || n.sciName)) continue;

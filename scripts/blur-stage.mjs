@@ -8,7 +8,7 @@
 // filename is the rung index and nothing else.
 //
 //   node scripts/blur-stage.mjs [--from 2026-08-18] [--days 14]
-import { mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -82,5 +82,12 @@ for (const d of schedule) {
   }
 }
 // An index the prototype UI reads so its "new sample" button knows what exists locally.
-writeFileSync(resolve(ROOT, "public/blur/index.json"), JSON.stringify(Object.keys(index).sort()));
+// Built by SCANNING the directory, not from this run's days: staging two dates used to
+// overwrite the index with just those two and silently orphan everything staged before.
+const blurRoot = resolve(ROOT, "public/blur");
+const staged = readdirSync(blurRoot, { withFileTypes: true })
+  .filter((e) => e.isDirectory() && existsSync(resolve(blurRoot, e.name, "0.jpg")))
+  .map((e) => e.name)
+  .sort();
+writeFileSync(resolve(blurRoot, "index.json"), JSON.stringify(staged));
 console.error(`\nstaged ${Object.keys(index).length}/${schedule.length} days into public/blur/`);

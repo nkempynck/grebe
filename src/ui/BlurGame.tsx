@@ -131,6 +131,7 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
       {!done && (
         <>
           <div className="blur-drill">
+            <span className="blur-box-label">Narrow down</span>
             <div className="blur-crumbs">
               <button className="blur-crumb" onClick={() => { setReject(null); g.drillTo(0); }}>All animals</button>
               {g.path.map((p, i) => (
@@ -140,41 +141,6 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
               ))}
               <span className="blur-remaining">{g.remaining} left</span>
             </div>
-            <div className="blur-lookup">
-              <input
-                value={lookup}
-                onChange={(e) => { setLookup(e.target.value); setLooked(null); }}
-                placeholder="Look up an animal to see where it sits…"
-                aria-label="Look up an animal to scope by its groups"
-              />
-              {lookup.trim().length > 1 && !looked && tree && (
-                <div className="blur-lookup-hits">
-                  {suggestGuesses(tree, lookup, 6)
-                    .filter((n) => (tree.childrenOf.get(n.id) ?? []).length === 0)
-                    .map((n) => (
-                      <button key={n.id} className="blur-cand" onClick={() => setLooked(n.id)}>
-                        {n.common ?? n.sciName}
-                      </button>
-                    ))}
-                </div>
-              )}
-              {looked && (
-                <div className="blur-lookup-chain">
-                  {/* Its groups, broad to narrow. Clicking one scopes the guess bar there —
-                      "show me where a fennec fox sits, now put me in foxes". */}
-                  {g.lineageOf(looked).map((l) => (
-                    <button
-                      key={l.id}
-                      className="blur-opt"
-                      onClick={() => { setReject(null); g.setPath([l.id]); setLookup(""); setLooked(null); }}
-                    >
-                      {l.label} <b>{l.count}</b>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             <div className="blur-options">
               {g.options.slice(0, 24).map((o) => (
                 <button key={o.id} className="blur-opt" onClick={() => { setReject(null); g.drillInto(o.id); }}>
@@ -198,6 +164,46 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
                   ))}
                 </div>
               </div>
+            )}
+          </div>
+
+
+          <div className="blur-lookupbox">
+            <span className="blur-box-label">Look up an animal</span>
+            <input
+              value={lookup}
+              onChange={(e) => { setLookup(e.target.value); setLooked(null); }}
+              placeholder="e.g. arctic fox — see which groups it sits in"
+              aria-label="Look up an animal to scope by its groups"
+            />
+            {lookup.trim().length > 1 && !looked && tree && (
+              <div className="blur-lookup-hits">
+                {suggestGuesses(tree, lookup, 6)
+                  .filter((n) => (tree.childrenOf.get(n.id) ?? []).length === 0)
+                  .map((n) => (
+                    <button key={n.id} className="blur-cand" onClick={() => setLooked(n.id)}>
+                      {n.common ?? n.sciName}
+                    </button>
+                  ))}
+              </div>
+            )}
+            {looked && tree && (
+              <>
+                <p className="blur-lookup-said">
+                  <b>{tree.byId.get(looked)?.common ?? tree.byId.get(looked)?.sciName}</b> sits in — tap one to narrow to it
+                </p>
+                <div className="blur-lookup-chain">
+                  {g.lineageOf(looked).map((l) => (
+                    <button
+                      key={l.id}
+                      className="blur-path"
+                      onClick={() => { setReject(null); g.setPath([l.id]); setLookup(""); setLooked(null); }}
+                    >
+                      {l.label} <b>{l.count}</b>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
