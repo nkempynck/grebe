@@ -38,7 +38,7 @@ export const LADDER = [3, 4, 6, 8, 11, 15, 20, 26, 34, 45, 60, 80, 106, 0];
  *  detail — spotted fur, scales, an eye — and throws away global shape. For naming a species
  *  that is probably the better trade, and it means there is always SOMETHING to look at rather
  *  than a beige square you can only wait out. */
-export const SHUFFLE_LADDER = [10, 8, 6, 5, 4, 3, 2];
+export const SHUFFLE_LADDER = [20, 15, 11, 8, 6, 4, 3];
 
 /** Side of the square the shuffle works on. Deliberately not full resolution: shuffling leaves
  *  every byte in the client, so unlike downsampling it is only cosmetic hiding, and rendering

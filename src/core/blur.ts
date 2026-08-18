@@ -27,7 +27,7 @@ export const BLUR_LADDER = [11, 15, 20, 27, 36, 48, 64] as const;
  *  opposite halves of the picture — blur keeps silhouette and loses texture, shuffle keeps
  *  every pixel of texture and loses shape. Which is the better puzzle for naming an animal is
  *  a question only playing answers, so the prototype ships both and lets you switch. */
-export const BLUR_SHUFFLE_LADDER = [10, 8, 6, 5, 4, 3, 2] as const;
+export const BLUR_SHUFFLE_LADDER = [20, 15, 11, 8, 6, 4, 3] as const;
 
 export type BlurMechanic = "blur" | "shuffle";
 
@@ -49,11 +49,14 @@ export function blurScopeId(tree: Tree): string {
   return tree.rootId;
 }
 
-/** Below this many Wikipedia pageviews a species is not a fair answer: the picture is the whole
- *  puzzle, so an organism most players could not name with the photo in front of them is not
- *  hard, just unfair. Deliberately far above Kinship's floor (2000), which only has to make a
- *  GROUP nameable once solved. */
-export const BLUR_MIN_VIEWS = 20000;
+/** Below this many Wikipedia pageviews a species is not a fair answer.
+ *
+ *  It started at 20000 (472 animals), because naming an organism you have never met is not
+ *  hard, it is unfair. The candidate list changes that calculus: once the drill is narrow the
+ *  names are on screen, so an unfamiliar animal is recognisable even when it is not
+ *  recallable. 9000 nearly doubles the pool to 942 and pulls the median day well off the
+ *  headline species, which was making boards easy on fame alone. */
+export const BLUR_MIN_VIEWS = 9000;
 
 export interface BlurCell {
   characterId: string;
@@ -139,7 +142,10 @@ export function blurAnswerFor(tree: Tree, dateKey: string, scopeRootId?: string)
   const scope = scopeRootId ?? blurScopeId(tree);
   const pool = blurPool(tree, scope);
   if (!pool.length) return null;
-  const weights = pool.map((id) => Math.sqrt(tree.byId.get(id)?.views ?? 1));
+  // Flatter than a square root. sqrt still drew the same handful of headliners over and over,
+  // which is a second way of making the game easy; this keeps a lean toward the known without
+  // letting the top of the pool dominate.
+  const weights = pool.map((id) => Math.pow(tree.byId.get(id)?.views ?? 1, 0.3));
   let total = 0;
   for (const w of weights) total += w;
 
