@@ -2,7 +2,11 @@ import { describe, it, expect } from "vitest";
 import taxonomy from "../data/taxonomy.json";
 import { buildTree } from "./index";
 import { CHARACTERS, characterRow, characterValue, missingCladeNames, NA } from "./mosaicChars";
-import { mosaicAnswerFor, mosaicPool, scoreMosaicGuess, mosaicRung, MOSAIC_BLUR_LADDER, MOSAIC_MAX_GUESSES } from "./mosaic";
+import {
+  mosaicAnswerFor, mosaicPool, scoreMosaicGuess, mosaicRung, mosaicAids, mosaicAidsFor,
+  mosaicTierForDate, mosaicDegrees, mosaicScopeId,
+  MOSAIC_BLUR_LADDER, MOSAIC_MAX_GUESSES, MOSAIC_DEFAULT_MECHANIC,
+} from "./mosaic";
 
 type Nodes = Parameters<typeof buildTree>[0];
 const tree = buildTree((taxonomy as { nodes: Nodes }).nodes);
@@ -114,5 +118,81 @@ describe("mosaic board", () => {
     expect(mosaicRung(99)).toBe(MOSAIC_BLUR_LADDER.length - 1);
     // the last guess is made at the clearest rung, not after the reveal
     expect(MOSAIC_MAX_GUESSES).toBe(MOSAIC_BLUR_LADDER.length + 1);
+  });
+
+  it("shuffles by default", () => {
+    expect(MOSAIC_DEFAULT_MECHANIC).toBe("shuffle");
+  });
+});
+
+describe("mosaic week", () => {
+  // 2026-08-17 is a Monday.
+  const MON = "2026-08-17";
+  const day = (n: number) => new Date(Date.UTC(2026, 7, 17) + n * 86400000).toISOString().slice(0, 10);
+
+  it("numbers the weekdays the way the other games do", () => {
+    expect(mosaicTierForDate(MON)).toBe(1);
+    expect(mosaicTierForDate(day(5))).toBe(6); // Saturday
+    expect(mosaicTierForDate(day(6))).toBe(7); // Sunday
+  });
+
+  it("takes an aid away, never gives one back, across the week", () => {
+    const week = [0, 1, 2, 3, 4, 5, 6].map((n) => mosaicAidsFor(day(n)));
+    // Monotonic: once a lever is off it stays off for the rest of the week.
+    for (let i = 1; i < week.length; i++) {
+      expect(Number(week[i].lookup)).toBeLessThanOrEqual(Number(week[i - 1].lookup));
+      expect(Number(week[i].subset)).toBeLessThanOrEqual(Number(week[i - 1].subset));
+      if (week[i - 1].proximity === "degrees") expect(week[i].proximity).toBe("degrees");
+    }
+    expect(week[0]).toMatchObject({ lookup: true, subset: true, proximity: "named" });
+    expect(week[2]).toMatchObject({ lookup: true, subset: true, proximity: "degrees" });
+    expect(week[3]).toMatchObject({ lookup: false, subset: true, proximity: "degrees" });
+    expect(week[6]).toMatchObject({ lookup: false, subset: false, proximity: "degrees" });
+  });
+
+  it("clamps a forced tier rather than handing back an undefined set of aids", () => {
+    for (const t of [-3, 0, 1, 7, 12, 4.4]) {
+      const a = mosaicAids(t);
+      expect(a.tier).toBeGreaterThanOrEqual(1);
+      expect(a.tier).toBeLessThanOrEqual(7);
+      expect(typeof a.lookup).toBe("boolean");
+    }
+  });
+});
+
+describe("mosaic degrees", () => {
+  const scope = mosaicScopeId(tree);
+  const deg = (a: string, g: string) => mosaicDegrees(tree, idOf(a), idOf(g), scope);
+
+  it("reads 100 on the answer and falls away with distance", () => {
+    expect(deg("Panthera leo", "Panthera leo")).toBe(100);
+    const sister = deg("Panthera leo", "Panthera tigris");
+    const order = deg("Panthera leo", "Canis lupus");
+    const far = deg("Panthera leo", "Aptenodytes forsteri");
+    expect(sister).toBeGreaterThan(order);
+    expect(order).toBeGreaterThan(far);
+    expect(far).toBeGreaterThanOrEqual(0);
+  });
+
+  // The subset filter must not move the reading. Rescaling to the player's current narrowing
+  // would answer "is the answer even in here", which they never asked and did not earn, and it
+  // would rewrite every earlier row each time they moved the filter.
+  it("defaults to the game's scope, which a narrower root would visibly change", () => {
+    const answer = idOf("Panthera leo");
+    const guess = idOf("Canis lupus");
+    const mammals = [...tree.byId.values()].find((n) => n.sciName === "Mammalia")!;
+    const atScope = mosaicDegrees(tree, answer, guess, scope);
+    // Same two animals, read against a tighter root: a different number, which is exactly why
+    // the root has to be fixed.
+    expect(mosaicDegrees(tree, answer, guess, mammals.id)).not.toBe(atScope);
+    // …and the default, with no root passed, is the game's own.
+    expect(mosaicDegrees(tree, answer, guess)).toBe(atScope);
+    expect(scoreMosaicGuess(tree, answer, guess)!.degrees).toBe(atScope);
+  });
+
+  it("scores every guess with both readings, so the day decides which is shown", () => {
+    const g = scoreMosaicGuess(tree, idOf("Panthera leo"), idOf("Panthera tigris"), scope)!;
+    expect(g.proximity).toBe("same genus");
+    expect(g.degrees).toBeGreaterThan(0);
   });
 });

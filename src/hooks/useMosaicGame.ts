@@ -1,6 +1,9 @@
-// PROTOTYPE state for Mosaic. Deliberately thin: no persistence, no stats, no leaderboard, no
-// pinned puzzle. Those all matter and none of them tell us whether the game is fun, which is
-// the only question this prototype exists to answer.
+// Mosaic's game state. Still no persistence, stats, leaderboard or pinned puzzle — those are
+// the shipping work, and none of them is decided until the daily image pipeline is.
+//
+// Everything the test bench needs comes in through `dev`, and is null for the real game. The
+// bench forces a difficulty tier (which for Mosaic means a set of AIDS, not a different board)
+// and walks the locally staged days; the site never reads either.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Tree } from "../core";
 import { isAncestor } from "../core";
@@ -8,8 +11,9 @@ import { CLADE_GROUPS } from "../data/clades";
 import { todayKey } from "../core/daily";
 import {
   mosaicAnswerFor, scoreMosaicGuess, mosaicRung, mosaicPool, mosaicScopeId, mosaicDrillOptions,
-  mosaicCandidates, mosaicLineagePath, MOSAIC_BLUR_LADDER, MOSAIC_SHUFFLE_LADDER, MOSAIC_MAX_GUESSES,
-  type MosaicGuess, type MosaicMechanic,
+  mosaicCandidates, mosaicLineagePath, mosaicAids, mosaicTierForDate,
+  MOSAIC_BLUR_LADDER, MOSAIC_SHUFFLE_LADDER, MOSAIC_MAX_GUESSES, MOSAIC_DEFAULT_MECHANIC,
+  type MosaicGuess, type MosaicMechanic, type MosaicAids,
 } from "../core/mosaic";
 import type { TaxonNode } from "../core";
 
@@ -38,9 +42,8 @@ export interface UseMosaicGame {
   rungCount: number;
   /** Candidate answers inside the current filter, once it is narrow enough to list. */
   candidates: TaxonNode[];
-  /** SETTING: show how far each guess landed. Off by default — see mosaicProximity. */
-  showProximity: boolean;
-  setShowProximity: (v: boolean) => void;
+  /** What today gives you besides the picture. Drives which panels exist at all. */
+  aids: MosaicAids;
   /** Jump the filter straight to a clade chain (from the species lookup). */
   setPath: (ids: string[]) => void;
   /** Named clades a species belongs to, broad to narrow, for the lookup panel. */
@@ -61,42 +64,66 @@ export interface UseMosaicGame {
   focusCladeId: string | null;
   guess: (id: string) => void;
   giveUp: () => void;
-  /** PROTOTYPE affordances: jump to another locally staged day. */
+  /** Reveal the answer as a win. Test bench only. */
+  solve: () => void;
+  /** Locally staged days. Test bench only; empty on the site. */
   staged: string[];
-  sample: () => void;
-  /** True when this date has no staged image — a prototype condition, not a game state. */
+  /** True when this date has no staged image. On the site that is a genuine outage; on the
+   *  bench it usually just means you have not staged that far ahead. */
   missing: boolean;
   onImageError: () => void;
 }
 
-export function useMosaicGame(tree: Tree | null, dateOverride?: string): UseMosaicGame {
-  // PROTOTYPE: images are staged per date under public/mosaic, and today is often not one of
-  // them (staging a week from tomorrow left today with no picture at all, which showed up as a
-  // broken-image icon rather than anything a playtester could act on). The sampler walks the
-  // dates that actually exist locally.
+/** Test-bench overrides. Null for the real game, and the site never populates it. */
+export interface MosaicDev {
+  /** Force a difficulty tier 1…7. 0 = today's weekday. */
+  tier: number;
+  /** Bumped to walk to the next locally staged day. */
+  nonce: number;
+}
+
+export function useMosaicGame(
+  tree: Tree | null,
+  opts: { date?: string; dev?: MosaicDev | null } = {}
+): UseMosaicGame {
+  const { date: dateOverride, dev = null } = opts;
+  // The bench walks the days that exist on disk; images are staged per date under
+  // public/mosaic and today is often not one of them. The site does not need this list at all
+  // — it plays today and reports a missing image as what it is.
   const [staged, setStaged] = useState<string[]>([]);
-  const [pick, setPick] = useState<string | null>(null);
   useEffect(() => {
+    if (!dev) return;
     let live = true;
     fetch("/mosaic/index.json")
       .then((r) => (r.ok ? r.json() : []))
       .catch(() => [])
       .then((d: string[]) => { if (live) setStaged(Array.isArray(d) ? d : []); });
     return () => { live = false; };
-  }, []);
+  }, [Boolean(dev)]);
   const today = todayKey();
-  const date = dateOverride ?? pick ?? (staged.includes(today) ? today : staged[0] ?? today);
+  const date = dateOverride
+    ?? (dev && staged.length ? staged[((dev.nonce % staged.length) + staged.length) % staged.length] : today);
   const [missing, setMissing] = useState(false);
   const [guesses, setGuesses] = useState<MosaicGuess[]>([]);
   const [gaveUp, setGaveUp] = useState(false);
+  const [benchSolved, setBenchSolved] = useState(false);
   const [pathIds, setPathIds] = useState<string[]>([]);
-  const [mechanic, setMechanic] = useState<MosaicMechanic>("blur");
+  const [mechanic, setMechanic] = useState<MosaicMechanic>(MOSAIC_DEFAULT_MECHANIC);
   const [rungOverride, setRungOverride] = useState<number | null>(null);
-  const [showProximity, setShowProximity] = useState(false);
   const [credit, setCredit] = useState<MosaicCredit | null>(null);
 
-  // A new day is a new game.
-  useEffect(() => { setGuesses([]); setGaveUp(false); setPathIds([]); setMissing(false); }, [date]);
+  // What today hands you besides the picture. The bench forces it; everywhere else it is the
+  // weekday, which is the whole of Mosaic's difficulty ramp.
+  const aids = useMemo(
+    () => mosaicAids(dev && dev.tier ? dev.tier : mosaicTierForDate(date)),
+    [dev?.tier, date]
+  );
+
+  // A new day is a new game — and so is a forced tier on the bench, which changes what the
+  // player is working with rather than which board they are working on.
+  useEffect(() => {
+    setGuesses([]); setGaveUp(false); setBenchSolved(false); setPathIds([]); setMissing(false);
+  }, [date, aids.tier]);
 
   const answerId = useMemo(() => (tree ? mosaicAnswerFor(tree, date) : null), [tree, date]);
 
@@ -123,7 +150,7 @@ export function useMosaicGame(tree: Tree | null, dateOverride?: string): UseMosa
   }, [tree, pathIds, pool]);
   const hereId = pathIds.length ? pathIds[pathIds.length - 1] : rootId;
   const options = useMemo(() => {
-    if (!tree || !hereId) return [];
+    if (!tree || !hereId || !aids.subset) return [];
     const raw = mosaicDrillOptions(tree, hereId, pool);
     if (pathIds.length) return raw;
     // FIRST STEP ONLY: the curated player-facing groups the rest of the app already uses.
@@ -146,7 +173,7 @@ export function useMosaicGame(tree: Tree | null, dateOverride?: string): UseMosa
     // Anything the curated list does not cover (cephalopods, jellyfish) still needs a way in.
     const rest = raw.filter((o) => !curated.some((c) => c.id === o.id || isAncestor(tree, c.id, o.id)));
     return [...curated, ...rest].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [tree, hereId, pool, pathIds.length]);
+  }, [tree, hereId, pool, pathIds.length, aids.subset]);
   const remaining = path.length ? path[path.length - 1].count : pool.size;
   // Listed once the filter is narrow enough to SCAN. Raised from 30 after drilling into
   // Perching birds (87 candidates) offered 57 genus chips holding two to four species each —
@@ -155,36 +182,39 @@ export function useMosaicGame(tree: Tree | null, dateOverride?: string): UseMosa
   // between 57 genera you have never heard of.
   const CANDIDATE_LIST_MAX = 120;
   const candidates = useMemo(
-    () => (tree && hereId && remaining > 0 && remaining <= CANDIDATE_LIST_MAX
+    // Gated on `subset` explicitly, not just on the threshold. Unnarrowed the pool is 942 and
+    // could never reach 120 anyway, but that is an accident of two numbers rather than a rule,
+    // and the weekend's whole difficulty is that this list does not exist.
+    () => (tree && hereId && aids.subset && remaining > 0 && remaining <= CANDIDATE_LIST_MAX
       ? mosaicCandidates(tree, hereId, pool) : []),
-    [tree, hereId, pool, remaining]
+    [tree, hereId, pool, remaining, aids.subset]
   );
 
-  const won = guesses.some((g) => g.correct);
+  const won = benchSolved || guesses.some((g) => g.correct);
   const status: MosaicStatus = won ? "won" : gaveUp || guesses.length >= MOSAIC_MAX_GUESSES ? "lost" : "playing";
   const wrong = guesses.filter((g) => !g.correct).length;
   const rung = rungOverride ?? mosaicRung(wrong, mechanic);
   const ladder = mechanic === "shuffle" ? MOSAIC_SHUFFLE_LADDER : MOSAIC_BLUR_LADDER;
-  const solved = status !== "playing";
+  const over = status !== "playing";
 
   useEffect(() => {
-    if (!solved) { setCredit(null); return; }
+    if (!over) { setCredit(null); return; }
     let live = true;
     fetch(`/mosaic/${date}/credit.json`)
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null)
       .then((c) => { if (live) setCredit(c); });
     return () => { live = false; };
-  }, [solved, date]);
+  }, [over, date]);
 
   const guess = useCallback((id: string) => {
     if (!tree || !answerId || status !== "playing") return;
     setGuesses((prev) => {
       if (prev.some((g) => g.node.id === id)) return prev; // already tried
-      const scored = scoreMosaicGuess(tree, answerId, id);
+      const scored = scoreMosaicGuess(tree, answerId, id, rootId ?? undefined);
       return scored ? [...prev, scored] : prev;
     });
-  }, [tree, answerId, status]);
+  }, [tree, answerId, status, rootId]);
 
   return {
     date,
@@ -199,14 +229,13 @@ export function useMosaicGame(tree: Tree | null, dateOverride?: string): UseMosa
     setRungOverride,
     rungCount: ladder.length,
     candidates,
-    showProximity,
-    setShowProximity,
+    aids,
     setPath: (ids: string[]) => setPathIds(ids),
     lineageOf: (speciesId: string) => (tree ? mosaicLineagePath(tree, speciesId, pool) : []),
     guessesLeft: Math.max(0, MOSAIC_MAX_GUESSES - guesses.length),
     // On solve the full photo replaces the ladder; until then only the rung earned is fetched,
     // so the clearer images are never even in the browser cache.
-    imageUrl: solved ? `/mosaic/${date}/full.jpg`
+    imageUrl: over ? `/mosaic/${date}/full.jpg`
       : mechanic === "shuffle" ? `/mosaic/${date}/s${rung}.jpg` : `/mosaic/${date}/${rung}.jpg`,
     credit,
     path,
@@ -214,15 +243,11 @@ export function useMosaicGame(tree: Tree | null, dateOverride?: string): UseMosa
     remaining,
     drillInto: (id: string) => setPathIds((p) => [...p, id]),
     drillTo: (depth: number) => setPathIds((p) => p.slice(0, depth)),
-    focusCladeId: pathIds.length ? pathIds[pathIds.length - 1] : null,
+    focusCladeId: aids.subset && pathIds.length ? pathIds[pathIds.length - 1] : null,
     guess,
     giveUp: () => setGaveUp(true),
+    solve: () => setBenchSolved(true),
     staged,
-    sample: () => {
-      if (!staged.length) return;
-      const i = staged.indexOf(date);
-      setPick(staged[(i + 1 + staged.length) % staged.length]);
-    },
     missing,
     onImageError: () => setMissing(true),
   };
