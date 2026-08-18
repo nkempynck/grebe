@@ -263,24 +263,41 @@ export function blurLineagePath(
   // steps, most of them narrowing by a percent or two, and named for clades nobody scopes by.
   // A level earns its place by NARROWING, and an opaque scientific name has to narrow harder
   // than a common one to be worth showing. Result: Mammal > Carnivora > Canoidea > Vulpes.
-  const NARROWS = 0.75;      // must cut at least a quarter of what the last kept level held
+  const NARROWS = 0.75;      // must cut at least a quarter of what the next-kept level held
   const NARROWS_SCIENTIFIC = 0.5; // …or half, if the only name it has is a scientific one
-  const out: Array<{ id: string; label: string; count: number }> = [];
-  // Starts at what the SCOPE holds, not Infinity: with Infinity the first level always cleared
-  // the gate, which is how "Bilateria 936" kept appearing above a pool of 942.
-  let prev = pool.size;
-  for (const id of chain) {
-    const n = tree.byId.get(id);
+  const MAX_STEPS = 6;       // counted from the SPECIES outward, so the narrow, useful end is
+                             // never the part that gets cut. At 4 a fox lost "Mammals".
+
+  // Walked from the SPECIES OUTWARD, not from the root inward. Going inward kept whichever of
+  // two similar levels came first, and for a songbird that meant keeping "Reptiles 364" and
+  // dropping "Birds 279" (279/364 = 0.77, just inside the gate) — technically true, useless as
+  // a button, and faintly absurd. Outward keeps the SPECIFIC one and discards the broader
+  // near-duplicate.
+  const kept: Array<{ id: string; label: string; count: number; common: boolean }> = [];
+  let next = 0; // count of the last level kept, i.e. the one below this
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const n = tree.byId.get(chain[i]);
     if (!n || !(n.common || n.sciName)) continue;
-    const count = countUnder(id);
+    const count = countUnder(chain[i]);
     if (count < 1) continue;
-    const ratio = count / prev;
     const gate = n.common ? NARROWS : NARROWS_SCIENTIFIC;
-    if (ratio > gate) continue;
-    out.push({ id, label: n.common ?? n.sciName, count });
-    prev = count;
+    if (next > 0 && next / count > gate) {
+      // Too close to what we already have — but if THIS one has a common name and the one we
+      // kept does not, take it instead. Walking outward reached Neognathae (275) one step
+      // before Birds (279) and, both being near-duplicates, showed a songbird the clade nobody
+      // has heard of rather than the one everybody has.
+      const last = kept[kept.length - 1];
+      if (n.common && last && !last.common) {
+        kept[kept.length - 1] = { id: chain[i], label: n.common, count, common: true };
+        next = count;
+      }
+      continue;
+    }
+    kept.push({ id: chain[i], label: n.common ?? n.sciName, count, common: Boolean(n.common) });
+    next = count;
+    if (kept.length >= MAX_STEPS) break;
   }
-  return out;
+  return kept.reverse().map(({ id, label, count }) => ({ id, label, count }));
 }
 
 /** Candidate answers under a clade, for the endgame list. Recall is the wrong ask when the

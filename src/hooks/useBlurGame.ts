@@ -148,8 +148,12 @@ export function useBlurGame(tree: Tree | null, dateOverride?: string): UseBlurGa
     return [...curated, ...rest].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   }, [tree, hereId, pool, pathIds.length]);
   const remaining = path.length ? path[path.length - 1].count : pool.size;
-  // Listed only once the filter is narrow enough to scan; a 472-name list is not a help.
-  const CANDIDATE_LIST_MAX = 30;
+  // Listed once the filter is narrow enough to SCAN. Raised from 30 after drilling into
+  // Perching birds (87 candidates) offered 57 genus chips holding two to four species each —
+  // Corvus 4, Emberiza 3, Troglodytinae 3 — which is not a choice anyone can make, and no name
+  // list either because 87 was over the old threshold. Scrolling 87 names beats picking
+  // between 57 genera you have never heard of.
+  const CANDIDATE_LIST_MAX = 120;
   const candidates = useMemo(
     () => (tree && hereId && remaining > 0 && remaining <= CANDIDATE_LIST_MAX
       ? blurCandidates(tree, hereId, pool) : []),
