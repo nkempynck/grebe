@@ -8,14 +8,20 @@ import type { TaxonNode, Tree } from "./types";
 import { leavesUnder } from "./tree";
 import { CHARACTERS, characterValue, NA } from "./blurChars";
 
-/** Rung widths in pixels. A SUBSET of the research continuum in scripts/blur-images.mjs, which
- *  runs 3px to 106px in thirteen steps; the sheet built from it showed the game lives between
- *  3 and roughly 26 for a recognisable species, and that a first attempt starting at 10px with
- *  a ratio of 1.5 solved a flamingo before the first guess.
+/** Rung widths in pixels. Full resolution is deliberately NOT a rung: it is the reward for
+ *  finishing, so the last thing you play against is still a puzzle.
  *
- *  Full resolution is deliberately NOT a rung. It is the reward for finishing, so the last
- *  thing you play against is still a puzzle rather than a photograph. */
-export const BLUR_LADDER = [3, 5, 8, 12, 18, 26, 38] as const;
+ *  This starts where the picture first says something, and that correction came from playing
+ *  rather than from measuring. The ladder was tuned on a contact sheet where every rung sat in
+ *  a row BESIDE the full-resolution photo with the name a hover away — so 3px looked readable,
+ *  because the eye had already been told what it was looking at. Cold, against several hundred
+ *  animals, 3px and 5px are nothing at all and simply cost two guesses before the game starts.
+ *
+ *  Blur is a RECOGNITION game: the picture is the information channel and the guesses are
+ *  attempts at it. That only works if the opening rung carries something, so it begins where a
+ *  panda reads as a black-and-white blob and a zebra as a striped quadruped. Anything blinder
+ *  turns it into deduction, which is Lineage's job. */
+export const BLUR_LADDER = [11, 15, 20, 27, 36, 48, 64] as const;
 
 /** Guesses allowed. One more than the rungs, so the final guess is made at the clearest rung
  *  rather than the reveal being wasted on a board nobody gets to answer. */
@@ -175,6 +181,77 @@ export function scoreBlurGuess(tree: Tree, answerId: string, guessId: string): B
 /** Which rung is on screen after `wrong` wrong guesses, clamped to the last one. */
 export function blurRung(wrong: number): number {
   return Math.min(Math.max(wrong, 0), BLUR_LADDER.length - 1);
+}
+
+/** One step of the drill-down filter: the named clades directly below `cladeId`, with how many
+ *  candidate ANSWERS sit under each.
+ *
+ *  The count is the point. Seven class chips barely narrow anything — you pick Mammals and are
+ *  still choosing between a hundred and eighty animals with no sense of progress. Watching
+ *  "Animals 487 -> Mammals 180 -> Carnivorans 44 -> Cats 12" is the progress, and at twelve the
+ *  endgame is actually winnable.
+ *
+ *  "Directly below" means the SHALLOWEST NAMED descendants: the tree keeps unnamed junction
+ *  nodes that a player cannot reason about, so the walk descends through them and stops at the
+ *  first thing with a name. */
+export function blurDrillOptions(
+  tree: Tree,
+  cladeId: string,
+  pool: Set<string>
+): Array<{ id: string; label: string; count: number }> {
+  const countUnder = (id: string): number => {
+    let n = 0;
+    const stack = [id];
+    while (stack.length) {
+      const c = stack.pop()!;
+      if (pool.has(c)) n++;
+      for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+    }
+    return n;
+  };
+  /** The clades immediately below `id` that a PLAYER can reason about.
+   *
+   *  Stopping at any named node offered "Laurasiatheria", "Euarchontoglires", "Deuterostomia".
+   *  Those are real clades and useless as buttons. So the walk prefers a COMMON name and
+   *  descends through bare scientific ones, falling back to the scientific name only when
+   *  there is nothing common-named below it — better a "Cercopithecidae" button than a dead
+   *  end. */
+  const rawBelow = (id: string) => {
+    const out: Array<{ id: string; label: string; count: number }> = [];
+    const visit = (c: string) => {
+      const n = tree.byId.get(c);
+      if (!n || n.rank === "species") return;
+      const count = countUnder(c);
+      if (count === 0) return;
+      if (n.common) { out.push({ id: c, label: n.common, count }); return; }
+      const before = out.length;
+      for (const k of tree.childrenOf.get(c) ?? []) visit(k);
+      if (out.length === before && n.sciName) out.push({ id: c, label: n.sciName, count });
+    };
+    for (const k of tree.childrenOf.get(id) ?? []) visit(k);
+    return out;
+  };
+
+  // COLLAPSE PASS-THROUGH LEVELS. Straight off the tree this produced
+  // "Bilateria 469 -> Deuterostomia 399 -> Chordates 399 -> Craniata 399": four taps, no
+  // narrowing, and three names no player reasons with. Whenever one child holds almost
+  // everything, that level is not a choice — so descend through it and CARRY the small
+  // siblings along, which is what keeps Cnidaria (3) reachable instead of stranding it
+  // behind a branch nobody would ever tap.
+  const DOMINANT = 0.9;
+  const carried: Array<{ id: string; label: string; count: number }> = [];
+  let options = rawBelow(cladeId);
+  for (let guard = 0; guard < 24; guard++) {
+    if (options.length === 0) break;
+    const total = options.reduce((a, o) => a + o.count, 0);
+    const big = options.reduce((a, o) => (o.count > a.count ? o : a));
+    if (options.length > 1 && big.count / total < DOMINANT) break;
+    const below = rawBelow(big.id);
+    if (!below.length) break; // nothing finer — offer this level as it stands
+    for (const o of options) if (o.id !== big.id) carried.push(o);
+    options = below;
+  }
+  return [...options, ...carried].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
 /** The answer's own row, for the solved/failed state. */

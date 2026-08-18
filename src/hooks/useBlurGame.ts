@@ -3,10 +3,12 @@
 // the only question this prototype exists to answer.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Tree } from "../core";
+import { isAncestor } from "../core";
+import { CLADE_GROUPS } from "../data/clades";
 import { todayKey } from "../core/daily";
 import {
-  blurAnswerFor, scoreBlurGuess, blurRung, BLUR_LADDER, BLUR_MAX_GUESSES,
-  type BlurGuess,
+  blurAnswerFor, scoreBlurGuess, blurRung, blurPool, blurScopeId, blurDrillOptions,
+  BLUR_LADDER, BLUR_MAX_GUESSES, type BlurGuess,
 } from "../core/blur";
 
 export type BlurStatus = "playing" | "won" | "lost";
@@ -28,9 +30,17 @@ export interface UseBlurGame {
   guessesLeft: number;
   imageUrl: string;
   credit: BlurCredit | null;
-  /** Clade the guess bar is restricted to — the player's own deduction, recorded. */
+  /** Drill-down path from the game's root, deepest last. The guess bar is restricted to the
+   *  deepest entry; the whole path is the breadcrumb. */
+  path: Array<{ id: string; label: string; count: number }>;
+  /** Named clades one level below the current position, with candidate counts. */
+  options: Array<{ id: string; label: string; count: number }>;
+  /** Candidate answers still inside the current filter. */
+  remaining: number;
+  drillInto: (id: string) => void;
+  /** Back out to `depth` entries of the path (0 = all animals). */
+  drillTo: (depth: number) => void;
   focusCladeId: string | null;
-  setFocusCladeId: (id: string | null) => void;
   guess: (id: string) => void;
   giveUp: () => void;
   /** PROTOTYPE affordances: jump to another locally staged day. */
@@ -61,13 +71,62 @@ export function useBlurGame(tree: Tree | null, dateOverride?: string): UseBlurGa
   const [missing, setMissing] = useState(false);
   const [guesses, setGuesses] = useState<BlurGuess[]>([]);
   const [gaveUp, setGaveUp] = useState(false);
-  const [focusCladeId, setFocusCladeId] = useState<string | null>(null);
+  const [pathIds, setPathIds] = useState<string[]>([]);
   const [credit, setCredit] = useState<BlurCredit | null>(null);
 
   // A new day is a new game.
-  useEffect(() => { setGuesses([]); setGaveUp(false); setFocusCladeId(null); setMissing(false); }, [date]);
+  useEffect(() => { setGuesses([]); setGaveUp(false); setPathIds([]); setMissing(false); }, [date]);
 
   const answerId = useMemo(() => (tree ? blurAnswerFor(tree, date) : null), [tree, date]);
+
+  // The candidate pool, and the drill-down derived from it. Counting ANSWERS rather than
+  // guessable species is what makes the number mean "how many things could this be".
+  const rootId = useMemo(() => (tree ? blurScopeId(tree) : null), [tree]);
+  const pool = useMemo(
+    () => (tree && rootId ? new Set(blurPool(tree, rootId)) : new Set<string>()),
+    [tree, rootId]
+  );
+  const path = useMemo(() => {
+    if (!tree) return [];
+    return pathIds.map((id) => {
+      const n = tree.byId.get(id);
+      let count = 0;
+      const stack = [id];
+      while (stack.length) {
+        const c = stack.pop()!;
+        if (pool.has(c)) count++;
+        for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+      }
+      return { id, label: n?.common ?? n?.sciName ?? id, count };
+    });
+  }, [tree, pathIds, pool]);
+  const hereId = pathIds.length ? pathIds[pathIds.length - 1] : rootId;
+  const options = useMemo(() => {
+    if (!tree || !hereId) return [];
+    const raw = blurDrillOptions(tree, hereId, pool);
+    if (pathIds.length) return raw;
+    // FIRST STEP ONLY: the curated player-facing groups the rest of the app already uses.
+    // Straight off the tree the opening move was "Chordates -> Lobe-finned fishes -> Mammal",
+    // three taps through names nobody thinks in to reach the one they wanted. Below this the
+    // tree's own names are fine (Rodents, Cetaceans, Weasel family, Bears).
+    const countUnder = (id: string) => {
+      let n = 0;
+      const stack = [id];
+      while (stack.length) {
+        const c = stack.pop()!;
+        if (pool.has(c)) n++;
+        for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+      }
+      return n;
+    };
+    const curated = CLADE_GROUPS
+      .map((g) => ({ id: g.id, label: g.label, count: countUnder(g.id) }))
+      .filter((o) => o.count > 0);
+    // Anything the curated list does not cover (cephalopods, jellyfish) still needs a way in.
+    const rest = raw.filter((o) => !curated.some((c) => c.id === o.id || isAncestor(tree, c.id, o.id)));
+    return [...curated, ...rest].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [tree, hereId, pool, pathIds.length]);
+  const remaining = path.length ? path[path.length - 1].count : pool.size;
 
   const won = guesses.some((g) => g.correct);
   const status: BlurStatus = won ? "won" : gaveUp || guesses.length >= BLUR_MAX_GUESSES ? "lost" : "playing";
@@ -106,8 +165,12 @@ export function useBlurGame(tree: Tree | null, dateOverride?: string): UseBlurGa
     // so the clearer images are never even in the browser cache.
     imageUrl: solved ? `/blur/${date}/full.jpg` : `/blur/${date}/${rung}.jpg`,
     credit,
-    focusCladeId,
-    setFocusCladeId,
+    path,
+    options,
+    remaining,
+    drillInto: (id: string) => setPathIds((p) => [...p, id]),
+    drillTo: (depth: number) => setPathIds((p) => p.slice(0, depth)),
+    focusCladeId: pathIds.length ? pathIds[pathIds.length - 1] : null,
     guess,
     giveUp: () => setGaveUp(true),
     staged,

@@ -6,29 +6,9 @@ import { CHARACTERS } from "../core/blurChars";
 import { useBlurGame } from "../hooks/useBlurGame";
 import { GuessInput } from "./GuessInput";
 
-/** Clades the player can restrict guessing to. The narrowing the character table cannot do
- *  inside a scope, the player does here from their own deduction: rule birds in, or rule
- *  everything but fish out, and the guess bar collapses to that branch. */
-const FILTERS: Array<{ label: string; sci: string }> = [
-  { label: "Mammals", sci: "Mammalia" },
-  { label: "Birds", sci: "Aves" },
-  { label: "Fish", sci: "Actinopterygii" },
-  { label: "Reptiles", sci: "Squamata" },
-  { label: "Amphibians", sci: "Amphibia" },
-  { label: "Insects", sci: "Insecta" },
-  { label: "Plants", sci: "Chloroplastida" },
-];
-
 export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
   const g = useBlurGame(tree, date);
   const [zoom, setZoom] = useState(false);
-
-  const filterIds = useMemo(() => {
-    if (!tree) return new Map<string, string>();
-    const bySci = new Map<string, string>();
-    for (const n of tree.byId.values()) if (n.sciName && !bySci.has(n.sciName)) bySci.set(n.sciName, n.id);
-    return new Map(FILTERS.filter((f) => bySci.has(f.sci)).map((f) => [f.label, bySci.get(f.sci)!]));
-  }, [tree]);
 
   const config: GameConfig = useMemo(
     () => ({ scopeRootId: tree?.rootId ?? "life", winWithin: 0 }),
@@ -89,23 +69,26 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
 
       {!done && (
         <>
-          <div className="blur-filters">
-            <span className="blur-filters-label">Only guess</span>
-            <button
-              className={`blur-chip${g.focusCladeId === null ? " on" : ""}`}
-              onClick={() => g.setFocusCladeId(null)}
-            >
-              anything
-            </button>
-            {[...filterIds].map(([label, id]) => (
-              <button
-                key={id}
-                className={`blur-chip${g.focusCladeId === id ? " on" : ""}`}
-                onClick={() => g.setFocusCladeId(g.focusCladeId === id ? null : id)}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="blur-drill">
+            <div className="blur-crumbs">
+              <button className="blur-crumb" onClick={() => g.drillTo(0)}>All animals</button>
+              {g.path.map((p, i) => (
+                <button key={p.id} className="blur-crumb" onClick={() => g.drillTo(i + 1)}>
+                  <span aria-hidden="true">›</span> {p.label}
+                </button>
+              ))}
+              <span className="blur-remaining">{g.remaining} left</span>
+            </div>
+            <div className="blur-options">
+              {g.options.slice(0, 24).map((o) => (
+                <button key={o.id} className="blur-opt" onClick={() => g.drillInto(o.id)}>
+                  {o.label} <b>{o.count}</b>
+                </button>
+              ))}
+              {g.options.length === 0 && (
+                <span className="blur-opt-none">Nothing finer to narrow to — name it.</span>
+              )}
+            </div>
           </div>
 
           <GuessInput
@@ -121,6 +104,9 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
 
       {g.guesses.length > 0 && (
         <div className="blur-table-wrap">
+          {/* Says what it is. Five green ticks on a spider monkey when the answer is a bobcat
+              reads as "you were close" when it only means "both are furry quadrupeds". */}
+          <p className="blur-table-note">Traits you share with the answer — not how closely related you are.</p>
           <table className="blur-table">
             <thead>
               <tr>
