@@ -23,6 +23,14 @@ import { CHARACTERS, characterValue, NA } from "./blurChars";
  *  turns it into deduction, which is Lineage's job. */
 export const BLUR_LADDER = [11, 15, 20, 27, 36, 48, 64] as const;
 
+/** The other mechanic under test: tiles per side, hardest first. Blur and shuffle destroy
+ *  opposite halves of the picture — blur keeps silhouette and loses texture, shuffle keeps
+ *  every pixel of texture and loses shape. Which is the better puzzle for naming an animal is
+ *  a question only playing answers, so the prototype ships both and lets you switch. */
+export const BLUR_SHUFFLE_LADDER = [10, 8, 6, 5, 4, 3, 2] as const;
+
+export type BlurMechanic = "blur" | "shuffle";
+
 /** Guesses allowed. One more than the rungs, so the final guess is made at the clearest rung
  *  rather than the reveal being wasted on a board nobody gets to answer. */
 export const BLUR_MAX_GUESSES = BLUR_LADDER.length + 1;
@@ -179,8 +187,26 @@ export function scoreBlurGuess(tree: Tree, answerId: string, guessId: string): B
 }
 
 /** Which rung is on screen after `wrong` wrong guesses, clamped to the last one. */
-export function blurRung(wrong: number): number {
-  return Math.min(Math.max(wrong, 0), BLUR_LADDER.length - 1);
+export function blurRung(wrong: number, mechanic: BlurMechanic = "blur"): number {
+  const len = mechanic === "shuffle" ? BLUR_SHUFFLE_LADDER.length : BLUR_LADDER.length;
+  return Math.min(Math.max(wrong, 0), len - 1);
+}
+
+/** Candidate answers under a clade, for the endgame list. Recall is the wrong ask when the
+ *  answer is a kinkajou: nobody names an animal they have never heard of, however clear the
+ *  photo gets. Once the drill is narrow enough, showing the candidates turns it into
+ *  recognition — "which of these twelve is what I am looking at" — which is winnable, and
+ *  teaches you the animal instead of just failing you. */
+export function blurCandidates(tree: Tree, cladeId: string, pool: Set<string>): TaxonNode[] {
+  const out: TaxonNode[] = [];
+  const stack = [cladeId];
+  while (stack.length) {
+    const c = stack.pop()!;
+    if (pool.has(c)) { const n = tree.byId.get(c); if (n) out.push(n); }
+    for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+  }
+  return out.sort((a, b) =>
+    (a.common ?? a.sciName).localeCompare(b.common ?? b.sciName));
 }
 
 /** One step of the drill-down filter: the named clades directly below `cladeId`, with how many

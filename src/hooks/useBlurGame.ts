@@ -8,8 +8,10 @@ import { CLADE_GROUPS } from "../data/clades";
 import { todayKey } from "../core/daily";
 import {
   blurAnswerFor, scoreBlurGuess, blurRung, blurPool, blurScopeId, blurDrillOptions,
-  BLUR_LADDER, BLUR_MAX_GUESSES, type BlurGuess,
+  blurCandidates, BLUR_LADDER, BLUR_SHUFFLE_LADDER, BLUR_MAX_GUESSES,
+  type BlurGuess, type BlurMechanic,
 } from "../core/blur";
+import type { TaxonNode } from "../core";
 
 export type BlurStatus = "playing" | "won" | "lost";
 
@@ -26,7 +28,16 @@ export interface UseBlurGame {
   status: BlurStatus;
   /** Rung currently on screen; the reveal shows the full photo instead. */
   rung: number;
-  rungWidth: number;
+  /** How this rung is described: "11px" or "64 tiles". */
+  rungLabel: string;
+  mechanic: BlurMechanic;
+  setMechanic: (m: BlurMechanic) => void;
+  /** SETUP: look at any rung without spending guesses. null = follow the game. */
+  rungOverride: number | null;
+  setRungOverride: (r: number | null) => void;
+  rungCount: number;
+  /** Candidate answers inside the current filter, once it is narrow enough to list. */
+  candidates: TaxonNode[];
   guessesLeft: number;
   imageUrl: string;
   credit: BlurCredit | null;
@@ -72,6 +83,8 @@ export function useBlurGame(tree: Tree | null, dateOverride?: string): UseBlurGa
   const [guesses, setGuesses] = useState<BlurGuess[]>([]);
   const [gaveUp, setGaveUp] = useState(false);
   const [pathIds, setPathIds] = useState<string[]>([]);
+  const [mechanic, setMechanic] = useState<BlurMechanic>("blur");
+  const [rungOverride, setRungOverride] = useState<number | null>(null);
   const [credit, setCredit] = useState<BlurCredit | null>(null);
 
   // A new day is a new game.
@@ -127,11 +140,19 @@ export function useBlurGame(tree: Tree | null, dateOverride?: string): UseBlurGa
     return [...curated, ...rest].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   }, [tree, hereId, pool, pathIds.length]);
   const remaining = path.length ? path[path.length - 1].count : pool.size;
+  // Listed only once the filter is narrow enough to scan; a 472-name list is not a help.
+  const CANDIDATE_LIST_MAX = 30;
+  const candidates = useMemo(
+    () => (tree && hereId && remaining > 0 && remaining <= CANDIDATE_LIST_MAX
+      ? blurCandidates(tree, hereId, pool) : []),
+    [tree, hereId, pool, remaining]
+  );
 
   const won = guesses.some((g) => g.correct);
   const status: BlurStatus = won ? "won" : gaveUp || guesses.length >= BLUR_MAX_GUESSES ? "lost" : "playing";
   const wrong = guesses.filter((g) => !g.correct).length;
-  const rung = blurRung(wrong);
+  const rung = rungOverride ?? blurRung(wrong, mechanic);
+  const ladder = mechanic === "shuffle" ? BLUR_SHUFFLE_LADDER : BLUR_LADDER;
   const solved = status !== "playing";
 
   useEffect(() => {
@@ -159,11 +180,18 @@ export function useBlurGame(tree: Tree | null, dateOverride?: string): UseBlurGa
     guesses,
     status,
     rung,
-    rungWidth: BLUR_LADDER[rung],
+    rungLabel: mechanic === "shuffle" ? `${ladder[rung] ** 2} tiles` : `${ladder[rung]}px`,
+    mechanic,
+    setMechanic: (m: BlurMechanic) => { setMechanic(m); setRungOverride(null); },
+    rungOverride,
+    setRungOverride,
+    rungCount: ladder.length,
+    candidates,
     guessesLeft: Math.max(0, BLUR_MAX_GUESSES - guesses.length),
     // On solve the full photo replaces the ladder; until then only the rung earned is fetched,
     // so the clearer images are never even in the browser cache.
-    imageUrl: solved ? `/blur/${date}/full.jpg` : `/blur/${date}/${rung}.jpg`,
+    imageUrl: solved ? `/blur/${date}/full.jpg`
+      : mechanic === "shuffle" ? `/blur/${date}/s${rung}.jpg` : `/blur/${date}/${rung}.jpg`,
     credit,
     path,
     options,

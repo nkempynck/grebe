@@ -50,7 +50,7 @@ const days = Number(arg("days", "14"));
 const dates = Array.from({ length: days }, (_, i) => shift(from, i));
 const { days: schedule, ladder } = JSON.parse(execFileSync("node", [bundle, dates.join(",")], { cwd: ROOT }).toString());
 
-const { buildFor } = await import(resolve(ROOT, "scripts/blur-images.mjs"));
+const { buildFor, shuffledFor, SHUFFLE_LADDER } = await import(resolve(ROOT, "scripts/blur-images.mjs"));
 const cache = resolve(ROOT, "node_modules/.cache/blur");
 mkdirSync(cache, { recursive: true });
 const index = {};
@@ -70,6 +70,10 @@ for (const d of schedule) {
     // network tab is part of the game's surface.
     built.rungs.forEach((r, i) => writeFileSync(resolve(dir,
       i === built.rungs.length - 1 ? "full.jpg" : `${i}.jpg`), r.buf));
+    // The shuffle variant of the same photo, so both mechanics can be compared on one board.
+    const src = built.rungs[built.rungs.length - 1].buf; // full-resolution rung
+    for (let i = 0; i < SHUFFLE_LADDER.length; i++)
+      writeFileSync(resolve(dir, `s${i}.jpg`), await shuffledFor(src, SHUFFLE_LADDER[i], `${d.date}:${i}`));
     writeFileSync(resolve(dir, "credit.json"), JSON.stringify(built.attribution));
     index[d.date] = d;
     process.stderr.write(`${built.rungs.length} rungs\n`);

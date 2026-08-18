@@ -52,6 +52,35 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
 
   return (
     <div className="blur">
+      <div className="blur-setup">
+        <span className="blur-setup-label">Mechanic</span>
+        {(["blur", "shuffle"] as const).map((m) => (
+          <button
+            key={m}
+            className={`blur-chip${g.mechanic === m ? " on" : ""}`}
+            onClick={() => g.setMechanic(m)}
+          >
+            {m}
+          </button>
+        ))}
+        <span className="blur-setup-label">Rung</span>
+        <input
+          type="range"
+          min={0}
+          max={g.rungCount - 1}
+          value={g.rung}
+          onChange={(e) => g.setRungOverride(Number(e.target.value))}
+          aria-label="Inspect a rung without guessing"
+        />
+        <button
+          className="blur-chip"
+          onClick={() => g.setRungOverride(null)}
+          disabled={g.rungOverride === null}
+        >
+          follow game
+        </button>
+      </div>
+
       <div className="blur-stage">
         {g.missing ? (
           <div className="blur-nostage">
@@ -70,7 +99,7 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
         )}
         {!done && (
           <span className="blur-rung">
-            {g.rungWidth}px · {g.guessesLeft} {g.guessesLeft === 1 ? "guess" : "guesses"} left
+            {g.rungLabel} · {g.guessesLeft} {g.guessesLeft === 1 ? "guess" : "guesses"} left
           </span>
         )}
       </div>
@@ -109,10 +138,24 @@ export function BlurGame({ tree, date }: { tree: Tree | null; date?: string }) {
                   {o.label} <b>{o.count}</b>
                 </button>
               ))}
-              {g.options.length === 0 && (
+              {g.options.length === 0 && g.candidates.length === 0 && (
                 <span className="blur-opt-none">Nothing finer to narrow to — name it.</span>
               )}
             </div>
+            {g.candidates.length > 0 && (
+              <div className="blur-cands">
+                {/* Recall is the wrong ask when the answer is a kinkajou. Once the filter is
+                    this narrow, show the names: recognising one of twelve is winnable. */}
+                <span className="blur-cands-label">{g.candidates.length} it could be</span>
+                <div className="blur-cands-list">
+                  {g.candidates.map((c) => (
+                    <button key={c.id} className="blur-cand" onClick={() => { setReject(null); g.guess(c.id); }}>
+                      {c.common ?? c.sciName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {reject && <p className="blur-reject">{reject}</p>}

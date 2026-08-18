@@ -2316,3 +2316,11 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .blur-opt-none { font-size: .78rem; opacity: .6; }
 .blur-table-note { font-size: .72rem; opacity: .55; margin: 0 0 .3rem; }
 .blur-reject { margin: 0; font-size: .8rem; color: #a2402f; }
+.blur-setup { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .5rem .6rem; border: 1px dashed var(--line, #ddd); border-radius: 10px; }
+.blur-setup-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }
+.blur-setup input[type="range"] { flex: 1 1 8rem; min-width: 6rem; }
+.blur-cands { display: flex; flex-direction: column; gap: .3rem; padding-top: .2rem; }
+.blur-cands-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }
+.blur-cands-list { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 9rem; overflow-y: auto; }
+.blur-cand { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 8px; padding: .22rem .55rem; font-size: .8rem; cursor: pointer; }
+.blur-cand:hover { border-color: currentColor; }

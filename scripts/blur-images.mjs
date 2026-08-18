@@ -32,6 +32,47 @@ const UA = "GrebeGames/1.0 (blur ladder; contact via github.com/nkempynck/grebe)
  *  where the guesses actually are. 0 = full resolution, which is the reveal, not a rung. */
 export const LADDER = [3, 4, 6, 8, 11, 15, 20, 26, 34, 45, 60, 80, 106, 0];
 
+/** Tiles per side for the SHUFFLE mechanic, hardest first. Blur and shuffle destroy opposite
+ *  halves of the picture: blur keeps low frequencies (silhouette, colour mass) and throws away
+ *  texture, which is why an 11px bobcat is a brown smear. Shuffling keeps every pixel at full
+ *  detail — spotted fur, scales, an eye — and throws away global shape. For naming a species
+ *  that is probably the better trade, and it means there is always SOMETHING to look at rather
+ *  than a beige square you can only wait out. */
+export const SHUFFLE_LADDER = [10, 8, 6, 5, 4, 3, 2];
+
+/** Side of the square the shuffle works on. Deliberately not full resolution: shuffling leaves
+ *  every byte in the client, so unlike downsampling it is only cosmetic hiding, and rendering
+ *  at a modest size limits what reassembling would actually win you. */
+const SHUFFLE_SIZE = 640;
+
+function shuffleRng(seed) {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) { h = Math.imul(h ^ seed.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+  h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); let a = (h ^= h >>> 16) >>> 0;
+  return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+/** One shuffled rung: the square cut into grid x grid tiles, deterministically rearranged. */
+export async function shuffledFor(buf, grid, seed) {
+  const meta = await sharp(buf).rotate().metadata();
+  const side = Math.min(meta.width ?? SHUFFLE_SIZE, meta.height ?? SHUFFLE_SIZE);
+  const square = await sharp(buf).rotate()
+    .resize(side, side, { fit: "cover", position: "attention" })
+    .resize(SHUFFLE_SIZE, SHUFFLE_SIZE, { fit: "fill" })
+    .jpeg({ quality: 90 }).toBuffer();
+  const t = Math.floor(SHUFFLE_SIZE / grid);
+  const tiles = [];
+  for (let y = 0; y < grid; y++)
+    for (let x = 0; x < grid; x++)
+      tiles.push(await sharp(square).extract({ left: x * t, top: y * t, width: t, height: t }).toBuffer());
+  const order = tiles.map((_, i) => i);
+  const rnd = shuffleRng(seed);
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  return sharp({ create: { width: grid * t, height: grid * t, channels: 3, background: { r: 12, g: 12, b: 12 } } })
+    .composite(order.map((src, dst) => ({ input: tiles[src], left: (dst % grid) * t, top: Math.floor(dst / grid) * t })))
+    .jpeg({ quality: 86 }).toBuffer();
+}
+
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
   return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : d;
