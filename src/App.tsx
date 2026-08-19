@@ -1097,9 +1097,9 @@ export default function App() {
         <>
           <div className="lb-gametabs" role="tablist" aria-label="Leaderboard game">
             <button role="tab" aria-selected={lbGame === "combined"} className={`lb-seg${lbGame === "combined" ? " is-on" : ""}`} onClick={() => setLbGame("combined")}>🏆 Combined</button>
-            <button role="tab" aria-selected={lbGame === "lineage"} className={`lb-seg${lbGame === "lineage" ? " is-on" : ""}`} onClick={() => setLbGame("lineage")}>🧬 Lineage</button>
-            <button role="tab" aria-selected={lbGame === "kinship"} className={`lb-seg${lbGame === "kinship" ? " is-on" : ""}`} onClick={() => setLbGame("kinship")}>🧩 Kinship</button>
-            <button role="tab" aria-selected={lbGame === "branches"} className={`lb-seg${lbGame === "branches" ? " is-on" : ""}`} onClick={() => setLbGame("branches")}>🌿 Branches</button>
+            <button role="tab" aria-selected={lbGame === "lineage"} data-game="lineage" className={`lb-seg${lbGame === "lineage" ? " is-on" : ""}`} onClick={() => setLbGame("lineage")}>🧬 Lineage</button>
+            <button role="tab" aria-selected={lbGame === "kinship"} data-game="kinship" className={`lb-seg${lbGame === "kinship" ? " is-on" : ""}`} onClick={() => setLbGame("kinship")}>🧩 Kinship</button>
+            <button role="tab" aria-selected={lbGame === "branches"} data-game="branches" className={`lb-seg${lbGame === "branches" ? " is-on" : ""}`} onClick={() => setLbGame("branches")}>🌿 Branches</button>
           </div>
           {/* Two boards per game: today's, and the filterable one (past days, weeks,
               months, all time). Both are signed-in only now, so neither is guarded here;

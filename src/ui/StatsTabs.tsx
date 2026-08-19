@@ -36,6 +36,10 @@ export function StatsTabs({ stats, field, player }: Props) {
             key={t.id}
             role="tab"
             aria-selected={tab === t.id}
+            // Each tab carries its game's accent, exactly as the games nav does, so
+            // the selected tab is marked in the colour that game uses everywhere
+            // else. "overall" has no game and falls back to brass.
+            data-game={t.id === "overall" ? undefined : t.id}
             className={`lb-seg${tab === t.id ? " is-on" : ""}`}
             onClick={() => setTab(t.id)}
           >

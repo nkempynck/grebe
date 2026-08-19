@@ -143,6 +143,21 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
 
       {!done && (
         <>
+          {/* Naming the animal is the game; narrowing and looking one up are aids to
+              it. The bar sits directly under the picture for that reason, with the
+              aids beneath it, so the first thing under the mosaic is the thing you
+              came to do rather than two helper panels to scroll past. */}
+          {reject && <p className="mosaic-reject">{reject}</p>}
+          <GuessInput
+            tree={tree}
+            config={config}
+            disabled={done}
+            onSubmit={submit}
+            focusCladeId={g.focusCladeId}
+            guesses={asGuessResults}
+            speciesOnly
+          />
+
           {aids.subset && (
             <div className="mosaic-drill">
               <span className="mosaic-box-label">Narrow down</span>
@@ -155,10 +170,14 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
                 ))}
                 <span className="mosaic-remaining">{g.remaining} left</span>
               </div>
+              {/* Names only. The per-group counts are gone deliberately: they were a
+                  published census of the species set, and the ranked list they made
+                  possible told a player which branch of the taxonomy is fattest,
+                  which is a fact about the database rather than about the animal. */}
               <div className="mosaic-options">
                 {g.options.slice(0, 24).map((o) => (
                   <button key={o.id} className="mosaic-opt" onClick={() => { setReject(null); g.drillInto(o.id); }}>
-                    {o.label} <b>{o.count}</b>
+                    {o.label}
                   </button>
                 ))}
                 {g.options.length === 0 && g.candidates.length === 0 && (
@@ -228,16 +247,6 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
             </div>
           )}
 
-          {reject && <p className="mosaic-reject">{reject}</p>}
-          <GuessInput
-            tree={tree}
-            config={config}
-            disabled={done}
-            onSubmit={submit}
-            focusCladeId={g.focusCladeId}
-            guesses={asGuessResults}
-            speciesOnly
-          />
           <button className="mosaic-giveup linkbtn" onClick={g.giveUp}>Give up</button>
         </>
       )}

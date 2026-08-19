@@ -191,33 +191,94 @@ body {
   font-size: 17px; color: var(--ink-soft); max-width: 46ch;
 }
 
-/* ---- Top-level tabs: Play · Leaderboard · Account ---- */
-.topnav { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
-.topnav-tab {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+/* ---- INDEX ROWS: the one tab idiom the whole site uses --------------------
+   The top-level nav, the game switcher under it, the leaderboard and stats
+   filters, the About contents and the Branches view toggle are all the same
+   object: labels sitting on a rule, with a heavy accent rule under the one you
+   are on, the way a printed guide marks its thumb index. They are defined here
+   TOGETHER because they stack directly on top of each other on screen, and every
+   time they were styled apart they drifted: different gaps, some with vertical
+   hairlines and some without, some bolding the active label and some not, which
+   read as two competing designs rather than a nav and its sub-nav.
+
+   Every row is set the same way, capitals included. Rank is carried by ONE thing:
+   a sub-row's baseline rule is lighter than the rule of the nav it sits under.
+   Case was tried as the marker and was wrong — a row reading LEADERBOARD directly
+   above a row reading "Combined" looks like two different components, which is
+   the whole problem this block exists to fix.
+
+   Rows that carry a per-game accent (the game switcher, Branches' toggle) set
+   --game and get it automatically; everything else falls back to brass. */
+.topnav, .gamenav, .lb-segs, .lb-gametabs, .about-toc, .branches-viewtoggle {
+  display: flex; flex-wrap: wrap; gap: 2px;
+  border-bottom: 1px solid var(--line);
+}
+.topnav-tab, .gamenav-tab, .lb-seg, .about-toc-link, .branches-viewseg {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+  text-transform: uppercase;
   padding: 7px 12px; background: none; border: none; cursor: pointer;
-  color: var(--ink-soft); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  color: var(--ink-soft);
+  /* The mark sits ON the container's own rule, so moving between tabs slides it
+     along one line instead of redrawing a box. */
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
   transition: color 0.14s ease, border-color 0.14s ease;
 }
-.topnav-tab:hover { color: var(--ink); }
-.topnav-tab.is-on { color: var(--brass); border-bottom-color: var(--brass); }
+.topnav-tab:hover, .gamenav-tab:hover, .lb-seg:hover, .about-toc-link:hover, .branches-viewseg:hover {
+  color: var(--ink);
+}
+.topnav-tab.is-on, .gamenav-tab.is-on, .lb-seg.is-on, .branches-viewseg.is-on {
+  color: var(--game, var(--brass));
+  border-bottom-color: var(--game, var(--brass));
+}
+
+/* Vertical rhythm, set once for the pair. A sub-row sits the SAME distance under
+   the nav on every page: the games row used to be pulled up 6px under a nav with
+   14px beneath it (an 8px gap) while the leaderboard row took the full 14, so the
+   two levels sat differently depending on which tab you were on. */
+.topnav { margin-bottom: 10px; }
+.gamenav, .lb-gametabs { margin: 0 0 16px; }
+
+/* RANK. The rows share an idiom, which is not the same as being the same row: set
+   identically they read as one strip broken in half. The parent is the louder of
+   the two, so the sub-row steps down a size and opens its tracking, the way a
+   running head sits under a title, and its baseline rule is lighter. The active
+   mark keeps its accent on both, so the pair still reads as one family. */
+.gamenav-tab, .lb-seg, .about-toc-link, .branches-viewseg {
+  /* Size and tracking carry the step down, NOT ink: dropping these to --ink-faint
+     as well left a whole row of live controls looking disabled. */
+  font-size: 10px; letter-spacing: 0.1em;
+}
+/* The top level takes the weight instead, so the row you are in is the first thing
+   read on the page. */
+.topnav-tab.is-on { font-weight: 700; }
+.gamenav-ico { font-size: 12px; }
+
+/* ---- Index rows on a phone ----
+   Six labels do not fit across 375px, and WRAPPING breaks the idea the idiom rests
+   on: the mark has to sit on the row's own rule, and an item on the first of two
+   lines has no rule under it to sit on. So a strip stays one line and scrolls
+   sideways, which is how every phone the reader already owns handles tabs. The rule
+   belongs to the container, so it spans the screen while the labels move under it.
+   Targets grow at the same time: 7px of padding on 10px type is a 24px tap. */
+@media (max-width: 480px) {
+  .topnav, .gamenav, .lb-segs, .lb-gametabs, .about-toc, .branches-viewtoggle {
+    flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity; scrollbar-width: none;
+  }
+  .topnav::-webkit-scrollbar, .gamenav::-webkit-scrollbar, .lb-segs::-webkit-scrollbar,
+  .lb-gametabs::-webkit-scrollbar, .about-toc::-webkit-scrollbar,
+  .branches-viewtoggle::-webkit-scrollbar { display: none; }
+  .topnav-tab, .gamenav-tab, .lb-seg, .about-toc-link, .branches-viewseg {
+    flex: none; padding: 11px 12px; scroll-snap-align: start;
+  }
+}
 
 /* ---- Which game, under the Games tab. Each carries its own accent, so the row reads as
    four things rather than four words, and the selected one names the colour the header,
    pips and controls below it are already using. ---- */
-.gamenav { display: flex; flex-wrap: wrap; gap: 6px; margin: -6px 0 16px; }
-.gamenav-tab {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
-  padding: 5px 11px; border-radius: 999px; cursor: pointer;
-  background: none; border: 1px solid var(--line); color: var(--ink-soft);
-  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
-}
-.gamenav-ico { font-size: 13px; line-height: 1; }
-.gamenav-tab:hover { color: var(--ink); border-color: var(--game, var(--brass)); }
-.gamenav-tab.is-on {
-  color: var(--game); border-color: var(--game); background: var(--bg-3); font-weight: 700;
-}
+.gamenav { border-bottom-color: var(--line-soft); }
+.gamenav-ico { line-height: 1; }
 
 /* ---- Mode switch: Daily vs Free play ---- */
 .modeswitch { display: flex; gap: 8px; margin-bottom: 20px; }
@@ -433,7 +494,7 @@ body {
   display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
   color: var(--ink-soft); background: none; cursor: pointer;
-  border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 11px;
   transition: border-color 0.12s, color 0.12s;
 }
 .clado-center:hover:not(:disabled) { border-color: var(--brass); color: var(--brass-bright); }
@@ -1227,10 +1288,6 @@ button.pin-cell:hover { outline: 1px solid var(--brass); outline-offset: 1px; }
   .clade-name { min-width: 0; font-size: 13px; }
   .clade-meta { font-size: 9px; line-height: 1.25; }
 
-  /* Four game pills read better as a 2×2 block than as three-then-one. Shared with
-     the leaderboard's switcher, which has the same four. */
-  .lb-gametabs { display: grid; grid-template-columns: 1fr 1fr; }
-  .lb-gametabs .lb-seg { text-align: center; }
 }
 /* Above or below the day's field average. Colour carries the sign, but the printed
    +/− carries it too, so it never depends on colour alone. */
@@ -1341,7 +1398,7 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .badge-dates-lbl { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-right: 2px; }
 .badge-date {
   font-family: var(--font-mono); font-size: 11px; color: var(--ink);
-  border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px;
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 2px 8px;
   font-variant-numeric: tabular-nums;
 }
 .badge-next { font-family: var(--font-body); font-size: 13px; color: var(--ink-soft); margin: 14px 0 0; }
@@ -1383,18 +1440,14 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius);
 }
 .lb-controls { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; }
-.lb-segs { display: flex; flex-wrap: wrap; gap: 6px; }
-.lb-seg {
-  font-family: var(--font-mono); font-size: 11px; padding: 6px 11px;
-  background: var(--bg); color: var(--ink-soft);
-  border: 1px solid var(--line); border-radius: 20px; cursor: pointer;
-  transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
-}
-.lb-seg:hover { border-color: var(--brass); color: var(--ink); }
-.lb-seg.is-on { border-color: var(--brass); color: var(--ink); background: color-mix(in srgb, var(--brass) 16%, var(--bg)); }
+/* Sub-rows (leaderboard filters, stats tabs, About contents): the shared index
+   idiom above, one rank down, marked only by a lighter baseline rule. */
+.lb-segs, .lb-gametabs, .about-toc { border-bottom-color: var(--line-soft); }
+/* The leaderboard stacks two of these (window, then clade group), and two rules
+   of equal weight under each other read as a table that isn't there. */
+.lb-controls .lb-segs + .lb-segs { border-bottom-color: var(--line-soft); }
 
 /* Game toggle above the leaderboard (Lineage vs Kinship). */
-.lb-gametabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 
 /* Day navigator — step through past dailies. */
 .lb-daynav { display: flex; align-items: center; gap: 10px; }
@@ -1550,14 +1603,9 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); line-height: 1.6;
 }
 /* Jump links to the sections below. */
-.about-toc { display: flex; flex-wrap: wrap; gap: 8px; }
-.about-toc-link {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
-  color: var(--ink-soft); background: none; cursor: pointer;
-  border: 1px solid var(--line); border-radius: 20px; padding: 5px 12px;
-  transition: border-color 0.12s ease, color 0.12s ease;
-}
-.about-toc-link:hover { color: var(--brass-bright); border-color: var(--brass); }
+/* Jump links to sections further down. No is-on state: nothing is "current" in a
+   contents list, so the mark only appears under the pointer. */
+.about-toc-link:hover { color: var(--brass); border-bottom-color: var(--brass); }
 /* Body prose in the About sections. */
 .about-p { margin: 0; font-size: 15px; color: var(--ink-soft); line-height: 1.6; max-width: 66ch; }
 .about-p b { color: var(--ink); font-weight: 600; }
@@ -1951,12 +1999,7 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .branches-node.is-radial { transform: translate(-50%, -50%); }
 
 /* Tree/Radial view toggle */
-.branches-viewtoggle { display: inline-flex; gap: 2px; margin: 12px 0 0; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
-.branches-viewseg {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
-  padding: 4px 14px; border: none; border-radius: 999px; background: none; color: var(--ink-soft); cursor: pointer;
-}
-.branches-viewseg.is-on { background: var(--game, var(--brass)); color: var(--bg); }
+.branches-viewtoggle { display: inline-flex; margin: 12px 0 0; border-bottom-color: var(--line-soft); }
 
 /* filled-slot name row + the ⓘ Wikipedia affordance */
 .branches-leaf-line { display: inline-flex; align-items: center; gap: 4px; justify-content: center; flex-wrap: wrap; }
@@ -2190,7 +2233,7 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   color: var(--ink-faint); font-variant-numeric: tabular-nums;
 }
 .disc-btn {
-  padding: 6px 13px; border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 13px; border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--bg-2); color: var(--ink-soft); cursor: pointer;
   font-family: var(--font-mono); font-size: 11px;
 }
@@ -2405,17 +2448,70 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .mosaic-crumb:hover { text-decoration: underline; }
 .mosaic-crumb span { opacity: .45; }
 .mosaic-remaining { margin-left: auto; font-size: .74rem; opacity: .6; font-variant-numeric: tabular-nums; }
-.mosaic-options { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8.5rem; overflow-y: auto; }
-.mosaic-opt { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 999px; padding: .22rem .6rem; font-size: .78rem; cursor: pointer; }
-.mosaic-opt b { font-variant-numeric: tabular-nums; opacity: .5; font-weight: 600; margin-left: .15rem; }
-.mosaic-opt:hover { border-color: currentColor; }
+/* Just the names, set in columns. This list is a way to say "it's a beetle", not a
+   panel: it flows into as many short columns as the width allows, so fifteen groups
+   cost a few lines instead of fifteen rows, and it stays narrow enough to read as a
+   tool beside the picture rather than a second subject on the page. */
+/* ONE COLUMN, biggest group first. The list has always been sorted by how many
+   species sit under each group (see useMosaicGame), but across three columns that
+   order was invisible: reading down the first column gave the 1st, 4th and 7th
+   biggest, so it looked shuffled. In a single column the sort is the reading
+   order — the groups worth taking are simply at the top.
+   The box is a fixed height rather than a max, so it always looks like the
+   scrollable list it is instead of collapsing to a stub when few groups are left. */
+.mosaic-options {
+  display: flex; flex-direction: column;
+  /* A CAP, not a height. It was fixed so the box would not collapse to a stub while
+     drilling, which then left the end of a drill — a genus with nothing finer under
+     it — holding 9.5rem of empty panel above the candidate names. The cap still
+     cuts the last row in half when there is more, which is the scroll signal. */
+  width: 100%; max-height: 9.5rem; overflow-y: auto;
+  scrollbar-width: thin;
+}
+/* Drilled to the bottom: no groups left to offer, so the list takes no room at all
+   rather than leaving a hole where it used to be. */
+.mosaic-options:empty { display: none; }
+/* Each group is a ROW, not a word: it spans the panel, is ruled off from the next,
+   and carries a chevron at the far end for the thing it actually does, which is
+   take you a level deeper. One column keeps the biggest-first order readable (see
+   above), and full-width rows stop that column leaving half the panel empty. */
+.mosaic-opt {
+  flex: none; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .5rem;
+  width: 100%; text-align: left;
+  padding: .4rem .55rem; font-size: .84rem; line-height: 1.3;
+  background: none; border: 0; border-bottom: 1px solid var(--line-soft);
+  color: inherit; cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.mosaic-opt:last-child { border-bottom: 0; }
+.mosaic-opt::after {
+  content: "›"; color: var(--ink-faint); font-size: 1.05em; line-height: 1;
+  transition: transform 0.12s ease, color 0.12s ease;
+}
+.mosaic-opt:hover {
+  background: color-mix(in srgb, var(--game, var(--brass)) 10%, transparent);
+  color: var(--game, var(--brass));
+}
+.mosaic-opt:hover::after { color: var(--game, var(--brass)); transform: translateX(2px); }
+/* Touch has no hover, so the only thing marking these as tappable would never
+   appear. They carry a faint rule of their own there instead. */
+/* Touch has no hover, but a ruled row with a chevron pointing on already reads as
+   tappable, so nothing extra is needed there. */
+/* A .78rem name with 2.5px of padding is a 21px target. On a phone the list gets
+   room to breathe: fewer, taller rows, and more of them visible before it scrolls. */
+@media (max-width: 480px) {
+  .mosaic-options { max-height: 11rem; }
+  .mosaic-opt { padding: .55rem .5rem; font-size: .88rem; }
+  /* Both aid boxes stop being side-padded harder than the page they sit on. */
+  .mosaic-drill, .mosaic-lookupbox { padding: .55rem .6rem; }
+}
 .mosaic-opt-none { font-size: .78rem; opacity: .6; }
 .mosaic-table-note { font-size: .72rem; opacity: .55; margin: 0 0 .3rem; }
 .mosaic-reject { margin: 0; font-size: .8rem; color: #a2402f; }
 .mosaic-cands { display: flex; flex-direction: column; gap: .3rem; padding-top: .2rem; }
 .mosaic-cands-label { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }
 .mosaic-cands-list { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 9rem; overflow-y: auto; }
-.mosaic-cand { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: 8px; padding: .22rem .55rem; font-size: .8rem; cursor: pointer; }
+.mosaic-cand { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: var(--radius); padding: .22rem .55rem; font-size: .8rem; cursor: pointer; }
 .mosaic-cand:hover { border-color: currentColor; }
 
 /* The two panels do DIFFERENT things and were reading as one long list of identical chips:
@@ -2570,6 +2666,12 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   flex: none; color: var(--ink); background: none; border: 1px solid var(--line);
 }
 .reveal-copy:hover { border-color: var(--brass); color: var(--brass-bright); }
+/* Side by side these two need about 300px of card. Under that they stack, primary
+   on top, so neither ends up as a two-word column. */
+@media (max-width: 380px) {
+  .reveal-actions { flex-direction: column-reverse; }
+  .reveal-copy { width: 100%; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   /* Everything still appears, nothing moves — same bargain as the Kinship board. */
