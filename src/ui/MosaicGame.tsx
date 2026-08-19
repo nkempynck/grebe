@@ -56,7 +56,7 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
       return;
     }
     if ((tree.childrenOf.get(node.id) ?? []).length > 0) {
-      setReject(`${node.common ?? node.sciName} is a group — name a single species.`);
+      setReject(`${node.common ?? node.sciName} is a group. Name a single species.`);
       return;
     }
     g.guess(node.id);
@@ -103,7 +103,7 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
         {g.missing ? (
           <div className="mosaic-nostage">
             <strong>No picture for {g.date}</strong>
-            <span>Nothing to identify — please try again later.</span>
+            <span>Nothing to identify. Please try again later.</span>
           </div>
         ) : (
           <img
@@ -142,12 +142,12 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
         </div>
       )}
 
+      {/* Naming the animal is the game; narrowing and looking one up are aids to it. So the
+          bar sits directly under the picture, the board of what you have already tried sits
+          directly under the bar, and the aids come after both: a guess and its answer belong
+          next to each other, not two panels apart. */}
       {!done && (
         <>
-          {/* Naming the animal is the game; narrowing and looking one up are aids to
-              it. The bar sits directly under the picture for that reason, with the
-              aids beneath it, so the first thing under the mosaic is the thing you
-              came to do rather than two helper panels to scroll past. */}
           {reject && <p className="mosaic-reject">{reject}</p>}
           <GuessInput
             tree={tree}
@@ -158,109 +158,12 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
             guesses={asGuessResults}
             speciesOnly
           />
-
-          {aids.subset && (
-            <div className="mosaic-drill">
-              <span className="mosaic-box-label">Narrow down</span>
-              <div className="mosaic-crumbs">
-                <button className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(0); }}>All animals</button>
-                {g.path.map((p, i) => (
-                  <button key={p.id} className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(i + 1); }}>
-                    <span aria-hidden="true">›</span> {p.label}
-                  </button>
-                ))}
-                <span className="mosaic-remaining">{g.remaining} left</span>
-              </div>
-              {/* Names only. The per-group counts are gone deliberately: they were a
-                  published census of the species set, and the ranked list they made
-                  possible told a player which branch of the taxonomy is fattest,
-                  which is a fact about the database rather than about the animal. */}
-              <div className="mosaic-options">
-                {g.options.slice(0, 24).map((o) => (
-                  <button key={o.id} className="mosaic-opt" onClick={() => { setReject(null); g.drillInto(o.id); }}>
-                    {o.label}
-                  </button>
-                ))}
-                {g.options.length === 0 && g.candidates.length === 0 && (
-                  <span className="mosaic-opt-none">Nothing finer to narrow to — name it.</span>
-                )}
-              </div>
-              {g.candidates.length > 0 && (
-                <div className="mosaic-cands">
-                  {/* Recall is the wrong ask when the answer is a kinkajou. Once the filter is
-                      this narrow, show the names: recognising one of twelve is winnable. */}
-                  <span className="mosaic-cands-label">{g.candidates.length} it could be</span>
-                  <div className="mosaic-cands-list">
-                    {g.candidates.map((c) => (
-                      <button key={c.id} className="mosaic-cand" onClick={() => { setReject(null); g.guess(c.id); }}>
-                        {c.common ?? c.sciName}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {aids.lookup && (
-            <div className="mosaic-lookupbox">
-              <span className="mosaic-box-label">Look up an animal</span>
-              <input
-                value={lookup}
-                onChange={(e) => { setLookup(e.target.value); setLooked(null); }}
-                placeholder="e.g. arctic fox — see which groups it sits in"
-                aria-label="Look up an animal to scope by its groups"
-              />
-              {lookup.trim().length > 1 && !looked && (
-                <div className="mosaic-lookup-hits">
-                  {/* Ask for a lot and filter to SPECIES before trimming. suggestGuesses returns
-                      every prefix match before any substring one, so "fox" spent its whole budget
-                      on Foxglove, Fox moth and Foxface rabbitfish and never reached Red fox or
-                      Arctic fox — and clades were being dropped after the slice, not before. */}
-                  {suggestGuesses(tree, lookup, 400)
-                    .filter((n) => (tree.childrenOf.get(n.id) ?? []).length === 0)
-                    .slice(0, 40)
-                    .map((n) => (
-                      <button key={n.id} className="mosaic-cand" onClick={() => setLooked(n.id)}>
-                        {n.common ?? n.sciName}
-                      </button>
-                    ))}
-                </div>
-              )}
-              {looked && (
-                <>
-                  <p className="mosaic-lookup-said">
-                    <b>{tree.byId.get(looked)?.common ?? tree.byId.get(looked)?.sciName}</b> sits in — tap one to narrow to it
-                  </p>
-                  {/* Names only, for the same reason the narrow-down rows dropped theirs —
-                      and more so here. Typing any species you like and reading a count off
-                      every clade above it is the census on demand, in a more convenient form
-                      than the drill chips ever offered. */}
-                  <div className="mosaic-lookup-chain">
-                    {g.lineageOf(looked).map((l) => (
-                      <button
-                        key={l.id}
-                        className="mosaic-path"
-                        onClick={() => { setReject(null); g.setPath([l.id]); setLookup(""); setLooked(null); }}
-                      >
-                        {l.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          <button className="mosaic-giveup linkbtn" onClick={g.giveUp}>Give up</button>
         </>
       )}
 
       {g.guesses.length > 0 && (
         <div className="mosaic-table-wrap">
-          {/* Says what it is. Five green ticks on a spider monkey when the answer is a bobcat
-              reads as "you were close" when it only means "both are furry quadrupeds". */}
-          <p className="mosaic-table-note">Traits you share with the answer — not how closely related you are.</p>
+          <p className="mosaic-table-note">{tableNote(aids.proximity)}</p>
           <table className="mosaic-table">
             <thead>
               <tr>
@@ -301,9 +204,117 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
         </div>
       )}
 
+      {!done && (
+        <>
+          {aids.subset && (
+            <div className="mosaic-drill">
+              <span className="mosaic-box-label">Narrow down</span>
+              <div className="mosaic-crumbs">
+                <button className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(0); }}>All animals</button>
+                {g.path.map((p, i) => (
+                  <button key={p.id} className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(i + 1); }}>
+                    <span aria-hidden="true">›</span> {p.label}
+                  </button>
+                ))}
+                <span className="mosaic-remaining">{g.remaining} left</span>
+              </div>
+              {/* Names only. The per-group counts are gone deliberately: they were a
+                  published census of the species set, and the ranked list they made
+                  possible told a player which branch of the taxonomy is fattest,
+                  which is a fact about the database rather than about the animal. */}
+              <div className="mosaic-options">
+                {g.options.slice(0, 24).map((o) => (
+                  <button key={o.id} className="mosaic-opt" onClick={() => { setReject(null); g.drillInto(o.id); }}>
+                    {o.label}
+                  </button>
+                ))}
+                {g.options.length === 0 && g.candidates.length === 0 && (
+                  <span className="mosaic-opt-none">Nothing finer to narrow to. Name it.</span>
+                )}
+              </div>
+              {g.candidates.length > 0 && (
+                <div className="mosaic-cands">
+                  {/* Recall is the wrong ask when the answer is a kinkajou. Once the filter is
+                      this narrow, show the names: recognising one of twelve is winnable. */}
+                  <span className="mosaic-cands-label">{g.candidates.length} it could be</span>
+                  <div className="mosaic-cands-list">
+                    {g.candidates.map((c) => (
+                      <button key={c.id} className="mosaic-cand" onClick={() => { setReject(null); g.guess(c.id); }}>
+                        {c.common ?? c.sciName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {aids.lookup && (
+            <div className="mosaic-lookupbox">
+              <span className="mosaic-box-label">Look up an animal</span>
+              <input
+                value={lookup}
+                onChange={(e) => { setLookup(e.target.value); setLooked(null); }}
+                placeholder="e.g. arctic fox, to see which groups it sits in"
+                aria-label="Look up an animal to scope by its groups"
+              />
+              {lookup.trim().length > 1 && !looked && (
+                <div className="mosaic-lookup-hits">
+                  {/* Ask for a lot and filter to SPECIES before trimming. suggestGuesses returns
+                      every prefix match before any substring one, so "fox" spent its whole budget
+                      on Foxglove, Fox moth and Foxface rabbitfish and never reached Red fox or
+                      Arctic fox — and clades were being dropped after the slice, not before. */}
+                  {suggestGuesses(tree, lookup, 400)
+                    .filter((n) => (tree.childrenOf.get(n.id) ?? []).length === 0)
+                    .slice(0, 40)
+                    .map((n) => (
+                      <button key={n.id} className="mosaic-cand" onClick={() => setLooked(n.id)}>
+                        {n.common ?? n.sciName}
+                      </button>
+                    ))}
+                </div>
+              )}
+              {looked && (
+                <>
+                  <p className="mosaic-lookup-said">
+                    <b>{tree.byId.get(looked)?.common ?? tree.byId.get(looked)?.sciName}</b> sits in. Tap one to narrow to it
+                  </p>
+                  {/* Names only, for the same reason the narrow-down rows dropped theirs —
+                      and more so here. Typing any species you like and reading a count off
+                      every clade above it is the census on demand, in a more convenient form
+                      than the drill chips ever offered. */}
+                  <div className="mosaic-lookup-chain">
+                    {g.lineageOf(looked).map((l) => (
+                      <button
+                        key={l.id}
+                        className="mosaic-path"
+                        onClick={() => { setReject(null); g.setPath([l.id]); setLookup(""); setLooked(null); }}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <button className="mosaic-giveup linkbtn" onClick={g.giveUp}>Give up</button>
+        </>
+      )}
+
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
     </div>
   );
+}
+
+/** One line over the table. It used to claim the board was "not how closely related you are",
+ *  which stopped being true when the closeness column arrived beside the traits. It now names
+ *  that column and leaves the rest to About: a caption is not the place for the full rules. */
+function tableNote(proximity: "named" | "degrees"): string {
+  return proximity === "named"
+    ? "How close: the rank you share with the answer, never which one."
+    : "Degrees: how closely related, 100 is the answer.";
 }
 
 /** The geography cell: the guess's regions, with the ones the answer shares picked out.
@@ -334,5 +345,5 @@ function renderGeo(guessSci: string, answerSci: string | undefined, scheme: "con
 function aidsNote(lookup: boolean, subset: boolean): string {
   if (lookup && subset) return "Today you can narrow by group and look species up.";
   if (subset) return "Today you can narrow by group, but there are no species lookups.";
-  return "Today it is the picture and the table alone — no narrowing, no lookups.";
+  return "Today it is the picture and the table alone: no narrowing, no lookups.";
 }

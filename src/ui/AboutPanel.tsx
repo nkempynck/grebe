@@ -181,12 +181,16 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             and a shark agree on almost every row and are not close relatives at all.
           </p>
           <p>
-            What changes through the week is not the picture but the <b>help</b>. Early on you can
-            narrow the field to a group and look any animal up to see where it sits, and a wrong
-            guess tells you the rank you share, <i>same family</i>, <i>same order</i>. Midweek that
-            reading drops to a bare <b>temperature</b>, warmer being closer, and the lookup goes;
-            by the weekend it is the photograph and the table alone. The answer is always an
-            animal well known enough to have a decent picture, and it never repeats inside 45 days.
+            Every guess also gets a <b>closeness</b> reading, and that one <i>is</i> relatedness.
+            Early in the week it names the rank you share, <i>same family</i> or <i>same
+            order</i>, never which one. From midweek it is a number in <b>degrees</b>, where 0
+            shares nothing with the answer but being an animal and 100 is the answer itself.
+          </p>
+          <p>
+            What changes through the week is the <b>help</b>. Early on you can narrow the field to
+            a group and look any animal up to see where it sits. Midweek the lookup goes, and by
+            the weekend it is the photograph and the table alone. The answer is always an animal
+            well known enough to have a decent picture, and it never repeats inside 45 days.
           </p>
         </div>
 
