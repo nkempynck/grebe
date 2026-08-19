@@ -65,4 +65,12 @@ export const COMMON_NAME_OVERRIDES = {
   "Halodule uninervis": "Narrowleaf seagrass",
   "Cymodocea rotundata": "Round seagrass",
   "Syringodium isoetifolium": "Noodle seagrass",
+
+  // "Wandering Jew" / "Bolivian Jew" — an ethnic slur carried in GBIF's feed as the vernacular
+  // for three Commelinaceae, two of them with literal quote marks left in the string, which is
+  // how it reached the guess list reading: "Bolivian Jew". The horticulture trade retired these
+  // names years ago; these are the current ones.
+  "Tradescantia pallida": "Purple heart",
+  "Tradescantia zebrina": "Inch plant",
+  "Callisia repens": "Turtle vine",
 };
