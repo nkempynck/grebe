@@ -2316,10 +2316,39 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   position: absolute; left: .6rem; bottom: .6rem; padding: .25rem .6rem; border-radius: 999px;
   background: rgba(0,0,0,.62); color: #fff; font-size: .74rem; font-variant-numeric: tabular-nums;
 }
-.mosaic-verdict { display: flex; flex-direction: column; gap: .2rem; padding: .8rem 1rem; border-radius: 12px; background: var(--card, #fff); border: 1px solid var(--line, #ddd); }
-.mosaic-verdict.won { border-color: #2e7d5b; }
-.mosaic-verdict em { opacity: .7; font-style: italic; }
-.mosaic-verdict small { opacity: .65; font-size: .72rem; }
+/* The reveal is the payoff and should look like it. It used to be a stark #fff rectangle —
+   var(--card) is defined nowhere, so it always fell through to white and sat on the cream page
+   like something pasted on. Now it takes the page's own surface, a rail in the outcome's
+   colour, and a real hierarchy: mono label, the name at display size, the binomial under it,
+   and the photographer's credit below a hairline where a credit belongs. */
+.mosaic-verdict {
+  /* gap stays 0: the rows want DIFFERENT spacing (name close to its label, credit set apart
+     below its rule), so each carries its own margin rather than fighting a uniform gap. */
+  display: grid; gap: 0;
+  padding: .85rem 1.1rem;
+  border-radius: 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink-faint);
+}
+.mosaic-verdict.won { border-left-color: var(--brass); }
+.mosaic-verdict.lost { border-left-color: var(--danger); }
+.mosaic-verdict-tag {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.mosaic-verdict.won .mosaic-verdict-tag { color: var(--brass); }
+.mosaic-verdict-name {
+  font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; line-height: 1.25;
+  color: var(--ink); margin-top: .15rem;
+}
+.mosaic-verdict-sci { font-style: italic; color: var(--ink-soft); font-size: .9rem; }
+.mosaic-verdict-credit {
+  margin-top: .6rem; padding-top: .5rem; border-top: 1px solid var(--line-soft);
+  font-size: .72rem; color: var(--ink-faint);
+}
+.mosaic-verdict-credit a { color: inherit; text-underline-offset: 2px; }
+.mosaic-verdict-credit a:hover { color: var(--game, var(--brass)); }
 .mosaic-table-wrap { overflow-x: auto; }
 .mosaic-table { border-collapse: collapse; width: 100%; font-size: .8rem; }
 .mosaic-table th, .mosaic-table td { padding: .35rem .5rem; text-align: center; white-space: nowrap; }

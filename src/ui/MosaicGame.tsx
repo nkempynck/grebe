@@ -123,16 +123,20 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
 
       {done && (
         <div className={`mosaic-verdict ${g.status}`}>
-          <strong>{g.status === "won" ? "Got it" : "The answer was"}</strong>{" "}
-          {answer?.common ?? answer?.sciName}
-          {answer?.common && answer.sciName ? <em> ({answer.sciName})</em> : null}
+          <span className="mosaic-verdict-tag">
+            {g.status === "won" ? "Got it" : "The answer was"}
+          </span>
+          <span className="mosaic-verdict-name">{answer?.common ?? answer?.sciName}</span>
+          {answer?.common && answer.sciName && (
+            <span className="mosaic-verdict-sci">{answer.sciName}</span>
+          )}
           {g.credit?.licence && (
-            <small>
+            <span className="mosaic-verdict-credit">
               Photo: {g.credit.artist ?? "unknown"} · {g.credit.licence}
               {g.credit.filePage && (
                 <> · <a href={g.credit.filePage} target="_blank" rel="noreferrer">source</a></>
               )}
-            </small>
+            </span>
           )}
         </div>
       )}
