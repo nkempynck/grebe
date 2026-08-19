@@ -34,6 +34,20 @@ export function MosaicBench({ g }: { g: UseMosaicGame }) {
         />
       </label>
       <span className="playtest-note">{g.rungLabel}</span>
+      {/* Continents are what a player thinks in; realms are what the biology is. Both are in
+          geo.json, so this is a display choice and not a re-fetch. Bench-only until it is
+          settled which one the game should speak. */}
+      <label className="playtest-field">
+        Regions
+        <select
+          value={g.regionScheme}
+          onChange={(e) => g.setRegionScheme(e.target.value as "continent" | "realm")}
+          aria-label="Region scheme"
+        >
+          <option value="continent">continents</option>
+          <option value="realm">realms</option>
+        </select>
+      </label>
       <button
         className="playtest-btn"
         onClick={() => g.setRungOverride(null)}

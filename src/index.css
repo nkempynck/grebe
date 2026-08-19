@@ -2436,6 +2436,23 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .mosaic-table td.yes { background: rgba(46,125,91,.22); }
 .mosaic-table td.no  { background: rgba(140,140,140,.14); opacity: .65; }
 .mosaic-table td.na  { opacity: .35; }
+/* Geography. One cell holds a SET, and the shared members are picked out inside it, so a
+   partial overlap reads as partial rather than being flattened to hit-or-miss. The unshared
+   codes stay legible rather than being greyed to nothing: they are the guess's own answer to
+   "where is this from", which is worth seeing even where it disagrees. */
+/* Names wrap inside the cell rather than stretching the row: a cosmopolitan guess can carry
+   five of them, and the table must not grow a column wide enough for the worst case. */
+.mosaic-geo { white-space: normal; min-width: 6.5rem; max-width: 11rem; }
+.mosaic-geo-set { display: flex; flex-wrap: wrap; gap: 2px 3px; justify-content: center; }
+.mosaic-geo-r {
+  font-size: .7rem; padding: 1px 5px; border-radius: 3px; white-space: nowrap;
+  color: var(--ink-faint); border: 1px solid transparent;
+}
+.mosaic-geo-r.is-shared {
+  background: rgba(46,125,91,.22); color: var(--ink); font-weight: 700;
+}
+.mosaic-geo-na { opacity: .35; }
+
 /* Proximity sits apart from the trait cells: it is a different kind of statement, and colouring
    it like a match would read as a sixth shared trait. */
 .mosaic-table td.prox {

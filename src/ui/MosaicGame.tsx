@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import type { Tree, GameConfig, GuessResult } from "../core";
 import { isAncestor, resolveGuess, suggestGuesses } from "../core";
 import { CHARACTERS } from "../core/mosaicChars";
+import { geoCell, regionLabels } from "../data/geo";
 import { useMosaicGame } from "../hooks/useMosaicGame";
 import { useDev } from "../data/devMode";
 import { GameHeader } from "./GameHeader";
@@ -267,6 +268,9 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
                 <th title={aids.proximity === "named" ? "The rank you share, never which one" : "Warmer is closer, 100 is the answer"}>
                   {aids.proximity === "named" ? "How close" : "°"}
                 </th>
+                <th title="Where your guess is recorded. Highlighted where the answer is too.">
+                  Recorded in
+                </th>
                 {CHARACTERS.map((c) => <th key={c.id}>{c.label}</th>)}
               </tr>
             </thead>
@@ -277,6 +281,11 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
                   <td className="prox">
                     {aids.proximity === "named" ? row.proximity : `${row.degrees}°`}
                   </td>
+                  {/* Overlap, not equality: a guess recorded across Europe and Asia against an
+                      answer recorded only in Asia is neither a hit nor a miss, it is half
+                      right, and the cell shows which half. One column carries up to six bits
+                      that way; six yes/no columns would carry the same and double the width. */}
+                  <td className="mosaic-geo">{renderGeo(row.node.sciName, answer?.sciName, g.regionScheme)}</td>
                   {row.cells.map((c) => (
                     <td
                       key={c.characterId}
@@ -294,6 +303,29 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
 
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
     </div>
+  );
+}
+
+/** The geography cell: the guess's regions, with the ones the answer shares picked out.
+ *
+ *  A dash when either side is unknown, never a miss. GBIF is thin on some species and asserting
+ *  "not here" from an absence of records would be inventing a fact. */
+function renderGeo(guessSci: string, answerSci: string | undefined, scheme: "continent" | "realm") {
+  if (!answerSci) return <span className="mosaic-geo-na">–</span>;
+  const cell = geoCell(guessSci, answerSci, scheme);
+  if (!cell) return <span className="mosaic-geo-na">–</span>;
+  const labels = regionLabels(scheme);
+  const shared = new Set(cell.shared);
+  // Spelled out, not coded. "NAM" is only legible to whoever wrote the table, and a cell the
+  // player has to decode is not information, it is homework.
+  return (
+    <span className="mosaic-geo-set">
+      {cell.mine.map((r) => (
+        <span key={r} className={`mosaic-geo-r${shared.has(r) ? " is-shared" : ""}`}>
+          {labels[r] ?? r}
+        </span>
+      ))}
+    </span>
   );
 }
 

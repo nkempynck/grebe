@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Tree } from "../core";
 import { isAncestor } from "../core";
 import { CLADE_GROUPS } from "../data/clades";
+import type { RegionScheme } from "../data/geo";
 import { todayKey } from "../core/daily";
 import {
   mosaicAnswerFor, scoreMosaicGuess, mosaicRung, mosaicPool, mosaicScopeId, mosaicDrillOptions,
@@ -44,6 +45,10 @@ export interface UseMosaicGame {
   candidates: TaxonNode[];
   /** What today gives you besides the picture. Drives which panels exist at all. */
   aids: MosaicAids;
+  /** Which region scheme the geography column speaks. Continents are what a player thinks in;
+   *  realms are what the biology actually is. Both are in the data; this picks one. */
+  regionScheme: RegionScheme;
+  setRegionScheme: (s: RegionScheme) => void;
   /** Jump the filter straight to a clade chain (from the species lookup). */
   setPath: (ids: string[]) => void;
   /** Named clades a species belongs to, broad to narrow, for the lookup panel. */
@@ -111,6 +116,7 @@ export function useMosaicGame(
   const [mechanic, setMechanic] = useState<MosaicMechanic>(MOSAIC_DEFAULT_MECHANIC);
   const [rungOverride, setRungOverride] = useState<number | null>(null);
   const [credit, setCredit] = useState<MosaicCredit | null>(null);
+  const [regionScheme, setRegionScheme] = useState<RegionScheme>("continent");
 
   // What today hands you besides the picture. The bench forces it; everywhere else it is the
   // weekday, which is the whole of Mosaic's difficulty ramp.
@@ -230,6 +236,8 @@ export function useMosaicGame(
     rungCount: ladder.length,
     candidates,
     aids,
+    regionScheme,
+    setRegionScheme,
     setPath: (ids: string[]) => setPathIds(ids),
     lineageOf: (speciesId: string) => (tree ? mosaicLineagePath(tree, speciesId, pool) : []),
     guessesLeft: Math.max(0, MOSAIC_MAX_GUESSES - guesses.length),
