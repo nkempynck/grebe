@@ -40,10 +40,30 @@ export const LADDER = [3, 4, 6, 8, 11, 15, 20, 26, 34, 45, 60, 80, 106, 0];
  *  than a beige square you can only wait out. */
 export const SHUFFLE_LADDER = [20, 15, 11, 8, 6, 4, 3];
 
-/** Side of the square the shuffle works on. Deliberately not full resolution: shuffling leaves
- *  every byte in the client, so unlike downsampling it is only cosmetic hiding, and rendering
- *  at a modest size limits what reassembling would actually win you. */
+/** Long side the shuffle works on. Deliberately not full resolution: shuffling leaves every
+ *  byte in the client, so unlike downsampling it is only cosmetic hiding, and rendering at a
+ *  modest size limits what reassembling would actually win you. */
 const SHUFFLE_SIZE = 640;
+
+/** Long side of the reveal. The full photo, capped so a 4000px original is not shipped. */
+const FULL_SIZE = 1600;
+
+/** The picture's own aspect, scaled so its LONG side is `longSide`.
+ *
+ *  NOTHING here crops. Every rung used to be squared off with fit:"cover", which on an
+ *  elongated animal simply deleted the diagnostic end of it — a barramundi arrived with no
+ *  head, and no amount of CSS gets that back out of the JPEG. Framing consistency, which is
+ *  what the crop was for, is preserved anyway: every rung of a given day shares the source's
+ *  aspect, so the frame never moves between guesses. Across days the aspect varies, which
+ *  leaks only whether the photograph is portrait or landscape, and that is worth far less than
+ *  seeing the whole animal. */
+function boxFor(meta, longSide) {
+  const w = meta.width ?? longSide;
+  const h = meta.height ?? longSide;
+  return w >= h
+    ? { w: longSide, h: Math.max(1, Math.round((longSide * h) / w)) }
+    : { w: Math.max(1, Math.round((longSide * w) / h)), h: longSide };
+}
 
 function shuffleRng(seed) {
   let h = 1779033703 ^ seed.length;
@@ -52,24 +72,29 @@ function shuffleRng(seed) {
   return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
-/** One shuffled rung: the square cut into grid x grid tiles, deterministically rearranged. */
+/** One shuffled rung: the whole picture cut into grid x grid tiles, deterministically
+ *  rearranged. The tiles are RECTANGLES of the picture's own aspect rather than squares of a
+ *  cropped one — grid² of them either way, so the ladder's tile counts still mean what they
+ *  say, and nothing is cut off the ends. */
 export async function shuffledFor(buf, grid, seed) {
   const meta = await sharp(buf).rotate().metadata();
-  const side = Math.min(meta.width ?? SHUFFLE_SIZE, meta.height ?? SHUFFLE_SIZE);
-  const square = await sharp(buf).rotate()
-    .resize(side, side, { fit: "cover", position: "attention" })
-    .resize(SHUFFLE_SIZE, SHUFFLE_SIZE, { fit: "fill" })
+  const box = boxFor(meta, SHUFFLE_SIZE);
+  // Floor to whole tiles so the grid divides the canvas exactly and no seam of stray pixels is
+  // left along the right and bottom edges.
+  const tw = Math.max(1, Math.floor(box.w / grid));
+  const th = Math.max(1, Math.floor(box.h / grid));
+  const base = await sharp(buf).rotate()
+    .resize(grid * tw, grid * th, { fit: "fill" })
     .jpeg({ quality: 90 }).toBuffer();
-  const t = Math.floor(SHUFFLE_SIZE / grid);
   const tiles = [];
   for (let y = 0; y < grid; y++)
     for (let x = 0; x < grid; x++)
-      tiles.push(await sharp(square).extract({ left: x * t, top: y * t, width: t, height: t }).toBuffer());
+      tiles.push(await sharp(base).extract({ left: x * tw, top: y * th, width: tw, height: th }).toBuffer());
   const order = tiles.map((_, i) => i);
   const rnd = shuffleRng(seed);
   for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-  return sharp({ create: { width: grid * t, height: grid * t, channels: 3, background: { r: 12, g: 12, b: 12 } } })
-    .composite(order.map((src, dst) => ({ input: tiles[src], left: (dst % grid) * t, top: Math.floor(dst / grid) * t })))
+  return sharp({ create: { width: grid * tw, height: grid * th, channels: 3, background: { r: 12, g: 12, b: 12 } } })
+    .composite(order.map((src, dst) => ({ input: tiles[src], left: (dst % grid) * tw, top: Math.floor(dst / grid) * th })))
     .jpeg({ quality: 86 }).toBuffer();
 }
 
@@ -145,17 +170,21 @@ async function attribution(fileTitle) {
   };
 }
 
-/** The ladder for one image buffer: JPEGs at each width, square-cropped so every rung frames
- *  the subject identically (a changing aspect ratio is itself a clue). */
+/** The ladder for one image buffer: JPEGs whose LONG side is each width, uncropped, so the
+ *  whole animal is in every rung and the frame never moves between guesses. `w = 0` is the
+ *  reveal — the full photograph, capped at FULL_SIZE. */
 export async function ladderFor(buf, widths = LADDER) {
+  const meta = await sharp(buf).rotate().metadata();
   const out = [];
   for (const w of widths) {
-    const img = sharp(buf).rotate();
-    const meta = await img.metadata();
-    const side = Math.min(meta.width ?? 512, meta.height ?? 512);
-    let pipe = sharp(buf).rotate().resize(side, side, { fit: "cover", position: "attention" });
-    if (w) pipe = pipe.resize(w, w, { fit: "fill", kernel: "lanczos3" });
-    out.push({ width: w || side, buf: await pipe.jpeg({ quality: w && w <= 33 ? 92 : 82 }).toBuffer() });
+    const box = boxFor(meta, w || FULL_SIZE);
+    const pipe = sharp(buf).rotate().resize(box.w, box.h, {
+      fit: "fill",
+      kernel: "lanczos3",
+      // The reveal must never be blown up past the original; a rung is meant to be smaller.
+      withoutEnlargement: !w,
+    });
+    out.push({ width: box.w, buf: await pipe.jpeg({ quality: w && w <= 33 ? 92 : 82 }).toBuffer() });
   }
   return out;
 }

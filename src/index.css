@@ -2291,12 +2291,27 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 
 /* ---- BLUR (prototype) ---------------------------------------------------- */
 .mosaic { display: flex; flex-direction: column; gap: 1rem; max-width: 34rem; margin: 0 auto; }
-.mosaic-stage { position: relative; aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: var(--line, #ddd); }
+/* No forced aspect ratio. The images now keep the photograph's own shape (see boxFor in
+   scripts/mosaic-images.mjs), so the stage follows the picture rather than cropping it into a
+   square — which is what removed a barramundi's head. Capped by height so a tall portrait
+   cannot push the guess bar off the screen. */
+.mosaic-stage {
+  position: relative; border-radius: 14px; overflow: hidden; background: var(--bg-3, #eee);
+  display: flex; align-items: center; justify-content: center; min-height: 12rem;
+}
 /* The rung images are a handful of pixels wide; letting the browser smooth them upward is
    what makes a 3px JPEG read as a blur rather than as visible squares. */
-.mosaic-img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: auto; }
+/* max-* rather than width:100% + object-fit: the image scales down to satisfy BOTH bounds on
+   its own, so there is no letterboxing inside the image box and no squashing when the height
+   cap bites. */
+.mosaic-img {
+  display: block; width: auto; height: auto;
+  max-width: 100%; max-height: min(68vh, 34rem);
+  image-rendering: auto;
+}
 .mosaic-img.is-done { cursor: zoom-in; }
-.mosaic-img.is-zoom { object-fit: contain; background: #000; cursor: zoom-out; }
+/* Zoomed, the cap comes off and the whole photo gets the viewport. */
+.mosaic-img.is-zoom { max-height: none; cursor: zoom-out; }
 .mosaic-rung {
   position: absolute; left: .6rem; bottom: .6rem; padding: .25rem .6rem; border-radius: 999px;
   background: rgba(0,0,0,.62); color: #fff; font-size: .74rem; font-variant-numeric: tabular-nums;
