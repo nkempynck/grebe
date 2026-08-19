@@ -23,8 +23,10 @@ import { primePinnedPuzzles, pinnedPuzzleCached, fetchPinnedPuzzle, branchesBoar
 import { SettingsPanel } from "./ui/SettingsPanel";
 import { GuessInput } from "./ui/GuessInput";
 import { ResultCard } from "./ui/ResultCard";
+import { AnswerReveal } from "./ui/AnswerReveal";
 import { Cladogram } from "./ui/Cladogram";
 import { ShareCard } from "./ui/ShareCard";
+import { lineageShare } from "./ui/share";
 import { LeaderboardNudge } from "./ui/LeaderboardNudge";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
 import { DiscussionPanel } from "./ui/DiscussionPanel";
@@ -440,6 +442,34 @@ export default function App() {
   // the quoted number can never be stale by the time it's confirmed.
   const [hintArmed, setHintArmed] = useState(false);
   useEffect(() => { setHintArmed(false); }, [g.guesses.length, g.hintIds.length, roundOver, g.mode]);
+
+  // The post-round reveal (see ui/AnswerReveal). It opens on the TRANSITION out of
+  // play, never on `roundOver` alone: a daily that was already played mounts
+  // finished, so keying off the state would replay the reveal on every reload and
+  // every tab switch back. Held as the answer id it opened for, so a re-render
+  // can't reopen it and the next round starts clean.
+  const [revealFor, setRevealFor] = useState<string | null>(null);
+  const wasPlaying = useRef(g.status === "playing");
+  const resultRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const playing = g.status === "playing";
+    // `dailyLocked` is only ever set by a restore (this device's cache or the cloud
+    // row), never by finishing live — the same signal the record effect trusts. A
+    // restored round is one the player already met the animal in.
+    if (wasPlaying.current && !playing && g.answerId && !(daily && g.dailyLocked)) setRevealFor(g.answerId);
+    wasPlaying.current = playing;
+  }, [g.status, g.answerId, daily, g.dailyLocked]);
+  // Leaving the game counts as dismissing it. Without this, an undismissed reveal
+  // would be waiting on the Lineage tab whenever the player came back to it, which
+  // reads as the card popping up again by itself.
+  useEffect(() => { if (view !== "lineage") setRevealFor(null); }, [view]);
+  // Dismissing lands the player on the result they were just shown a summary of,
+  // rather than back at the top of a tree whose round is over.
+  const closeReveal = useCallback(() => {
+    setRevealFor(null);
+    const smooth = !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    resultRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+  }, []);
   // The name shown/highlighted on the leaderboard (edited display name, else login).
   const boardName = player.displayName ?? player.username;
   // Browsing past boards (and every window that isn't today) is for signed-in
@@ -456,6 +486,30 @@ export default function App() {
   const par = useMemo(
     () => (roundOver && g.tree && g.answerId ? informedPar(g.tree, g.config, g.answerId, g.assist) : null),
     [roundOver, g.tree, g.answerId, g.config.scopeRootId, g.config.winWithin, g.assist]
+  );
+
+  // The finished round's shared text and its points, built once (see lineageShare)
+  // and handed to the reveal. The share card below builds its own from the same
+  // function with the same arguments.
+  const share = useMemo(
+    () =>
+      roundOver
+        ? lineageShare({
+            config: g.config,
+            guesses: g.guesses,
+            status: g.status === "won" ? "won" : "gaveup",
+            hintCount: g.hintIds.length,
+            // todayKey() rather than the `today` const, which is declared further
+            // down: this has to stay above the loading early-return, since it is a
+            // hook. Same value, same rollover.
+            date: todayKey(),
+            mode: g.mode,
+            tier: daily ? g.daily.tier : null,
+            difficulty: daily ? g.daily.difficulty : null,
+            streak: daily ? stats.daily.currentStreak : null,
+          })
+        : null,
+    [roundOver, g.config, g.guesses, g.status, g.hintIds.length, g.mode, daily, g.daily.tier, g.daily.difficulty, stats.daily.currentStreak]
   );
 
   useEffect(() => {
@@ -700,8 +754,35 @@ export default function App() {
         />
       )}
 
+      {/* The reveal is fixed to the viewport, so where it sits in the tree only
+          decides when it unmounts: inside the Lineage view, so leaving the game
+          takes it with you. */}
+      {revealFor && revealFor === g.answerId && (
+        <AnswerReveal
+          answer={answer}
+          won={g.status === "won"}
+          guessCount={g.guesses.length}
+          daily={daily}
+          streak={daily ? stats.daily.currentStreak : null}
+          me={boardName}
+          configured={player.configured}
+          signedIn={!!player.session}
+          reloadKey={boardReload}
+          shareText={share?.text ?? null}
+          // The round's own points, so the card says what it was worth. Taken from
+          // the share builder rather than recomputed, so the number on the card,
+          // the number in the copied text and the number the server freezes are
+          // one and the same.
+          points={share?.score ?? null}
+          onClose={closeReveal}
+        />
+      )}
+
       {roundOver && (
         <>
+          {/* Where "See the full result" lands. Zero-height on purpose: the block
+              below is a plain flow of cards and must not gain a wrapper. */}
+          <div ref={resultRef} aria-hidden="true" />
           <ResultCard tree={g.tree} answer={answer} won={g.status === "won"} guessCount={g.guesses.length} streak={daily ? stats.daily.currentStreak : null} par={par} />
           <ShareCard
             config={g.config}
