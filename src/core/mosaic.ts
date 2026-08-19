@@ -339,9 +339,14 @@ export function mosaicProximity(tree: Tree, answerId: string, guessId: string): 
   return "distant";
 }
 
-/** Every named clade between the root and a species, broad to narrow, with how many candidate
- *  answers each holds. This is what lets you look a species up and jump the filter straight to
- *  the level you meant — "show me where a fennec fox sits, then scope me to foxes". */
+/** Every named clade between the root and a species, broad to narrow. This is what lets you
+ *  look a species up and jump the filter straight to the level you meant — "show me where a
+ *  fennec fox sits, then scope me to foxes".
+ *
+ *  `count` is INTERNAL: it decides which levels are worth keeping (a level earns its place by
+ *  narrowing) and is not for display. Showing it here was the census leak in its most
+ *  convenient form — name any species and read a count off every clade above it. See
+ *  mosaicDrillOptions. */
 export function mosaicLineagePath(
   tree: Tree,
   speciesId: string,
@@ -428,10 +433,13 @@ export function mosaicCandidates(tree: Tree, cladeId: string, pool: Set<string>)
 /** One step of the drill-down filter: the named clades directly below `cladeId`, with how many
  *  candidate ANSWERS sit under each.
  *
- *  The count is the point. Seven class chips barely narrow anything — you pick Mammals and are
- *  still choosing between a hundred and eighty animals with no sense of progress. Watching
- *  "Animals 487 -> Mammals 180 -> Carnivorans 44 -> Cats 12" is the progress, and at twelve the
- *  endgame is actually winnable.
+ *  The count ORDERS the rows and is no longer shown on them. It used to be, on the argument
+ *  that watching "Animals 487 -> Mammals 180 -> Carnivorans 44 -> Cats 12" is what gives a
+ *  drill its sense of progress. It does, but a per-clade count is also a published census of
+ *  the species set, and a list ranked by it tells the player which branch of the taxonomy is
+ *  fattest — a fact about this database, not about the animal. The progress is carried by
+ *  `remaining` in the breadcrumb instead: one number, about the player's position, saying
+ *  nothing about how the set is built.
  *
  *  "Directly below" means the SHALLOWEST NAMED descendants: the tree keeps unnamed junction
  *  nodes that a player cannot reason about, so the walk descends through them and stops at the

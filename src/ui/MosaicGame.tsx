@@ -231,6 +231,10 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
                   <p className="mosaic-lookup-said">
                     <b>{tree.byId.get(looked)?.common ?? tree.byId.get(looked)?.sciName}</b> sits in — tap one to narrow to it
                   </p>
+                  {/* Names only, for the same reason the narrow-down rows dropped theirs —
+                      and more so here. Typing any species you like and reading a count off
+                      every clade above it is the census on demand, in a more convenient form
+                      than the drill chips ever offered. */}
                   <div className="mosaic-lookup-chain">
                     {g.lineageOf(looked).map((l) => (
                       <button
@@ -238,7 +242,7 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
                         className="mosaic-path"
                         onClick={() => { setReject(null); g.setPath([l.id]); setLookup(""); setLooked(null); }}
                       >
-                        {l.label} <b>{l.count}</b>
+                        {l.label}
                       </button>
                     ))}
                   </div>

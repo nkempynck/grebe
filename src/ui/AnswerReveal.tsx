@@ -92,17 +92,24 @@ export function AnswerReveal({
     return () => { live = false; };
   }, [answer.id]);
 
-  // Escape closes, and focus moves into the card on open and back out on close —
-  // the card is the only thing on screen that matters until it's dismissed.
+  // Focus moves into the card on open and back out on close — the card is the only
+  // thing on screen that matters until it's dismissed. Deliberately its OWN effect,
+  // running once: bundled with the key handler below it re-ran whenever `zoomed`
+  // changed, so opening a picture pulled focus back onto the card sitting behind
+  // the overlay. PhotoZoom takes and returns focus itself.
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     cardRef.current?.focus();
-    // While a picture is open over the card, Escape belongs to the picture (which
-    // closes itself); handling it here too would dismiss the whole reveal on one
-    // press, losing the thing the player was looking at.
+    return () => prev?.focus?.();
+  }, []);
+
+  // While a picture is open over the card, Escape belongs to the picture (which
+  // closes itself); handling it here too would dismiss the whole reveal on one
+  // press, losing the thing the player was looking at.
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !zoomed) onClose(); };
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("keydown", onKey); prev?.focus?.(); };
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose, zoomed]);
 
   const name = answer.common ?? answer.sciName;

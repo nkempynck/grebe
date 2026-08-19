@@ -2125,6 +2125,10 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 /* Above the answer reveal (z-70), which is itself a dialog you can open a picture
    from. Everything else it covers sits below 50 anyway. */
 .photo-zoom { z-index: 80; }
+/* The overlay takes focus on open so the keyboard follows the picture rather than
+   staying on whatever is now hidden behind it. Same treatment as .reveal-card: it
+   is a focus TARGET, not a control, so it takes no ring. */
+.photo-zoom:focus { outline: none; }
 .branches-zoom img, .grid-zoom img, .clado-zoom img, .photo-zoom img {
   max-width: min(560px, 90vw); max-height: 74vh; width: auto; height: auto;
   border-radius: 10px; border: 1px solid var(--line-soft);

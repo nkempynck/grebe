@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 /** The enlarged-picture overlay. A 96px square crop is fine for recognising a fox
@@ -23,16 +23,29 @@ import { createPortal } from "react-dom";
  *      entrance animation (fill-mode `both`), so a zoom opened from the hero photo
  *      would have been trapped inside that card. */
 export function PhotoZoom({ src, caption, onClose }: { src: string; caption?: string | null; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+  // The overlay takes focus and hands it back on close. Without this the keyboard was left
+  // wherever it was when the picture opened — for a zoom opened from inside the answer reveal
+  // that meant focus on the card UNDERNEATH the overlay, with Tab walking content the player
+  // could no longer see.
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    ref.current?.focus();
+    return () => prev?.focus?.();
+  }, []);
   return createPortal(
     <div
       className="photo-zoom"
       role="dialog"
+      aria-modal="true"
       aria-label={caption ? `${caption} picture` : "Enlarged picture"}
+      tabIndex={-1}
+      ref={ref}
       onClick={onClose}
     >
       <img src={src} alt={caption ?? ""} />
