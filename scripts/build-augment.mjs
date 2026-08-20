@@ -20,12 +20,14 @@
 //
 // New-family placement (phase 3) is resolved offline by scripts/pull-family-anchors.mjs
 // into sel-family-anchors.json (family -> nearest in-set ancestor ott); run that first
-// when the pool/classification changes.
+// when the pool/classification changes. New-GENUS placement (phase 2) works the same way
+// via scripts/pull-genus-anchors.mjs -> sel-genus-anchors.json, one rank down.
 //
 //   node scripts/build-augment.mjs
-//   reads: src/data/taxonomy.json, node_modules/.cache/{sel-pool,sel-classify-otl,sel-family-anchors}.json
+//   reads: src/data/taxonomy.json,
+//          node_modules/.cache/{sel-pool,sel-classify-otl,sel-family-anchors,sel-genus-anchors}.json
 //   writes: src/data/taxonomyAugment.json
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { latinBinomialTest } from "./latin-name.mjs";
@@ -55,6 +57,14 @@ const tax = JSON.parse(readFileSync(resolve(ROOT, "src/data/taxonomy.json"), "ut
 const pool = JSON.parse(readFileSync(resolve(C, "sel-pool.json"), "utf8"));
 const classify = JSON.parse(readFileSync(resolve(C, "sel-classify-otl.json"), "utf8")).byName;
 const familyAnchor = JSON.parse(readFileSync(resolve(C, "sel-family-anchors.json"), "utf8")).byFamily;
+// Where a NEW genus really belongs (phase 2). The pool's finest rank is family, so without
+// this a minted genus hangs off the family node as a SIBLING of the subfamily that contains
+// it — `Ovis` beside `Caprinae`, which lets a board show sheep next to "Sheep & goats" and
+// makes a sheep no closer to a goat than to a gazelle. Optional: an empty map just restores
+// the old family-level graft rather than failing the build.
+const genusAnchor = existsSync(resolve(C, "sel-genus-anchors.json"))
+  ? JSON.parse(readFileSync(resolve(C, "sel-genus-anchors.json"), "utf8")).byGenus
+  : (console.warn("! sel-genus-anchors.json missing — new genera will graft at family level"), {});
 
 // ---- existing tree structure we graft onto ----
 // A GENUS NAME IS NOT A KEY. Prunella is both a bird genus (the accentors) and a mint
@@ -129,6 +139,17 @@ function baseParentFor(genusSci, family) {
   if (byFam.size === 1) return [...byFam.values()][0];
   return byFam.get(family ?? "") ?? null;
 }
+/** Where to graft a genus the base tree has no node for: its resolved anchor (the deepest
+ *  in-set ancestor OTL knows about) when there is one, else the family node as before. The
+ *  anchor is re-checked here rather than trusted — it must exist and sit inside the family
+ *  we meant, so a stale cache or a homonym can only cost us the old behaviour. */
+function newGenusParent(genusSci, family) {
+  const famId = famNodeBySci.get(family);
+  const anchor = genusAnchor[`${genusSci}|${family}`];
+  if (!anchor || !nodeById.has(anchor)) return famId;
+  for (let c = anchor; c; c = nodeById.get(c)?.parentId) if (c === famId) return anchor;
+  return famId;
+}
 // Names already spoken for anywhere in the base tree — never mint a second node for one.
 const inSetCladeNames = new Set();
 for (const n of tax.nodes) if (n.rank !== "species" && n.sciName) inSetCladeNames.add(n.sciName);
@@ -179,7 +200,7 @@ for (const s of pool) {
     if (baseParent) bucket(s.genus, baseParent, false).species.push({ ...s, common: s.article });
     else homonymSkipped++;
   } else if (s.family && famNodeBySci.has(s.family)) {
-    bucket(s.genus, famNodeBySci.get(s.family), true).species.push({ ...s, common: s.article });
+    bucket(s.genus, newGenusParent(s.genus, s.family), true).species.push({ ...s, common: s.article });
   } else if (s.family && classify[s.family]?.ott) {
     let f = famBuckets.get(s.family);
     if (!f) famBuckets.set(s.family, (f = { ott: classify[s.family].ott, genera: new Map() }));
