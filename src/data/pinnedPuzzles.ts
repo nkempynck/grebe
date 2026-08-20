@@ -160,7 +160,15 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   (see setServedGridHistory) — every generator change had been rewriting the history it
   //   was meant to avoid. Board identity changed at most dates → re-pin un-played future
   //   dates.
-  version: 9,
+  // v10 (2026-08-20): no generator change at all — the TREE moved under it. New genera were
+  //   grafted onto their family instead of their subfamily, so `Ovis` sat beside `Caprinae`
+  //   rather than inside it and a board could show a group of sheep next to "Sheep & goats"
+  //   (nine such boards in the next year; see scripts/pull-genus-anchors.mjs). Bumped anyway,
+  //   because the version is how the admin calendar tells a repinned date from one still
+  //   holding an old-tree board, and board identity moved at most dates: freed of the split,
+  //   Caprinae stopped being the year's most-reused group at 24 boards. → re-pin un-played
+  //   future dates.
+  version: 10,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -225,7 +233,12 @@ const branchesResolver: Resolver<"branches"> = {
   //   inside three days 63 -> 10, most-used group 32 -> 20, median gap 36 -> 46 days, all 365
   //   days still field a board and the separation gradient is unmoved (2.44 -> 2.47).
   //   Re-pin un-played future dates.
-  version: 8,
+  // v9 (2026-08-20): the same tree fix as Kinship v10, which Branches shares. Seven boards in
+  //   the next year labelled a clade AND a genus inside it (Arvicolinae over Microtus four
+  //   times, Colobinae over Semnopithecus twice, Lutrinae over Lontra once) → 0. Variety is
+  //   untouched: 295/365 distinct group-sets either way and an identical tier histogram.
+  //   → re-pin un-played future dates.
+  version: 9,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
