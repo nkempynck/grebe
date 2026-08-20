@@ -339,6 +339,24 @@ export function mosaicProximity(tree: Tree, answerId: string, guessId: string): 
   return "distant";
 }
 
+/** Smallest clade the species lookup will name, in pool candidates.
+ *
+ *  THIS IS A CROSS-GAME GUARD, not a Mosaic tuning knob. Unfloored, the lookup is a free
+ *  species-to-clades oracle over the same tree Kinship and Branches are played on, and Kinship
+ *  is exactly the question "which clade do these four share": measured over 60 boards, 49% of
+ *  its groups had their answer clade printed in the chain of every member. Type the sixteen
+ *  tiles, read off the four groups.
+ *
+ *  A floor separates the two games cleanly because they want opposite ends of the tree. Kinship
+ *  groups a family of four; Mosaic scopes into a branch worth searching. At 20 candidates the
+ *  Kinship exposure is zero and Mosaic keeps a mean chain of 2.8 levels, which is what it
+ *  actually uses — jumping the filter straight to a five-species genus was close to handing over
+ *  Mosaic's own answer anyway.
+ *
+ *  It is friction, not secrecy. taxonomy.json ships to the browser, so the tree is already on
+ *  every player's machine; what this removes is the polished UI for reading it. */
+export const MOSAIC_LOOKUP_MIN_CANDIDATES = 20;
+
 /** Every named clade between the root and a species, broad to narrow. This is what lets you
  *  look a species up and jump the filter straight to the level you meant — "show me where a
  *  fennec fox sits, then scope me to foxes".
@@ -410,7 +428,12 @@ export function mosaicLineagePath(
     next = count;
     if (kept.length >= MAX_STEPS) break;
   }
-  return kept.reverse().map(({ id, label, count }) => ({ id, label, count }));
+  // Floored on the way out, not on the way in: the narrowing gate above needs the real counts to
+  // decide which levels earn their place, and only the DISPLAYED list is a cross-game leak.
+  return kept
+    .reverse()
+    .filter(({ count }) => count >= MOSAIC_LOOKUP_MIN_CANDIDATES)
+    .map(({ id, label, count }) => ({ id, label, count }));
 }
 
 /** Candidate answers under a clade, for the endgame list. Recall is the wrong ask when the

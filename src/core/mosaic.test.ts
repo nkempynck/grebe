@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import taxonomy from "../data/taxonomy.json";
+import augment from "../data/taxonomyAugment.json";
 import { buildTree } from "./index";
+import { generateGridBoard } from "./grid";
 import { CHARACTERS, characterRow, characterValue, missingCladeNames, NA } from "./mosaicChars";
 import {
   mosaicAnswerFor, mosaicPool, scoreMosaicGuess, mosaicRung, mosaicAids, mosaicAidsFor,
-  mosaicTierForDate, mosaicDegrees, mosaicScopeId,
+  mosaicTierForDate, mosaicDegrees, mosaicScopeId, mosaicLineagePath,
   MOSAIC_BLUR_LADDER, MOSAIC_MAX_GUESSES, MOSAIC_DEFAULT_MECHANIC,
 } from "./mosaic";
 
@@ -157,6 +159,53 @@ describe("mosaic week", () => {
       expect(a.tier).toBeLessThanOrEqual(7);
       expect(typeof a.lookup).toBe("boolean");
     }
+  });
+});
+
+// Mosaic is played on the SAME tree as Kinship and Branches, and its species lookup answers
+// "which clades does this belong to" — which is Kinship's entire question. Before the floor,
+// 49% of Kinship's groups had their answer clade printed in the chain of every member, so the
+// sixteen tiles could be typed in and the four groups read off. Nothing but this test would
+// notice it coming back.
+describe("mosaic does not answer Kinship", () => {
+  // Mosaic's lookup runs on the BASE tree; Kinship deals from the rich one. That mismatch is
+  // the real configuration, so the test keeps it rather than tidying both onto one tree.
+  const pool = new Set(mosaicPool(tree, mosaicScopeId(tree)));
+  const richTree = buildTree([
+    ...(taxonomy as { nodes: Nodes }).nodes,
+    ...(augment as { nodes: Nodes }).nodes,
+  ]);
+
+  it("never names a clade small enough to be a Kinship group", () => {
+    let exposed = 0;
+    let groups = 0;
+    // The generator directly, not gridBoardFor: the scheduled version replays the anti-repeat
+    // history from its anchor, which costs seconds per call and grows with the calendar.
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(Date.UTC(2026, 7, 20) + i * 86400000).toISOString().slice(0, 10);
+      for (let tier = 1; tier <= 7; tier += 3) {
+        const board = generateGridBoard(richTree, d, tier);
+        if (!board) continue;
+        for (const g of board.groups) {
+          groups++;
+          const everyMemberShowsIt = g.memberIds.every((m) =>
+            mosaicLineagePath(tree, m, pool).some((l) => l.id === g.cladeId));
+          if (everyMemberShowsIt) exposed++;
+        }
+      }
+    }
+    expect(groups).toBeGreaterThan(100); // the sweep actually ran
+    expect(exposed, `${exposed}/${groups} Kinship groups readable straight off Mosaic's lookup`)
+      .toBe(0);
+  });
+
+  it("still leaves the lookup something to scope by", () => {
+    const sample = [...pool].filter((_, i) => i % 7 === 0);
+    const chains = sample.map((s) => mosaicLineagePath(tree, s, pool).length);
+    const mean = chains.reduce((a, b) => a + b, 0) / chains.length;
+    expect(mean).toBeGreaterThan(2);
+    // A species the lookup can say nothing about is a dead panel, so it stays rare.
+    expect(chains.filter((c) => c === 0).length / chains.length).toBeLessThan(0.02);
   });
 });
 
