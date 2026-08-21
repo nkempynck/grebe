@@ -121,6 +121,10 @@ for (const game of ["kinship", "branches"] as const) {
   // lookup then silently returns nothing: ancestry walks end immediately, broad-group checks
   // report "other", and separation is computed from an MRCA that does not exist. That reads
   // as a pile of new defects in boards that are perfectly fine. Refuse instead.
+  console.log(`\n${"=".repeat(70)}\n${game.toUpperCase()}  ${days.length} rows (${future.length} future), ${from} →\n${"=".repeat(70)}`);
+  const vers = new Map<number, number>();
+  for (const d of future) vers.set(d.version, (vers.get(d.version) ?? 0) + 1);
+  console.log(`versions (future): ${[...vers].map(([v, n]) => `v${v}×${n}`).join(", ")}`);
   // FUTURE rows were written from this tree, so a missing id there means the auditor is older
   // than the pins and every lookup below would silently lie. PAST rows are different: a served
   // board is frozen against whatever tree shipped that day, and the augment has legitimately
@@ -149,10 +153,6 @@ for (const game of ["kinship", "branches"] as const) {
     console.log(`  Those boards reveal a raw id instead of a label: ${dates.join(", ")}`);
   }
 
-  console.log(`\n${"=".repeat(70)}\n${game.toUpperCase()}  ${days.length} rows (${future.length} future), ${from} →\n${"=".repeat(70)}`);
-  const vers = new Map<number, number>();
-  for (const d of future) vers.set(d.version, (vers.get(d.version) ?? 0) + 1);
-  console.log(`versions (future): ${[...vers].map(([v, n]) => `v${v}×${n}`).join(", ")}`);
 
   // 1. the graft bug: one labelled group containing another on the same board
   let nested = 0;
