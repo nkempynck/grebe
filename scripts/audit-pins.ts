@@ -121,16 +121,32 @@ for (const game of ["kinship", "branches"] as const) {
   // lookup then silently returns nothing: ancestry walks end immediately, broad-group checks
   // report "other", and separation is computed from an MRCA that does not exist. That reads
   // as a pile of new defects in boards that are perfectly fine. Refuse instead.
-  const unknown = new Set<string>();
-  for (const d of days) for (const g of d.groups) if (!tree.byId.get(g)) unknown.add(g);
-  if (unknown.size) {
-    console.error(`\n✗ ${game}: ${unknown.size} pinned clade ids are absent from this build's tree.`);
-    console.error(`  e.g. ${[...unknown].slice(0, 3).join(", ")}`);
+  // FUTURE rows were written from this tree, so a missing id there means the auditor is older
+  // than the pins and every lookup below would silently lie. PAST rows are different: a served
+  // board is frozen against whatever tree shipped that day, and the augment has legitimately
+  // dropped nodes since (auggen_Bos is gone on purpose — see build-augment.mjs). Those are
+  // worth reporting, because the client re-derives labels at read time and a dangling id
+  // renders as the raw id, but they are history, not a reason to refuse.
+  const missing = (rows: typeof days) => {
+    const s = new Set<string>();
+    for (const d of rows) for (const g of d.groups) if (!tree.byId.get(g)) s.add(g);
+    return s;
+  };
+  const goneFuture = missing(future);
+  if (goneFuture.size) {
+    console.error(`\n✗ ${game}: ${goneFuture.size} clade ids in FUTURE pins are absent from this build's tree.`);
+    console.error(`  e.g. ${[...goneFuture].slice(0, 3).join(", ")}`);
     console.error(`  This auditor is older than the pins. Rebundle it and re-run:`);
     console.error(`    npx esbuild scripts/audit-pins.ts --bundle --platform=node --format=esm \\`);
     console.error(`      --define:import.meta.env={} --loader:.json=json --external:@supabase/supabase-js \\`);
     console.error(`      --outfile=node_modules/.cache/audit-pins.mjs`);
     process.exit(1);
+  }
+  const gonePast = missing(days.filter((d) => !d.future));
+  if (gonePast.size) {
+    const dates = days.filter((d) => !d.future && d.groups.some((g) => gonePast.has(g))).map((d) => d.date);
+    console.log(`\n⚠ ${game}: ${gonePast.size} clade ids in SERVED pins no longer exist (${[...gonePast].slice(0, 3).join(", ")}).`);
+    console.log(`  Those boards reveal a raw id instead of a label: ${dates.join(", ")}`);
   }
 
   console.log(`\n${"=".repeat(70)}\n${game.toUpperCase()}  ${days.length} rows (${future.length} future), ${from} →\n${"=".repeat(70)}`);
