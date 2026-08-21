@@ -116,6 +116,23 @@ for (const game of ["kinship", "branches"] as const) {
   });
   const future = days.filter((d) => d.future);
 
+  // STALE-BUNDLE GUARD. This script embeds the tree at BUNDLE time, so an auditor built
+  // before a taxonomy change will not contain the clade ids the newer pins reference. Every
+  // lookup then silently returns nothing: ancestry walks end immediately, broad-group checks
+  // report "other", and separation is computed from an MRCA that does not exist. That reads
+  // as a pile of new defects in boards that are perfectly fine. Refuse instead.
+  const unknown = new Set<string>();
+  for (const d of days) for (const g of d.groups) if (!tree.byId.get(g)) unknown.add(g);
+  if (unknown.size) {
+    console.error(`\n✗ ${game}: ${unknown.size} pinned clade ids are absent from this build's tree.`);
+    console.error(`  e.g. ${[...unknown].slice(0, 3).join(", ")}`);
+    console.error(`  This auditor is older than the pins. Rebundle it and re-run:`);
+    console.error(`    npx esbuild scripts/audit-pins.ts --bundle --platform=node --format=esm \\`);
+    console.error(`      --define:import.meta.env={} --loader:.json=json --external:@supabase/supabase-js \\`);
+    console.error(`      --outfile=node_modules/.cache/audit-pins.mjs`);
+    process.exit(1);
+  }
+
   console.log(`\n${"=".repeat(70)}\n${game.toUpperCase()}  ${days.length} rows (${future.length} future), ${from} →\n${"=".repeat(70)}`);
   const vers = new Map<number, number>();
   for (const d of future) vers.set(d.version, (vers.get(d.version) ?? 0) + 1);
