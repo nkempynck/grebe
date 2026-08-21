@@ -191,6 +191,25 @@ for (const game of ["kinship", "branches"] as const) {
     const soonEasy = soon.filter((r) => r.diff < r.lo);
     console.log(`  next 60 days: ${soonEasy.length} walkover${soonEasy.length === 1 ? "" : "s"}` +
       `${soonEasy.length ? ` → ${soonEasy.map((r) => r.date).join(", ")}` : ""}`);
+    // GIVEAWAY BY NAME. The label is revealed on solve, so it cannot leak — but four tiles
+    // sharing a distinctive word can be grouped without knowing any biology, which is what
+    // the wordCap in grid.ts exists to bound. Checked here on the rows players will actually
+    // get, because the cap is a preference the generator can spend when a pool is thin.
+    const STOP = new Set(["common","great","greater","lesser","little","northern","southern",
+      "eastern","western","american","african","asian","european","giant","spotted","striped","banded"]);
+    const wordsOf = (s: string) => (s.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !STOP.has(w));
+    const shared: { date: string; names: string[] }[] = [];
+    for (const d of future) {
+      for (const g of (decodePuzzle("kinship", mine.find((r) => r.puzzle_date === d.date)!.payload as any) as any).groups) {
+        const names = g.memberIds.map((m: string) => label(m));
+        const tally = new Map<string, number>();
+        for (const nm of names) for (const w of new Set(wordsOf(nm))) tally.set(w, (tally.get(w) ?? 0) + 1);
+        if (Math.max(0, ...tally.values()) >= 4) shared.push({ date: d.date, names });
+      }
+    }
+    console.log(`groups where all four tiles share a word: ${shared.length}`);
+    for (const s of shared.slice(0, 6)) console.log(`    ${s.date}: ${s.names.join(" · ")}`);
+
     // Four groups from four different classes is a giveaway however the ruler scores it.
     const cross = diffs.filter((r) => r.classes.size > 1);
     console.log(`cross-class boards (a bird beside a beetle): ${cross.length}  ${cross.length ? "✗" : "✓"}`);
