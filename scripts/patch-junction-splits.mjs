@@ -130,7 +130,22 @@ for (const file of [tax, aug]) {
   }
 }
 const fresh = accepted.filter((a) => !byId.has(a.nodeId));
-tax.nodes.push(...fresh.map((a) => ({ id: a.nodeId, sciName: "", common: a.label, rank: "clade", parentId: a.junction })));
+// sciName:"" is deliberate and load-bearing: every unnamed junction in the tree carries it,
+// and loadTaxonomy's normalizeName calls .normalize() on it unguarded, so omitting the key
+// breaks tree loading outright. Consumers must therefore treat "" as absent — see the `||`
+// in BranchesGame's cladeLabel, where `??` let an empty sciName render as a blank group.
+// `wikiTitle` is required, not optional. candidateTitles tries wikiTitle, sciName, common —
+// ours has no sciName and a composite common ("Capra & Hemitragus") that Wikipedia will never
+// have an article for, so without an override the node is a dead link. The largest genus in
+// the clade is a real taxon with a real article, and is what the group is mostly made of.
+tax.nodes.push(...fresh.map((a) => ({
+  id: a.nodeId, sciName: "", common: a.label, wikiTitle: a.genera[0], rank: "clade", parentId: a.junction,
+})));
+// Heal nodes an earlier run wrote without one.
+for (const a of accepted) {
+  const n = byId.get(a.nodeId);
+  if (n && !n.wikiTitle) n.wikiTitle = a.genera[0];
+}
 tax.junctionSplitsPatchedAt = new Date().toISOString();
 writeFileSync(TAX, JSON.stringify(tax));
 writeFileSync(AUG, JSON.stringify(aug));

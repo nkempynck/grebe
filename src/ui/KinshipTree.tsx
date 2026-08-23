@@ -42,7 +42,10 @@ export function KinshipTree({ tree, board, levelOf, onPick }: Props) {
   const rootId = skeleton.id;
   const namedAncestorOf = (id: string): string | null => {
     for (let cur: string | null = id; cur; cur = tree.byId.get(cur)?.parentId ?? null) {
-      if (tree.byId.get(cur)?.sciName) return cur;
+      // A name is a name whichever field holds it. Junction splits carry only `common`
+      // (sciName is "" by the tree's convention), so testing sciName alone walked past them.
+      const n = tree.byId.get(cur);
+      if (n?.sciName || n?.common) return cur;
     }
     return null;
   };
@@ -83,7 +86,7 @@ export function KinshipTree({ tree, board, levelOf, onPick }: Props) {
             // Named shared ancestors (the four group clades and any other named
             // split) get a label; unnamed splits stay bare junctions.
             const node = tree.byId.get(n.id);
-            if (!node?.sciName) {
+            if (!node?.sciName && !node?.common) {
               // The root always gets a label (nearest named ancestor); other
               // unnamed splits stay bare junction dots.
               if (n.id === rootId && rootAnnoId) {
