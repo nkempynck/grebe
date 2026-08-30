@@ -2,8 +2,10 @@
 // pixels and gains resolution with every wrong guess, with a Mastermind-style character table
 // beside it showing which traits your guess shares with the answer.
 //
-// Pure: tree in, board out. No React, no data layer, no image fetching — the ladder images are
-// built at pin time by scripts/mosaic-images.mjs and addressed by rung index.
+// Pure: tree in, board out. No React and no data layer, and it does not fetch the picture — but
+// it does decide WHICH picture. Two draws live here: mosaicAnswerFor, the dated one the game
+// will ship on once it is pinned like the other three, and mosaicSampleAnswer, the random one
+// the beta plays on while the picture comes live off Wikipedia instead of a staged file.
 import type { TaxonNode, Tree } from "./types";
 import { edgeDistance, leavesUnder, mrca } from "./tree";
 import { CHARACTERS, characterValue, NA } from "./mosaicChars";
@@ -37,8 +39,13 @@ export type MosaicMechanic = "blur" | "shuffle";
  *  change to the reveal, and it costs one branch to keep. */
 export const MOSAIC_DEFAULT_MECHANIC: MosaicMechanic = "shuffle";
 
-/** Guesses allowed. One more than the rungs, so the final guess is made at the clearest rung
- *  rather than the reveal being wasted on a board nobody gets to answer. */
+/** The baseline guess count: one more than the rungs, so the final guess is made at the clearest
+ *  rung rather than the reveal being wasted on a board nobody gets to answer.
+ *
+ *  It is a FLOOR, not a fixed rule. Harder days get more (see MosaicAids.guesses), because the
+ *  weekend takes the narrowing and the lookup away without giving anything back, and eight
+ *  guesses at a scrambled animal with no way to narrow is not a harder puzzle so much as a
+ *  shorter one. */
 export const MOSAIC_MAX_GUESSES = MOSAIC_BLUR_LADDER.length + 1;
 
 /** How a guess's distance is reported back.
@@ -61,16 +68,26 @@ export interface MosaicAids {
    *  much more than losing a filter: the weekend is recall, not recognition. */
   subset: boolean;
   proximity: MosaicProximityMode;
+  /** How many guesses the day allows. It rises as the aids fall, and the reveal ladder stretches
+   *  to fill it, so the extra guesses buy TIME with the picture rather than extra shots at the
+   *  clearest rung. See mosaicRung. */
+  guesses: number;
 }
 
 /** THE WEEK. Mosaic's difficulty is not the picture — every day runs the same ladder against
  *  the same pool — it is how much help you get turning a picture into a name. Two levers, each
  *  stepping down once:
  *
- *    Mon/Tue  lookup + subset, named proximity   (Gentle)
- *    Wed      lookup + subset, degrees           (Tricky)
- *    Thu/Fri  subset, degrees                    (Harder)
- *    Sat/Sun  nothing but the picture, degrees   (Brutal)
+ *    Mon/Tue  lookup + subset, named proximity   (Gentle)    8 guesses
+ *    Wed      lookup + subset, degrees           (Tricky)    8 guesses
+ *    Thu/Fri  subset, degrees                    (Harder)    9 guesses
+ *    Sat/Sun  nothing but the picture, degrees   (Brutal)   10 guesses
+ *
+ *  The guess count is the compensation, and it is deliberately small. A day that takes the
+ *  narrowing away has removed the only tool for turning "some kind of bird" into a name, so it
+ *  gives back time to look instead: the reveal is resampled onto more rungs (see mosaicLadder),
+ *  so the picture comes back in finer steps rather than the player getting more attempts at the
+ *  clearest one. More time with the picture, not more shots at a nearly-solved board.
  *
  *  Those are the same four bands, on the same weekdays, as Lineage's resolution ramp — see
  *  DIFFICULTY in data/dailySchedule. Not a coincidence worth engineering around, but the
@@ -80,13 +97,13 @@ export interface MosaicAids {
  *  mechanic, not an aid, and a Sunday without it is not a harder puzzle but a different and
  *  worse one. */
 const AIDS_BY_TIER: ReadonlyArray<Omit<MosaicAids, "tier">> = [
-  { lookup: true,  subset: true,  proximity: "named" },   // Mon
-  { lookup: true,  subset: true,  proximity: "named" },   // Tue
-  { lookup: true,  subset: true,  proximity: "degrees" }, // Wed
-  { lookup: false, subset: true,  proximity: "degrees" }, // Thu
-  { lookup: false, subset: true,  proximity: "degrees" }, // Fri
-  { lookup: false, subset: false, proximity: "degrees" }, // Sat
-  { lookup: false, subset: false, proximity: "degrees" }, // Sun
+  { lookup: true,  subset: true,  proximity: "named",   guesses: 8 },  // Mon
+  { lookup: true,  subset: true,  proximity: "named",   guesses: 8 },  // Tue
+  { lookup: true,  subset: true,  proximity: "degrees", guesses: 8 },  // Wed
+  { lookup: false, subset: true,  proximity: "degrees", guesses: 9 },  // Thu
+  { lookup: false, subset: true,  proximity: "degrees", guesses: 9 },  // Fri
+  { lookup: false, subset: false, proximity: "degrees", guesses: 10 }, // Sat
+  { lookup: false, subset: false, proximity: "degrees", guesses: 10 }, // Sun
 ];
 
 /** Weekday difficulty tier for a date (Mon=1 … Sun=7) — matches dailySchedule and the other
@@ -130,6 +147,21 @@ export function mosaicScopeId(tree: Tree): string {
  *  headline species, which was making boards easy on fame alone. */
 export const MOSAIC_MIN_VIEWS = 9000;
 
+/** …and where the floor goes back on the days that have no candidate list.
+ *
+ *  9000 is only defensible BECAUSE of the list: an Amami rabbit is recognisable among twelve
+ *  names and unnameable from nothing. Saturday and Sunday take the narrowing away, so on those
+ *  days the animal itself has to be recallable, and the floor returns to where it sat before the
+ *  list existed. Unfair is not the same as hard, and the weekend was quietly being both. */
+export const MOSAIC_MIN_VIEWS_NO_LIST = 20000;
+
+/** The obscurity floor for a tier: it tracks the candidate list, not the difficulty band. What
+ *  makes an unfamiliar animal fair is being able to RECOGNISE its name in a list, so the floor
+ *  rises exactly where that list is gone. */
+export function mosaicMinViews(tier: number): number {
+  return mosaicAids(tier).subset ? MOSAIC_MIN_VIEWS : MOSAIC_MIN_VIEWS_NO_LIST;
+}
+
 export interface MosaicCell {
   characterId: string;
   /** The guess's own value for this character. */
@@ -170,11 +202,15 @@ function xmur3(str: string): number {
 
 /** Species eligible to BE the answer: famous enough to be identifiable from a photo. Sorted so
  *  the pick is stable regardless of tree iteration order. */
-export function mosaicPool(tree: Tree, scopeRootId: string): string[] {
+export function mosaicPool(
+  tree: Tree,
+  scopeRootId: string,
+  minViews: number = MOSAIC_MIN_VIEWS
+): string[] {
   return leavesUnder(tree, scopeRootId)
     .filter((id) => {
       const n = tree.byId.get(id);
-      return n?.rank === "species" && n.common && (n.views ?? 0) >= MOSAIC_MIN_VIEWS;
+      return n?.rank === "species" && n.common && (n.views ?? 0) >= minViews;
     })
     .sort();
 }
@@ -189,6 +225,90 @@ function drawFrom(pool: string[], weights: number[], total: number, seed: string
     if (u < acc) return pool[i];
   }
   return pool[pool.length - 1];
+}
+
+/** How much one recent appearance costs a group in the next draw, and how far back "recent"
+ *  reaches. Measured over 40,000 boards, against no cooldown at all:
+ *
+ *      penalty  window   back-to-back   longest run   five in a row   birds
+ *      none              20.0%          8             1 in 288        28.5%
+ *      0.5      2        11.1%          5             1 in 6667       25.8%
+ *      0.25     3         6.3%          3             none            22.8%
+ *      0.1      4         3.6%          3             none            19.6%
+ *      0 (ban)  2         0.0%          1             none            22.4%
+ *
+ *  0.25 over 3 is the pick. It ends the runs without flattening the pool into a rota: an
+ *  outright ban means a player never once sees two mammals together, which reads as a rule
+ *  rather than as chance. No group starves, because none is above 30% to begin with. */
+export const MOSAIC_GROUP_PENALTY = 0.25;
+export const MOSAIC_GROUP_WINDOW = 3;
+
+/** One answer drawn at play time instead of from the date. THE BETA'S DRAW.
+ *
+ *  Mosaic is meant to become a daily like the other three, pinned and the same for everyone;
+ *  mosaicAnswerFor below is that draw and is what it will ship on. Until then the beta samples,
+ *  because a dated board needs its images built and staged ahead of time and a sampled one can
+ *  just ask Wikipedia for whichever species it drew. Nothing here is a decision against the
+ *  daily: when the pin arrives this becomes the "play another" button and the schedule takes
+ *  over the opening board.
+ *
+ *  Weighted exactly like the dated draw (views^0.3), so the median board is the same kind of
+ *  animal either way and the beta's difficulty carries over.
+ *
+ *  `exclude` keeps the draw off species that would give something away or bore: today's Kinship
+ *  and Branches tiles, and anything already dealt this sitting. They are given zero weight
+ *  rather than filtered out, so pool and weights stay index-aligned.
+ *
+ *  `cooldown` is what stops five birds in a row. Birds are 30% of the pool and mammals another
+ *  25%, so an unaided draw repeats the previous board's group 20% of the time and runs of eight
+ *  turn up inside 40,000 boards. See MOSAIC_GROUP_PENALTY. */
+export function mosaicSampleAnswer(
+  tree: Tree,
+  opts: {
+    scopeRootId?: string;
+    minViews?: number;
+    exclude?: ReadonlySet<string>;
+    cooldown?: {
+      /** A species to the group it counts as. Passed in rather than imported: the groups live
+       *  in the data layer, which imports core, and core must not import back. */
+      of: (speciesId: string) => string;
+      /** Groups of the last few boards, in any order. */
+      recent: readonly string[];
+      penalty?: number;
+    };
+    /** Injectable for the tests; the game uses Math.random. */
+    rand?: () => number;
+  } = {}
+): string | null {
+  const scope = opts.scopeRootId ?? mosaicScopeId(tree);
+  const pool = mosaicPool(tree, scope, opts.minViews);
+  const cool = opts.cooldown;
+  const penalty = cool?.penalty ?? MOSAIC_GROUP_PENALTY;
+  const hits = new Map<string, number>();
+  for (const g of cool?.recent ?? []) hits.set(g, (hits.get(g) ?? 0) + 1);
+  let total = 0;
+  let last = -1;
+  const weights = pool.map((id, i) => {
+    if (opts.exclude?.has(id)) return 0;
+    let w = Math.pow(tree.byId.get(id)?.views ?? 1, 0.3);
+    // Damped, not banned. A hard "never the same group twice" is itself a pattern a player can
+    // read, and two mammals in a row is a fine thing to happen occasionally; it is the run of
+    // five that is the complaint.
+    if (cool) w *= Math.pow(penalty, hits.get(cool.of(id)) ?? 0);
+    total += w;
+    last = i;
+    return w;
+  });
+  if (total <= 0) return null;
+  const u = (opts.rand ?? Math.random)() * total;
+  let acc = 0;
+  for (let i = 0; i < pool.length; i++) {
+    acc += weights[i];
+    if (weights[i] > 0 && u < acc) return pool[i];
+  }
+  // Only reachable on floating-point drift past the last bucket. Fall back to the last species
+  // that actually had weight, never to pool[length-1], which may be one of the excluded.
+  return last >= 0 ? pool[last] : null;
 }
 
 /** No species may come round again within this many days. The pool is a few hundred animals
@@ -320,10 +440,81 @@ export function mosaicDegrees(
   return Math.max(0, Math.min(100, Math.round((edgeDistance(tree, scope, shared) / answerPath) * 100)));
 }
 
-/** Which rung is on screen after `wrong` wrong guesses, clamped to the last one. */
-export function mosaicRung(wrong: number, mechanic: MosaicMechanic = MOSAIC_DEFAULT_MECHANIC): number {
-  const len = mechanic === "shuffle" ? MOSAIC_SHUFFLE_LADDER.length : MOSAIC_BLUR_LADDER.length;
-  return Math.min(Math.max(wrong, 0), len - 1);
+/** The day's ladder: one rung per guess bar the last, since the final guess is made at the
+ *  clearest rung rather than the reveal being wasted on a board nobody gets to answer.
+ *
+ *  Both hand-tuned ladders are geometric. Shuffle runs 20, 15, 11, 8, 6, 4, 3, which is a
+ *  constant ratio of about 0.73; blur runs 11 up to 64 at about 1.34. So a longer day does not
+ *  need repeated rungs, it needs more POINTS ON THE SAME CURVE, and the curve can simply be
+ *  resampled between the endpoints the tuning settled on.
+ *
+ *  At the baseline length this returns the tuned array verbatim rather than a reconstruction of
+ *  it. The formula reproduces those numbers exactly, but rounding is rounding, and the ladder
+ *  the game shipped on should not depend on that staying true. */
+export function mosaicLadder(
+  mechanic: MosaicMechanic = MOSAIC_DEFAULT_MECHANIC,
+  maxGuesses: number = MOSAIC_MAX_GUESSES
+): number[] {
+  const base = mechanic === "shuffle" ? MOSAIC_SHUFFLE_LADDER : MOSAIC_BLUR_LADDER;
+  const from = base[0];
+  const to = base[base.length - 1];
+  const want = Math.max(2, Math.round(maxGuesses) - 1);
+  if (want === base.length) return [...base];
+  // A rung is an integer, so there are only |from - to| + 1 of them to be had. Past that a day
+  // simply gets fewer rungs than guesses and spends the extra at the clearest, which is what the
+  // ladder did everywhere before it could vary. Not reachable from the shipped tiers.
+  const n = Math.min(want, Math.abs(from - to) + 1);
+  const down = to < from;
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const v = Math.round(from * Math.pow(to / from, i / (n - 1)));
+    // Rounding can land two neighbours on the same integer, and a rung shown twice running is a
+    // guess that changes nothing on screen. So each value is held strictly past the last, and
+    // also held far enough from the end that the remaining rungs still have room to land exactly
+    // on `to` — without that second bound, forcing distinctness early overshoots the endpoint.
+    const room = down ? to + (n - 1 - i) : to - (n - 1 - i);
+    const ceil = i === 0 ? from : down ? out[i - 1] - 1 : out[i - 1] + 1;
+    out.push(down ? Math.min(Math.max(v, room), ceil) : Math.max(Math.min(v, room), ceil));
+  }
+  return out;
+}
+
+/** Which rung is on screen after `wrong` wrong guesses, clamped to the last one. The clamp is
+ *  what puts the final guess at the clearest rung. */
+export function mosaicRung(
+  wrong: number,
+  mechanic: MosaicMechanic = MOSAIC_DEFAULT_MECHANIC,
+  maxGuesses: number = MOSAIC_MAX_GUESSES
+): number {
+  return Math.min(Math.max(wrong, 0), mosaicLadder(mechanic, maxGuesses).length - 1);
+}
+
+/** Where each tile of a shuffled rung takes its pixels from: cell `i` on screen shows cell
+ *  `order[i]` of the photograph, both counted left to right and top to bottom.
+ *
+ *  Seeded rather than random, because the shuffle has to survive a re-render. React redraws the
+ *  stage on every guess, every filter change and every window resize, and a fresh permutation
+ *  each time would rescramble a picture the player was in the middle of reading — the one thing
+ *  that must not happen between two guesses at the same rung.
+ *
+ *  Each rung is shuffled independently. Carrying the permutation down the ladder would make the
+ *  reveal a slow unshuffle, which sounds kinder and plays worse: the tiles that happened to
+ *  start near home would sit there being right for six guesses. */
+export function mosaicTileOrder(seed: string, tilesPerSide: number): number[] {
+  const order = Array.from({ length: tilesPerSide * tilesPerSide }, (_, i) => i);
+  // mulberry32 off the same xmur3 the rest of the codebase seeds with.
+  let s = xmur3(seed);
+  const next = () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
 }
 
 /** How far a guess landed from the answer, WITHOUT naming the shared group.

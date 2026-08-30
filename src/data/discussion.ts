@@ -19,6 +19,20 @@ import { supabase } from "./supabase";
 /** Opaque board key. Deliberately a plain string, not a union of game names, so
  *  adding a game needs no edit here. */
 export type BoardKey = string;
+
+/** The board key for Mosaic's standing feedback thread. Not "mosaic": when Mosaic becomes a
+ *  daily it will want an ordinary per-day board under that name, and the feedback thread should
+ *  not have taken it. Matches is_open_board() in supabase. */
+export const MOSAIC_FEEDBACK_BOARD: BoardKey = "mosaic-feedback";
+
+/** The date every open board lives on.
+ *
+ *  A permanent board still goes through RPCs whose signature has a date in it, so it needs one,
+ *  and it has to be the same one forever or the thread fragments into a board per day. The
+ *  server does not trust this: it overwrites the date for an open board with its own
+ *  open_board_date(). This constant only keeps the client's reads and its writes pointed at the
+ *  same rows, and must match the server's. */
+export const OPEN_BOARD_DATE = "1970-01-01";
 export type CommentSort = "top" | "new";
 export type Vote = -1 | 0 | 1;
 

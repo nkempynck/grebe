@@ -1,4 +1,4 @@
-// What Mosaic must not give away about the other two games today.
+// What the other games must not give away about today's Kinship and Branches boards.
 //
 // Mosaic runs on the same tree as Kinship and Branches, and its two aids answer their questions
 // exactly: the lookup is species -> its clades, which is Kinship's whole question, and the drill
@@ -15,9 +15,11 @@
 // lookup and drill entirely rather than showing them unprotected. An empty hidden set and a
 // failed fetch are the same value in the wrong design, and the difference matters: one means
 // "nothing to hide today", the other means "we do not know what to hide".
+import { isAncestor } from "../core";
+import type { Tree } from "../core";
 import { fetchPinnedPuzzle, pinnedPuzzleCached } from "./pinnedPuzzles";
 
-export interface MosaicGuard {
+export interface BoardGuard {
   /** Clade ids Mosaic must not name today. */
   hidden: ReadonlySet<string>;
   /** Species on today's other boards. Not hidden from the lookup (knowing a tile is a mammal
@@ -28,14 +30,14 @@ export interface MosaicGuard {
   known: boolean;
 }
 
-export const GUARD_UNKNOWN: MosaicGuard = { hidden: new Set(), species: new Set(), known: false };
+export const GUARD_UNKNOWN: BoardGuard = { hidden: new Set(), species: new Set(), known: false };
 
 /** Build the guard from two already-decoded boards. Pure, so pin-time tooling and the client
  *  share one definition of "in play today". */
 export function guardFrom(
   kinship: { groups: { cladeId: string }[]; tiles: string[] } | null,
   branches: { groupIds: string[]; leafIds: string[]; tray: string[] } | null
-): MosaicGuard {
+): BoardGuard {
   const hidden = new Set<string>();
   const species = new Set<string>();
   for (const g of kinship?.groups ?? []) hidden.add(g.cladeId);
@@ -48,7 +50,7 @@ export function guardFrom(
 
 /** Today's guard, from the pin cache if it is already primed. `undefined` means "not looked up
  *  yet" and is distinct from GUARD_UNKNOWN, which means "looked and could not tell". */
-export function mosaicGuardCached(date: string): MosaicGuard | undefined {
+export function boardGuardCached(date: string): BoardGuard | undefined {
   const k = pinnedPuzzleCached("kinship", date);
   const b = pinnedPuzzleCached("branches", date);
   if (k === undefined || b === undefined) return undefined;
@@ -58,7 +60,7 @@ export function mosaicGuardCached(date: string): MosaicGuard | undefined {
 
 /** Fetch both boards and build the guard. Never throws; a failure is GUARD_UNKNOWN, which the
  *  game reads as "withhold the aids". */
-export async function fetchMosaicGuard(date: string): Promise<MosaicGuard> {
+export async function fetchBoardGuard(date: string): Promise<BoardGuard> {
   try {
     const [k, b] = await Promise.all([
       fetchPinnedPuzzle("kinship", date),
@@ -69,4 +71,28 @@ export async function fetchMosaicGuard(date: string): Promise<MosaicGuard> {
   } catch {
     return GUARD_UNKNOWN;
   }
+}
+
+/** Would naming this organism or clade give away part of today's Kinship or Branches board?
+ *
+ *  True for a group in play, for a species on either board, and for ANY species inside a group
+ *  in play — that last one is the point. Blocking only the sixteen tiles would leave the tree
+ *  underneath them open, and "which clade do these two share" is Kinship's whole question; you
+ *  could ask it of any two bears rather than of the two on the board.
+ *
+ *  FAILS OPEN, unlike Mosaic's use of the same guard. There the unknown case hides two optional
+ *  panels, so refusing costs a feature; here it decides what is guessable, so refusing on an
+ *  unreadable pin would block the entire tree. A small leak beats an unplayable game. */
+export function isGuarded(tree: Tree, guard: BoardGuard, id: string): boolean {
+  if (!guard.known) return false;
+  if (guard.species.has(id) || guard.hidden.has(id)) return true;
+  for (const c of guard.hidden) if (isAncestor(tree, c, id)) return true;
+  return false;
+}
+
+/** The same question for an organism that is NOT in the tree yet: an out-of-set guess arrives
+ *  with its own lineage, and grafting it would expose whichever board clade it hangs under. */
+export function lineageIsGuarded(guard: BoardGuard, lineageIds: string[]): boolean {
+  if (!guard.known) return false;
+  return lineageIds.some((id) => guard.hidden.has(id) || guard.species.has(id));
 }

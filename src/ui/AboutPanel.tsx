@@ -189,8 +189,16 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
           <p>
             What changes through the week is the <b>help</b>. Early on you can narrow the field to
             a group and look any animal up to see where it sits. Midweek the lookup goes, and by
-            the weekend it is the photograph and the table alone. The answer is always an animal
-            well known enough to have a decent picture, and it never repeats inside 45 days.
+            the weekend it is the photograph and the table alone. Harder days give you more
+            guesses to make up for it, and the picture comes back in smaller steps. The answer is
+            always an animal well known enough to have a decent picture.
+          </p>
+          <p>
+            Mosaic is in <b>beta</b>. Unlike the other three it is not yet a daily: the animal is
+            drawn at random each time you open it, so yours is not everyone's and there is nothing
+            to compare. Nothing is scored or recorded, you can play as many as you like, and the
+            difficulty is yours to set rather than the day's. Tell us how it plays on the feedback
+            board under the game.
           </p>
         </div>
 

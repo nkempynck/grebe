@@ -1962,6 +1962,17 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 }
 /* The "no lookups" nudge: its own line under the blurb, a touch heavier. */
 .gamehead-blurb-note { display: block; font-weight: 600; margin-top: 4px; }
+/* The beta line is a standing caveat, not the day's rule, so it reads quieter than the note
+   above it rather than competing with it. */
+.gamehead-blurb-note.is-beta {
+  font-weight: 400; font-size: .86em; opacity: .72; margin-top: .5rem;
+  border-left: 2px solid var(--game, var(--brass)); padding-left: .6rem;
+}
+.gamehead-beta {
+  border: 1px solid var(--game, var(--brass)); color: var(--game, var(--brass));
+  border-radius: 999px; padding: 0 .45rem; font-size: .68rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .08em;
+}
 
 /* Lineage's daily setup, shown under the mode switch and briefly explained. */
 .lineage-setup { margin: 12px 0 4px; line-height: 1.5; max-width: 62ch; }
@@ -2378,19 +2389,46 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   position: relative; border-radius: 14px; overflow: hidden; background: var(--bg-3, #eee);
   display: flex; align-items: center; justify-content: center; min-height: 12rem;
 }
-/* The rung images are a handful of pixels wide; letting the browser smooth them upward is
-   what makes a 3px JPEG read as a blur rather than as visible squares. */
-/* max-* rather than width:100% + object-fit: the image scales down to satisfy BOTH bounds on
-   its own, so there is no letterboxing inside the image box and no squashing when the height
-   cap bites. */
-.mosaic-img {
-  display: block; width: auto; height: auto;
-  max-width: 100%; max-height: min(68vh, 34rem);
-  image-rendering: auto;
+/* Player settings. One quiet row above the picture: present without asking for attention, and
+   costing a line of height rather than a panel. Wraps to two rows on a narrow screen. */
+.mosaic-settings {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem 1rem;
+  font-size: .78rem; opacity: .8;
 }
-.mosaic-img.is-done { cursor: zoom-in; }
-/* Zoomed, the cap comes off and the whole photo gets the viewport. */
-.mosaic-img.is-zoom { max-height: none; cursor: zoom-out; }
+.mosaic-setting { display: flex; align-items: center; gap: .35rem; }
+.mosaic-setting-name {
+  font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6;
+}
+.mosaic-setting select {
+  font: inherit; font-size: .78rem; padding: .12rem 1.1rem .12rem .3rem; border-radius: 6px;
+  border: 1px solid var(--line, #ddd); background: transparent; color: inherit;
+  max-width: 100%; cursor: pointer;
+}
+.mosaic-setting select:hover { border-color: var(--game, var(--brass)); }
+.mosaic-settings-note { display: flex; align-items: center; gap: .5rem; font-size: .72rem; opacity: .55; }
+.mosaic-settings-note .linkbtn { font-size: .72rem; }
+
+/* The stage is one box carrying the PHOTOGRAPH's aspect ratio, set inline from the file the
+   browser actually loaded (see MosaicPicture). Shuffle then divides that box into an n×n grid,
+   which is why the tiles are square-ish rather than distorted: every cell inherits the shape of
+   the whole. */
+/* The stage centres with flex, so this wrapper must carry a real width. Without it the wrapper
+   is a shrink-to-fit flex item, the picture's width:100% resolves against nothing, and a grid of
+   empty tiles has zero intrinsic width — so the whole photograph collapsed to nought by nought
+   and the stage sat at its bare min-height with nothing in it. */
+.mosaic-stage-shot { width: 100%; display: flex; justify-content: center; }
+.mosaic-shot {
+  width: 100%; margin: 0 auto; background: var(--bg-3, #eee); overflow: hidden;
+}
+.mosaic-shot.is-loading { aspect-ratio: 4 / 3; opacity: .5; }
+.mosaic-shot-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.mosaic-shot-grid { display: grid; gap: 0; }
+/* Each tile paints one cell of the same image. A hairline overlap kills the sub-pixel seams
+   that show as a grid of light lines when the stage width is not a multiple of n. */
+.mosaic-shot-grid > span { background-repeat: no-repeat; outline: .5px solid transparent; }
+.mosaic-stage-shot.is-done { cursor: zoom-in; }
+/* Zoomed, the height cap comes off and the whole photo gets the viewport. */
+.mosaic-stage.is-zoom .mosaic-shot { max-width: 100% !important; cursor: zoom-out; }
 .mosaic-rung {
   position: absolute; left: .6rem; bottom: .6rem; padding: .25rem .6rem; border-radius: 999px;
   background: rgba(0,0,0,.62); color: #fff; font-size: .74rem; font-variant-numeric: tabular-nums;
@@ -2461,8 +2499,13 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 }
 .mosaic-table tr.hit tbody th, .mosaic-table tr.hit th { color: #2e7d5b; }
 .mosaic-giveup { align-self: flex-start; background: none; border: 0; color: inherit; opacity: .6; text-decoration: underline; cursor: pointer; font-size: .82rem; }
-.mosaic-nostage { display: flex; flex-direction: column; gap: .4rem; align-items: center; justify-content: center; height: 100%; padding: 1rem; text-align: center; }
+.mosaic-nostage { display: flex; flex-direction: column; gap: .4rem; align-items: center; justify-content: center; min-height: 12rem; padding: 1rem; text-align: center; }
 .mosaic-nostage span { font-size: .78rem; opacity: .65; }
+.mosaic-again {
+  align-self: center; margin-top: .5rem; padding: .3rem .8rem; font-size: .82rem; cursor: pointer;
+  border: 1px solid var(--line, #ddd); border-radius: 999px; background: transparent; color: inherit;
+}
+.mosaic-again:hover { border-color: var(--game, var(--brass)); color: var(--game, var(--brass)); }
 .mosaic-drill { display: flex; flex-direction: column; gap: .45rem; }
 .mosaic-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem; font-size: .82rem; }
 .mosaic-crumb { background: none; border: 0; color: inherit; cursor: pointer; padding: .1rem .25rem; border-radius: 6px; }

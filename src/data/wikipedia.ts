@@ -179,6 +179,104 @@ export async function fetchWikiImage(node: TaxonNode): Promise<WikiImage | null>
   return img;
 }
 
+export interface WikiCredit {
+  artist: string | null;
+  licence: string | null;
+  /** The file's description page, where the full licence terms live. */
+  filePage: string | null;
+}
+
+/** The File: name behind an upload.wikimedia.org URL.
+ *
+ *  A thumbnail keeps the original name one segment up
+ *  (…/commons/thumb/a/ab/Foo.jpg/320px-Foo.jpg), so the last segment is the wrong one to take:
+ *  "320px-Foo.jpg" is not a page on any wiki. */
+function fileTitleFrom(url: string): string | null {
+  try {
+    const parts = new URL(url).pathname.split("/").filter(Boolean);
+    const name = parts.includes("thumb") ? parts[parts.length - 2] : parts[parts.length - 1];
+    return name ? decodeURIComponent(name) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** extmetadata values arrive as HTML ("<a href=…>Charles J. Sharp</a>"). Tags are stripped
+ *  first and the entities decoded second, in a textarea: with the angle brackets already gone
+ *  nothing from the wiki can be parsed as markup, so no <img onerror> rides in on a credit. */
+function stripHtml(html: string | undefined): string | null {
+  if (!html) return null;
+  const el = document.createElement("textarea");
+  el.innerHTML = html.replace(/<[^>]*>/g, " ");
+  const text = el.value.replace(/\s+/g, " ").trim();
+  return text || null;
+}
+
+export interface WikiShot {
+  /** What to display: the file rendered at roughly the width asked for. */
+  src: string;
+  /** The original upload, as the fallback if `src` will not load. */
+  full: string;
+  credit: WikiCredit | null;
+}
+
+const shotCache = new Map<string, WikiShot>();
+
+/** A file at a workable size, with its attribution, in one request.
+ *
+ *  THE WIDTH HAS TO BE ASKED FOR, not constructed. Wikimedia serves thumbnails only at widths
+ *  it has already rendered, and refuses an arbitrary one from an outside request with a 400 —
+ *  rewriting a "330px-" URL to "1024px-" yields an error page, not a picture. iiurlwidth asks
+ *  the wiki instead, which snaps to the nearest bucket it has (1024 came back as 1280) and
+ *  hands over a URL that loads. The original is not an answer either: a featured animal photo
+ *  is regularly five megabytes, downloaded whole for a board that opens as four hundred
+ *  scrambled squares.
+ *
+ *  The credit rides along because it costs nothing extra here. Fetching it separately on the
+ *  reveal would be a second round trip for a line that was already one field away.
+ *
+ *  Asked of en.wikipedia rather than Commons on purpose: a local query resolves files on the
+ *  shared repo too, so one request covers both homes instead of a miss and a retry. */
+export async function fetchWikiShot(img: WikiImage, width: number): Promise<WikiShot> {
+  const bare: WikiShot = { src: img.full, full: img.full, credit: null };
+  const title = fileTitleFrom(img.full);
+  if (!title) return bare;
+  const key = `${title} ${width}`;
+  const hit = shotCache.get(key);
+  if (hit) return hit;
+  const params = new URLSearchParams({
+    action: "query", format: "json", origin: "*",
+    titles: `File:${title}`, prop: "imageinfo",
+    iiprop: "url|extmetadata", iiurlwidth: String(width),
+    iiextmetadatafilter: "Artist|LicenseShortName",
+  });
+  let out = bare;
+  try {
+    const res = await fetch("https://en.wikipedia.org/w/api.php?" + params, { headers: { accept: "application/json" } });
+    if (res.ok) {
+      const data = await res.json();
+      const pages: Record<string, { imageinfo?: Array<{ url?: string; thumburl?: string; descriptionurl?: string; extmetadata?: Record<string, { value?: string }> }> }> =
+        data?.query?.pages ?? {};
+      const ii = Object.values(pages)[0]?.imageinfo?.[0];
+      if (ii) {
+        out = {
+          src: ii.thumburl ?? ii.url ?? img.full,
+          full: ii.url ?? img.full,
+          credit: {
+            artist: stripHtml(ii.extmetadata?.Artist?.value),
+            licence: stripHtml(ii.extmetadata?.LicenseShortName?.value),
+            filePage: ii.descriptionurl ?? null,
+          },
+        };
+      }
+    }
+  } catch {
+    /* offline — the original at full size, and no credit line rather than a wrong one */
+  }
+  shotCache.set(key, out);
+  return out;
+}
+
 /** Fetch a short summary + thumbnail. Tries each candidate title in order and
  *  returns the first with a real extract, keeping a bare (extract-less) hit as a
  *  fallback. Returns null on total failure (offline, no article, disambiguation)

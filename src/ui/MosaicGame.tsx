@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import type { Tree, GameConfig, GuessResult } from "../core";
 import { isAncestor, resolveGuess, suggestGuesses } from "../core";
 import { CHARACTERS } from "../core/mosaicChars";
+import { mosaicTierForDate } from "../core/mosaic";
 import { geoCell, regionLabels } from "../data/geo";
 import { useMosaicGame } from "../hooks/useMosaicGame";
 import { useDev } from "../data/devMode";
@@ -16,6 +17,11 @@ import { GameHeader } from "./GameHeader";
 import { GuessInput } from "./GuessInput";
 import { PlaytestBar } from "./PlaytestBar";
 import { MosaicBench } from "./MosaicBench";
+import { MosaicPicture } from "./MosaicPicture";
+import { MosaicSettings } from "./MosaicSettings";
+import { DiscussionPanel } from "./DiscussionPanel";
+import { MOSAIC_FEEDBACK_BOARD, OPEN_BOARD_DATE } from "../data/discussion";
+import { useMosaicPrefs } from "../data/mosaicPrefs";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 /** Same bands, same words as Lineage's ramp — see DIFFICULTY in data/dailySchedule. */
@@ -25,12 +31,17 @@ interface Props {
   tree: Tree | null;
   date?: string;
   onHowItWorks?: () => void;
+  /** Signed-in user, for the feedback board. Reading it needs no account; posting does. */
+  userId?: string | null;
+  /** True when a backend is configured at all. Without one the board does not render. */
+  configured?: boolean;
   /** Render inside the admin test bench: playtest controls, never recorded. */
   sandbox?: boolean;
 }
 
-export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
+export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandbox }: Props) {
   const devSettings = useDev();
+  const prefs = useMosaicPrefs();
   const g = useMosaicGame(tree, {
     date,
     dev: sandbox ? { tier: devSettings.tier, nonce: devSettings.nonce } : null,
@@ -73,9 +84,12 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
   );
 
   if (!tree) return <p className="empty">Loading…</p>;
-  if (!g.answerId) return <p className="empty">No puzzle for {g.date}.</p>;
 
-  const answer = tree.byId.get(g.answerId);
+  // The header and the stage render before a board exists, so the page does not jump when one
+  // arrives a fetch later. Everything a player can ACT on waits for it: no guess bar, no
+  // narrowing and no give-up against an animal that has not been dealt yet.
+  const answer = g.answerId ? tree.byId.get(g.answerId) : undefined;
+  const ready = Boolean(g.answerId);
   const done = g.status !== "playing";
   const { aids } = g;
 
@@ -87,6 +101,7 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
         dayName={DAY_NAMES[aids.tier - 1]}
         difficulty={DIFFICULTY[aids.tier - 1]}
         onHowItWorks={onHowItWorks}
+        meta={<span className="gamehead-beta">Beta</span>}
         blurb={
           <>
             Name the animal. The photograph is cut into tiles and shuffled, and every wrong
@@ -97,29 +112,51 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
                 ? aidsNote(aids.lookup, aids.subset)
                 : "Checking today’s other boards…"}
             </span>
+            {/* What beta actually means for the player, in the three ways it will bite: the
+                animal is not the same for everyone, the points do not go anywhere, and there is
+                more than one board a day. Saying it here is cheaper than an explanation after
+                someone has compared their animal with a friend's. */}
+            <span className="gamehead-blurb-note is-beta">
+              Mosaic is in beta. The animal is drawn at random rather than set for the day, so
+              yours is not everyone’s, and nothing is scored or recorded yet. Finish a board and
+              you can play another.
+            </span>
           </>
         }
       />
 
       {sandbox && <MosaicBench g={g} />}
 
-      <div className="mosaic-stage">
+      <MosaicSettings prefs={prefs} todayTier={mosaicTierForDate(g.date)} />
+
+      <div className={`mosaic-stage${done && zoom ? " is-zoom" : ""}`}>
         {g.missing ? (
           <div className="mosaic-nostage">
-            <strong>No picture for {g.date}</strong>
-            <span>Nothing to identify. Please try again later.</span>
+            <strong>No picture to play</strong>
+            <span>Wikipedia could not be reached. Please try again.</span>
+            <button className="mosaic-again linkbtn" onClick={g.newBoard}>Try again</button>
+          </div>
+        ) : !g.imageUrl ? (
+          <div className="mosaic-nostage" aria-busy="true">
+            <span>Finding an animal…</span>
           </div>
         ) : (
-          <img
-            key={g.imageUrl}
-            className={`mosaic-img${done ? " is-done" : ""}${zoom ? " is-zoom" : ""}`}
-            src={g.imageUrl}
-            alt={done ? (answer?.common ?? answer?.sciName ?? "") : "Unidentified animal, cut into shuffled tiles"}
+          <div
+            className={done ? "mosaic-stage-shot is-done" : "mosaic-stage-shot"}
             onClick={() => done && setZoom((z) => !z)}
-            onError={g.onImageError}
-          />
+          >
+            <MosaicPicture
+              src={g.imageUrl}
+              fallback={g.imageFull}
+              mechanic={g.mechanic}
+              step={g.step}
+              revealed={done}
+              alt={done ? (answer?.common ?? answer?.sciName ?? "") : "Unidentified animal, cut into shuffled tiles"}
+              onUnavailable={g.onImageError}
+            />
+          </div>
         )}
-        {!done && (
+        {!done && g.imageUrl && (
           <span className="mosaic-rung">
             {g.guessesLeft} {g.guessesLeft === 1 ? "guess" : "guesses"} left
             {/* What naming it NOW is still worth. Guesses cost little early and a lot late, so
@@ -152,6 +189,10 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
               )}
             </span>
           )}
+          {/* The board is sampled, not scheduled, so there is another one waiting and no reason
+              to make anyone reload the page for it. When Mosaic becomes a daily this button
+              stops being the way out of a finished round and starts being the practice mode. */}
+          <button className="mosaic-again" onClick={g.newBoard}>Play another →</button>
         </div>
       )}
 
@@ -159,7 +200,7 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
           bar sits directly under the picture, the board of what you have already tried sits
           directly under the bar, and the aids come after both: a guess and its answer belong
           next to each other, not two panels apart. */}
-      {!done && (
+      {!done && ready && (
         <>
           {reject && <p className="mosaic-reject">{reject}</p>}
           <GuessInput
@@ -217,7 +258,7 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
         </div>
       )}
 
-      {!done && (
+      {!done && ready && (
         <>
           {aids.subset && g.guardReady && (
             <div className="mosaic-drill">
@@ -315,6 +356,24 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
           <button className="mosaic-giveup linkbtn" onClick={g.giveUp}>Give up</button>
         </>
       )}
+
+      {/* A STANDING board, not today's. The other three games each get a board per puzzle,
+          which is right when everyone has the same puzzle; here nobody does, so a per-day
+          thread would be a room full of people describing different animals. What a beta wants
+          instead is one place the feedback accumulates and can still be read next week.
+
+          Not gated on finishing, unlike the others: there is no play record to gate on, and
+          somebody who gave up after two boards is exactly who you want to hear from. */}
+      <DiscussionPanel
+        board={MOSAIC_FEEDBACK_BOARD}
+        date={OPEN_BOARD_DATE}
+        permanent
+        title="Beta feedback"
+        configured={!!configured}
+        signedIn={!!userId}
+        played
+        label="Mosaic"
+      />
 
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
     </div>

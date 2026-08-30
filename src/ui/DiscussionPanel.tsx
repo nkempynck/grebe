@@ -31,6 +31,12 @@ interface Props {
   played: boolean;
   /** Human label for the board, used in the empty state. */
   label?: string;
+  /** A standing board rather than a day's: no rollover, no completion gate, always writable.
+   *  The server decides this too (is_open_board), so this only stops the UI offering or
+   *  withholding things the server would then contradict. */
+  permanent?: boolean;
+  /** Heading over the board. */
+  title?: string;
 }
 
 const MAX = 1000;
@@ -43,24 +49,34 @@ const VISIBLE_THREADS = 5;
  *  empty room, and there's no point advertising a conversation that isn't there. */
 const MIN_TEASER = 2;
 
-/** Compact relative time: the board only ever shows one day, so hours suffice. */
+/** Compact relative time. A daily board only ever shows one day, but a permanent one outlives
+ *  it, so this carries on into days and weeks rather than reporting "400h ago". */
 function ago(iso: string): string {
   const secs = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (secs < 60) return "just now";
   const mins = Math.floor(secs / 60);
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  return `${hrs}h ago`;
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return `${Math.floor(days / 7)}w ago`;
 }
 
 // Ownership comes from the server's is_mine flag rather than a display-name
 // comparison, so it stays correct if a player renames themselves mid-day.
-export function DiscussionPanel({ board, date, configured, signedIn, played, label = "this puzzle" }: Props) {
+export function DiscussionPanel({
+  board, date, configured, signedIn, played, label = "this puzzle",
+  permanent = false, title = "Discussion",
+}: Props) {
   // A board is READABLE for two days but WRITEABLE for one: yesterday's is closed.
   // The server enforces that in post_comment/vote_comment, so this only stops the UI
   // offering actions that would be refused — the same mistake as showing Reply on a
   // comment that could never accept one.
-  const writable = date === todayKey();
+  //
+  // A permanent board has no such day. Its date is a sentinel, so the comparison below would
+  // call it closed forever.
+  const writable = permanent || date === todayKey();
   const [sort, setSort] = useState<CommentSort>("top");
   const [rows, setRows] = useState<Comment[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -277,7 +293,7 @@ export function DiscussionPanel({ board, date, configured, signedIn, played, lab
   return (
     <div className="disc">
       <div className="disc-head">
-        <div className="stats-sub">Discussion</div>
+        <div className="stats-sub">{title}</div>
         <div className="lb-segs">
           {(["top", "new"] as CommentSort[]).map((s) => (
             <button key={s} className={`lb-seg${sort === s ? " is-on" : ""}`} onClick={() => { setSort(s); setShowAll(false); }}>

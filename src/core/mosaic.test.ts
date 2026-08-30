@@ -3,12 +3,16 @@ import taxonomy from "../data/taxonomy.json";
 import augment from "../data/taxonomyAugment.json";
 import { buildTree } from "./index";
 import { generateGridBoard } from "./grid";
-import { guardFrom } from "../data/mosaicGuard";
+import { guardFrom } from "../data/boardGuard";
+import { mosaicPoints, MOSAIC_WIN_FLOOR } from "../data/score";
+import { cladeGroup, groupOf } from "../data/clades";
 import { CHARACTERS, characterRow, characterValue, missingCladeNames, NA } from "./mosaicChars";
 import {
   mosaicAnswerFor, mosaicPool, scoreMosaicGuess, mosaicRung, mosaicAids, mosaicAidsFor,
   mosaicTierForDate, mosaicDegrees, mosaicScopeId, mosaicLineagePath, mosaicDrillOptions,
-  MOSAIC_BLUR_LADDER, MOSAIC_MAX_GUESSES, MOSAIC_DEFAULT_MECHANIC,
+  mosaicSampleAnswer, mosaicTileOrder, mosaicMinViews, mosaicLadder,
+  MOSAIC_MIN_VIEWS, MOSAIC_MIN_VIEWS_NO_LIST, MOSAIC_GROUP_PENALTY, MOSAIC_GROUP_WINDOW,
+  MOSAIC_BLUR_LADDER, MOSAIC_SHUFFLE_LADDER, MOSAIC_MAX_GUESSES, MOSAIC_DEFAULT_MECHANIC,
 } from "./mosaic";
 
 type Nodes = Parameters<typeof buildTree>[0];
@@ -123,6 +127,39 @@ describe("mosaic board", () => {
     expect(MOSAIC_MAX_GUESSES).toBe(MOSAIC_BLUR_LADDER.length + 1);
   });
 
+  it("hands back the tuned ladder verbatim at the baseline length", () => {
+    expect(mosaicLadder("shuffle", MOSAIC_MAX_GUESSES)).toEqual([...MOSAIC_SHUFFLE_LADDER]);
+    expect(mosaicLadder("blur", MOSAIC_MAX_GUESSES)).toEqual([...MOSAIC_BLUR_LADDER]);
+  });
+
+  it("resamples a longer day onto the same curve rather than repeating a rung", () => {
+    for (const mech of ["shuffle", "blur"] as const) {
+      const base = mosaicLadder(mech, MOSAIC_MAX_GUESSES);
+      const down = base[0] > base[base.length - 1];
+      for (const g of [8, 9, 10, 12]) {
+        const lad = mosaicLadder(mech, g);
+        // One rung per guess bar the last, which is spent at the clearest.
+        expect(lad).toHaveLength(g - 1);
+        // Same endpoints the tuning settled on, so a longer day is not a different game.
+        expect(lad[0]).toBe(base[0]);
+        expect(lad[lad.length - 1]).toBe(base[base.length - 1]);
+        // Every step distinct and moving the same way: no rung shown twice in a row, which is
+        // a guess that changes nothing on screen.
+        expect(new Set(lad).size).toBe(lad.length);
+        for (let i = 1; i < lad.length; i++) {
+          expect(down ? lad[i] < lad[i - 1] : lad[i] > lad[i - 1]).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("advances one rung per miss and spends the last guess at the clearest", () => {
+    for (const g of [8, 9, 10]) {
+      for (let w = 0; w < g - 1; w++) expect(mosaicRung(w, "shuffle", g)).toBe(w);
+      expect(mosaicRung(g - 1, "shuffle", g)).toBe(g - 2);
+    }
+  });
+
   it("shuffles by default", () => {
     expect(MOSAIC_DEFAULT_MECHANIC).toBe("shuffle");
   });
@@ -151,6 +188,29 @@ describe("mosaic week", () => {
     expect(week[2]).toMatchObject({ lookup: true, subset: true, proximity: "degrees" });
     expect(week[3]).toMatchObject({ lookup: false, subset: true, proximity: "degrees" });
     expect(week[6]).toMatchObject({ lookup: false, subset: false, proximity: "degrees" });
+  });
+
+  it("gives more guesses as it takes the aids away, and never fewer", () => {
+    const week = [1, 2, 3, 4, 5, 6, 7].map(mosaicAids);
+    for (let i = 1; i < week.length; i++) {
+      expect(week[i].guesses).toBeGreaterThanOrEqual(week[i - 1].guesses);
+    }
+    // The baseline is the aided end of the week; the weekend, which has nothing, gets the most.
+    expect(week[0].guesses).toBe(MOSAIC_MAX_GUESSES);
+    expect(week[6].guesses).toBeGreaterThan(week[0].guesses);
+    // Every day still ends on a guess the player can actually make at the clearest rung.
+    for (const a of week) expect(a.guesses).toBeGreaterThan(MOSAIC_SHUFFLE_LADDER.length - 1);
+  });
+
+  it("keeps the floor at a tenth however long the day is", () => {
+    // A longer day must not become a cheaper one: the last guess is worth the same share of the
+    // day's ceiling whether there are eight of them or ten.
+    for (const t of [1, 6]) {
+      const a = mosaicAids(t);
+      const first = mosaicPoints(t, true, 1, a.guesses);
+      const last = mosaicPoints(t, true, a.guesses, a.guesses);
+      expect(last / first).toBeCloseTo(MOSAIC_WIN_FLOOR, 1);
+    }
   });
 
   it("clamps a forced tier rather than handing back an undefined set of aids", () => {
@@ -298,5 +358,154 @@ describe("mosaic degrees", () => {
     const g = scoreMosaicGuess(tree, idOf("Panthera leo"), idOf("Panthera tigris"), scope)!;
     expect(g.proximity).toBe("same genus");
     expect(g.degrees).toBeGreaterThan(0);
+  });
+});
+
+describe("mosaic sampling (the beta's draw)", () => {
+  const scope = mosaicScopeId(tree);
+  const pool = new Set(mosaicPool(tree, scope));
+
+  it("only ever draws from the answer pool", () => {
+    // 200 draws across a fixed sweep of the unit interval, so this covers the whole weighted
+    // range rather than wherever Math.random happens to land today.
+    for (let i = 0; i < 200; i++) {
+      const id = mosaicSampleAnswer(tree, { scopeRootId: scope, rand: () => i / 200 });
+      expect(pool.has(id!)).toBe(true);
+    }
+  });
+
+  it("never draws an excluded species", () => {
+    // The real exclusion is today's Kinship and Branches tiles. Exclude all but one animal and
+    // the draw has exactly one legal answer left, wherever in the range it lands.
+    const all = [...pool];
+    const keep = all[Math.floor(all.length / 2)];
+    const exclude = new Set(all.filter((id) => id !== keep));
+    for (let i = 0; i < 50; i++) {
+      expect(mosaicSampleAnswer(tree, { scopeRootId: scope, exclude, rand: () => i / 50 })).toBe(keep);
+    }
+  });
+
+  it("reports no answer rather than an excluded one when the pool is exhausted", () => {
+    expect(mosaicSampleAnswer(tree, { scopeRootId: scope, exclude: pool })).toBeNull();
+  });
+
+  it("leans toward the better-known end, like the dated draw", () => {
+    // Not a distribution test, a direction test: the sampled median should sit well above the
+    // pool's, or the beta is dealing animals nobody can name and the difficulty does not carry
+    // over when this becomes a daily.
+    const views = (id: string) => tree.byId.get(id)?.views ?? 0;
+    const drawn: number[] = [];
+    for (let i = 0; i < 400; i++) {
+      drawn.push(views(mosaicSampleAnswer(tree, { scopeRootId: scope, rand: () => (i + 0.5) / 400 })!));
+    }
+    const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+    expect(median(drawn)).toBeGreaterThan(median([...pool].map(views)));
+  });
+});
+
+describe("mosaic tile order", () => {
+  it("is a permutation of every tile, at every rung", () => {
+    for (let rung = 0; rung < MOSAIC_SHUFFLE_LADDER.length; rung++) {
+      const n = MOSAIC_SHUFFLE_LADDER[rung];
+      const order = mosaicTileOrder(`seed:${rung}`, n);
+      expect(order).toHaveLength(n * n);
+      // Every source cell used exactly once: no tile is dropped and none is shown twice, which
+      // would quietly delete part of the animal.
+      expect([...order].sort((a, b) => a - b)).toEqual(Array.from({ length: n * n }, (_, i) => i));
+    }
+  });
+
+  it("is stable for a seed, so a re-render does not rescramble the picture", () => {
+    expect(mosaicTileOrder("x:0", 8)).toEqual(mosaicTileOrder("x:0", 8));
+  });
+
+  it("actually shuffles", () => {
+    const n = 8;
+    const order = mosaicTileOrder("x:0", n);
+    const fixed = order.filter((from, i) => from === i).length;
+    // A shuffle of 64 leaves one tile home on average; anything near all of them means the
+    // permutation is not being applied.
+    expect(fixed).toBeLessThan(n);
+  });
+});
+
+describe("mosaic variety", () => {
+  const scope = mosaicScopeId(tree);
+  // The buckets the stats bars already speak, so a run reads the way a player would describe it.
+  const label = (id: string) => cladeGroup(groupOf(tree, id)).label;
+
+  // A whole sitting, drawn the way the game draws one: the last few groups damp the next.
+  const sitting = (n: number, cooldown: boolean) => {
+    const out: string[] = [];
+    const recent: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const id = mosaicSampleAnswer(tree, {
+        scopeRootId: scope,
+        cooldown: cooldown ? { of: label, recent: [...recent] } : undefined,
+      })!;
+      out.push(label(id));
+      recent.push(label(id));
+      if (recent.length > MOSAIC_GROUP_WINDOW) recent.shift();
+    }
+    return out;
+  };
+  const longestRun = (gs: string[]) => {
+    let best = 1, cur = 1;
+    for (let i = 1; i < gs.length; i++) { cur = gs[i] === gs[i - 1] ? cur + 1 : 1; best = Math.max(best, cur); }
+    return best;
+  };
+
+  it("stops the long runs of one group", () => {
+    // The complaint this exists for: five birds in a row. Unaided the same pool runs to eight.
+    expect(longestRun(sitting(600, true))).toBeLessThan(5);
+  });
+
+  it("damps rather than bans, so two in a row can still happen", () => {
+    const gs = sitting(600, true);
+    expect(longestRun(gs)).toBeGreaterThan(1);
+    // And the pool does not turn into a rota: every group is still reachable.
+    expect(new Set(gs).size).toBeGreaterThan(4);
+  });
+
+  it("costs a group weight for each recent appearance, in order", () => {
+    // Not a distribution test. Pin the mechanism: more recent birds means less bird.
+    const share = (recent: string[]) => {
+      let birds = 0;
+      for (let i = 0; i < 300; i++) {
+        const id = mosaicSampleAnswer(tree, { scopeRootId: scope, cooldown: { of: label, recent } })!;
+        if (label(id) === "Birds") birds++;
+      }
+      return birds;
+    };
+    expect(share(["Birds", "Birds"])).toBeLessThan(share([]));
+    expect(MOSAIC_GROUP_PENALTY).toBeLessThan(1);
+  });
+});
+
+describe("mosaic obscurity floor", () => {
+  const scope = mosaicScopeId(tree);
+
+  it("rises exactly where the candidate list is gone", () => {
+    // Mon..Fri have the narrowing, so an unfamiliar name is recognisable in a list.
+    for (const t of [1, 2, 3, 4, 5]) expect(mosaicMinViews(t)).toBe(MOSAIC_MIN_VIEWS);
+    // Saturday and Sunday have nothing but the picture, so the animal has to be recallable.
+    for (const t of [6, 7]) expect(mosaicMinViews(t)).toBe(MOSAIC_MIN_VIEWS_NO_LIST);
+    expect(MOSAIC_MIN_VIEWS_NO_LIST).toBeGreaterThan(MOSAIC_MIN_VIEWS);
+  });
+
+  it("leaves the weekend a pool worth drawing from", () => {
+    const weekend = mosaicPool(tree, scope, MOSAIC_MIN_VIEWS_NO_LIST);
+    const weekday = mosaicPool(tree, scope, MOSAIC_MIN_VIEWS);
+    expect(weekend.length).toBeGreaterThan(300);
+    expect(weekend.length).toBeLessThan(weekday.length);
+    // A subset, not a different pool: raising the floor only removes.
+    expect(weekend.every((id) => weekday.includes(id))).toBe(true);
+  });
+
+  it("never deals below the day's floor", () => {
+    for (let i = 0; i < 200; i++) {
+      const id = mosaicSampleAnswer(tree, { scopeRootId: scope, minViews: MOSAIC_MIN_VIEWS_NO_LIST })!;
+      expect(tree.byId.get(id)!.views ?? 0).toBeGreaterThanOrEqual(MOSAIC_MIN_VIEWS_NO_LIST);
+    }
   });
 });

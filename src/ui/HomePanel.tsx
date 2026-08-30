@@ -12,6 +12,7 @@ const GAMES = [
     tagline:
       "Guess the hidden organism. Every miss lands on the tree of life at the clade it shares with the answer, so each guess narrows where the target sits.",
     inspired: "Metazooa",
+    beta: false,
   },
   {
     id: "kinship" as const,
@@ -20,6 +21,7 @@ const GAMES = [
     tagline:
       "Sixteen species, four hidden groups of four. Sort each into the clade it belongs to before you run out of guesses.",
     inspired: "Connections",
+    beta: false,
   },
   {
     id: "branches" as const,
@@ -28,6 +30,7 @@ const GAMES = [
     tagline:
       "Rebuild a slice of the tree: drag each species onto the branch it belongs to, using the worked examples already in place as your guide.",
     inspired: null,
+    beta: false,
   },
   {
     id: "mosaic" as const,
@@ -36,6 +39,8 @@ const GAMES = [
     tagline:
       "Name the animal in a photograph that has been cut into tiles and shuffled. Every wrong guess puts a little more of the picture back together.",
     inspired: null,
+    // Not a daily yet, so the card must not promise one: the animal is sampled per visit.
+    beta: true,
   },
 ];
 
@@ -55,7 +60,9 @@ export function HomePanel({ onPlay }: Props) {
           <button key={game.id} className={`home-card is-${game.id}`} data-game={game.id} onClick={() => onPlay(game.id)}>
             <div className="home-card-top">
               <span className="home-card-ico" aria-hidden="true">{game.icon}</span>
-              <span className="home-card-daily">{label === "Preview" ? "Preview" : `Daily ${label}`}</span>
+              <span className="home-card-daily">
+                {game.beta ? "Beta" : label === "Preview" ? "Preview" : `Daily ${label}`}
+              </span>
             </div>
             <h2 className="home-card-name">{game.name}</h2>
             <p className="home-card-tag">{game.tagline}</p>
