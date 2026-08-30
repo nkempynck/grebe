@@ -53,6 +53,9 @@ const TIP_OUT = 22;
  *  labels: extra side padding for edge tiles and bottom room for those hanging
  *  below the deepest tip. Column/tier gaps stay identical, so the trees match. */
 
+const countLeaves = (n: DisplayTreeNode): number =>
+  n.children.length ? n.children.reduce((sum, c) => sum + countLeaves(c), 0) : 1;
+
 function branchesLayout(root: DisplayTreeNode, radial: boolean): GraphLayout {
   // Radial: labels radiate outward (see the render's `flip`), and the canvas is sized to
   // the real footprints — a leaf tile (up to ~148px wide) around its tip, and a clade label
@@ -61,8 +64,16 @@ function branchesLayout(root: DisplayTreeNode, radial: boolean): GraphLayout {
   // gap (gapx) that leaf tiles don't touch, without inflating the depth spacing into a
   // sprawl. Residual overlaps (a label over its own child's tile) are cleared after render
   // by sliding tiles outward — see the nudge effect. `pad` leaves room for that slide.
+  // The wedge angle saturates at spanMax, so past roughly nine tips the angular gap between
+  // neighbours shrinks with every extra leaf and boxes start to collide — which is what a
+  // fuller board did to a Columbidae tree: two clade labels on top of each other and four
+  // bleeding-hearts in a heap. Arc length is span × radius / (leaves − 1), so growing the
+  // RADIUS with the leaf count restores the spacing that the fixed wedge can't. Small
+  // boards are unaffected (k stays 1 up to nine leaves) and so is Lineage, which calls the
+  // shared layout with its own options.
+  const k = Math.min(1.6, Math.max(1, countLeaves(root) / 9));
   if (radial) return radialLayout(root, {
-    ...CLADO_RADIAL, ring: 88, innerRadius: 100, spanMax: 2.6, gapx: 160,
+    ...CLADO_RADIAL, ring: 88 * k, innerRadius: 100 * k, spanMax: 2.6, gapx: 160,
     pad: 44, rim: 74, focusId: null,
     tipOut: TIP_OUT, leafBox: { halfW: 78, halfH: 28 }, labelW: 150, labelHalfH: 14,
   });
@@ -195,7 +206,11 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
     type R = { x: number; y: number; w: number; h: number };
     const hit = (a: R, b: R) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
     const obstacles: R[] = [...canvas.querySelectorAll(".clado-pt")].map(rect);
-    const STEP = 8, MAX = 40;
+    // MAX is the furthest a tile may slide out of a collision. It was 40, which was enough
+    // when a board carried eight species and left a crowded tile stuck under its neighbour
+    // once boards grew: raising it to 120 clears three quarters of the collisions that
+    // survived the pass, and a tile that needs no room still never moves.
+    const STEP = 8, MAX = 120;
     for (const id of [...tileEls.current.keys()].sort()) {
       const el = tileEls.current.get(id)!;
       const node = nodeById.get(id);
