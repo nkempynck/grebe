@@ -87,7 +87,9 @@ describe("served history (branches)", () => {
     const yesterday = new Date(`${DAY}T00:00:00Z`);
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     setServedBranchesHistory(new Map([
-      [yesterday.toISOString().slice(0, 10), { slotIds: natural!.slotIds, anchorIds: natural!.anchorIds }],
+      // groupIds carries the answer clades, which are what a board is identified BY — a
+      // served day handed over without them tells the generator nothing.
+      [yesterday.toISOString().slice(0, 10), { slotIds: natural!.slotIds, anchorIds: natural!.anchorIds, groupIds: natural!.groupIds }],
     ]));
 
     const after = generateBranchesBoard(richTree, DAY, 4);
