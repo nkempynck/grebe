@@ -2700,3 +2700,14 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   .reveal-shot-img { transition: opacity 0.2s ease; transform: none; }
   .reveal-shot-img.is-in { transform: none; }
 }
+/* What the next guess is still worth, on the picture beside the counter. Tabular so it does not
+   jitter as it falls, and set apart from the count: one is how many tries remain, the other is
+   what a try is now worth, and they move for different reasons. */
+.mosaic-worth {
+  margin-left: .45rem; padding-left: .45rem; border-left: 1px solid rgba(255,255,255,.28);
+  font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.mosaic-verdict-pts {
+  font-family: var(--font-mono); font-size: .72rem; letter-spacing: .04em;
+  color: var(--game, var(--brass)); margin-top: .2rem; font-variant-numeric: tabular-nums;
+}

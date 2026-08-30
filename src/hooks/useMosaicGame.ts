@@ -9,6 +9,7 @@ import type { Tree } from "../core";
 import { isAncestor } from "../core";
 import { CLADE_GROUPS } from "../data/clades";
 import type { RegionScheme } from "../data/geo";
+import { mosaicPoints } from "../data/score";
 import { fetchMosaicGuard, mosaicGuardCached, GUARD_UNKNOWN, type MosaicGuard } from "../data/mosaicGuard";
 import { todayKey } from "../core/daily";
 import {
@@ -49,6 +50,10 @@ export interface UseMosaicGame {
   /** False until today's other boards have been read. The lookup and drill stay hidden while
    *  it is false: unprotected aids would hand Kinship and Branches their answers. */
   guardReady: boolean;
+  /** What the round has scored, once it is over. */
+  points: number;
+  /** What naming it on the NEXT guess would still be worth, while playing. */
+  pointsIfNext: number;
   /** Which region scheme the geography column speaks. Continents are what a player thinks in;
    *  realms are what the biology actually is. Both are in the data; this picks one. */
   regionScheme: RegionScheme;
@@ -256,6 +261,11 @@ export function useMosaicGame(
     candidates,
     aids,
     guardReady,
+    // Scored on the guess that WON, so a win on the fourth pays the fourth's value. While
+    // playing, the number shown is what the next guess would still be worth, which is the one
+    // a player can actually act on.
+    points: status === "won" ? mosaicPoints(aids.tier, true, guesses.length, MOSAIC_MAX_GUESSES) : 0,
+    pointsIfNext: mosaicPoints(aids.tier, true, Math.min(guesses.length + 1, MOSAIC_MAX_GUESSES), MOSAIC_MAX_GUESSES),
     regionScheme,
     setRegionScheme,
     setPath: (ids: string[]) => setPathIds(ids),

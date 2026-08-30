@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gamePoints, kinshipPoints, branchesPoints, branchesAllowance, tierWeight, BRANCHES_MAX_HINTS, kinshipFreeReveals } from "./score";
+import { gamePoints, kinshipPoints, branchesPoints, branchesAllowance, tierWeight, mosaicPoints, BRANCHES_MAX_HINTS, kinshipFreeReveals } from "./score";
 
 // GOLDEN scoring values. gamePoints() MUST stay byte-identical to
 // public.game_points in supabase/schema.sql — if you change the formula here,
@@ -260,5 +260,50 @@ describe("branchesPoints", () => {
       // The most a capped board can be helped still leaves real credit to score on.
       expect(branchesPoints(tier, true, n, n, 0, BRANCHES_MAX_HINTS, 0)).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("mosaicPoints", () => {
+  const MON = 1, SUN = 7;
+
+  it("pays the whole day for a first-guess win and a tenth for the last", () => {
+    expect(mosaicPoints(MON, true, 1, 8)).toBe(100);
+    expect(mosaicPoints(MON, true, 8, 8)).toBe(10);
+    expect(mosaicPoints(SUN, true, 1, 8)).toBe(160);
+    expect(mosaicPoints(SUN, true, 8, 8)).toBe(16);
+  });
+
+  it("is the agreed Monday curve", () => {
+    const row = [1, 2, 3, 4, 5, 6, 7, 8].map((k) => mosaicPoints(MON, true, k, 8));
+    expect(row).toEqual([100, 97, 90, 81, 68, 52, 32, 10]);
+  });
+
+  // The whole point of the shape: being wrong against 400 shuffled tiles is the game, being
+  // wrong once the picture is nearly back is careless, so the cost has to grow.
+  it("charges less early than late, strictly", () => {
+    const row = [1, 2, 3, 4, 5, 6, 7, 8].map((k) => mosaicPoints(MON, true, k, 8));
+    const costs = row.slice(1).map((v, i) => row[i] - v);
+    for (let i = 1; i < costs.length; i++) expect(costs[i]).toBeGreaterThan(costs[i - 1]);
+  });
+
+  it("never rises with an extra guess", () => {
+    for (const G of [8, 10, 12]) {
+      for (let k = 2; k <= G; k++) {
+        expect(mosaicPoints(MON, true, k, G)).toBeLessThanOrEqual(mosaicPoints(MON, true, k - 1, G));
+      }
+    }
+  });
+
+  // A longer ladder is a harder picture, so the same guess number has to be worth MORE there,
+  // otherwise dealing more guesses would just be a bigger stick.
+  it("pays the same guess better on a day that deals more of them", () => {
+    for (let k = 2; k <= 8; k++) {
+      expect(mosaicPoints(MON, true, k, 12)).toBeGreaterThan(mosaicPoints(MON, true, k, 8));
+    }
+  });
+
+  it("scores a loss at nothing, and a tampered guess count at nothing", () => {
+    expect(mosaicPoints(MON, false, 1, 8)).toBe(0);
+    expect(mosaicPoints(MON, true, 99, 8)).toBe(0);
   });
 });

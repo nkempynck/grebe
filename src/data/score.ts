@@ -206,3 +206,40 @@ export function branchesPoints(
   }
   return Math.round(w * base * BRANCHES_LOSS_FACTOR);
 }
+
+/** Share of the day a win at the very last guess still pays. */
+export const MOSAIC_WIN_FLOOR = 0.1;
+
+/** Mosaic per-game leaderboard points. MUST match public.game_points in schema.sql once Mosaic
+ *  is scored server-side, so the number a player sees equals what the server ranks them on.
+ *
+ *  PENALTIES GROW. Guess k costs k-1 units, so the whole ladder is 1+2+…+(G-1) units and one
+ *  unit is (1-floor)/that. On Monday's eight guesses the costs run 3, 6, 10, 13, 16, 19, 22 —
+ *  a first guess pays the whole day, the last pays a tenth, and the pain is at the end.
+ *
+ *  WHY THAT WAY ROUND. The opening guess is made against four hundred shuffled tiles with
+ *  nothing on the board to reason from, and the one after it barely less blind; being wrong
+ *  there is not a mistake, it is the game. By the sixth the picture is most of the way back and
+ *  a wrong answer is genuinely careless. Two shapes were tried and rejected: a uniform decay,
+ *  which charged 28% for the second guess and so punished the blindest part of the board
+ *  hardest; and a curve tracking the tile count, which was worse still (100 → 60 → 36) and left
+ *  the whole back half of a board paying scraps.
+ *
+ *  It generalises over G, so a day that deals more guesses spreads the same 90% across more of
+ *  them and every guess costs proportionally less — which is what makes a longer, slower ladder
+ *  a REWARD for a harder picture rather than just more chances.
+ *
+ *  Past the cap it keeps falling to zero rather than flattening, the same way Lineage's hint
+ *  curve does: the limit lives in the client, so a tampered count has to score itself down. */
+export function mosaicPoints(
+  tier: number,
+  won: boolean,
+  guesses: number,
+  maxGuesses: number
+): number {
+  if (!won) return 0;
+  const G = Math.max(2, Math.round(maxGuesses));
+  const k = Math.max(1, Math.round(guesses));
+  const spent = ((k - 1) * k) / ((G - 1) * G);
+  return Math.max(0, Math.round(tierWeight(tier) * (1 - (1 - MOSAIC_WIN_FLOOR) * spent)));
+}
