@@ -1968,6 +1968,14 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   font-weight: 400; font-size: .86em; opacity: .72; margin-top: .5rem;
   border-left: 2px solid var(--game, var(--brass)); padding-left: .6rem;
 }
+/* The beta mark on a game tab. Deliberately tiny and lowercase: it is a footnote on the name,
+   not a second word in it, and the row is a horizontal scroller on a phone where every pixel of
+   tab width costs a tab. */
+.gamenav-beta {
+  font-size: 8px; line-height: 1; letter-spacing: .08em; text-transform: uppercase;
+  padding: 2px 4px; margin-left: 1px; border-radius: 3px; align-self: flex-start;
+  border: 1px solid currentColor; opacity: .7;
+}
 .gamehead-beta {
   border: 1px solid var(--game, var(--brass)); color: var(--game, var(--brass));
   border-radius: 999px; padding: 0 .45rem; font-size: .68rem; font-weight: 600;

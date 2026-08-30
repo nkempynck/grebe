@@ -98,6 +98,11 @@ const GAME_ICONS: Record<GameView, string> = {
   lineage: "🧬", kinship: "🧩", branches: "🌿", mosaic: "🖼",
 };
 
+/** Games that are not finished yet, marked wherever they are offered. A player choosing between
+ *  four tabs should know before they tap that one of them is not the same for everyone and keeps
+ *  no score, rather than finding out from a note once they are in it. */
+const BETA_GAMES: ReadonlySet<GameView> = new Set<GameView>(["mosaic"]);
+
 const SECTION_LABELS: Record<(typeof SECTIONS)[number] | GameView, string> = {
   home: "Home", games: "Games", leaderboard: "Leaderboard", stats: "Stats",
   account: "Account", about: "About",
@@ -1020,6 +1025,7 @@ export default function App() {
             >
               <span className="gamenav-ico" aria-hidden="true">{GAME_ICONS[v]}</span>
               {SECTION_LABELS[v]}
+              {BETA_GAMES.has(v) && <span className="gamenav-beta">beta</span>}
             </button>
           ))}
         </nav>
