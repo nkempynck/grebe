@@ -30,8 +30,17 @@ export const MOSAIC_BLUR_LADDER = [11, 15, 20, 27, 36, 48, 64] as const;
  *  of texture and loses shape. Playing both settled it: a blurred animal at the hard end is a
  *  coloured smudge with nothing to look at, while a scrambled one always has fur, scales, an
  *  eye, a stripe somewhere in the frame. There is something to reason about on the first rung,
- *  which is the difference between a puzzle and a wait. */
-export const MOSAIC_SHUFFLE_LADDER = [20, 15, 11, 8, 6, 4, 3] as const;
+ *  which is the difference between a puzzle and a wait.
+ *
+ *  Opened up from 20 to 24 a side on 2026-08-30, after the live beta: 400 tiles still left a
+ *  cat's eye and whiskers sitting whole in the frame, so the opening rung was reading as a
+ *  picture with gaps rather than as a scramble. 576 tiles cuts each one 17% narrower, which
+ *  breaks up a face without touching the end of the ladder — the last rung stays 3 because the
+ *  reveal is the reward and should not get stingier.
+ *
+ *  The whole ladder moves with the endpoint rather than only the first rung, since mosaicLadder
+ *  resamples this curve for the longer days. */
+export const MOSAIC_SHUFFLE_LADDER = [24, 17, 12, 8, 6, 4, 3] as const;
 
 export type MosaicMechanic = "blur" | "shuffle";
 
