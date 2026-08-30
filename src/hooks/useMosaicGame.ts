@@ -9,6 +9,7 @@ import type { Tree } from "../core";
 import { isAncestor } from "../core";
 import { CLADE_GROUPS } from "../data/clades";
 import type { RegionScheme } from "../data/geo";
+import { fetchMosaicGuard, mosaicGuardCached, GUARD_UNKNOWN, type MosaicGuard } from "../data/mosaicGuard";
 import { todayKey } from "../core/daily";
 import {
   mosaicAnswerFor, scoreMosaicGuess, mosaicRung, mosaicPool, mosaicScopeId, mosaicDrillOptions,
@@ -45,6 +46,9 @@ export interface UseMosaicGame {
   candidates: TaxonNode[];
   /** What today gives you besides the picture. Drives which panels exist at all. */
   aids: MosaicAids;
+  /** False until today's other boards have been read. The lookup and drill stay hidden while
+   *  it is false: unprotected aids would hand Kinship and Branches their answers. */
+  guardReady: boolean;
   /** Which region scheme the geography column speaks. Continents are what a player thinks in;
    *  realms are what the biology actually is. Both are in the data; this picks one. */
   regionScheme: RegionScheme;
@@ -118,6 +122,21 @@ export function useMosaicGame(
   const [credit, setCredit] = useState<MosaicCredit | null>(null);
   const [regionScheme, setRegionScheme] = useState<RegionScheme>("continent");
 
+  // The clades in play in today's Kinship and Branches boards, which Mosaic must not name.
+  // Starts from the pin cache when App has already primed it, otherwise fetched here. Until it
+  // resolves the aids stay shut: the failure mode to avoid is showing them unprotected.
+  const [guard, setGuard] = useState<MosaicGuard | undefined>(() => mosaicGuardCached(date));
+  useEffect(() => {
+    const cached = mosaicGuardCached(date);
+    if (cached) { setGuard(cached); return; }
+    setGuard(undefined);
+    let live = true;
+    void fetchMosaicGuard(date).then((g) => { if (live) setGuard(g); });
+    return () => { live = false; };
+  }, [date]);
+  const hidden = guard?.hidden ?? GUARD_UNKNOWN.hidden;
+  const guardReady = guard?.known === true;
+
   // What today hands you besides the picture. The bench forces it; everywhere else it is the
   // weekday, which is the whole of Mosaic's difficulty ramp.
   const aids = useMemo(
@@ -156,8 +175,8 @@ export function useMosaicGame(
   }, [tree, pathIds, pool]);
   const hereId = pathIds.length ? pathIds[pathIds.length - 1] : rootId;
   const options = useMemo(() => {
-    if (!tree || !hereId || !aids.subset) return [];
-    const raw = mosaicDrillOptions(tree, hereId, pool);
+    if (!tree || !hereId || !aids.subset || !guardReady) return [];
+    const raw = mosaicDrillOptions(tree, hereId, pool, hidden);
     if (pathIds.length) return raw;
     // FIRST STEP ONLY: the curated player-facing groups the rest of the app already uses.
     // Straight off the tree the opening move was "Chordates -> Lobe-finned fishes -> Mammal",
@@ -179,7 +198,7 @@ export function useMosaicGame(
     // Anything the curated list does not cover (cephalopods, jellyfish) still needs a way in.
     const rest = raw.filter((o) => !curated.some((c) => c.id === o.id || isAncestor(tree, c.id, o.id)));
     return [...curated, ...rest].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [tree, hereId, pool, pathIds.length, aids.subset]);
+  }, [tree, hereId, pool, pathIds.length, aids.subset, guardReady, hidden]);
   const remaining = path.length ? path[path.length - 1].count : pool.size;
   // Listed once the filter is narrow enough to SCAN. Raised from 30 after drilling into
   // Perching birds (87 candidates) offered 57 genus chips holding two to four species each —
@@ -191,9 +210,9 @@ export function useMosaicGame(
     // Gated on `subset` explicitly, not just on the threshold. Unnarrowed the pool is 942 and
     // could never reach 120 anyway, but that is an accident of two numbers rather than a rule,
     // and the weekend's whole difficulty is that this list does not exist.
-    () => (tree && hereId && aids.subset && remaining > 0 && remaining <= CANDIDATE_LIST_MAX
+    () => (tree && hereId && aids.subset && guardReady && remaining > 0 && remaining <= CANDIDATE_LIST_MAX
       ? mosaicCandidates(tree, hereId, pool) : []),
-    [tree, hereId, pool, remaining, aids.subset]
+    [tree, hereId, pool, remaining, aids.subset, guardReady]
   );
 
   const won = benchSolved || guesses.some((g) => g.correct);
@@ -236,10 +255,11 @@ export function useMosaicGame(
     rungCount: ladder.length,
     candidates,
     aids,
+    guardReady,
     regionScheme,
     setRegionScheme,
     setPath: (ids: string[]) => setPathIds(ids),
-    lineageOf: (speciesId: string) => (tree ? mosaicLineagePath(tree, speciesId, pool) : []),
+    lineageOf: (speciesId: string) => (tree ? mosaicLineagePath(tree, speciesId, pool, undefined, hidden) : []),
     guessesLeft: Math.max(0, MOSAIC_MAX_GUESSES - guesses.length),
     // On solve the full photo replaces the ladder; until then only the rung earned is fetched,
     // so the clearer images are never even in the browser cache.
@@ -251,7 +271,7 @@ export function useMosaicGame(
     remaining,
     drillInto: (id: string) => setPathIds((p) => [...p, id]),
     drillTo: (depth: number) => setPathIds((p) => p.slice(0, depth)),
-    focusCladeId: aids.subset && pathIds.length ? pathIds[pathIds.length - 1] : null,
+    focusCladeId: aids.subset && guardReady && pathIds.length ? pathIds[pathIds.length - 1] : null,
     guess,
     giveUp: () => setGaveUp(true),
     solve: () => setBenchSolved(true),

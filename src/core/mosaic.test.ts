@@ -3,10 +3,11 @@ import taxonomy from "../data/taxonomy.json";
 import augment from "../data/taxonomyAugment.json";
 import { buildTree } from "./index";
 import { generateGridBoard } from "./grid";
+import { guardFrom } from "../data/mosaicGuard";
 import { CHARACTERS, characterRow, characterValue, missingCladeNames, NA } from "./mosaicChars";
 import {
   mosaicAnswerFor, mosaicPool, scoreMosaicGuess, mosaicRung, mosaicAids, mosaicAidsFor,
-  mosaicTierForDate, mosaicDegrees, mosaicScopeId, mosaicLineagePath,
+  mosaicTierForDate, mosaicDegrees, mosaicScopeId, mosaicLineagePath, mosaicDrillOptions,
   MOSAIC_BLUR_LADDER, MOSAIC_MAX_GUESSES, MOSAIC_DEFAULT_MECHANIC,
 } from "./mosaic";
 
@@ -162,44 +163,98 @@ describe("mosaic week", () => {
   });
 });
 
-// Mosaic is played on the SAME tree as Kinship and Branches, and its species lookup answers
-// "which clades does this belong to" — which is Kinship's entire question. Before the floor,
-// 49% of Kinship's groups had their answer clade printed in the chain of every member, so the
-// sixteen tiles could be typed in and the four groups read off. Nothing but this test would
-// notice it coming back.
+// Mosaic is played on the SAME tree as Kinship and Branches, and its two aids answer their
+// questions exactly: the lookup is species -> its clades (Kinship's whole question) and the
+// drill is clade -> its species (Branches'). Unguarded, 49% of Kinship's groups had their answer
+// clade printed in the chain of every member: type the sixteen tiles, read off the four groups.
+// Nothing but this test would notice that coming back.
 describe("mosaic does not answer Kinship", () => {
-  // Mosaic's lookup runs on the BASE tree; Kinship deals from the rich one. That mismatch is
-  // the real configuration, so the test keeps it rather than tidying both onto one tree.
+  // Mosaic's aids run on the BASE tree; Kinship deals from the rich one. That mismatch is the
+  // real configuration, so the test keeps it rather than tidying both onto one tree.
   const pool = new Set(mosaicPool(tree, mosaicScopeId(tree)));
   const richTree = buildTree([
     ...(taxonomy as { nodes: Nodes }).nodes,
     ...(augment as { nodes: Nodes }).nodes,
   ]);
-
-  it("never names a clade small enough to be a Kinship group", () => {
-    let exposed = 0;
-    let groups = 0;
+  const boards = (() => {
+    const out: { cladeId: string; memberIds: string[] }[][] = [];
     // The generator directly, not gridBoardFor: the scheduled version replays the anti-repeat
     // history from its anchor, which costs seconds per call and grows with the calendar.
     for (let i = 0; i < 12; i++) {
       const d = new Date(Date.UTC(2026, 7, 20) + i * 86400000).toISOString().slice(0, 10);
       for (let tier = 1; tier <= 7; tier += 3) {
-        const board = generateGridBoard(richTree, d, tier);
-        if (!board) continue;
-        for (const g of board.groups) {
-          groups++;
-          const everyMemberShowsIt = g.memberIds.every((m) =>
-            mosaicLineagePath(tree, m, pool).some((l) => l.id === g.cladeId));
-          if (everyMemberShowsIt) exposed++;
-        }
+        const b = generateGridBoard(richTree, d, tier);
+        if (b) out.push(b.groups);
       }
     }
-    expect(groups).toBeGreaterThan(100); // the sweep actually ran
-    expect(exposed, `${exposed}/${groups} Kinship groups readable straight off Mosaic's lookup`)
-      .toBe(0);
+    return out;
+  })();
+
+  /** Groups whose clade the lookup names for every one of their members. */
+  const viaLookup = (hidden: ReadonlySet<string>) =>
+    boards.flat().filter((g) =>
+      g.memberIds.every((m) =>
+        mosaicLineagePath(tree, m, pool, undefined, hidden).some((l) => l.id === g.cladeId))).length;
+
+  /** Groups the drill will name, anywhere below the game's root. */
+  const viaDrill = (hidden: ReadonlySet<string>) => {
+    const named = new Set<string>();
+    const stack = [mosaicScopeId(tree)];
+    for (let guard = 0; stack.length && guard < 20000; guard++) {
+      const c = stack.pop()!;
+      for (const o of mosaicDrillOptions(tree, c, pool, hidden)) {
+        if (named.has(o.id)) continue;
+        named.add(o.id);
+        stack.push(o.id);
+      }
+    }
+    return boards.flat().filter((g) => named.has(g.cladeId)).length;
+  };
+
+  it("guards both panels once today's boards are known", () => {
+    expect(boards.flat().length).toBeGreaterThan(100); // the sweep actually ran
+    for (const groups of boards) {
+      const hidden = guardFrom({ groups: groups.map((g) => ({ cladeId: g.cladeId })), tiles: [] }, null).hidden;
+      // Nothing from THIS board survives in either panel.
+      const exposed = groups.filter((g) =>
+        g.memberIds.every((m) =>
+          mosaicLineagePath(tree, m, pool, undefined, hidden).some((l) => l.id === g.cladeId)));
+      expect(exposed.map((g) => g.cladeId)).toEqual([]);
+    }
+  }, 30000);
+
+  // The guard has to be doing work, not passing because the lookup is empty. Unguarded, real
+  // groups leak through both panels; that is the state this test exists to keep us out of.
+  it("would leak without the guard, which is why it exists", () => {
+    const none = new Set<string>();
+    expect(viaLookup(none) + viaDrill(none)).toBeGreaterThan(0);
+  }, 30000);
+
+  // Part two of the same guard, at the other end: the day's answer is never itself a tile on
+  // another game's board. Measured over 60 days the natural draw never collides, so this is
+  // insurance — but insurance that has to demonstrably work, hence a forced collision here.
+  it("re-rolls an answer that lands on another game's board", () => {
+    const d = "2026-09-10";
+    const natural = mosaicAnswerFor(tree, d)!;
+    expect(natural).toBeTruthy();
+    const avoided = mosaicAnswerFor(tree, d, undefined, (day) =>
+      day === d ? new Set([natural]) : new Set());
+    expect(avoided).toBeTruthy();
+    expect(avoided).not.toBe(natural);
+    // Still a real, drawable answer rather than a fallback.
+    expect(pool.has(avoided!)).toBe(true);
   });
 
-  it("still leaves the lookup something to scope by", () => {
+  it("leaves the natural schedule alone on every other day", () => {
+    // An avoider that never fires must reproduce the unguarded walk exactly, or pinning with it
+    // enabled would silently reshuffle the calendar.
+    const empty = () => new Set<string>();
+    for (const d of ["2026-09-01", "2026-09-15", "2026-10-02"]) {
+      expect(mosaicAnswerFor(tree, d, undefined, empty)).toBe(mosaicAnswerFor(tree, d));
+    }
+  });
+
+  it("leaves the lookup something to scope by", () => {
     const sample = [...pool].filter((_, i) => i % 7 === 0);
     const chains = sample.map((s) => mosaicLineagePath(tree, s, pool).length);
     const mean = chains.reduce((a, b) => a + b, 0) / chains.length;

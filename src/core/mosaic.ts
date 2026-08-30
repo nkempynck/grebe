@@ -214,7 +214,20 @@ const answerCache = new WeakMap<Tree, Map<string, Map<string, string>>>();
  *  the trap the other two games were fixed for. It is correct here only because Mosaic has never
  *  been served: there is no history to read yet. The moment it is pinned it needs the same
  *  treatment (see setServedGridHistory in ./grid). */
-export function mosaicAnswerFor(tree: Tree, dateKey: string, scopeRootId?: string): string | null {
+export function mosaicAnswerFor(
+  tree: Tree,
+  dateKey: string,
+  scopeRootId?: string,
+  /** Species that must not be drawn on a given date, because they are on that day's Kinship or
+   *  Branches board. Supplied at PIN TIME, where the other two games are already pinned and
+   *  their boards are readable; the client never needs it, because it reads the frozen answer.
+   *
+   *  It must be a pure function of the date or the walk stops being reproducible. Measured over
+   *  60 days it never actually fires — Kinship deals mostly from the augment, and only 27% of
+   *  its tiles are even in Mosaic's pool — so this is a guard against the rare day, not a
+   *  reshaping of the schedule. */
+  avoidOn?: (dateKey: string) => ReadonlySet<string>
+): string | null {
   const scope = scopeRootId ?? mosaicScopeId(tree);
   const pool = mosaicPool(tree, scope);
   if (!pool.length) return null;
@@ -229,19 +242,24 @@ export function mosaicAnswerFor(tree: Tree, dateKey: string, scopeRootId?: strin
     attempt === 0 ? `grebe:mosaic:${d}:${scope}` : `grebe:mosaic:${d}:${scope}:${attempt}`;
   if (dateKey < MOSAIC_ANCHOR) return drawFrom(pool, weights, total, seedOf(dateKey, 0));
 
+  // The memo is per (tree, scope) and holds picks made under ONE set of rules. An avoider
+  // changes those rules, so it gets its own map rather than reading picks drawn without it.
   let byScope = answerCache.get(tree);
   if (!byScope) { byScope = new Map(); answerCache.set(tree, byScope); }
-  let days = byScope.get(scope);
-  if (!days) { days = new Map(); byScope.set(scope, days); }
+  const cacheKey = avoidOn ? `${scope}\u0000avoid` : scope;
+  let days = byScope.get(cacheKey);
+  if (!days) { days = new Map(); byScope.set(cacheKey, days); }
 
   const recent: string[] = [];
   for (let d = MOSAIC_ANCHOR; ; d = shiftDay(d, 1)) {
     let pick = days.get(d);
     if (pick === undefined) {
-      // Re-roll until the draw is not one of the recent ones. Bounded: a pool of hundreds
-      // against a window of tens always has something left.
+      // Re-roll until the draw is neither a recent answer nor on another game's board today.
+      // Bounded: a pool of hundreds against a window of tens always has something left.
+      const avoid = avoidOn?.(d);
+      const rejected = (id: string) => recent.includes(id) || avoid?.has(id) === true;
       pick = drawFrom(pool, weights, total, seedOf(d, 0));
-      for (let a = 1; a <= 24 && recent.includes(pick); a++) {
+      for (let a = 1; a <= 24 && rejected(pick); a++) {
         pick = drawFrom(pool, weights, total, seedOf(d, a));
       }
       days.set(d, pick);
@@ -339,23 +357,33 @@ export function mosaicProximity(tree: Tree, answerId: string, guessId: string): 
   return "distant";
 }
 
-/** Smallest clade the species lookup will name, in pool candidates.
+/** Clades Mosaic must not name today, because another game's answer is one of them.
  *
- *  THIS IS A CROSS-GAME GUARD, not a Mosaic tuning knob. Unfloored, the lookup is a free
- *  species-to-clades oracle over the same tree Kinship and Branches are played on, and Kinship
- *  is exactly the question "which clade do these four share": measured over 60 boards, 49% of
- *  its groups had their answer clade printed in the chain of every member. Type the sixteen
- *  tiles, read off the four groups.
+ *  THE PROBLEM. Mosaic is played on the same tree as Kinship and Branches, and its two aids
+ *  answer their questions exactly: the lookup is species -> its clades, which is Kinship's whole
+ *  question, and the drill is clade -> its species, which is Branches'. Measured over real
+ *  boards, 49% of Kinship's groups had their answer clade printed in the chain of every one of
+ *  their members. Type the sixteen tiles, read off the four groups.
  *
- *  A floor separates the two games cleanly because they want opposite ends of the tree. Kinship
- *  groups a family of four; Mosaic scopes into a branch worth searching. At 20 candidates the
- *  Kinship exposure is zero and Mosaic keeps a mean chain of 2.8 levels, which is what it
- *  actually uses — jumping the filter straight to a five-species genus was close to handing over
- *  Mosaic's own answer anyway.
+ *  WHAT WAS TRIED FIRST, and why it was wrong. A size floor: refuse to name any clade holding
+ *  fewer than ~20 candidates, on the theory that Kinship groups a family of four while Mosaic
+ *  only scopes into branches worth searching. It measured well on the lookup and was incoherent
+ *  underneath. It applied to the lookup and not the drill, so a group was hidden if you typed a
+ *  member's name and reachable if you clicked down to it. And it hid clades by SIZE when the
+ *  thing that matters is whether a clade is IN PLAY today, so it routinely hid the answer's own
+ *  narrow clade — the single most useful scope on the board — while protecting nothing the drill
+ *  did not hand over anyway.
  *
- *  It is friction, not secrecy. taxonomy.json ships to the browser, so the tree is already on
- *  every player's machine; what this removes is the polished UI for reading it. */
-export const MOSAIC_LOOKUP_MIN_CANDIDATES = 20;
+ *  WHAT THIS DOES INSTEAD. Hide the clades actually in play in today's other two boards, in both
+ *  panels, and nothing else. A hidden clade is treated as UNNAMED, which is a behaviour the tree
+ *  walk already has for junction nodes: the drill descends through it to the next named level, so
+ *  its species stay reachable and only the name that would give a group away is withheld.
+ *
+ *  It is friction, not secrecy. taxonomy.json ships to the browser, so the whole tree is already
+ *  on every player's machine; what this removes is the polished UI for reading it. */
+export type HiddenClades = ReadonlySet<string>;
+
+const NONE: HiddenClades = new Set<string>();
 
 /** Every named clade between the root and a species, broad to narrow. This is what lets you
  *  look a species up and jump the filter straight to the level you meant — "show me where a
@@ -369,7 +397,8 @@ export function mosaicLineagePath(
   tree: Tree,
   speciesId: string,
   pool: Set<string>,
-  scopeRootId?: string
+  scopeRootId?: string,
+  hidden: HiddenClades = NONE
 ): Array<{ id: string; label: string; count: number }> {
   const scope = scopeRootId ?? mosaicScopeId(tree);
   const chain: string[] = [];
@@ -409,6 +438,9 @@ export function mosaicLineagePath(
   for (let i = chain.length - 1; i >= 0; i--) {
     const n = tree.byId.get(chain[i]);
     if (!n || !(n.common || n.sciName)) continue;
+    // In play in another game today: skip it exactly as an unnamed junction is skipped, so the
+    // chain closes over it rather than showing a gap where a group used to be.
+    if (hidden.has(chain[i])) continue;
     const count = countUnder(chain[i]);
     if (count < 1) continue;
     const gate = n.common ? NARROWS : NARROWS_SCIENTIFIC;
@@ -428,12 +460,7 @@ export function mosaicLineagePath(
     next = count;
     if (kept.length >= MAX_STEPS) break;
   }
-  // Floored on the way out, not on the way in: the narrowing gate above needs the real counts to
-  // decide which levels earn their place, and only the DISPLAYED list is a cross-game leak.
-  return kept
-    .reverse()
-    .filter(({ count }) => count >= MOSAIC_LOOKUP_MIN_CANDIDATES)
-    .map(({ id, label, count }) => ({ id, label, count }));
+  return kept.reverse().map(({ id, label, count }) => ({ id, label, count }));
 }
 
 /** Candidate answers under a clade, for the endgame list. Recall is the wrong ask when the
@@ -470,7 +497,8 @@ export function mosaicCandidates(tree: Tree, cladeId: string, pool: Set<string>)
 export function mosaicDrillOptions(
   tree: Tree,
   cladeId: string,
-  pool: Set<string>
+  pool: Set<string>,
+  hidden: HiddenClades = NONE
 ): Array<{ id: string; label: string; count: number }> {
   const countUnder = (id: string): number => {
     let n = 0;
@@ -496,10 +524,14 @@ export function mosaicDrillOptions(
       if (!n || n.rank === "species") return;
       const count = countUnder(c);
       if (count === 0) return;
-      if (n.common) { out.push({ id: c, label: n.common, count }); return; }
+      // A clade in play in another game today is treated as UNNAMED: descend through it to
+      // whatever it holds. Its species stay reachable, only the name is withheld, and the
+      // fallback below is skipped too so the scientific name cannot leak it either.
+      const veiled = hidden.has(c);
+      if (n.common && !veiled) { out.push({ id: c, label: n.common, count }); return; }
       const before = out.length;
       for (const k of tree.childrenOf.get(c) ?? []) visit(k);
-      if (out.length === before && n.sciName) out.push({ id: c, label: n.sciName, count });
+      if (out.length === before && n.sciName && !veiled) out.push({ id: c, label: n.sciName, count });
     };
     for (const k of tree.childrenOf.get(id) ?? []) visit(k);
     return out;

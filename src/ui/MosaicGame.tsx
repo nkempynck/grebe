@@ -92,7 +92,11 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
             Name the animal. The photograph is cut into tiles and shuffled, and every wrong
             guess puts more of it back together. The table shows which traits your guess shares
             with the answer.
-            <span className="gamehead-blurb-note">{aidsNote(aids.lookup, aids.subset)}</span>
+            <span className="gamehead-blurb-note">
+              {g.guardReady || !(aids.lookup || aids.subset)
+                ? aidsNote(aids.lookup, aids.subset)
+                : "Checking today’s other boards…"}
+            </span>
           </>
         }
       />
@@ -206,7 +210,7 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
 
       {!done && (
         <>
-          {aids.subset && (
+          {aids.subset && g.guardReady && (
             <div className="mosaic-drill">
               <span className="mosaic-box-label">Narrow down</span>
               <div className="mosaic-crumbs">
@@ -249,7 +253,7 @@ export function MosaicGame({ tree, date, onHowItWorks, sandbox }: Props) {
             </div>
           )}
 
-          {aids.lookup && (
+          {aids.lookup && g.guardReady && (
             <div className="mosaic-lookupbox">
               <span className="mosaic-box-label">Look up an animal</span>
               <input
@@ -341,7 +345,11 @@ function renderGeo(guessSci: string, answerSci: string | undefined, scheme: "con
 }
 
 /** One line telling you what today does and does not give you, so a missing panel reads as the
- *  day's rule rather than as something broken. */
+ *  day's rule rather than as something broken.
+ *
+ *  It is deliberately NOT used while the cross-game guard is still loading: "no narrowing today"
+ *  and "we have not checked what we are allowed to show you yet" are different statements, and
+ *  printing the first for the second would be a lie that resolves itself a second later. */
 function aidsNote(lookup: boolean, subset: boolean): string {
   if (lookup && subset) return "Today you can narrow by group and look species up.";
   if (subset) return "Today you can narrow by group, but there are no species lookups.";
