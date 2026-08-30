@@ -112,7 +112,12 @@ for (const game of ["kinship", "branches"] as const) {
     const species: string[] = game === "kinship"
       ? p.groups.flatMap((g: any) => g.memberIds)
       : [...p.slotIds, ...p.anchorIds];
-    return { date: r.puzzle_date, version: r.version, groups, species, future: r.puzzle_date > today };
+    // ANSWER clades — the ones that carry a slot and ARE the puzzle. Branches labels context
+    // clades too (non-answer branches that fill the tree out), and stores them in groupIds
+    // AFTER the answers, so the split is a slice. Every kinship group is an answer.
+    const answers = game === "kinship" ? groups : groups.slice(0, p.slotIds.length);
+    const context = groups.slice(answers.length);
+    return { date: r.puzzle_date, version: r.version, groups, answers, context, species, future: r.puzzle_date > today };
   });
   const future = days.filter((d) => d.future);
 
@@ -176,13 +181,25 @@ for (const game of ["kinship", "branches"] as const) {
   console.log(`duplicate group label: ${dupLabel}  ${dupLabel ? "✗" : "✓"}`);
   console.log(`duplicate species on one board: ${dupSpecies}  ${dupSpecies ? "✗" : "✓"}`);
 
-  // 3. near-repeats ACROSS the seam — the served past and the new pins as one timeline
-  const gHits = gaps(days.map((d) => ({ date: d.date, keys: d.groups })));
-  const tooSoon = gHits.filter((h) => h.gap < GROUP_WINDOW && h.date > today);
-  console.log(`group repeats inside ${GROUP_WINDOW}d (future dates): ${tooSoon.length}  ${tooSoon.length ? "✗" : "✓"}`);
+  // 3. near-repeats ACROSS the seam — the served past and the new pins as one timeline.
+  //
+  // ANSWER clades and CONTEXT clades are counted apart, and only the answers can fail. A
+  // repeated answer clade is a repeated puzzle; a repeated context clade is the same piece
+  // of scenery beside a different puzzle, which the generator does not ration and which
+  // costs the player nothing. Counting them together made this line meaningless the day
+  // Branches started drawing fuller trees: the same board scored 52 answer repeats and 155
+  // total, so the total moved with how much scenery a board happened to carry.
+  const aHits = gaps(days.map((d) => ({ date: d.date, keys: d.answers })));
+  const tooSoon = aHits.filter((h) => h.gap < GROUP_WINDOW && h.date > today);
+  console.log(`answer-clade repeats inside ${GROUP_WINDOW}d (future dates): ${tooSoon.length}  ${tooSoon.length ? "✗" : "✓"}`);
   for (const h of tooSoon.slice(0, 12)) console.log(`  ✗ ${h.date}: "${label(h.key)}" again after ${h.gap}d`);
-  const minGap = Math.min(...gHits.filter((h) => h.date > today).map((h) => h.gap));
-  console.log(`closest group repeat anywhere in the future: ${Number.isFinite(minGap) ? `${minGap}d` : "none"}`);
+  const minGap = Math.min(...aHits.filter((h) => h.date > today).map((h) => h.gap));
+  console.log(`closest answer-clade repeat anywhere in the future: ${Number.isFinite(minGap) ? `${minGap}d` : "none"}`);
+  if (days.some((d) => d.context.length)) {
+    const cHits = gaps(days.map((d) => ({ date: d.date, keys: d.context })));
+    const cSoon = cHits.filter((h) => h.gap < GROUP_WINDOW && h.date > today);
+    console.log(`context-clade repeats inside ${GROUP_WINDOW}d: ${cSoon.length} (soft — scenery, never rationed)`);
+  }
 
   if (game === "kinship") {
     const setHits = gaps(days.map((d) => ({ date: d.date, keys: [d.groups.slice().sort().join(",")] })));
@@ -195,9 +212,13 @@ for (const game of ["kinship", "branches"] as const) {
     const worst = soonSp.sort((a, b) => a.gap - b.gap).slice(0, 5);
     for (const h of worst) console.log(`    ${h.date}: ${label(h.key)} after ${h.gap}d`);
   } else {
-    const bHits = gaps(days.map((d) => ({ date: d.date, keys: [d.groups.slice().sort().join(",")] })));
+    // The board's identity is its ANSWER set. Two boards with the same answers are the same
+    // puzzle whatever scenery stands beside them, and including the scenery let a repeat hide
+    // behind one differing context clade.
+    const bHits = gaps(days.map((d) => ({ date: d.date, keys: [d.answers.slice().sort().join(",")] })));
     const soonB = bHits.filter((h) => h.gap < BRANCH_BOARD_WINDOW && h.date > today);
     console.log(`identical board signature inside ${BRANCH_BOARD_WINDOW}d: ${soonB.length}  ${soonB.length ? "✗" : "✓"}`);
+    for (const h of soonB.slice(0, 5)) console.log(`  ✗ ${h.date}: the same answer clades after ${h.gap}d`);
   }
 
   // 3b. walkovers: boards easier than the day is supposed to be
@@ -252,17 +273,18 @@ for (const game of ["kinship", "branches"] as const) {
   // 4. the seam itself, spelled out: the first fortnight against what was really served
   // The bar is the GAP, not the fact of reuse: both generators rank a repeat down rather
   // than forbidding it, and the analyzer's stated want for kinship is a min gap of 8.
+  // Answer clades only, for the reason given above: scenery returning is not a repeat.
   const lastServed = new Map<string, string>();
-  for (const d of days) if (!d.future) for (const g of d.groups) lastServed.set(g, d.date);
+  for (const d of days) if (!d.future) for (const g of d.answers) lastServed.set(g, d.date);
   const dayNo = (s: string) => Math.floor(Date.parse(`${s}T00:00:00Z`) / 86_400_000);
   const seam = future
     .slice(0, GROUP_WINDOW * 2)
-    .flatMap((d) => d.groups
+    .flatMap((d) => d.answers
       .filter((g) => lastServed.has(g))
       .map((g) => ({ date: d.date, g, gap: dayNo(d.date) - dayNo(lastServed.get(g)!) })))
     .sort((a, b) => a.gap - b.gap);
   const tight = seam.filter((h) => h.gap < 8);
-  console.log(`groups returning from the served past in the first ${GROUP_WINDOW * 2} pinned days: ` +
+  console.log(`answer clades returning from the served past in the first ${GROUP_WINDOW * 2} pinned days: ` +
     `${seam.length}, closest ${seam.length ? `${seam[0].gap}d` : "n/a"}`);
   console.log(`  inside the 8-day floor: ${tight.length}  ${tight.length ? "✗" : "✓"}`);
   for (const h of seam.slice(0, 8)) console.log(`    ${h.date}: "${label(h.g)}" ${h.gap}d after it was last served`);

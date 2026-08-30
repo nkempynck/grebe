@@ -31,7 +31,21 @@ import { setServedGridHistory, type ServedGridDay } from "../src/core/grid";
 import { setServedBranchesHistory } from "../src/core/branches";
 
 const GAMES: Game[] = ["lineage", "kinship", "branches"];
-const CHUNK = 500;
+const DEFAULT_CHUNK = 200; // rows per request; --chunk lowers it for a weak connection
+const UPSERT_ATTEMPTS = 5; // per chunk, backing off 0.5s, 1s, 2s, 4s
+
+/** A network failure's real reason. Node wraps everything as "TypeError: fetch failed" and
+ *  puts the cause underneath — often several levels down — so walk the chain. Without this
+ *  a dropped connection and a rejected payload look exactly alike in the log. */
+function describe(e: unknown): string {
+  const parts: string[] = [];
+  for (let cur: any = e, depth = 0; cur && depth < 5; cur = cur.cause, depth++) {
+    const msg = cur.message ?? String(cur);
+    const code = cur.code ? ` (${cur.code})` : "";
+    if (msg && !parts.includes(msg + code)) parts.push(msg + code);
+  }
+  return parts.join(" ← ") || String(e);
+}
 
 function arg(name: string, fallback?: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -56,6 +70,7 @@ async function main() {
   const from = arg("from", DAILY_EPOCH)!;
   const days = Number(arg("days", "730"));
   const force = hasFlag("force"); // overwrite existing FUTURE rows instead of skipping
+  const CHUNK = Math.max(1, Number(arg("chunk", String(DEFAULT_CHUNK))));
   if (!Number.isFinite(days) || days <= 0) {
     console.error(`--days must be a positive number (got ${arg("days")}).`);
     process.exit(1);
@@ -181,15 +196,42 @@ async function main() {
       `, mode=${force ? "OVERWRITE future" : "insert-if-absent"}.`
   );
 
+  // One request per chunk, RETRIED. A year of pins is a single fat POST at the default
+  // chunk size, and on a phone hotspot or a VPN that link drops often enough to lose the
+  // whole run — Node reports it as a bare `TypeError: fetch failed` with the real reason
+  // hidden in `cause`, so the old one-shot write both failed and said nothing useful.
+  // Upserts are idempotent per (game, puzzle_date), so a retry can only rewrite the row it
+  // was already writing, and a resumed run re-sends chunks that already landed.
   let written = 0;
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK);
-    const { error } = await client
-      .from("daily_puzzles")
-      .upsert(chunk, { onConflict: "game,puzzle_date", ignoreDuplicates: !force });
-    if (error) {
-      console.error(`Upsert failed at chunk ${i / CHUNK}:`, error.message);
-      process.exit(1);
+    for (let attempt = 1; ; attempt++) {
+      // A network failure can arrive either as a returned error or as a throw, depending on
+      // where it happens in the client, so catch both and read the cause chain off both.
+      let failure: string | null = null;
+      try {
+        const { error } = await client
+          .from("daily_puzzles")
+          .upsert(chunk, { onConflict: "game,puzzle_date", ignoreDuplicates: !force });
+        if (error) failure = describe(error);
+      } catch (e) {
+        failure = describe(e);
+      }
+      if (!failure) break;
+      // Retry only what a retry can fix. A rejected payload or a bad key fails identically
+      // every time, and retrying it just delays the error by half a minute.
+      const transient = /fetch failed|network|timeout|timed out|socket|ECONN|EPIPE|ETIMEDOUT|EAI_AGAIN|ENETUNREACH|UND_ERR/i.test(failure);
+      if (!transient || attempt >= UPSERT_ATTEMPTS) {
+        console.error(`Upsert failed at chunk ${i / CHUNK} (attempt ${attempt}): ${failure}`);
+        if (transient) {
+          console.error(`  The link dropped ${attempt} times. Re-run to resume — rows already written are re-sent`);
+          console.error(`  harmlessly, and a smaller batch survives a weak connection: npm run pin -- --chunk 50 …`);
+        }
+        process.exit(1);
+      }
+      const wait = 500 * 2 ** (attempt - 1);
+      console.warn(`  chunk ${i / CHUNK} failed (${failure}) — retrying in ${wait}ms [${attempt}/${UPSERT_ATTEMPTS - 1}]`);
+      await new Promise((r) => setTimeout(r, wait));
     }
     written += chunk.length;
     console.log(`  …${written}/${rows.length}`);
