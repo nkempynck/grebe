@@ -16,7 +16,9 @@
 //   • GROUP GRAIN — broad order-level groups (easy) → fine family/genus groups (hard).
 //   • GROUP SEPARATION — far-apart branches (owls vs. beetles vs. oaks, easy) → tight
 //     sibling groups that look alike (hard).
-//   • SLOT COUNT — 4 → 7, and ANCHORS — mostly anchored (easy) → few/none (hard).
+//   • SLOT COUNT — 4 → 7, and WORKED EXAMPLES — most groups anchored (easy) → one or two
+//     (hard). Only the worked examples taper; the context species that fill out the rest
+//     of the tree are flat across the week, so a hard board is tight, not empty.
 //   • SHARED-WORD FLOOR — the reverse of Kinship's cap: the tray must hold at least
 //     2 (Mon) rising to 4 (Sun) look-alike names (two "sparrows"), so a bare word-match
 //     stops being enough and you must place each species on its own clade.
@@ -62,6 +64,18 @@ const MIN_GROUP_LEAVES = 2;
 const MAX_GROUP_LEAVES = 24; // coarsest grain — easy days keep broad, order-level groups
 const FINE_GROUP_LEAVES = 5; // tightest grain — hard days go family/genus-level
 const MIN_GROUPS = 4; // never fewer than four slots
+// Total species drawn on a board (slots + everything pre-filled). The skeleton pans and
+// zooms, but the radial view lays its tips around a wedge of fixed angle, so every extra
+// leaf costs the others room: 14 put roughly three unresolvable box collisions on an
+// average board, 12 with the radius scaling in branchesLayout puts a quarter of one.
+const MAX_BOARD_LEAVES = 12;
+// How many species one CONTEXT clade may show. Two or three make a branch that visibly
+// forks; one leaves a bare twig, which is what the tree looked like before.
+const CONTEXT_PER_CLADE = 3;
+// How many species one NEIGHBOURING clade (a branch beside the answer region) may show,
+// and how far up the tree the search for those branches may walk.
+const NEIGHBOUR_PER_CLADE = 2;
+const NEIGHBOUR_LEVELS = 3;
 
 // ---- deterministic RNG (mulberry32 over an xmur3 seed) — as in grid.ts ----
 
@@ -205,6 +219,19 @@ interface Container {
   /** Pairwise-disjoint groups under this node (the shallowest named clade in each
    *  branch — never nested, so their leaf sets can't overlap). */
   groups: Group[];
+  /** The group grain this container was found at, so the neighbour fill can read the
+   *  branches beside it from the SAME pass (see Grain.shallow). */
+  grain: number;
+  /** Groups that can host a slot, deduplicated by label — memoised on first use, see
+   *  eligibleGroups. */
+  eligible?: Group[];
+}
+
+/** One grain's worth of discovery: the containers that can host a board, plus the
+ *  shallowest-groups-per-node map the pass built on the way. */
+interface Grain {
+  list: Container[];
+  shallow: Map<string, Group[]>;
 }
 
 // Structurally-unfamiliar classes are barred from the easy early-week days (as Kinship's
@@ -220,7 +247,7 @@ const GROUP_MIN_TIER: Record<string, number> = {
  *  bottom-up pass). A node that is itself a group contributes only itself, so the
  *  list is always pairwise disjoint. A node with ≥MIN_GROUPS such groups can host
  *  a board; its groups' MRCA-rank separation sets the difficulty (spread = easy). */
-function containers(tree: Tree, groups: Map<string, Group>): Container[] {
+function containers(tree: Tree, groups: Map<string, Group>, maxLeaves: number): Grain {
   const top = new Map<string, Group[]>();
   const compute = (id: string): Group[] => {
     const cached = top.get(id);
@@ -245,7 +272,49 @@ function containers(tree: Tree, groups: Map<string, Group>): Container[] {
     // Separation over a bounded, deterministic sample of the groups (median-pairwise is
     // O(g²); a big container's tier is well-estimated by a stable slice of its groups).
     const sample = [...list].sort((a, b) => a.cladeId.localeCompare(b.cladeId)).slice(0, 12);
-    out.push({ id, group, sepTier: medianSeparationTier(tree, sample.map((g) => g.cladeId)), groups: list });
+    out.push({ id, group, grain: maxLeaves, sepTier: medianSeparationTier(tree, sample.map((g) => g.cladeId)), groups: list });
+  }
+  return { list: out, shallow: top };
+}
+
+/** A container's groups that can actually host a slot: they hold at least one common-named
+ *  species (a slot species is never a bare binomial), and no two carry the same LABEL. */
+function eligibleGroups(tree: Tree, container: Container): Group[] {
+  const byLabel = new Map<string, Group>();
+  for (const g of container.groups) {
+    if (!g.leaves.some((id) => tree.byId.get(id)?.common)) continue;
+    const n = tree.byId.get(g.cladeId);
+    const label = n?.common ?? n?.sciName ?? g.cladeId;
+    const held = byLabel.get(label);
+    if (!held || g.leaves.length > held.leaves.length ||
+        (g.leaves.length === held.leaves.length && g.cladeId < held.cladeId)) {
+      byLabel.set(label, g);
+    }
+  }
+  return [...byLabel.values()];
+}
+
+/** The clades sitting in the branches BESIDE a container: walk up from it and take each
+ *  ancestor's OTHER children, reading their shallowest groups from the same grain pass.
+ *  The walk stops the moment it would leave the day's broad class, so a board still never
+ *  spans two classes, and the leaves it returns are disjoint from the container's (a
+ *  sibling subtree shares none of them) and from each other.
+ *
+ *  These clades hold none of the answers and sit outside the answer region entirely, so a
+ *  species drawn from one adds tree without adding a hint. That is why a hard day fills
+ *  from here rather than from more worked examples inside the answer groups. */
+function neighbourGroups(tree: Tree, container: Container, want: number): Group[] {
+  const { shallow } = getGrain(tree, container.grain);
+  const out: Group[] = [];
+  let node = container.id;
+  for (let up = 0; up < NEIGHBOUR_LEVELS && out.length < want; up++) {
+    const parent = tree.byId.get(node)?.parentId;
+    if (!parent || broadGroupOf(tree, parent) !== container.group) break;
+    for (const sib of tree.childrenOf.get(parent) ?? []) {
+      if (sib === node) continue;
+      out.push(...(shallow.get(sib) ?? []));
+    }
+    node = parent;
   }
   return out;
 }
@@ -259,15 +328,18 @@ function grainForTier(tier: number): number {
 }
 
 // Containers (nodes hosting ≥MIN_GROUPS disjoint groups) are found per grain and
-// cached, so replaying the epoch across many tiers stays cheap.
-const grainCache = new WeakMap<Tree, Map<number, Container[]>>();
-function getContainers(tree: Tree, maxLeaves: number): Container[] {
+// cached, so replaying the epoch across many tiers stays cheap. `shallow` is the same
+// bottom-up pass keyed by EVERY node, not just the board-hosting ones: the neighbour fill
+// reads it to find the groups sitting in the branches beside a container.
+const grainCache = new WeakMap<Tree, Map<number, Grain>>();
+function getGrain(tree: Tree, maxLeaves: number): Grain {
   let m = grainCache.get(tree);
   if (!m) { m = new Map(); grainCache.set(tree, m); }
   let c = m.get(maxLeaves);
-  if (!c) { c = containers(tree, allGroups(tree, maxLeaves)); m.set(maxLeaves, c); }
+  if (!c) { c = containers(tree, allGroups(tree, maxLeaves), maxLeaves); m.set(maxLeaves, c); }
   return c;
 }
+const getContainers = (tree: Tree, maxLeaves: number): Container[] => getGrain(tree, maxLeaves).list;
 
 const ALL_GROUPS = Object.keys(GROUP_MIN_TIER);
 
@@ -317,6 +389,26 @@ function groupContainers(tree: Tree, tier: number): Map<string, Container[]> {
 function pickGroup(tree: Tree, tier: number, rng: () => number): string | null {
   const groups = [...groupContainers(tree, tier).keys()].sort();
   return groups.length ? groups[Math.floor(rng() * groups.length)] : null;
+}
+
+// How many classes a day may fall through before it settles for a repeat. Each one costs a
+// full BRANCHES_ATTEMPTS survey, and this runs inside the epoch replay, so the search is
+// bounded: three classes is enough for the thin ones (molluscs, amphibians) to hand over to
+// a neighbour without the replay's cost tripling on every day that just happens to start
+// with a busy class.
+const BRANCHES_CLASS_ATTEMPTS = 3;
+
+/** The day's class first, then the others in a stable per-day order.
+ *
+ *  Element 0 is EXACTLY the old locked draw (uniform over the classes eligible at this
+ *  tier), so a day that can field a fresh board behaves as it always did. The rest are the
+ *  remaining classes shuffled with a different seed, so the fallback varies by day instead
+ *  of always landing on whichever class sorts first. */
+function eligibleClasses(tree: Tree, tier: number, dateKey: string): string[] {
+  const first = pickGroup(tree, tier, mulberry32(xmur3(`grebe:branches:${dateKey}:${tier}:group`)));
+  if (!first) return [];
+  const rest = [...groupContainers(tree, tier).keys()].sort().filter((g) => g !== first);
+  return [first, ...shuffle(rest, mulberry32(xmur3(`grebe:branches:${dateKey}:${tier}:class-fallback`)))];
 }
 
 /** Pick a container WITHIN the day's locked class, biased by tier: easy days favour
@@ -466,7 +558,16 @@ function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, a
 
   // Only groups with a common-named member can host a (common-named) slot; size the board
   // from those, and bail if too few — a Latin-only region can't field this game.
-  const eligible = container.groups.filter((g) => g.leaves.some((id) => tree.byId.get(id)?.common));
+  //
+  // Deduplicated by LABEL first. Distinct clades can share a common name — the tree holds two
+  // called "Tortoiseshells" — and a board that draws both shows the same label over two
+  // branches, which no amount of recognition can tell apart. Keep the richer of the two
+  // (more species to draw on), by clade id when they tie, so the choice is deterministic.
+  //
+  // Memoised on the container, which is itself cached per grain. A container can hold
+  // hundreds of groups and this runs inside the 24-attempt survey of the epoch replay, so
+  // recomputing it per attempt cost more than everything else in the generator put together.
+  const eligible = (container.eligible ??= eligibleGroups(tree, container));
   if (eligible.length < MIN_GROUPS) return null;
   const k = slotCount(tier, eligible.length);
   // Pass 1: choose the k groups AND their slot species jointly, packing the tray with
@@ -492,21 +593,77 @@ function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, a
   const answerWords = picks.map((p) => nameWords(tree, p.slot));
   const wordGroups = new Map<string, number>();
   for (const ws of answerWords) for (const w of ws) wordGroups.set(w, (wordGroups.get(w) ?? 0) + 1);
+  // A word spanning many of the REGION's clades is NOT thereby safe, however common it is
+  // there. A primate board with gibbons pre-filled in Nomascus and Hylobates leaves Hoolock
+  // as the only gibbon genus without one, and the tray's single gibbon places itself by
+  // elimination — even though "gibbon" names species in four of that region's clades. What
+  // matters is that only one ANSWER carries the word, which is exactly what this test says.
   const distinctive = (w: string) => (wordGroups.get(w) ?? 0) === 1;
   // No prefilled species (worked example OR context) may carry a word DISTINCTIVE to
   // a single answer — that word would point straight at one clade, whether the
   // species sits in that clade (a give-away) or elsewhere (misleading). Generic
   // words shared across the board ("squid") are fine.
-  const clashesAnswer = (id: string) => {
-    for (const w of nameWords(tree, id)) if (distinctive(w)) return true;
+  //
+  // EXCEPT where the word tells the player nothing the board already tells them, which
+  // takes BOTH of these to be true at once:
+  //   • the prefill sits in the very clade whose answer carries the word, and
+  //   • that clade's own LABEL carries it too.
+  // A board of Spiny lizards / Anoles / Iguanas / Corytophaninae blocked every candidate it
+  // had, because each clade's kind-word belongs to that clade alone, and it drew empty. But
+  // the label over that branch reads "Iguanas": a Green iguana pre-filled beneath it adds
+  // nothing to what the player can already read, so it is allowed. Both conditions matter.
+  // Drop the label test and pre-filled gibbons in Nomascus and Hylobates leave Hoolock as
+  // the only gibbon genus still empty, placing the tray's one gibbon by elimination. Drop
+  // the same-clade test and an "… iguana" under Anoles becomes a misleading pointer.
+  // Plurals are matched by a trailing-s trim, so "Iguanas" ⊃ "iguana".
+  const singular = (w: string) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w);
+  // For each distinctive word, the clade of the one answer carrying it.
+  const wordOwner = new Map<string, string>();
+  picks.forEach(({ grp, slot }) => {
+    for (const w of nameWords(tree, slot)) if ((wordGroups.get(w) ?? 0) === 1) wordOwner.set(w, grp.cladeId);
+  });
+  const labelCache = new Map<string, Set<string>>();
+  const labelWords = (cladeId: string): Set<string> => {
+    let ws = labelCache.get(cladeId);
+    if (!ws) {
+      const c = tree.byId.get(cladeId)?.common ?? "";
+      ws = new Set(c.toLowerCase().split(/[^a-z]+/).filter((t) => t.length >= 3).map(singular));
+      labelCache.set(cladeId, ws);
+    }
+    return ws;
+  };
+  const clashesAnswer = (id: string, cladeId: string) => {
+    const labelled = labelWords(cladeId);
+    for (const w of nameWords(tree, id)) {
+      if (!distinctive(w)) continue;
+      if (wordOwner.get(w) === cladeId && labelled.has(singular(w))) continue; // already on the label
+      return true;
+    }
     return false;
   };
 
-  // Pre-filled leaves (never draggable) to make the tree fuller and give a recognition
-  // hint. Budget tapers with the tier — roughly one per slot on Monday down to none on
-  // Sunday. The ×1.1 is a small, deliberate ease: slightly more of the board comes
-  // pre-anchored across the easy/mid tiers (capped at one per slot).
-  const target = Math.min(slotIds.length, Math.round(slotIds.length * (1 - (tier - 1) / 6) * 1.1));
+  // Pre-filled leaves (never draggable). TWO SEPARATE BUDGETS, because the two kinds of
+  // prefill do different jobs and only one of them is a difficulty lever:
+  //
+  //  • WORKED EXAMPLES sit inside an answer's own group and point straight at the branch
+  //    it belongs on, so they ARE the hint. They keep the weekday taper: nearly every
+  //    group anchored on Monday, one or two on Sunday.
+  //  • CONTEXT SPECIES sit in clades holding NONE of the answers. They can't give a
+  //    placement away (clashesAnswer bars any name that could), so they carry no
+  //    difficulty and are FLAT across the week.
+  //
+  // Until this split the two shared one tapering budget, which hit zero on Sunday and
+  // produced boards with NOTHING drawn on them: 2026-08-30 was four clams over four
+  // unlabelled Latin clades and no placed species anywhere, and 14 of 26 Sundays looked
+  // like that. Hard is meant to be tight groups and look-alike tray names, not an empty
+  // canvas — so the taper now applies to the hint alone and the tree stays full.
+  const workedTarget = Math.min(
+    slotIds.length,
+    Math.max(
+      Math.max(1, Math.round(slotIds.length / 4)), // never zero: a bare board isn't a tree
+      Math.round(slotIds.length * (1 - (tier - 1) / 6) * 1.1) // ×1.1: a small deliberate ease
+    )
+  );
   const used = new Set(slotIds);
 
   // (a) WORKED EXAMPLES inside the answer groups, FIRST — one per slot while the budget
@@ -515,39 +672,87 @@ function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, a
   // group; prefer common-named (recognisable) picks. `clashesAnswer` still bars any word
   // DISTINCTIVE to one answer, so a helpful sibling can never become a word give-away —
   // a shared "kind" noun (e.g. every slot is a beetle) points nowhere and is allowed.
-  const workedFor = (grp: Group, slot: string): string | null => {
-    const ok = (id: string) => !used.has(id) && !clashesAnswer(id);
-    const rank = (ids: string[]) => {
-      const named = ids.filter((id) => tree.byId.get(id)?.common);
-      return byViews(tree, named.length ? named : ids, rng);
-    };
-    for (const pool of [
-      rank(slotBranchLeaves(tree, grp.cladeId, slot, grp.leaves)),
-      rank(otherBranchLeaves(tree, grp.cladeId, slot, grp.leaves)),
-    ]) {
-      const hit = pool.find(ok);
-      if (hit) return hit;
-    }
-    return null;
+  const rank = (ids: string[]) => {
+    const named = ids.filter((id) => tree.byId.get(id)?.common);
+    return byViews(tree, named.length ? named : ids, rng);
   };
+  // Ordered ONCE per group, for the same reason as the context pools below: byViews is a
+  // weighted draw, so re-rolling it would resample instead of continuing down the list.
+  const workedPool = new Map<Group, string[]>();
   for (const { grp, slot } of picks) {
-    if (anchorIds.length >= target) break;
-    const w = workedFor(grp, slot);
+    workedPool.set(grp, [
+      ...rank(slotBranchLeaves(tree, grp.cladeId, slot, grp.leaves)),
+      ...rank(otherBranchLeaves(tree, grp.cladeId, slot, grp.leaves)),
+    ].filter((id) => !used.has(id) && !clashesAnswer(id, grp.cladeId)));
+  }
+  for (const { grp } of picks) {
+    if (anchorIds.length >= workedTarget) break;
+    const w = workedPool.get(grp)!.find((id) => !used.has(id));
     if (w) { anchorIds.push(w); used.add(w); } // group already labelled by its slot
   }
 
-  // (b) CONTEXT CLADES: if budget remains, other labelled families/orders in the region
-  // that hold NONE of the answers, each with one representative — decoys that fill the
-  // tree and teach by elimination ("your species don't go here").
-  for (const cg of shuffle(container.groups.filter((g) => !usedGroupIds.has(g.cladeId)), rng)) {
-    if (anchorIds.length >= target) break;
-    const named = cg.leaves.filter((id) => tree.byId.get(id)?.common);
-    const rep = byViews(tree, named.length ? named : [...cg.leaves], rng).find((id) => !used.has(id) && !clashesAnswer(id));
-    if (!rep) continue;
-    anchorIds.push(rep);
-    used.add(rep);
-    groupIds.push(cg.cladeId); // label the context clade too
+  // (b) CONTEXT CLADES: labelled clades holding NONE of the answers, each seeded with a
+  // representative and then topped up so the branch visibly FORKS instead of hanging as a
+  // lone twig. Decoys that fill the tree and teach by elimination ("your species don't go
+  // here"). Flat across the week: Sunday's tree is as full as Monday's.
+  //
+  // Two sources, and the ORDER between them is a rule, not a preference. Spare clades
+  // INSIDE the answer region come first. The branches BESIDE the region are only ever a
+  // top-up: they may extend a tree that already has context near the answers, and they may
+  // never stand in for it. A region with no spare clades at all (the bivalves field one
+  // whose only named clades ARE the four answers) is left sparse on purpose. Filling it
+  // outward was tried and looked worse than the empty board it replaced: every pre-filled
+  // species ended up in a sibling branch of the whole puzzle, so the tree grew rich in the
+  // half of the picture that isn't the puzzle while the four clam orders stayed bare.
+  const contextBudget = Math.min(slotIds.length + 2, MAX_BOARD_LEAVES - slotIds.length - anchorIds.length);
+  // Two clades on one board must never carry the SAME label. The tree holds distinct clades
+  // that share a common name ("Tortoiseshells" names two of them), and a board showing that
+  // name twice is unreadable — you cannot say which branch a label means. Answer clades
+  // claim their labels first; a context clade that would duplicate one is skipped.
+  const labelOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
+  const takenLabels = new Set(groupIds.map(labelOf));
+  // Candidates per clade, ordered ONCE (byViews is a weighted draw — re-rolling it per
+  // round would resample rather than continue down the same list).
+  const fill = (sources: { grp: Group; cap: number }[], budget: number): number => {
+    sources = sources.filter(({ grp }) => !takenLabels.has(labelOf(grp.cladeId)));
+    const pool = new Map<Group, string[]>();
+    for (const { grp } of sources) {
+      const named = grp.leaves.filter((id) => tree.byId.get(id)?.common);
+      pool.set(grp, byViews(tree, named.length ? named : [...grp.leaves], rng).filter((id) => !used.has(id) && !clashesAnswer(id, grp.cladeId)));
+    }
+    let taken = 0;
+    for (let round = 0; round < CONTEXT_PER_CLADE && taken < budget; round++) {
+      for (const { grp, cap } of sources) {
+        if (taken >= budget) break;
+        if (round >= cap) continue;
+        const next = pool.get(grp)!.find((id) => !used.has(id));
+        if (!next) continue;
+        if (round === 0) {
+          if (takenLabels.has(labelOf(grp.cladeId))) continue; // another source already used it
+          groupIds.push(grp.cladeId); // label the context clade too
+          takenLabels.add(labelOf(grp.cladeId));
+        }
+        anchorIds.push(next);
+        used.add(next);
+        taken++;
+      }
+    }
+    return taken;
+  };
+  const spare = container.groups.filter((g) => !usedGroupIds.has(g.cladeId));
+  const contextTaken = fill(shuffle(spare, rng).map((grp) => ({ grp, cap: CONTEXT_PER_CLADE })), contextBudget);
+  if (contextTaken > 0) {
+    // Neighbours are capped lower than in-region clades: several distinct branches beside
+    // the region read as a richer tree than one neighbour stuffed with species.
+    const nbrs = neighbourGroups(tree, container, contextBudget - contextTaken);
+    fill(shuffle(nbrs, rng).map((grp) => ({ grp, cap: NEIGHBOUR_PER_CLADE })), contextBudget - contextTaken);
   }
+
+  // There is deliberately no third pass topping the board up from inside the answer groups.
+  // A species added there is another worked example: it points at an answer, so a board too
+  // thin to fill any other way would be made EASIER by filling it, on exactly the hard days
+  // that are supposed to give least away. A sparse board is the right outcome for a region
+  // that has nothing beside its answers.
 
   const leafIds = [...anchorIds, ...slotIds];
   let root = leafIds[0];
@@ -556,9 +761,16 @@ function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, a
   return { date: dateKey, tier, rootId: root, leafIds, anchorIds, slotIds, groupIds, tray };
 }
 
-/** A board's identity for anti-repeat: its group set. */
-const boardSig = (b: BranchesBoard) =>
-  b.slotIds.concat(b.anchorIds).map((id) => id).sort().join(",");
+/** A board's identity for anti-repeat: its ANSWER CLADES.
+ *
+ *  This used to be the species — slots plus prefills — which made two boards distinct the
+ *  moment one prefill differed. But the puzzle is "which of these branches does each species
+ *  belong to", so a board asking about the same clades is the same puzzle even when the
+ *  species differ; over a year 20 boards repeated their whole clade set inside 60 days, some
+ *  after five weeks. Kinship has always keyed on its group set, and scores zero. Keying on
+ *  the clades is also strictly stronger: the species follow from the clades, so nothing that
+ *  the species key caught slips past this one. */
+const boardSig = (b: BranchesBoard) => [...answerGroupIds(b)].sort().join(",");
 
 /** How many of a board's tray species share a HEAD NOUN with another tray species — the
  *  quantity the shared-word floor targets ("sparrow" ×2, not "-tailed" ×3). */
@@ -606,13 +818,20 @@ let servedBranches: Map<string, { sig: string; groupIds: string[] }> | null = nu
  *  that contributed no groups would let the very boards people just played come straight
  *  back. */
 export function setServedBranchesHistory(
-  served: Map<string, { slotIds: string[]; anchorIds: string[]; groupIds?: string[] }> | null
+  // groupIds is REQUIRED, not optional as it once was. Both the signature and the per-group
+  // window are built from the answer clades now, so a served day handed over without them
+  // contributes an empty signature: the injection silently does nothing and the very board
+  // that was played comes straight back. A missing field must not be sayable.
+  served: Map<string, { slotIds: string[]; anchorIds: string[]; groupIds: string[] }> | null
 ): void {
   servedBranches = served && served.size
-    ? new Map([...served].map(([dk, p]) => [dk, {
-        sig: p.slotIds.concat(p.anchorIds).map((id) => id).sort().join(","),
-        groupIds: p.groupIds ?? [],
-      }]))
+    ? new Map([...served].map(([dk, p]) => {
+        // ANSWER groups only, which groupIds stores first — see the window below for why the
+        // context clades must stay out of it. The signature is those same clades, matching
+        // boardSig, so a served day and a generated one are compared like for like.
+        const groupIds = p.groupIds.slice(0, p.slotIds.length);
+        return [dk, { sig: [...groupIds].sort().join(","), groupIds }];
+      }))
     : null;
 }
 
@@ -629,6 +848,14 @@ export function setServedBranchesHistory(
 // does not — see the two ladders in boardForDay. Branches locks its broad class for the day
 // before it surveys containers, so a hard ban would push thin classes onto their last-resort
 // board rather than simply preferring a fresher one.
+//
+// The window counts ANSWER groups ONLY, never the context clades that fill out the tree.
+// Both live in groupIds (answers first), and pricing all of them quietly broke this: once a
+// board could carry six or seven labelled clades instead of two or three, nearly every
+// candidate was charged for something, no candidate scored zero, the fresh ladder stayed
+// empty and every day settled for the mildest repeat it could find. Answer-clade repeats
+// inside a fortnight went 53 → 72 over a year. The context clades are scenery; only the
+// clades that ARE the puzzle should keep it away from a container.
 const BRANCHES_GROUP_ANTI_REPEAT_WINDOW = 14;
 /** A candidate board plus how badly it repeats, so the fallback can take the mildest. */
 type Scored = { board: BranchesBoard; cost: number } | null;
@@ -649,11 +876,21 @@ function boardForDay(
   avoid: (s: string) => boolean,
   repeatCost: (groupIds: string[]) => number = () => 0
 ): BranchesBoard | null {
-  // Lock the day's broad class ONCE (uniform over eligible classes) — every attempt stays
-  // within it, so the class distribution is balanced and the shared-word floor is a
-  // best-effort within the class, never the thing that picks the class.
-  const group = pickGroup(tree, tier, mulberry32(xmur3(`grebe:branches:${dateKey}:${tier}:group`)));
-  if (!group) return null;
+  // The day's broad class, drawn uniformly over the eligible ones, then the classes it would
+  // fall back to IN ORDER. The first entry is exactly the old locked draw, so the class
+  // distribution is unchanged on every day that can field a fresh board — and with no
+  // history at all (the seed path, where repeatCost is always 0) the survey below returns
+  // inside the first class every time, so nothing about the balance moves.
+  //
+  // The fallback exists because locking one class outright made a thin class repeat itself
+  // on a weekly cadence. Molluscs field three containers and the bivalves field ONE, so when
+  // the draw landed there every one of the 24 attempts produced the same four clam orders,
+  // the ladder had nothing fresh to rank and took the "mildest" repeat, which was that same
+  // board. Rat snakes and Lampropeltis ran on 2026-09-07, 09-14 and 09-21; the clams ran the
+  // Sunday after the Sunday. A class with nothing fresh left to give is a reason to draw
+  // another class, not a reason to serve last week's board again.
+  const classes = eligibleClasses(tree, tier, dateKey);
+  if (!classes.length) return null;
   // The same preference ladder is kept TWICE: `n` for boards reusing no group seen inside
   // BRANCHES_GROUP_ANTI_REPEAT_WINDOW, `r` for boards that do. Every `n` beats every `r`, so a
   // repeat is taken only when the day has nothing else. That matters because Branches locks
@@ -666,33 +903,42 @@ function boardForDay(
   // grades by how recent and how many, so when a repeat is unavoidable it is the mildest one
   // on offer. With the window off, cost is always 0, `r` is never populated, and the ladder
   // collapses to exactly what it was before.
-  let nFloor: BranchesBoard | null = null, nInBand: BranchesBoard | null = null, nFirst: BranchesBoard | null = null;
+  // Repeat candidates are kept ACROSS the classes tried, so if none of them can field a
+  // fresh board the day still ends on the mildest repeat available anywhere — never worse
+  // than the single-class version, which could only offer the mildest repeat within one.
   let rIdeal: Scored = null, rFloor: Scored = null, rInBand: Scored = null, rFirst: Scored = null;
   let anyValid: BranchesBoard | null = null;
   const better = (cur: Scored, board: BranchesBoard, cost: number): Scored =>
     !cur || cost < cur.cost ? { board, cost } : cur;
-  for (let attempt = 0; attempt < BRANCHES_ATTEMPTS; attempt++) {
-    const board = selectBoard(tree, group, dateKey, tier, attempt);
-    if (!board) continue;                            // Latin-only container — unusable
-    if (!anyValid) anyValid = board;                 // last-resort (may repeat)
-    if (avoid(boardSig(board))) continue;            // a recent repeat — skip
-    const floor = meetsFloor(tree, board);
-    const band = inSepBand(tree, board);
-    const cost = repeatCost(board.groupIds);
-    if (cost === 0) {
-      if (floor && band) return board;               // fresh, look-alikes, on-band → ideal
-      if (floor && !nFloor) nFloor = board;          // look-alikes (firm) → primary fallback
-      if (band && !nInBand) nInBand = board;         // on-band → secondary
-      if (!nFirst) nFirst = board;                   // any fresh → last fresh option
-    } else {
-      if (floor && band) rIdeal = better(rIdeal, board, cost);
-      if (floor) rFloor = better(rFloor, board, cost);
-      if (band) rInBand = better(rInBand, board, cost);
-      rFirst = better(rFirst, board, cost);
+
+  for (const group of classes.slice(0, BRANCHES_CLASS_ATTEMPTS)) {
+    let nFloor: BranchesBoard | null = null, nInBand: BranchesBoard | null = null, nFirst: BranchesBoard | null = null;
+    for (let attempt = 0; attempt < BRANCHES_ATTEMPTS; attempt++) {
+      const board = selectBoard(tree, group, dateKey, tier, attempt);
+      if (!board) continue;                            // Latin-only container — unusable
+      if (!anyValid) anyValid = board;                 // last-resort (may repeat)
+      if (avoid(boardSig(board))) continue;            // a recent repeat — skip
+      const floor = meetsFloor(tree, board);
+      const band = inSepBand(tree, board);
+      const cost = repeatCost(answerGroupIds(board));
+      if (cost === 0) {
+        if (floor && band) return board;               // fresh, look-alikes, on-band → ideal
+        if (floor && !nFloor) nFloor = board;          // look-alikes (firm) → primary fallback
+        if (band && !nInBand) nInBand = board;         // on-band → secondary
+        if (!nFirst) nFirst = board;                   // any fresh → last fresh option
+      } else {
+        if (floor && band) rIdeal = better(rIdeal, board, cost);
+        if (floor) rFloor = better(rFloor, board, cost);
+        if (band) rInBand = better(rInBand, board, cost);
+        rFirst = better(rFirst, board, cost);
+      }
     }
+    // This class had something fresh. Take it and stop — trying further classes would only
+    // trade a fresh board for another fresh board and skew the class balance for nothing.
+    const fresh = nFloor ?? nInBand ?? nFirst;
+    if (fresh) return fresh;
   }
-  return nFloor ?? nInBand ?? nFirst
-    ?? rIdeal?.board ?? rFloor?.board ?? rInBand?.board ?? rFirst?.board ?? anyValid;
+  return rIdeal?.board ?? rFloor?.board ?? rInBand?.board ?? rFirst?.board ?? anyValid;
 }
 
 /**
@@ -740,7 +986,7 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
       const board = boardForDay(tree, dk, tierForDate(dk), avoid, repeatCost);
       if (!board) continue; // a day with no valid board contributes nothing to anti-repeat
       sig = boardSig(board);
-      groupIds = board.groupIds;
+      groupIds = answerGroupIds(board); // answers only, as the window's comment explains
     }
     queue.push(sig);
     counts.set(sig, (counts.get(sig) ?? 0) + 1);

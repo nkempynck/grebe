@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import taxonomy from "../data/taxonomy.json";
 import { buildTree } from "./index";
 import { branchesBoardForSeed, headWord, sharedWordFloor, type BranchesBoard } from "./branches";
-import { medianSeparationTier } from "./tree";
+import { leavesUnder, medianSeparationTier } from "./tree";
 
 const tree = buildTree((taxonomy as { nodes: Parameters<typeof buildTree>[0] }).nodes);
 
@@ -149,6 +149,72 @@ describe("no cross-class boards", () => {
     // with the rest of the suite, where it has been measured at 5.5s — over the 5s default,
     // so it failed only ever in a full parallel run. Same treatment as the other heavy
     // deterministic ones (antirepeat, pinnedPuzzles).
+  }, 30_000);
+});
+
+// A pre-filled species must never hand a placement over by NAME.
+//
+// The rule has one narrow exception, and the exception is where the bugs live. A word may
+// only be forgiven when it tells the player nothing the board already tells them, which
+// needs BOTH halves: the prefill sits in the very clade whose answer carries the word, AND
+// that clade's label already displays it ("Green iguana" beneath a clade labelled
+// "Iguanas"). Each half has been dropped once and each time it cost a board:
+//   • without the LABEL half, a primate board pre-filled gibbons in Nomascus and Hylobates,
+//     leaving Hoolock as the only gibbon genus still empty — the tray's single gibbon then
+//     places itself by elimination, no recognition required;
+//   • without the SAME-CLADE half, an "… iguana" can be pre-filled under Anoles, which
+//     points at the wrong branch entirely.
+// So this asserts the whole rule rather than either half, over every tier.
+describe("prefills never give a placement away by name", () => {
+  const SEEDS = Array.from({ length: 30 }, (_, i) => `gw-${i}`);
+  const sig = (id: string) =>
+    new Set((tree.byId.get(id)?.common ?? "").toLowerCase().split(/[^a-z]+/).filter((t) => t.length >= 3));
+  const singular = (w: string) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w);
+  const labelSig = (cladeId: string) => new Set([...sig(cladeId)].map(singular));
+  const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
+
+  it("a word unique to one tray species appears on a prefill only where its clade is labelled with it", () => {
+    for (let tier = 1; tier <= 7; tier++) {
+      for (const seed of SEEDS) {
+        const b = board(seed, tier);
+        // How many tray species carry each word, and for a word carried by exactly one,
+        // the clade that tray species belongs to.
+        const freq = new Map<string, number>();
+        const owner = new Map<string, string>();
+        b.slotIds.forEach((slot, i) => {
+          for (const w of sig(slot)) {
+            freq.set(w, (freq.get(w) ?? 0) + 1);
+            owner.set(w, b.groupIds[i]);
+          }
+        });
+        for (const anchor of b.anchorIds) {
+          // Board clades are pairwise disjoint, so a prefill sits in at most one of them.
+          const clade = b.groupIds.find((g) => leavesUnder(tree, g).includes(anchor));
+          for (const w of sig(anchor)) {
+            if (freq.get(w) !== 1) continue; // shared across the tray → points nowhere
+            const forgiven = clade !== undefined && owner.get(w) === clade && labelSig(clade).has(singular(w));
+            expect(
+              forgiven,
+              `tier ${tier} seed ${seed}: prefilled "${nameOf(anchor)}" carries "${w}", which only ` +
+                `"${nameOf(b.slotIds[b.slotIds.findIndex((s) => sig(s).has(w))])}" carries in the tray` +
+                (clade ? `; it sits in [${nameOf(clade)}]` : "; it sits outside every labelled clade")
+            ).toBe(true);
+          }
+        }
+      }
+    }
+  }, 30_000);
+
+  // The complement of the same fix: the prefill budget used to taper to nothing on Sunday,
+  // which served four clams over four unlabelled Latin clades with no species drawn at all.
+  // Worked examples still thin out with the tier, but never to zero.
+  it("every board draws at least one species, at every tier", () => {
+    for (let tier = 1; tier <= 7; tier++) {
+      for (const seed of SEEDS) {
+        const b = board(seed, tier);
+        expect(b.anchorIds.length, `tier ${tier} seed ${seed}`).toBeGreaterThan(0);
+      }
+    }
   }, 30_000);
 });
 

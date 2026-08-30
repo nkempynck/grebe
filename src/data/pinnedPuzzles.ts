@@ -251,7 +251,52 @@ const branchesResolver: Resolver<"branches"> = {
   // v10 (2026-08-21): the 22 junction splits Kinship v11 describes; Branches shares the tree.
   //   41% of boards move (the `named` change is Kinship-only and does not touch this
   //   generator). → re-pin un-played future dates.
-  version: 10,
+  // v11 (2026-08-30): prefilled species stop being a difficulty lever. One tapering budget
+  //   covered both worked examples and context species and it reached zero on Sunday:
+  //   2026-08-30 served four clams over four unlabelled Latin clades with nothing placed
+  //   anywhere, and 14 of 26 Sundays had that shape. Now the taper governs worked examples
+  //   alone (floored at one per four slots); context species in non-answer clades draw on a
+  //   separate FLAT budget and fill up to three species each, so a hard board is tight
+  //   rather than empty. Branches beside the answer region can top that fill up, but only
+  //   where in-region context already exists — never as a substitute for it, since a board
+  //   filled purely from outside grows rich in the half of the picture that isn't the
+  //   puzzle. Nothing ever pads a board from INSIDE its answer groups: that only adds
+  //   worked examples, which would make the thinnest boards the easiest. A region with
+  //   nothing beside its answers (the bivalves) stays sparse on purpose. The give-away
+  //   guard was also blocking every candidate in same-word regions (an all-lizard board
+  //   drew empty), so it now forgives a word ONLY where the prefill sits in the very clade
+  //   whose answer carries it AND that clade's label already shows it ("Green iguana" under
+  //   "Iguanas"). Both halves are load-bearing: without the label test, gibbons pre-filled
+  //   in Nomascus and Hylobates leave Hoolock as the only gibbon genus still empty and place
+  //   the tray's one gibbon by elimination. Over 182
+  //   days: boards with context carry 5-8 prefilled species where they carried ~3, every
+  //   board has at least one (26 Sundays had none), and hard days still leave most answer
+  //   clades cold. A board is capped at 12 species total, because the radial view lays its
+  //   tips around a fixed wedge and a 14-leaf board collided with itself.
+  //   → re-pin un-played future dates.
+  // v12 (2026-08-30): the day's broad class is no longer a hard lock. It was drawn once and
+  //   every one of the 24 attempts had to stay inside it, so a thin class repeated itself on
+  //   a weekly cadence: the bivalves field ONE container, so each attempt rebuilt the same
+  //   four clam orders, the ladder had nothing fresh to rank and served that same board
+  //   again — 08-30 and then 09-06, with Rat snakes and Lampropeltis running 09-07, 09-14
+  //   and 09-21. A class that has nothing fresh left now hands over to the next class
+  //   (BRANCHES_CLASS_ATTEMPTS, ordered per day) instead of settling. Element 0 of that
+  //   order IS the old locked draw, so any day that can field a fresh board is unchanged,
+  //   and with no history (the seed path) the survey never leaves the first class at all.
+  //   Answer-clade repeats inside a fortnight over a year: 52 → 0. Class mix stays flat
+  //   (mammals 17% at the top, molluscs 7%, spiders 4%). The per-group window also counts
+  //   ANSWER clades only now — pricing the context clades too had saturated it — and no two
+  //   clades on a board may share a LABEL. → re-pin un-played future dates.
+  // v13 (2026-08-30): a board's identity for anti-repeat is its ANSWER CLADES, not its
+  //   species. Keyed on species, two boards counted as different the moment one prefill
+  //   differed, so the same clade set came back inside the 60-day window 20 times a year,
+  //   some after five weeks — the same puzzle with different animals in it. Kinship has
+  //   always keyed on its group set and scores zero; Branches now does too, 20 → 0. The
+  //   species key caught nothing this one misses, since the species follow from the clades.
+  //   setServedBranchesHistory therefore REQUIRES groupIds: without them a served day
+  //   signs as the empty string and the board that was just played comes straight back.
+  //   → re-pin un-played future dates.
+  version: 13,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
