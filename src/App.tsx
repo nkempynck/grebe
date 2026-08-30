@@ -22,6 +22,7 @@ import { branchesTally } from "./hooks/useBranchesGame";
 import { primePinnedPuzzles, pinnedPuzzleCached, fetchPinnedPuzzle, branchesBoard as rebuildBranchesBoard } from "./data/pinnedPuzzles";
 import { SettingsPanel } from "./ui/SettingsPanel";
 import { GuessInput } from "./ui/GuessInput";
+import { MosaicAnnounce } from "./ui/MosaicAnnounce";
 import { useBoardGuard } from "./hooks/useBoardGuard";
 import { ResultCard } from "./ui/ResultCard";
 import { AnswerReveal } from "./ui/AnswerReveal";
@@ -265,6 +266,8 @@ export default function App() {
     [dayKey, prevDayKey, player.configured, player.session]
   );
 
+  // Bumped only to re-render after the announcement is dismissed; its value is never read.
+  const [, setAnnounceGone] = useState(0);
   const [view, setView] = useState<View>(() => {
     try {
       const saved = sessionStorage.getItem(VIEW_KEY);
@@ -1006,6 +1009,13 @@ export default function App() {
           );
         })}
       </nav>
+
+      {/* Not shown on Mosaic itself: announcing a game to someone already playing it is noise.
+          A local counter, not state, so dismissing it re-renders the app once and then it is
+          gone for good on this device. */}
+      {view !== "mosaic" && (
+        <MosaicAnnounce onPlay={() => setView("mosaic")} onClose={() => setAnnounceGone((n) => n + 1)} />
+      )}
 
       {isGameView(view) && (
         <nav className="gamenav" role="tablist" aria-label="Games">

@@ -470,53 +470,6 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         </div>
       )}
 
-      {/* What changed, for returning players. Collapsed by default: someone opening the game
-          to play should not have to scroll past a changelog. Kept factual, downsides
-          included — a player who notices the species got less familiar deserves to know it
-          was deliberate rather than wonder if something broke. */}
-      <details className="about-score grid-changelog">
-        <summary>I updated Kinship quite a bit, check below what changed</summary>
-        <ul>
-          <li>
-            <b>Boards repeat far less.</b> When a group comes back it now brings mostly
-            different species: 29% of its tiles are repeats, down from 60%. Boards that
-            closely resemble a recent one dropped by about two thirds. I stg if i had to see another Sailfish smh.
-          </li>
-          <li>
-            <b>Every board has a real trap, hopefully, or at least a bit of a challenge.</b> There is always at least one pair of groups
-            that are potentially easy to mix up. Boards where all four groups were obvious used
-            to happen roughly twice a week. So these will hopefully be gone.
-          </li>
-          <li>
-            <b>Mammal boards ask for closer groups.</b> Familiar animals are easier to sort
-            than unfamiliar ones at the same distance on the tree, so mammals now have to be
-            more tightly related to earn the same day. But it's not a crazy difference.
-          </li>
-          <li>
-            <b>Thursday and Friday start you off.</b> Two tiles arrive with both their picture
-            and their name showing, instead of four pictures with the names hidden. Name only was a bit less fun imo so adding some pics starts you off and is a bit more appealing. I hope.
-          </li>
-          <li>
-            <b>Reveals cost less.</b> A peek is 10% of the day's points instead of 15%, and
-            the picture-only weekend starts with four free instead of three. This also helps with the overall increased difficulty.
-          </li>
-          <li>
-            <b>Better pictures.</b> Range maps, diagrams and photos of cooked food no longer
-            slip onto tiles, and about fifty species that were showing the wrong picture, or
-            none, now show the right one. But mistakes can still happen.
-          </li>
-          <li>
-            <b>The trade-off.</b> Groups are drawn from a wider slice of the tree, so you will
-            meet less famous species and more scientific group names than before. That is the
-            price of the variety above, and it was a deliberate choice. Note that repeats will still happen, and are unavoidable by the way kinship is structured and what the tree of life has us to offer.
-          </li>
-        </ul>
-        <p className="grid-changelog-sign">
-          I hope this makes kinship more stable and challenging and enjoyable! Shoutout to the
-          day ones for always playing! Appreciate yall.
-        </p>
-      </details>
-
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
 
       {/* Solved groups — plus, after a loss, the ones never found (dimmed). Always

@@ -1922,6 +1922,42 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .about-score p { margin-top: 8px; }
 .about-score code { font-size: 12.5px; }
 
+/* A dated announcement strip. Carries the announced game's accent through data-game, so it
+   reads as belonging to that game rather than as a site-wide alert. */
+.announce {
+  display: flex; align-items: flex-start; gap: .6rem; margin: 0 0 14px;
+  padding: .6rem .75rem; border-radius: var(--radius);
+  border: 1px solid var(--game, var(--brass));
+  background: color-mix(in srgb, var(--game, var(--brass)) 7%, transparent);
+}
+.announce-tag {
+  flex: none; font-size: .6rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 700;
+  padding: .2rem .4rem; border-radius: 4px; margin-top: 1px;
+  background: var(--game, var(--brass)); color: var(--bg, #fff);
+}
+.announce-text { margin: 0; flex: 1; font-size: .84rem; line-height: 1.5; }
+.announce-go {
+  flex: none; align-self: center; white-space: nowrap; cursor: pointer;
+  border: 1px solid var(--game, var(--brass)); background: transparent;
+  color: var(--game, var(--brass)); border-radius: 999px;
+  padding: .25rem .7rem; font: inherit; font-size: .8rem; font-weight: 600;
+}
+.announce-go:hover { background: var(--game, var(--brass)); color: var(--bg, #fff); }
+.announce-x {
+  flex: none; background: none; border: 0; cursor: pointer; color: inherit;
+  opacity: .5; font-size: 1.1rem; line-height: 1; padding: 0 .1rem;
+}
+.announce-x:hover { opacity: 1; }
+@media (max-width: 480px) {
+  /* The button drops to its own line rather than squeezing the text to a column of one word,
+     and the close sits hard right on the first line where a close belongs. */
+  .announce { flex-wrap: wrap; }
+  .announce-tag { order: 1; }
+  .announce-x { order: 1; margin-left: auto; }
+  .announce-text { flex-basis: 100%; order: 2; margin-top: -.2rem; }
+  .announce-go { order: 3; margin-left: auto; }
+}
+
 /* Kinship's changelog, reusing the collapsible scoring style. Sits between the header and
    the board, so it stays quiet until opened. */
 .grid-changelog { margin: 0 0 14px; }
