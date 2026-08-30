@@ -312,7 +312,7 @@ export function DiscussionPanel({
             value={draft}
             maxLength={MAX}
             rows={3}
-            placeholder={`Talk about ${label}…`}
+            placeholder={permanent ? `How is ${label} playing?` : `Talk about ${label}…`}
             onChange={(e) => setDraft(e.target.value)}
           />
           <div className="disc-compose-foot">
@@ -323,7 +323,11 @@ export function DiscussionPanel({
           </div>
         </div>
       ) : (
-        <p className="lb-nudge">Play with an account to join the discussion.</p>
+        <p className="lb-nudge">
+          {permanent
+            ? "Sign in to leave feedback. You do not need to finish a board first."
+            : "Play with an account to join the discussion."}
+        </p>
       )}
 
       {actionError && <p className="disc-error">{actionError}</p>}
@@ -358,7 +362,9 @@ export function DiscussionPanel({
       )}
 
       <p className="lb-note">
-        {writable
+        {permanent
+          ? "This board is permanent: it stays here rather than closing at the end of the day, so feedback keeps accumulating."
+          : writable
           ? "Posting closes when the day rolls over. The board stays readable for one more day."
           : "Closed for posting. It stops being shown after today."}
       </p>
