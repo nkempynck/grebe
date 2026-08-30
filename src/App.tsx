@@ -1011,6 +1011,11 @@ export default function App() {
               aria-selected={view === v}
               className={`gamenav-tab${view === v ? " is-on" : ""}`}
               data-game={v}
+              // Under 480px this row is a horizontal scroller (see the media query in index.css),
+              // and a fourth game made it wider than a phone. Mosaic is last, so arriving on it
+              // showed its label half cut with only the underline to say it was selected.
+              // Nudges the row, not the page: `block: "nearest"` leaves vertical scroll alone.
+              ref={(el) => { if (el && view === v) el.scrollIntoView({ inline: "nearest", block: "nearest" }); }}
               onClick={() => setView(v)}
             >
               <span className="gamenav-ico" aria-hidden="true">{GAME_ICONS[v]}</span>

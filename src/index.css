@@ -2393,16 +2393,21 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
    costing a line of height rather than a panel. Wraps to two rows on a narrow screen. */
 .mosaic-settings {
   display: flex; flex-wrap: wrap; align-items: center; gap: .35rem 1rem;
-  font-size: .78rem; opacity: .8;
+  font-size: .78rem; opacity: .8; max-width: 100%;
 }
-.mosaic-setting { display: flex; align-items: center; gap: .35rem; }
+/* min-width:0 and a capped select, because a <select> sizes itself to its LONGEST OPTION and
+   ignores the room available. "Wednesday · Tricky · narrowing and lookups · 8 guesses" made this
+   row 455px wide inside a 390px phone, and since the page then laid out at 455 the nav rows
+   stopped wrapping and were simply cut off instead. One overflowing control, three symptoms. */
+.mosaic-setting { display: flex; align-items: center; gap: .35rem; min-width: 0; max-width: 100%; }
 .mosaic-setting-name {
   font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6;
 }
 .mosaic-setting select {
   font: inherit; font-size: .78rem; padding: .12rem 1.1rem .12rem .3rem; border-radius: 6px;
   border: 1px solid var(--line, #ddd); background: transparent; color: inherit;
-  max-width: 100%; cursor: pointer;
+  min-width: 0; max-width: 100%; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis;
 }
 .mosaic-setting select:hover { border-color: var(--game, var(--brass)); }
 .mosaic-settings-note { display: flex; align-items: center; gap: .5rem; font-size: .72rem; opacity: .55; }
