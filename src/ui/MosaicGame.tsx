@@ -119,7 +119,8 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
             <span className="gamehead-blurb-note is-beta">
               Mosaic is in beta. The animal is drawn at random rather than set for the day, so
               yours is not everyone’s, and nothing is scored or recorded yet. Finish a board and
-              you can play another.
+              you can play another. This is a lil community effort so feel free to leave feedback in the discussion panel below.
+              Just as long as your feedback does not require me to do too much effort.
             </span>
           </>
         }

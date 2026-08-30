@@ -12,7 +12,7 @@ import { todayKey } from "../core/daily";
 /** The window, inclusive both ends. Move these if the release slips; nothing else needs to
  *  change, and a window in the past is the same as this component not existing. */
 const FROM = "2026-08-30";
-const UNTIL = "2026-08-31";
+const UNTIL = "2026-09-03";
 
 const KEY = "grebe.announce.mosaic";
 
