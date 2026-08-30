@@ -22,6 +22,7 @@ import { branchesTally } from "./hooks/useBranchesGame";
 import { primePinnedPuzzles, pinnedPuzzleCached, fetchPinnedPuzzle, branchesBoard as rebuildBranchesBoard } from "./data/pinnedPuzzles";
 import { SettingsPanel } from "./ui/SettingsPanel";
 import { GuessInput } from "./ui/GuessInput";
+import { useBoardGuard } from "./hooks/useBoardGuard";
 import { ResultCard } from "./ui/ResultCard";
 import { AnswerReveal } from "./ui/AnswerReveal";
 import { Cladogram } from "./ui/Cladogram";
@@ -128,7 +129,11 @@ export default function App() {
   const player = usePlayer();
   const [theme, toggleTheme] = useTheme();
   const userId = player.session?.user.id ?? null;
-  const g = useGame(userId);
+  // Free play can probe the tree without limit: name two species and read the clade they share,
+  // which is Kinship's question, or walk a clade's members, which is Branches'. So while free
+  // play is the mode, today's board clades and everything under them are marked unguessable.
+  const boardGuard = useBoardGuard();
+  const g = useGame(userId, "daily", boardGuard);
   // The daily is deterministic, so a past date's clade group is recomputable —
   // lets per-clade daily stats include games recorded before groups were stored.
   const tree = g.tree;
@@ -840,6 +845,8 @@ export default function App() {
             onOutOfSetGuess={g.submitGraft}
             focusCladeId={g.assist ? g.focusCladeId : null}
             guesses={g.guesses}
+            blocked={g.blocked}
+            blockedLineage={g.blockedLineage}
           />
         )}
         <div className="errline">{g.error}</div>
@@ -1051,7 +1058,12 @@ export default function App() {
         <div className="gameview" data-game="mosaic">
           {/* Base tree, not the rich one: Mosaic's pool is fame-filtered species that have a
               usable photograph, and the augment's leaves have neither. */}
-          <MosaicGame tree={g.tree} onHowItWorks={() => openAbout("about-mosaic")} />
+          <MosaicGame
+            tree={g.tree}
+            userId={userId}
+            configured={player.configured}
+            onHowItWorks={() => openAbout("about-mosaic")}
+          />
         </div>
       )}
       {view === "branches" && (

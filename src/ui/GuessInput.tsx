@@ -24,6 +24,16 @@ interface Props {
   focusCladeId: string | null;
   /** Guesses so far, to mark already-guessed entries. */
   guesses: GuessResult[];
+  /** Entries to leave out of the list entirely.
+   *
+   *  HIDDEN, not greyed out. The first version marked them "on today's Kinship or Branches
+   *  board", which announced the very thing it was protecting: the row itself became the tell,
+   *  and reading the genus names off a struck-through list was easier than deducing them. A
+   *  suggestion list is not the place to say what is being withheld. */
+  blocked?: (id: string) => boolean;
+  /** The same question for an out-of-set organism, which is not in the tree to be asked about
+   *  by id and arrives with its own lineage instead. */
+  blockedLineage?: (ids: string[]) => boolean;
   /** Offer species only, never clades. Lineage lets you name a GROUP to scout ("snakes") and
    *  that is part of its game; in Blur the answer is always one species, so a group is never
    *  something you would want to submit and only clutters the list. */
@@ -48,7 +58,7 @@ const label = (c: Cand) => (c.common ? `${c.common} (${c.sci})` : c.sci);
  *  matches themselves are never capped. */
 const OOS_TOPUP_TO = 8;
 
-export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses, speciesOnly = false }: Props) {
+export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses, blocked, blockedLineage, speciesOnly = false }: Props) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -84,12 +94,16 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
     for (const node of tree.byId.values()) {
       if (!isInScope(tree, config, node.id)) continue;
       if (focusCladeId && !isAncestor(tree, focusCladeId, node.id)) continue;
+      // Filtered at the SOURCE, so the browse list, the typed search and the synonym lookup all
+      // agree without each remembering to check. candById and sortedCandidates are both built
+      // from this, and a synonym reaching past the filter would put the name back on screen.
+      if (blocked?.(node.id)) continue;
       const isLeaf = (tree.childrenOf.get(node.id) ?? []).length === 0;
       if (isLeaf) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "species" });
       else if (node.sciName && !speciesOnly) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "group" });
     }
     return out;
-  }, [tree, config, focusCladeId, speciesOnly]);
+  }, [tree, config, focusCladeId, speciesOnly, blocked]);
 
   // id → candidate, so a synonym match can pull in its target species (only if
   // that species is itself in scope/focus and therefore guessable).
@@ -171,6 +185,10 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
       for (const h of oosHits) {
         if (inSet.length >= OOS_TOPUP_TO) break;
         if (!inScope(h)) continue;
+        // An out-of-set organism is not in the tree, so `blocked` cannot answer for it by id.
+        // Its LINEAGE can: grafting it would materialise whichever board clade it hangs under,
+        // which is the same leak by a longer route.
+        if (blockedLineage?.([h.id, ...h.graft.lineage.map((a) => a.id)])) continue;
         const nm = (h.common ?? h.sci).toLowerCase();
         if (seenName.has(nm)) continue;
         seenName.add(nm);
@@ -178,7 +196,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
       }
     }
     return inSet;
-  }, [candidates, candById, q, text, sortedCandidates, tree, config.scopeRootId, focusCladeId, oosHits]);
+  }, [candidates, candById, q, text, sortedCandidates, tree, config.scopeRootId, focusCladeId, oosHits, blockedLineage]);
 
   // Entries you can actually pick (already-guessed ones are shown but not
   // selectable). activeId lets each row test "am I active?" in O(1) — important

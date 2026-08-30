@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GUARD_UNKNOWN, isGuarded, lineageIsGuarded, type BoardGuard } from "../data/boardGuard";
 import {
   ancestryChain,
   applyGrafts,
@@ -91,6 +92,11 @@ export interface UseGame {
   /** `id` is set when the guess came from a specific autocomplete row — it wins
    *  over re-resolving the text (shared names are ambiguous). */
   submit: (text: string, id?: string) => void;
+  /** True for an organism free play will not name today. Drives which suggestion rows are
+   *  omitted, so the list and the submit path always agree. Always false in the daily. */
+  blocked: (id: string) => boolean;
+  /** The same, for an out-of-set organism named by its lineage. */
+  blockedLineage: (ids: string[]) => boolean;
   /** Guess an out-of-set organism by its graft payload (from GuessInput's DB
    *  suggestions) — grafts it onto the tree as an informative probe. */
   submitGraft: (graft: GraftTaxon) => void;
@@ -124,9 +130,39 @@ const DEFAULT_CONFIG: GameConfig = { scopeRootId: DEFAULT_SCOPE_ID, winWithin: 0
 /** @param userId  signed-in player's id (enables cross-device daily restore).
  *  @param initialMode  starting mode; pass "free" for a sandbox instance (e.g. the
  *    admin test bench) so it never touches — or persists to — the real daily. */
-export function useGame(userId: string | null, initialMode: GameMode = "daily"): UseGame {
+/** One refusal for "not in the playable set", whatever the reason. Shared so a name withheld by
+ *  the board guard is indistinguishable from one the database has never heard of. */
+const notInSet = (name: string) => `No match for "${name.trim()}". Try a common or scientific name.`;
+
+export function useGame(
+  userId: string | null,
+  initialMode: GameMode = "daily",
+  /** Today's Kinship and Branches boards. FREE PLAY refuses to name anything on them, or inside
+   *  a clade on them: it can probe the tree without limit, and "what do these two share" is
+   *  Kinship's whole question while "what is in this clade" is Branches'. The daily is exempt
+   *  even when this is supplied, because its answer can sit inside a board clade and blocking
+   *  there would make the day unwinnable. */
+  guard: BoardGuard = GUARD_UNKNOWN
+): UseGame {
   const [tree, setTree] = useState<Tree | null>(null);
   const [mode, setModeState] = useState<GameMode>(initialMode);
+  // Names free play refuses. Built here rather than passed in, because it needs the tree and
+  // the mode, both of which live in this hook — a caller trying to supply it would need `g`
+  // before `g` exists.
+  //
+  // MODE === "FREE" IS LOAD-BEARING. The daily must never block anything: its answer can sit
+  // inside a board clade, so blocking there would make the day unwinnable, and any refusal at
+  // all would cost the player guesses on the one round that is scored. The guard exists because
+  // free play can probe the tree without limit, which the daily cannot.
+  const blocked = useCallback(
+    (id: string): boolean => mode === "free" && !!tree && isGuarded(tree, guard, id),
+    [mode, tree, guard]
+  );
+  const blockedLineage = useCallback(
+    (ids: string[]): boolean => mode === "free" && lineageIsGuarded(guard, ids),
+    [mode, guard]
+  );
+
   // Free-play settings, only in effect while mode === "free".
   const [freeConfig, setFreeConfig] = useState<GameConfig>(DEFAULT_CONFIG);
   const [freeAssist, setFreeAssist] = useState(false);
@@ -261,7 +297,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
     const ans =
       mode === "daily"
         ? pinnedDaily?.answerId ?? dailyAnswerFor(tree, today, dailyPlan)
-        : randomAnswerId(tree, config.scopeRootId);
+        : randomAnswerId(tree, config.scopeRootId, blocked);
     setAnswerId(ans);
     setError(null);
 
@@ -372,6 +408,12 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
   const submitGraft = useCallback(
     (graft: GraftTaxon) => {
       if (!tree || !answerId || status !== "playing") return;
+      // Checked BEFORE grafting. Grafting mutates the tree in place, so an organism refused
+      // afterwards would still have left its ancestor clades materialised behind it.
+      if (blockedLineage([graft.id, ...graft.lineage.map((a) => a.id)])) {
+        setError(notInSet(graft.common ?? graft.sciName));
+        return;
+      }
       const gid = graftTaxon(tree, graft);
       if (!gid) { setError(`Couldn't place ${graft.common ?? graft.sciName} on the tree.`); return; }
       if (!isInScope(tree, config, gid)) {
@@ -386,7 +428,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
       const probe = evaluateGuess(tree, answerId, gid, config);
       setGuesses((gs) => [{ ...probe, isWin: false }, ...gs]);
     },
-    [tree, answerId, status, config, guesses]
+    [tree, answerId, status, config, guesses, blockedLineage]
   );
 
   const submit = useCallback(
@@ -404,7 +446,7 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
         // async (DB), so resolve then graft.
         void resolveOutOfSet(text).then((oos) => {
           if (oos) submitGraft(oos);
-          else setError(`No match for "${text.trim()}". Try a common or scientific name.`);
+          else setError(notInSet(text));
         });
         return;
       }
@@ -416,28 +458,44 @@ export function useGame(userId: string | null, initialMode: GameMode = "daily"):
         setError(`You already guessed ${node.common ?? node.sciName}.`);
         return;
       }
+      // Answered as though the organism were not in the set at all. Anything more specific
+      // ("that one is on today's board") hands back exactly what hiding the row withheld, one
+      // typed name at a time.
+      if (blocked(node.id)) { setError(notInSet(text)); return; }
       setError(null);
       const result = evaluateGuess(tree, answerId, node.id, config);
       setGuesses((gs) => [result, ...gs]);
       if (result.isWin) setStatus("won");
     },
-    [tree, answerId, status, config, guesses, submitGraft]
+    [tree, answerId, status, config, guesses, submitGraft, blocked]
   );
 
   const giveUp = useCallback(() => setStatus("gaveup"), []);
 
   const newRandom = useCallback(() => {
     if (!tree) return;
-    setAnswerId(randomAnswerId(tree, config.scopeRootId));
+    setAnswerId(randomAnswerId(tree, config.scopeRootId, blocked));
     setGuesses([]);
     setHintIds([]);
     setStatus("playing");
     setError(null);
   }, [tree, config.scopeRootId]);
 
+  // The round opens before the guard has been read, so free play can land on an answer that
+  // turns out to be barred a moment later — and an answer the game refuses to name is one the
+  // player can never reach. Redraw, but only while nothing has been invested in it: the window
+  // is the length of one fetch, and losing a round in progress would be the worse trade.
+  useEffect(() => {
+    if (mode !== "free" || !tree || !answerId) return;
+    if (guesses.length || !blocked(answerId)) return;
+    newRandom();
+  }, [mode, tree, answerId, blocked, guesses.length, newRandom]);
+
   return {
     tree,
     mode,
+    blocked,
+    blockedLineage,
     setMode,
     roundMode,
     daily,

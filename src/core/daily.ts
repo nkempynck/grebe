@@ -115,7 +115,18 @@ export function dailyAnswerId(
 }
 
 /** A random leaf under scope — handy for a "practice" / dev button. */
-export function randomAnswerId(tree: Tree, scopeRootId: string): string {
+export function randomAnswerId(
+  tree: Tree,
+  scopeRootId: string,
+  /** Species the round must not land on. Free play refuses to name anything on today's Kinship
+   *  or Branches boards, and an answer it refuses to name is an answer nobody can reach. */
+  exclude?: (id: string) => boolean
+): string {
   const leaves = leavesUnder(tree, scopeRootId);
-  return leaves[Math.floor(Math.random() * leaves.length)];
+  const open = exclude ? leaves.filter((id) => !exclude(id)) : leaves;
+  // Falls back to the unfiltered scope if the exclusion empties it, which needs a scope entirely
+  // inside a board clade. Not reachable from the presets — they are classes and kingdoms, the
+  // boards are families — and an unwinnable round beats no round at all if it ever is.
+  const pick = open.length ? open : leaves;
+  return pick[Math.floor(Math.random() * pick.length)];
 }
