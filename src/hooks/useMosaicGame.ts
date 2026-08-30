@@ -77,8 +77,9 @@ export interface UseMosaicGame {
   setRegionScheme: (s: RegionScheme) => void;
   /** Jump the filter straight to a clade chain (from the species lookup). */
   setPath: (ids: string[]) => void;
-  /** Named clades a species belongs to, broad to narrow, for the lookup panel. */
-  lineageOf: (speciesId: string) => Array<{ id: string; label: string; count: number }>;
+  /** Named clades a species belongs to, broad to narrow, for the lookup panel. `rank` is the
+   *  real taxonomic rank where there is one, and "clade" for the unranked branch points. */
+  lineageOf: (speciesId: string) => Array<{ id: string; label: string; count: number; rank: string }>;
   guessesLeft: number;
   /** The picture, at a width worth downloading. Empty until a board has been dealt. */
   imageUrl: string;
@@ -92,9 +93,10 @@ export interface UseMosaicGame {
   credit: MosaicCredit | null;
   /** Drill-down path from the game's root, deepest last. The guess bar is restricted to the
    *  deepest entry; the whole path is the breadcrumb. */
-  path: Array<{ id: string; label: string; count: number }>;
-  /** Named clades one level below the current position, with candidate counts. */
-  options: Array<{ id: string; label: string; count: number }>;
+  path: Array<{ id: string; label: string; count: number; rank: string }>;
+  /** Named clades one level below the current position, with candidate counts and the rank that
+   *  says what kind of group each is. */
+  options: Array<{ id: string; label: string; count: number; rank: string }>;
   /** Candidate answers still inside the current filter. */
   remaining: number;
   drillInto: (id: string) => void;
@@ -126,6 +128,14 @@ interface DealtBoard {
   answerId: string;
   shot: WikiShot;
 }
+
+/** Where a stats bucket's name would mislead as a drill chip.
+ *
+ *  CLADE_GROUPS is the by-clade STATS bucketing every game shares, so it cannot be reshaped for
+ *  a drill: changing it would rewrite what past games were filed under. Its "Reptiles" bucket
+ *  resolves to Squamata, which is fine as a stats bar and wrong as a chip sitting next to
+ *  Turtles — the two are siblings, and neither contains the other. */
+const MOSAIC_GROUP_LABEL: Record<string, string> = { Squamata: "Lizards & snakes" };
 
 /** How many species to try before giving up on dealing a board. Each attempt costs one summary
  *  request, and a miss means the animal has no usable photograph, which is uncommon: the pool is
@@ -311,7 +321,7 @@ export function useMosaicGame(
         if (pool.has(c)) count++;
         for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
       }
-      return { id, label: n?.common ?? n?.sciName ?? id, count };
+      return { id, label: n?.common ?? n?.sciName ?? id, count, rank: n?.sepRank ?? n?.rank ?? "" };
     });
   }, [tree, pathIds, pool]);
   const hereId = pathIds.length ? pathIds[pathIds.length - 1] : rootId;
@@ -334,10 +344,42 @@ export function useMosaicGame(
       return n;
     };
     const curated = CLADE_GROUPS
-      .map((g) => ({ id: g.id, label: g.label, count: countUnder(g.id) }))
+      .map((g) => {
+        const n = tree.byId.get(g.id);
+        const sci = n?.sciName ?? "";
+        return {
+          id: g.id,
+          label: MOSAIC_GROUP_LABEL[sci] ?? g.label,
+          count: countUnder(g.id),
+          rank: n?.sepRank ?? n?.rank ?? "",
+        };
+      })
       .filter((o) => o.count > 0);
-    // Anything the curated list does not cover (cephalopods, jellyfish) still needs a way in.
-    const rest = raw.filter((o) => !curated.some((c) => c.id === o.id || isAncestor(tree, c.id, o.id)));
+
+    // Anything the curated list does not cover (cephalopods, jellyfish, sharks) still needs a
+    // way in, and the old filter only dropped options BELOW a curated group. Options ABOVE one
+    // survived, and "Chordates" is above four of them: it was the first named node on the way
+    // down, so it appeared as a 756-species chip that duplicated Birds, Mammals, Fish and
+    // Amphibians while being the only route to everything else in the phylum. Turtles, sharks,
+    // crocodilians, the tuatara and the sea lamprey — 78 possible answers — sat behind it.
+    //
+    // So an option that SWALLOWS a curated group is opened up and replaced by its own named
+    // children, repeatedly. Measured: first-level reach 864/942 -> 942/942, and the list stays
+    // inside the 24 the panel renders.
+    const covered = (id: string) => curated.some((c) => c.id === id || isAncestor(tree, c.id, id));
+    const swallows = (id: string) => curated.some((c) => isAncestor(tree, id, c.id));
+    const settle = (opts: typeof raw, depth: number): typeof raw => {
+      if (depth > 8) return opts; // paranoia; the tree is ~25 deep and this only ever descends
+      const out: typeof raw = [];
+      for (const o of opts) {
+        if (covered(o.id)) continue;
+        if (swallows(o.id)) out.push(...settle(mosaicDrillOptions(tree, o.id, pool, hidden), depth + 1));
+        else out.push(o);
+      }
+      return out;
+    };
+    const seen = new Set<string>();
+    const rest = settle(raw, 0).filter((o) => !seen.has(o.id) && seen.add(o.id));
     return [...curated, ...rest].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   }, [tree, hereId, pool, pathIds.length, aids.subset, guardReady, hidden]);
   const remaining = path.length ? path[path.length - 1].count : pool.size;

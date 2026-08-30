@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
 import taxonomy from "../data/taxonomy.json";
 import augment from "../data/taxonomyAugment.json";
-import { buildTree } from "./index";
+import { buildTree, isAncestor } from "./index";
 import { generateGridBoard } from "./grid";
 import { guardFrom } from "../data/boardGuard";
 import { mosaicPoints, MOSAIC_WIN_FLOOR } from "../data/score";
-import { cladeGroup, groupOf } from "../data/clades";
+import { cladeGroup, groupOf, CLADE_GROUPS } from "../data/clades";
+import { CLADE_COMMON } from "../data/cladeNames";
 import { CHARACTERS, characterRow, characterValue, missingCladeNames, NA } from "./mosaicChars";
 import {
   mosaicAnswerFor, mosaicPool, scoreMosaicGuess, mosaicRung, mosaicAids, mosaicAidsFor,
@@ -99,6 +100,18 @@ describe("mosaic board", () => {
     const g = scoreMosaicGuess(tree, answer, answer)!;
     expect(g.correct).toBe(true);
     expect(g.cells.every((c) => c.match !== false)).toBe(true);
+    // Not "same genus". A species' MRCA with itself is the species, which matches no rank rule,
+    // so the walk climbs to the genus and reports the winning guess as a near miss.
+    expect(g.proximity).toBe("found it");
+    expect(g.degrees).toBe(100);
+  });
+
+  it("calls a snake and a monitor lizard ordermates, because they are", () => {
+    // Surprising, and correct: Squamata is the order holding all lizards AND snakes, so their
+    // MRCA walk lands on it. Worth pinning, since it reads like a bug to anyone who thinks of
+    // the two as separate things.
+    expect(scoreMosaicGuess(tree, idOf("Varanus komodoensis"), idOf("Natrix natrix"))!.proximity)
+      .toBe("same order");
   });
 
   it("scores a near miss as mostly matching and a far miss as mostly not", () => {
@@ -507,5 +520,123 @@ describe("mosaic obscurity floor", () => {
       const id = mosaicSampleAnswer(tree, { scopeRootId: scope, minViews: MOSAIC_MIN_VIEWS_NO_LIST })!;
       expect(tree.byId.get(id)!.views ?? 0).toBeGreaterThanOrEqual(MOSAIC_MIN_VIEWS_NO_LIST);
     }
+  });
+});
+
+// The drill is the only way to narrow, so an answer no chip can reach is an answer the panel
+// quietly rules out. This is the guard against that, and it caught a real gap: "Chordates" was
+// the first named node down four separate paths, so it appeared as one 756-species chip that
+// duplicated Birds, Mammals, Fish and Amphibians while hiding turtles, sharks, crocodilians,
+// the tuatara and the sea lamprey behind it.
+describe("mosaic narrowing reaches the whole pool", () => {
+  // The tree the GAME runs on, not the raw file. loadTaxonomy applies CLADE_COMMON as a
+  // correction layer, and it decides which clades have a name to be offered under: without it
+  // Chondrichthyes is anonymous and the sharks scatter, which is a different tree from the one
+  // a player ever sees. The rest of this file uses the raw tree deliberately, so this is local.
+  const tree = buildTree(
+    (taxonomy as { nodes: Nodes }).nodes.map((n) =>
+      n.rank !== "species" && CLADE_COMMON[n.sciName] ? { ...n, common: CLADE_COMMON[n.sciName] } : n
+    )
+  );
+  const scope = mosaicScopeId(tree);
+  const pool = new Set(mosaicPool(tree, scope));
+
+  it("offers a first step toward every possible answer", () => {
+    // Mirrors the hook's first level: the curated groups, then whatever is left once options
+    // that SWALLOW a curated group are opened up rather than kept.
+    const covered = (id: string) => CLADE_GROUPS.some((g) => tree.byId.has(g.id) && (g.id === id || isAncestor(tree, g.id, id)));
+    const swallows = (id: string) => CLADE_GROUPS.some((g) => tree.byId.has(g.id) && isAncestor(tree, id, g.id));
+    const settle = (opts: ReturnType<typeof mosaicDrillOptions>, d: number): typeof opts => {
+      if (d > 8) return opts;
+      const out: typeof opts = [];
+      for (const o of opts) {
+        if (covered(o.id)) continue;
+        if (swallows(o.id)) out.push(...settle(mosaicDrillOptions(tree, o.id, pool), d + 1));
+        else out.push(o);
+      }
+      return out;
+    };
+    const top = [
+      ...CLADE_GROUPS.filter((g) => tree.byId.has(g.id)).map((g) => ({ id: g.id })),
+      ...settle(mosaicDrillOptions(tree, scope, pool), 0),
+    ];
+
+    const reachable = new Set<string>();
+    for (const o of top) {
+      const stack = [o.id];
+      while (stack.length) {
+        const c = stack.pop()!;
+        if (pool.has(c)) reachable.add(c);
+        for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+      }
+    }
+    const missed = [...pool].filter((id) => !reachable.has(id));
+    expect(missed.map((id) => tree.byId.get(id)?.common ?? id)).toEqual([]);
+  });
+
+  it("keeps the first level inside what the panel renders", () => {
+    // The drill shows the first 24 chips. A list longer than that hides whole branches, which
+    // is the same failure in a different costume.
+    const covered = (id: string) => CLADE_GROUPS.some((g) => tree.byId.has(g.id) && (g.id === id || isAncestor(tree, g.id, id)));
+    const rest = mosaicDrillOptions(tree, scope, pool).filter((o) => !covered(o.id));
+    expect(CLADE_GROUPS.length + rest.length).toBeLessThanOrEqual(24);
+  });
+});
+
+// The drill is the only way to narrow when the pool is too big for the name list, so a species
+// no chip accounts for is a species the panel has quietly ruled out. This is the guard, and it
+// caught the fin whale: Balaenopteridae holds two anonymous clades, one of them containing the
+// fin whale beside Megaptera. Megaptera has a common name, so the branch looked handled and the
+// fin whale had no chip anywhere in the game.
+describe("every drill step accounts for everything under it", () => {
+  const tree = buildTree(
+    (taxonomy as { nodes: Nodes }).nodes.map((n) =>
+      n.rank !== "species" && CLADE_COMMON[n.sciName] ? { ...n, common: CLADE_COMMON[n.sciName] } : n
+    )
+  );
+  const scope = mosaicScopeId(tree);
+  const pool = new Set(mosaicPool(tree, scope));
+  const under = (id: string) => {
+    const out = new Set<string>();
+    const stack = [id];
+    while (stack.length) {
+      const c = stack.pop()!;
+      if (pool.has(c)) out.add(c);
+      for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+    }
+    return out;
+  };
+
+  it("offers a chip for every possible answer beneath it, at every level", () => {
+    const gaps: string[] = [];
+    const seen = new Set<string>();
+    const walk = (id: string, depth: number) => {
+      if (seen.has(id) || depth > 14) return;
+      seen.add(id);
+      const opts = mosaicDrillOptions(tree, id, pool);
+      if (!opts.length) return; // the end of a branch: the name list takes over
+      const covered = new Set<string>();
+      for (const o of opts) for (const s of under(o.id)) covered.add(s);
+      const here = under(id);
+      if (covered.size < here.size) {
+        const missed = [...here].filter((x) => !covered.has(x));
+        gaps.push(`${tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName}: ${missed.map((m) => tree.byId.get(m)?.common).join(", ")}`);
+      }
+      for (const o of opts) walk(o.id, depth + 1);
+    };
+    walk(scope, 0);
+    expect(gaps).toEqual([]);
+  });
+
+  it("reaches the fin whale through its family, which had no chip at all", () => {
+    const sciId = (sci: string) => [...tree.byId.values()].find((n) => n.sciName === sci)!.id;
+    // Baleen whales offers GROUPS, not a mix of two genera and three loose whales.
+    const baleen = mosaicDrillOptions(tree, sciId("Mysticeti"), pool);
+    expect(baleen.map((o) => o.label)).toContain("Balaenopteridae");
+    expect(baleen.every((o) => o.rank !== "species")).toBe(true);
+    // …and the family is where the fin whale finally appears, as a species, so the panel can
+    // offer it as a guess rather than as another level to descend into.
+    const rorquals = mosaicDrillOptions(tree, sciId("Balaenopteridae"), pool);
+    expect(rorquals.find((o) => o.id === sciId("Balaenoptera physalus"))?.rank).toBe("species");
   });
 });

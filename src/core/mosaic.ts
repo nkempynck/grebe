@@ -525,7 +525,8 @@ export function mosaicTileOrder(seed: string, tilesPerSide: number): number[] {
  *  direction the picture suggested rather than replacing the picture. Optional for exactly that
  *  reason: with it on, a player can tree-search and ignore the photograph, which is the failure
  *  mode to watch for. */
-export type MosaicProximity = "same genus" | "same family" | "same order" | "same class" | "distant";
+export type MosaicProximity =
+  | "found it" | "same genus" | "same family" | "same order" | "same class" | "distant";
 
 const PROXIMITY_BY_RANK: Record<string, MosaicProximity> = {
   subgenus: "same genus", "species group": "same genus", "species subgroup": "same genus", genus: "same genus",
@@ -538,6 +539,10 @@ const PROXIMITY_BY_RANK: Record<string, MosaicProximity> = {
 };
 
 export function mosaicProximity(tree: Tree, answerId: string, guessId: string): MosaicProximity {
+  // The answer itself, before anything is measured. Its MRCA with itself is the species, which
+  // no rank rule matches, so the walk used to climb to the genus and report the winning guess as
+  // merely being in the right one.
+  if (guessId === answerId) return "found it";
   const m = mrca(tree, answerId, guessId);
   if (!m) return "distant";
   for (let c: string | null | undefined = m; c; c = tree.byId.get(c)?.parentId) {
@@ -590,7 +595,7 @@ export function mosaicLineagePath(
   pool: Set<string>,
   scopeRootId?: string,
   hidden: HiddenClades = NONE
-): Array<{ id: string; label: string; count: number }> {
+): Array<{ id: string; label: string; count: number; rank: string }> {
   const scope = scopeRootId ?? mosaicScopeId(tree);
   const chain: string[] = [];
   for (let c: string | null | undefined = tree.byId.get(speciesId)?.parentId; c; c = tree.byId.get(c)?.parentId) {
@@ -624,7 +629,11 @@ export function mosaicLineagePath(
   // dropping "Birds 279" (279/364 = 0.77, just inside the gate) — technically true, useless as
   // a button, and faintly absurd. Outward keeps the SPECIFIC one and discards the broader
   // near-duplicate.
-  const kept: Array<{ id: string; label: string; count: number; common: boolean }> = [];
+  // sepRank BEFORE rank, the same order mosaicProximity reads them in. The family names
+  // injected into unnamed clades deliberately leave `rank` as "clade" and record the real one in
+  // `sepRank`, so reading `rank` alone would report Corvidae and Nymphalidae as unranked.
+  const rankOf = (n: TaxonNode) => n.sepRank ?? n.rank ?? "";
+  const kept: Array<{ id: string; label: string; count: number; common: boolean; rank: string }> = [];
   let next = 0; // count of the last level kept, i.e. the one below this
   for (let i = chain.length - 1; i >= 0; i--) {
     const n = tree.byId.get(chain[i]);
@@ -642,16 +651,16 @@ export function mosaicLineagePath(
       // has heard of rather than the one everybody has.
       const last = kept[kept.length - 1];
       if (n.common && last && !last.common) {
-        kept[kept.length - 1] = { id: chain[i], label: n.common, count, common: true };
+        kept[kept.length - 1] = { id: chain[i], label: n.common, count, common: true, rank: rankOf(n) };
         next = count;
       }
       continue;
     }
-    kept.push({ id: chain[i], label: n.common ?? n.sciName, count, common: Boolean(n.common) });
+    kept.push({ id: chain[i], label: n.common ?? n.sciName, count, common: Boolean(n.common), rank: rankOf(n) });
     next = count;
     if (kept.length >= MAX_STEPS) break;
   }
-  return kept.reverse().map(({ id, label, count }) => ({ id, label, count }));
+  return kept.reverse().map(({ id, label, count, rank }) => ({ id, label, count, rank }));
 }
 
 /** Candidate answers under a clade, for the endgame list. Recall is the wrong ask when the
@@ -690,7 +699,10 @@ export function mosaicDrillOptions(
   cladeId: string,
   pool: Set<string>,
   hidden: HiddenClades = NONE
-): Array<{ id: string; label: string; count: number }> {
+): Array<{ id: string; label: string; count: number; rank: string }> {
+  // Same sepRank-before-rank reading as mosaicLineagePath: an injected family name keeps
+  // `rank: "clade"` and records the real rank in `sepRank`.
+  const rankOf = (n: TaxonNode) => n.sepRank ?? n.rank ?? "";
   const countUnder = (id: string): number => {
     let n = 0;
     const stack = [id];
@@ -709,22 +721,76 @@ export function mosaicDrillOptions(
    *  there is nothing common-named below it — better a "Cercopithecidae" button than a dead
    *  end. */
   const rawBelow = (id: string) => {
-    const out: Array<{ id: string; label: string; count: number }> = [];
-    const visit = (c: string) => {
+    const out: Array<{ id: string; label: string; count: number; rank: string }> = [];
+    // Returns how many POOL SPECIES this subtree's options account for, and it is the COUNT
+    // that matters. Asking merely whether a subtree produced any option is what hid the fin
+    // whale: Balaenopteridae holds two anonymous clades, one of them containing the fin whale
+    // beside Megaptera, and Megaptera has a common name — so the branch looked handled and the
+    // fin whale had no chip anywhere in the game. Balaenoptera, the genus that would have held
+    // it, is not a node in this tree.
+    //
+    // WHOLENESS BEATS DEPTH. When a level's children cannot between them account for everything
+    // beneath it, the partial answer is thrown away and the level itself is offered instead. A
+    // family that splits cleanly gives its parts; one that does not gives itself, rather than a
+    // list of the parts that happened to have names next to the strays that did not. That is
+    // what makes Baleen whales read as four groups instead of two genera and three loose whales.
+    const visit = (c: string): number => {
       const n = tree.byId.get(c);
-      if (!n || n.rank === "species") return;
+      if (!n || n.rank === "species") return 0;
       const count = countUnder(c);
-      if (count === 0) return;
+      if (count === 0) return 0;
       // A clade in play in another game today is treated as UNNAMED: descend through it to
-      // whatever it holds. Its species stay reachable, only the name is withheld, and the
-      // fallback below is skipped too so the scientific name cannot leak it either.
+      // whatever it holds. Its species stay reachable, only the name is withheld — so the name
+      // fallbacks below are skipped for it, but the species one is NOT, or veiling a genus whose
+      // children are all species would delete them from the panel.
       const veiled = hidden.has(c);
-      if (n.common && !veiled) { out.push({ id: c, label: n.common, count }); return; }
-      const before = out.length;
-      for (const k of tree.childrenOf.get(c) ?? []) visit(k);
-      if (out.length === before && n.sciName && !veiled) out.push({ id: c, label: n.sciName, count });
+      if (n.common && !veiled) { out.push({ id: c, label: n.common, count, rank: rankOf(n) }); return count; }
+
+      const mark = out.length;
+      let covered = 0;
+      for (const k of tree.childrenOf.get(c) ?? []) covered += visit(k);
+      if (covered >= count) return covered;
+
+      // The children left something out. Prefer this level whole, under its own scientific name.
+      if (n.sciName && !veiled) {
+        out.length = mark;
+        out.push({ id: c, label: n.sciName, count, rank: rankOf(n) });
+        return count;
+      }
+      // Nothing here can name itself, so report the partial coverage upward and let an ancestor
+      // that CAN offer itself whole. Handing back the strays as loose species here would be the
+      // wrong answer twice over: it hides the family that should have been offered, and it
+      // reports full coverage so no ancestor ever gets the chance.
+      return covered;
     };
-    for (const k of tree.childrenOf.get(id) ?? []) visit(k);
+
+    let covered = 0;
+    for (const k of tree.childrenOf.get(id) ?? []) covered += visit(k);
+    // LAST RESORT, and only here. If the whole subtree cannot name the branch a species sits on
+    // — Panthera splits into an anonymous clade holding lion, leopard and jaguar, with the tiger
+    // beside it, and neither side has a name — then the species are offered as themselves. A
+    // species no chip accounts for is one the panel has quietly ruled out, which is how the fin
+    // whale came to be unguessable by narrowing.
+    if (covered < countUnder(id)) {
+      const reached = new Set<string>();
+      for (const o of out) {
+        const stack = [o.id];
+        while (stack.length) {
+          const c = stack.pop()!;
+          if (pool.has(c)) reached.add(c);
+          for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+        }
+      }
+      const stack = [id];
+      while (stack.length) {
+        const c = stack.pop()!;
+        const n = tree.byId.get(c);
+        if (pool.has(c) && !reached.has(c)) {
+          out.push({ id: c, label: n?.common ?? n?.sciName ?? c, count: 1, rank: "species" });
+        }
+        for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+      }
+    }
     return out;
   };
 
@@ -735,7 +801,7 @@ export function mosaicDrillOptions(
   // siblings along, which is what keeps Cnidaria (3) reachable instead of stranding it
   // behind a branch nobody would ever tap.
   const DOMINANT = 0.9;
-  const carried: Array<{ id: string; label: string; count: number }> = [];
+  const carried: Array<{ id: string; label: string; count: number; rank: string }> = [];
   let options = rawBelow(cladeId);
   for (let guard = 0; guard < 24; guard++) {
     if (options.length === 0) break;

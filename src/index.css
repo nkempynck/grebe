@@ -2540,7 +2540,9 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
    take you a level deeper. One column keeps the biggest-first order readable (see
    above), and full-width rows stop that column leaving half the panel empty. */
 .mosaic-opt {
-  flex: none; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .5rem;
+  /* name | rank | chevron. The chevron is the ::after, so the rank needs its own column
+     rather than being squeezed into the one the arrow already owns. */
+  flex: none; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: .5rem;
   width: 100%; text-align: left;
   padding: .4rem .55rem; font-size: .84rem; line-height: 1.3;
   background: none; border: 0; border-bottom: 1px solid var(--line-soft);
@@ -2548,6 +2550,15 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   transition: background 0.12s ease, color 0.12s ease;
 }
 .mosaic-opt:last-child { border-bottom: 0; }
+/* Name on the left, rank on the right, so the column of ranks can be read down on its own. */
+.mosaic-opt-name { flex: 1; }
+.mosaic-opt-rank {
+  font-size: .6rem; text-transform: uppercase; letter-spacing: .07em; opacity: .7;
+  color: var(--game, var(--brass)); white-space: nowrap;
+}
+.mosaic-opt-rank.is-unranked { color: inherit; opacity: .35; font-style: italic; letter-spacing: .04em; }
+/* A species row is a guess, not a step, so it loses the chevron that promises a level below. */
+.mosaic-opt.is-leaf::after { content: ""; }
 .mosaic-opt::after {
   content: "›"; color: var(--ink-faint); font-size: 1.05em; line-height: 1;
   transition: transform 0.12s ease, color 0.12s ease;
@@ -2577,6 +2588,16 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .mosaic-cands-list { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 9rem; overflow-y: auto; }
 .mosaic-cand { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: var(--radius); padding: .22rem .55rem; font-size: .8rem; cursor: pointer; }
 .mosaic-cand:hover { border-color: currentColor; }
+/* A lookup step: the name, and under it the rank that says what kind of group it is. */
+.mosaic-path { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.25; }
+.mosaic-path-name { font-size: .82rem; }
+.mosaic-path-rank {
+  font-size: .6rem; text-transform: uppercase; letter-spacing: .07em; opacity: .65;
+  color: var(--game, var(--brass));
+}
+/* Unranked clades are real groups with no Linnaean rank, so they read as a quiet aside rather
+   than as another rank in the list. */
+.mosaic-path-rank.is-unranked { color: inherit; opacity: .4; font-style: italic; letter-spacing: .04em; }
 
 /* The two panels do DIFFERENT things and were reading as one long list of identical chips:
    "Narrow down" walks the tree you are searching in, "Look up" tells you where one animal

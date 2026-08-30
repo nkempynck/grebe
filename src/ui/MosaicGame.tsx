@@ -266,7 +266,12 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
               <div className="mosaic-crumbs">
                 <button className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(0); }}>All animals</button>
                 {g.path.map((p, i) => (
-                  <button key={p.id} className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(i + 1); }}>
+                  <button
+                    key={p.id}
+                    className="mosaic-crumb"
+                    title={isRanked(p.rank) ? `${p.label} is a ${p.rank}` : `${p.label} is an unranked clade`}
+                    onClick={() => { setReject(null); g.drillTo(i + 1); }}
+                  >
                     <span aria-hidden="true">›</span> {p.label}
                   </button>
                 ))}
@@ -277,9 +282,31 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                   possible told a player which branch of the taxonomy is fattest,
                   which is a fact about the database rather than about the animal. */}
               <div className="mosaic-options">
-                {g.options.slice(0, 24).map((o) => (
-                  <button key={o.id} className="mosaic-opt" onClick={() => { setReject(null); g.drillInto(o.id); }}>
-                    {o.label}
+                {/* The rank rides along with the name. Without it "Toothed whales" and "Baleen
+                    whales" read as two arbitrary boxes, when they are the two parvorders the
+                    group actually splits into — and elsewhere in the same list a genus can sit
+                    beside a class. Knowing which is which is most of knowing how far a tap
+                    narrows things.
+
+                    NOT sliced to 24 any more. The box already scrolls, so the cut bought
+                    nothing and cost reachability: at Birds the list runs to 81 rows, so 54
+                    species sat behind the cut on a screen where 279 remaining is far too many
+                    for the name list to appear either. They could not be narrowed to at all. */}
+                {g.options.map((o) => (
+                  <button
+                    key={o.id}
+                    className={`mosaic-opt${o.rank === "species" ? " is-leaf" : ""}`}
+                    onClick={() => {
+                      setReject(null);
+                      // A species has nothing finer to narrow to, so tapping it guesses it.
+                      // Drilling in would filter to one animal and make you pick it again.
+                      if (o.rank === "species") g.guess(o.id); else g.drillInto(o.id);
+                    }}
+                  >
+                    <span className="mosaic-opt-name">{o.label}</span>
+                    <span className={`mosaic-opt-rank${isRanked(o.rank) ? "" : " is-unranked"}`}>
+                      {isRanked(o.rank) ? o.rank : "unranked"}
+                    </span>
                   </button>
                 ))}
                 {g.options.length === 0 && g.candidates.length === 0 && (
@@ -337,6 +364,10 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                       and more so here. Typing any species you like and reading a count off
                       every clade above it is the census on demand, in a more convenient form
                       than the drill chips ever offered. */}
+                  {/* Each step carries its RANK. Without it the chain reads as one flat list of
+                      equals, when in fact "Sharks" is an infraclass, "Rhincodon" is a genus and
+                      "Vertebrates" is a branch point with no rank at all. Which is which is the
+                      difference between a name a player can place and one they cannot. */}
                   <div className="mosaic-lookup-chain">
                     {g.lineageOf(looked).map((l) => (
                       <button
@@ -344,7 +375,10 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                         className="mosaic-path"
                         onClick={() => { setReject(null); g.setPath([l.id]); setLookup(""); setLooked(null); }}
                       >
-                        {l.label}
+                        <span className="mosaic-path-name">{l.label}</span>
+                        <span className={`mosaic-path-rank${isRanked(l.rank) ? "" : " is-unranked"}`}>
+                          {isRanked(l.rank) ? l.rank : "unranked"}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -378,6 +412,14 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
     </div>
   );
+}
+
+/** True for a real taxonomic rank. Roughly half the branch points in the tree are unranked
+ *  clades — Vertebrates, Amniotes, Eutherians — which are perfectly good groups and simply are
+ *  not a family or an order. Saying "clade" back to a player explains nothing; saying
+ *  "unranked" at least says why it has no rank to show. */
+function isRanked(rank: string): boolean {
+  return Boolean(rank) && rank !== "clade";
 }
 
 /** One line over the table. It used to claim the board was "not how closely related you are",
