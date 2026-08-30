@@ -226,7 +226,10 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   const rootId = skeleton?.id ?? null;
   const namedAncestorOf = (id: string): string | null => {
     for (let cur: string | null = id; cur; cur = tree.byId.get(cur)?.parentId ?? null) {
-      if (tree.byId.get(cur)?.sciName) return cur;
+      // A name is a name whichever field holds it. Junction splits carry only `common`
+      // (sciName is "" by the tree's convention), so testing sciName alone walked past them.
+      const n = tree.byId.get(cur);
+      if (n?.sciName || n?.common) return cur;
     }
     return null;
   };
@@ -248,7 +251,9 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   const cladeLabel = (id: string) => {
     const n = tree.byId.get(id);
     const latin = cladeLatinOnly || cladeTells(id);
-    return (latin ? n?.sciName ?? n?.common : n?.common ?? n?.sciName) ?? id;
+    // `||` not `??`: an empty string is a missing name, not a name. A node carrying
+    // sciName:"" rendered as a blank group label on a live board.
+    return (latin ? n?.sciName || n?.common : n?.common || n?.sciName) || id;
   };
   // Brutal weekend (Sat/Sun, tier ≥ 6): also hide the rank subtitle ("GENUS"/"FAMILY").
   // Knowing a group's rank narrows placement, so the final escalation removes it — you

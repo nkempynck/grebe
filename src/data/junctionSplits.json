@@ -1,0 +1,196 @@
+{
+  "generatedAt": "2026-08-23T10:50:00.064Z",
+  "splits": [
+    {
+      "nodeId": "mrcaott135916ott340911",
+      "junction": "mrcaott127719ott127721",
+      "label": "Aeshna & Basiaeschna",
+      "genera": [
+        "Aeshna",
+        "Basiaeschna"
+      ]
+    },
+    {
+      "nodeId": "mrcaott45635ott519096",
+      "junction": "mrcaott395ott49236",
+      "label": "Amphiprion & Premnas",
+      "genera": [
+        "Amphiprion",
+        "Premnas"
+      ]
+    },
+    {
+      "nodeId": "mrcaott30850ott656780",
+      "junction": "mrcaott30843ott166683",
+      "label": "Anas",
+      "genera": [
+        "Anas"
+      ]
+    },
+    {
+      "nodeId": "mrcaott74726ott303997",
+      "junction": "mrcaott74726ott648426",
+      "label": "Antechinus & Murexia",
+      "genera": [
+        "Antechinus",
+        "Murexia"
+      ]
+    },
+    {
+      "nodeId": "mrcaott180381ott336159",
+      "junction": "mrcaott180381ott273182",
+      "label": "Arctocephalus & Phocarctos",
+      "genera": [
+        "Arctocephalus",
+        "Phocarctos"
+      ]
+    },
+    {
+      "nodeId": "mrcaott526158ott951079",
+      "junction": "mrcaott2907ott526158",
+      "label": "Asio & Pseudoscops & Nesasio",
+      "genera": [
+        "Asio",
+        "Pseudoscops",
+        "Nesasio"
+      ]
+    },
+    {
+      "nodeId": "mrcaott88864ott143624",
+      "junction": "mrcaott20474ott274550",
+      "label": "Capra & Hemitragus",
+      "genera": [
+        "Capra",
+        "Hemitragus"
+      ]
+    },
+    {
+      "nodeId": "mrcaott51276ott455565",
+      "junction": "mrcaott51276ott275136",
+      "label": "Caprimulgus & Macrodipteryx",
+      "genera": [
+        "Caprimulgus",
+        "Macrodipteryx"
+      ]
+    },
+    {
+      "nodeId": "mrcaott275136ott322686",
+      "junction": "mrcaott51276ott275136",
+      "label": "Chordeiles & Podager",
+      "genera": [
+        "Chordeiles",
+        "Podager"
+      ]
+    },
+    {
+      "nodeId": "mrcaott59725ott373879",
+      "junction": "mrcaott35326ott59028",
+      "label": "Copsychus & Kittacincla & Trichixos",
+      "genera": [
+        "Copsychus",
+        "Kittacincla",
+        "Trichixos"
+      ]
+    },
+    {
+      "nodeId": "mrcaott602029ott803622",
+      "junction": "mrcaott49319ott80414",
+      "label": "Coturnix",
+      "genera": [
+        "Coturnix"
+      ]
+    },
+    {
+      "nodeId": "mrcaott435834ott534442",
+      "junction": "mrcaott435834ott701702",
+      "label": "Dendrocopos",
+      "genera": [
+        "Dendrocopos"
+      ]
+    },
+    {
+      "nodeId": "mrcaott290738ott3600182",
+      "junction": "mrcaott149816ott149826",
+      "label": "Dryocopus",
+      "genera": [
+        "Dryocopus"
+      ]
+    },
+    {
+      "nodeId": "mrcaott11712ott893455",
+      "junction": "mrcaott11712ott18594",
+      "label": "Euplectes & Brachycope",
+      "genera": [
+        "Euplectes",
+        "Brachycope"
+      ]
+    },
+    {
+      "nodeId": "mrcaott133627ott133633",
+      "junction": "mrcaott133627ott282212",
+      "label": "Eurycea & Haideotriton",
+      "genera": [
+        "Eurycea",
+        "Haideotriton"
+      ]
+    },
+    {
+      "nodeId": "mrcaott385129ott1012285",
+      "junction": "mrcaott9721ott385129",
+      "label": "Gallinula",
+      "genera": [
+        "Gallinula"
+      ]
+    },
+    {
+      "nodeId": "mrcaott368059ott795245",
+      "junction": "mrcaott67916ott368059",
+      "label": "Hirundo",
+      "genera": [
+        "Hirundo"
+      ]
+    },
+    {
+      "nodeId": "mrcaott24025ott865473",
+      "junction": "mrcaott24025ott453058",
+      "label": "Lonchura",
+      "genera": [
+        "Lonchura"
+      ]
+    },
+    {
+      "nodeId": "mrcaott213448ott213452",
+      "junction": "mrcaott93045ott213448",
+      "label": "Molothrus",
+      "genera": [
+        "Molothrus"
+      ]
+    },
+    {
+      "nodeId": "mrcaott99175ott283665",
+      "junction": "mrcaott99175ott858292",
+      "label": "Sturnella & Leistes",
+      "genera": [
+        "Sturnella",
+        "Leistes"
+      ]
+    },
+    {
+      "nodeId": "mrcaott50497ott96823",
+      "junction": "mrcaott13129ott50497",
+      "label": "Thamnophis & Adelophis",
+      "genera": [
+        "Thamnophis",
+        "Adelophis"
+      ]
+    },
+    {
+      "nodeId": "mrcaott293722ott749197",
+      "junction": "mrcaott7113ott734818",
+      "label": "Trichoglossus",
+      "genera": [
+        "Trichoglossus"
+      ]
+    }
+  ]
+}

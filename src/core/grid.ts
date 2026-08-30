@@ -445,7 +445,14 @@ function orderedThemes(
   speciesAgeOf?: (speciesId: string) => number
 ): Theme[] {
   const shuffled = shuffle([...list], rng);
-  const rank = (t: Theme) => (t.recognisability >= MIN_BOARD_FAME ? 0 : 1) * 2 + (t.named ? 0 : 1);
+  // Fame only. A `named` tier used to sit under this, ranking a Latin-labelled group below a
+  // common-named one of equal fame — but the label is the REVEAL, not the puzzle, and
+  // difficulty here is group closeness, never obscurity. It cost more than prettiness: the
+  // common-named groups are a small set, so they saturated (max 17 appearances a year, and a
+  // single group reached 25) while equally recognisable Latin ones idled. Dropping it takes
+  // max reuse to 12, distinct groups 249 -> 258 and off-band boards 27 -> 19. Latin labels go
+  // from 65% to 77% of slots, which is the intended trade.
+  const rank = (t: Theme) => (t.recognisability >= MIN_BOARD_FAME ? 0 : 1);
   // Enough unshown members to field a whole fresh group, enough for some rotation, or none.
   const stock = (t: Theme) => {
     if (!speciesAgeOf) return 0;

@@ -116,10 +116,43 @@ for (const game of ["kinship", "branches"] as const) {
   });
   const future = days.filter((d) => d.future);
 
+  // STALE-BUNDLE GUARD. This script embeds the tree at BUNDLE time, so an auditor built
+  // before a taxonomy change will not contain the clade ids the newer pins reference. Every
+  // lookup then silently returns nothing: ancestry walks end immediately, broad-group checks
+  // report "other", and separation is computed from an MRCA that does not exist. That reads
+  // as a pile of new defects in boards that are perfectly fine. Refuse instead.
   console.log(`\n${"=".repeat(70)}\n${game.toUpperCase()}  ${days.length} rows (${future.length} future), ${from} →\n${"=".repeat(70)}`);
   const vers = new Map<number, number>();
   for (const d of future) vers.set(d.version, (vers.get(d.version) ?? 0) + 1);
   console.log(`versions (future): ${[...vers].map(([v, n]) => `v${v}×${n}`).join(", ")}`);
+  // FUTURE rows were written from this tree, so a missing id there means the auditor is older
+  // than the pins and every lookup below would silently lie. PAST rows are different: a served
+  // board is frozen against whatever tree shipped that day, and the augment has legitimately
+  // dropped nodes since (auggen_Bos is gone on purpose — see build-augment.mjs). Those are
+  // worth reporting, because the client re-derives labels at read time and a dangling id
+  // renders as the raw id, but they are history, not a reason to refuse.
+  const missing = (rows: typeof days) => {
+    const s = new Set<string>();
+    for (const d of rows) for (const g of d.groups) if (!tree.byId.get(g)) s.add(g);
+    return s;
+  };
+  const goneFuture = missing(future);
+  if (goneFuture.size) {
+    console.error(`\n✗ ${game}: ${goneFuture.size} clade ids in FUTURE pins are absent from this build's tree.`);
+    console.error(`  e.g. ${[...goneFuture].slice(0, 3).join(", ")}`);
+    console.error(`  This auditor is older than the pins. Rebundle it and re-run:`);
+    console.error(`    npx esbuild scripts/audit-pins.ts --bundle --platform=node --format=esm \\`);
+    console.error(`      --define:import.meta.env={} --loader:.json=json --external:@supabase/supabase-js \\`);
+    console.error(`      --outfile=node_modules/.cache/audit-pins.mjs`);
+    process.exit(1);
+  }
+  const gonePast = missing(days.filter((d) => !d.future));
+  if (gonePast.size) {
+    const dates = days.filter((d) => !d.future && d.groups.some((g) => gonePast.has(g))).map((d) => d.date);
+    console.log(`\n⚠ ${game}: ${gonePast.size} clade ids in SERVED pins no longer exist (${[...gonePast].slice(0, 3).join(", ")}).`);
+    console.log(`  Those boards reveal a raw id instead of a label: ${dates.join(", ")}`);
+  }
+
 
   // 1. the graft bug: one labelled group containing another on the same board
   let nested = 0;
@@ -191,6 +224,25 @@ for (const game of ["kinship", "branches"] as const) {
     const soonEasy = soon.filter((r) => r.diff < r.lo);
     console.log(`  next 60 days: ${soonEasy.length} walkover${soonEasy.length === 1 ? "" : "s"}` +
       `${soonEasy.length ? ` → ${soonEasy.map((r) => r.date).join(", ")}` : ""}`);
+    // GIVEAWAY BY NAME. The label is revealed on solve, so it cannot leak — but four tiles
+    // sharing a distinctive word can be grouped without knowing any biology, which is what
+    // the wordCap in grid.ts exists to bound. Checked here on the rows players will actually
+    // get, because the cap is a preference the generator can spend when a pool is thin.
+    const STOP = new Set(["common","great","greater","lesser","little","northern","southern",
+      "eastern","western","american","african","asian","european","giant","spotted","striped","banded"]);
+    const wordsOf = (s: string) => (s.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !STOP.has(w));
+    const shared: { date: string; names: string[] }[] = [];
+    for (const d of future) {
+      for (const g of (decodePuzzle("kinship", mine.find((r) => r.puzzle_date === d.date)!.payload as any) as any).groups) {
+        const names = g.memberIds.map((m: string) => label(m));
+        const tally = new Map<string, number>();
+        for (const nm of names) for (const w of new Set(wordsOf(nm))) tally.set(w, (tally.get(w) ?? 0) + 1);
+        if (Math.max(0, ...tally.values()) >= 4) shared.push({ date: d.date, names });
+      }
+    }
+    console.log(`groups where all four tiles share a word: ${shared.length}`);
+    for (const s of shared.slice(0, 6)) console.log(`    ${s.date}: ${s.names.join(" · ")}`);
+
     // Four groups from four different classes is a giveaway however the ruler scores it.
     const cross = diffs.filter((r) => r.classes.size > 1);
     console.log(`cross-class boards (a bird beside a beetle): ${cross.length}  ${cross.length ? "✗" : "✓"}`);

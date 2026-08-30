@@ -168,7 +168,17 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   holding an old-tree board, and board identity moved at most dates: freed of the split,
   //   Caprinae stopped being the year's most-reused group at 24 boards. → re-pin un-played
   //   future dates.
-  version: 10,
+  // v11 (2026-08-21): two changes that measure as one. The `named` rank tier is gone, so a
+  //   Latin-labelled group no longer ranks below an equally recognisable common-named one —
+  //   the label is the reveal, not the puzzle, and the small set of common-named groups was
+  //   saturating the anti-repeat window while famous Latin ones idled. And 22 unnamed
+  //   junctions became real clades (see scripts/patch-junction-splits.mjs), so goats, garter
+  //   snakes, clownfish and nightjars can be groups at all. Together: distinct groups 249 ->
+  //   267, distinct four-group sets 291 -> 345, max reuse of any one group 17 -> 12, off-band
+  //   boards 27 -> 17. Latin LABELS go 65% -> 77% of slots; Latin TILES stay at 1%, so what
+  //   players read while playing is unchanged. Every board moves → re-pin un-played future
+  //   dates.
+  version: 11,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -238,7 +248,10 @@ const branchesResolver: Resolver<"branches"> = {
   //   times, Colobinae over Semnopithecus twice, Lutrinae over Lontra once) → 0. Variety is
   //   untouched: 295/365 distinct group-sets either way and an identical tier histogram.
   //   → re-pin un-played future dates.
-  version: 9,
+  // v10 (2026-08-21): the 22 junction splits Kinship v11 describes; Branches shares the tree.
+  //   41% of boards move (the `named` change is Kinship-only and does not touch this
+  //   generator). → re-pin un-played future dates.
+  version: 10,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
