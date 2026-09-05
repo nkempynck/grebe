@@ -91,24 +91,60 @@ const reducedMotion = () =>
 /** `fresh` is the group solved in THIS session, just now — only it animates in. Without the
  *  distinction every bar would replay its entrance whenever the component remounts, so
  *  coming back to the tab with three groups solved would pop all three. */
-function GroupBar({ tree, group, dimmed, fresh, onPick }: { tree: Tree; group: GridGroup; dimmed?: boolean; fresh?: boolean; onPick?: (id: string) => void }) {
+function GroupBar({ tree, group, dimmed, fresh, onPick, onZoom, thumbs }: { tree: Tree; group: GridGroup; dimmed?: boolean; fresh?: boolean; onPick?: (id: string) => void; onZoom?: (id: string) => void; thumbs?: Record<string, string> }) {
   const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
+  // The picture gallery is the END-OF-BOARD view: `thumbs` is passed only once the game is
+  // over. Mid-game the bar stays a text line, both because a taller bar would reflow the
+  // board under the solve animation's feet and because a name-only day charges points to
+  // see a picture — the group is solved by then, but the bars sit above a board still
+  // being played. Images are already in hand: the board fetches all sixteen up front
+  // whatever the reveal mode, so this adds no request.
   return (
     <div className={`grid-solved lvl-${group.level}${dimmed ? " is-dim" : ""}${fresh ? " is-fresh" : ""}`}>
       <div className="grid-solved-label">
         {group.label}
         {group.sciLabel && group.sciLabel !== group.label && <span className="grid-solved-sci"> · {group.sciLabel}</span>}
       </div>
-      <div className="grid-solved-members">
-        {onPick
-          ? group.memberIds.map((id, i) => (
-              <span key={id}>
-                {i > 0 && " · "}
-                <button className="grid-member-link" onClick={() => onPick(id)}>{nameOf(id)}</button>
-              </span>
-            ))
-          : group.memberIds.map(nameOf).join(" · ")}
-      </div>
+      {thumbs ? (
+        <div className="grid-solved-gallery">
+          {group.memberIds.map((id) => {
+            const src = thumbs[id];
+            const name = nameOf(id);
+            // Two targets, matching what the tiles already do: the PICTURE enlarges, the
+            // NAME opens the Wikipedia card. Keeping them apart is what lets the thumbnails
+            // be this small — you tap to see it properly rather than reading it in place.
+            return (
+              <div key={id} className="grid-solved-pic">
+                {src ? (
+                  <button type="button" className="grid-solved-shot" onClick={() => onZoom?.(id)} title={`Enlarge ${name}`} aria-label={`Enlarge ${name}`}>
+                    <img src={src} alt="" loading="lazy" />
+                  </button>
+                ) : (
+                  // No photo on Wikipedia (or not loaded yet): the slot keeps its place so
+                  // the row stays a tidy four across, and the name carries it.
+                  <span className="grid-solved-shot is-empty" aria-hidden="true" />
+                )}
+                {onPick ? (
+                  <button type="button" className="grid-solved-cap grid-member-link" onClick={() => onPick(id)}>{name}</button>
+                ) : (
+                  <span className="grid-solved-cap">{name}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid-solved-members">
+          {onPick
+            ? group.memberIds.map((id, i) => (
+                <span key={id}>
+                  {i > 0 && " · "}
+                  <button className="grid-member-link" onClick={() => onPick(id)}>{nameOf(id)}</button>
+                </span>
+              ))
+            : group.memberIds.map(nameOf).join(" · ")}
+        </div>
+      )}
     </div>
   );
 }
@@ -242,6 +278,14 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   useEffect(() => {
     if (pendingReveal) confirmRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [pendingReveal]);
+  // Same for the Wikipedia card, matching Branches. Must live up here with the other hooks:
+  // the board's two loading early-returns are below, so a hook after them changes the hook
+  // count the moment a board arrives. `nearest` means no movement when the card is already
+  // on screen, so clicking from one species to the next doesn't jump the page.
+  const wikiRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (wikiId) wikiRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [wikiId]);
 
   // Reveal mode is Kinship's PRIMARY difficulty lever (3/2/2 across the week):
   //   Mon–Wed (tier ≤ 3)  name + picture — both shown free, easiest.
@@ -483,9 +527,18 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       ]
         .sort((a, b) => a.grp.level - b.grp.level)
         .map(({ grp, dimmed }) => (
-          <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === freshBar} onPick={over ? setWikiId : undefined} />
+          <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === freshBar} onPick={over ? setWikiId : undefined} onZoom={setZoomId} thumbs={over && !fly ? thumbs : undefined} />
         ))}
       {over && <p className="grid-peek-note">Tap any species to read about it on Wikipedia.</p>}
+
+      {/* Directly under the group bars it was opened from. It used to render last in the
+          component, which put it below the result, the share block, the leaderboard and the
+          discussion — a tap appeared to do nothing until you scrolled past all of them. */}
+      {wikiNode && (
+        <div ref={wikiRef}>
+          <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} />
+        </div>
+      )}
 
       {/* The live board. */}
       {!over && (
@@ -692,13 +745,15 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         );
       })}
 
-      {wikiNode && <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} />}
 
       {zoomId && (fulls[zoomId] || thumbs[zoomId]) && (() => {
         // In picture mode the name is the hidden thing: don't leak it in the
         // enlarged view unless this tile's name has already been revealed (or
         // the species has no image, so its name is shown as a fallback anyway).
-        const zoomNameShown = !pictureMode || flipped.has(zoomId) || noImg.has(zoomId);
+        // Once the board is over there is nothing left to protect, and the end-of-board
+        // gallery zooms straight from a captioned picture — withholding the name there
+        // would read as a bug.
+        const zoomNameShown = over || !pictureMode || flipped.has(zoomId) || noImg.has(zoomId);
         const zoomName = zoomNameShown ? nameOf(zoomId) : "";
         return (
           <div className="grid-zoom" role="dialog" aria-label={zoomNameShown ? `${zoomName} picture` : "Enlarged picture"} onClick={() => setZoomId(null)}>

@@ -1724,6 +1724,37 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .grid-solved-label { font-family: var(--font-display); font-weight: 800; font-size: 15px; }
 .grid-solved-sci { font-weight: 600; font-style: italic; opacity: 0.75; font-size: 13px; }
 .grid-solved-members { font-size: 13px; margin-top: 2px; }
+
+/* END-OF-BOARD GALLERY — the four species as pictures, shown only once the game is over
+   (GroupBar gets `thumbs` only then). Four fixed columns rather than auto-fit: the row is
+   the group, and wrapping it to 2x2 on a narrow phone would read as two groups. They just
+   get smaller, which is fine at this size because the caption carries the identification. */
+/* Thumbnails, not plates. They are a reference strip under the group name, and tapping one
+   opens the same enlarged view the tiles use, so they can stay small. Fixed 56px columns
+   rather than fractions: the bar is full-width on desktop and 1fr each turned the four
+   shots into the loudest thing on the page. Change --shot to resize. */
+.grid-solved-gallery {
+  --shot: 56px;
+  display: grid; grid-template-columns: repeat(4, var(--shot)); gap: 10px;
+  justify-content: center; margin: 8px auto 0;
+}
+.grid-solved-pic { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+.grid-solved-shot {
+  display: block; width: var(--shot); height: var(--shot); padding: 0; border: none;
+  border-radius: calc(var(--radius) * 0.5); overflow: hidden;
+  background: color-mix(in srgb, #17150f 12%, transparent);
+}
+button.grid-solved-shot { cursor: zoom-in; }
+button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, #17150f 45%, transparent);
+}
+.grid-solved-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Two lines then ellipsis, so one long name can't set the height of every row. */
+.grid-solved-cap {
+  font-size: 10.5px; line-height: 1.2; text-align: center; word-break: break-word;
+  max-width: calc(var(--shot) + 18px);
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 /* the bar opens the moment the tiles have finished arriving — it is withheld until then, so
    no delay here. Only for the group just solved, never for bars restored on a reload or a
    tab switch (see GroupBar's `fresh`). */
@@ -2542,10 +2573,17 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 
 /* Proximity sits apart from the trait cells: it is a different kind of statement, and colouring
    it like a match would read as a sixth shared trait. */
+/* Two readings on the opening days, so the cell wraps BETWEEN them and never inside one. A
+   nowrap cell holding "same family 73" is the widest thing in the table on a phone, and one
+   overflowing cell is enough to stop the nav rows wrapping. */
 .mosaic-table td.prox {
-  font-size: .74rem; opacity: .8; white-space: nowrap; background: none;
+  font-size: .74rem; opacity: .8; background: none;
   font-variant-numeric: tabular-nums; border-right: 1px solid var(--line, #ddd);
 }
+.mosaic-table td.prox > span { white-space: nowrap; }
+/* Beside a rank label the number is the secondary reading: same size, lighter. Alone it is the
+   whole cell and takes the cell's own weight. */
+.mosaic-table td.prox > span + span.prox-deg { margin-left: .3rem; opacity: .7; }
 .mosaic-table tr.hit tbody th, .mosaic-table tr.hit th { color: #2e7d5b; }
 .mosaic-giveup { align-self: flex-start; background: none; border: 0; color: inherit; opacity: .6; text-decoration: underline; cursor: pointer; font-size: .82rem; }
 .mosaic-nostage { display: flex; flex-direction: column; gap: .4rem; align-items: center; justify-content: center; min-height: 12rem; padding: 1rem; text-align: center; }

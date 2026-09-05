@@ -628,6 +628,42 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         </div>
       )}
 
+      {/* Directly under the tree it was opened from. It used to render last in the component,
+          which put it below the result, the share block, the leaderboard and the discussion —
+          a tap appeared to do nothing until you scrolled past all of them. The read-confirm
+          stays married to it: its copy points at "the card above". */}
+      {wikiNode && (
+        <div ref={wikiRef}>
+          <WikiCard
+            node={wikiNode}
+            tree={tree}
+            onClose={closeWiki}
+            hideImage={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0}
+            redact={hiddenNames}
+            // Clades follow their board label: a common name that gives a tile away
+            // is not shown on the tree, so it can't be shown on the card either.
+            latinTitle={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0 && (cladeLatinOnly || cladeTells(wikiNode.id))}
+            // Only intercepted while it would cost: otherwise it stays a plain link.
+            onFollowLink={readCosts(wikiNode.id) ? (url) => setPendingRead({ id: wikiNode.id, url }) : undefined}
+            linkNote={readCosts(wikiNode.id) ? `(up to ${lookupCost} pts)` : undefined}
+          />
+        </div>
+      )}
+
+      {pendingRead && (
+        <div ref={readConfirmRef} className="branches-confirm" role="alertdialog" aria-label="Confirm full article">
+          <p>
+            Open the full Wikipedia article? The card above blanks out the species you still have
+            to place, the article itself doesn’t, so it forfeits half a slot:{" "}
+            <b>up to {lookupCost} points</b>.
+          </p>
+          <div className="branches-confirm-actions">
+            <button className="linkbtn" onClick={() => setPendingRead(null)}>Cancel</button>
+            <button className="branches-submit" onClick={confirmRead}>Open article (−{lookupCost} pts)</button>
+          </div>
+        </div>
+      )}
+
       {over && g.result && (
         <div className={`branches-result${won ? " is-won" : " is-lost"}`}>
           <div className="branches-score">
@@ -704,37 +740,6 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         </div>
       )}
 
-      {wikiNode && (
-        <div ref={wikiRef}>
-          <WikiCard
-            node={wikiNode}
-            tree={tree}
-            onClose={closeWiki}
-            hideImage={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0}
-            redact={hiddenNames}
-            // Clades follow their board label: a common name that gives a tile away
-            // is not shown on the tree, so it can't be shown on the card either.
-            latinTitle={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0 && (cladeLatinOnly || cladeTells(wikiNode.id))}
-            // Only intercepted while it would cost: otherwise it stays a plain link.
-            onFollowLink={readCosts(wikiNode.id) ? (url) => setPendingRead({ id: wikiNode.id, url }) : undefined}
-            linkNote={readCosts(wikiNode.id) ? `(up to ${lookupCost} pts)` : undefined}
-          />
-        </div>
-      )}
-
-      {pendingRead && (
-        <div ref={readConfirmRef} className="branches-confirm" role="alertdialog" aria-label="Confirm full article">
-          <p>
-            Open the full Wikipedia article? The card above blanks out the species you still have
-            to place, the article itself doesn’t, so it forfeits half a slot:{" "}
-            <b>up to {lookupCost} points</b>.
-          </p>
-          <div className="branches-confirm-actions">
-            <button className="linkbtn" onClick={() => setPendingRead(null)}>Cancel</button>
-            <button className="branches-submit" onClick={confirmRead}>Open article (−{lookupCost} pts)</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -233,12 +233,23 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
 }
 
 function WikiPanel({ node, tree, onClose }: { node: TaxonNode | null; tree: Tree; onClose: () => void }) {
+  // Already sits directly under the tree, but a tall cladogram can push it off the bottom,
+  // so bring it into view like Kinship and Branches do. `nearest` means no movement at all
+  // when it is already on screen, so moving from one clade to the next stays still.
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (node) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [node?.id]);
   if (!node) {
     return <p className="clado-hint">Tap any clade or guess above to read about it.</p>;
   }
   // Shares the games' reader, so Lineage species get the same photo-preferring
   // image (a real photo instead of a range map / drawing where possible).
-  return <WikiCard node={node} tree={tree} onClose={onClose} />;
+  return (
+    <div ref={ref}>
+      <WikiCard node={node} tree={tree} onClose={onClose} />
+    </div>
+  );
 }
 
 interface Model {
