@@ -158,6 +158,34 @@ for (const game of ["kinship", "branches"] as const) {
     console.log(`  Those boards reveal a raw id instead of a label: ${dates.join(", ")}`);
   }
 
+  // The same question for SPECIES, which the check above does not ask. A tile is an id too,
+  // and the games re-derive its name and picture from the tree at read time, so a species the
+  // tree has since dropped renders as a bare id with no image — worse than a mislabelled
+  // group, because on a picture-only day it is a blank tile. This exists because dropping one
+  // (Ameranthropoides loysi, a cryptid the base pool should never have carried) was invisible
+  // here: the auditor only ever looked at clade ids, which is precisely the blind spot a
+  // species removal falls into.
+  //
+  // FUTURE is the failure: those rows are what players will actually be served, and a dropped
+  // species means they need re-pinning. PAST is reported for completeness but never re-rendered.
+  const missingSp = (rows: typeof days) => {
+    const s = new Set<string>();
+    for (const d of rows) for (const sp of d.species) if (!tree.byId.get(sp)) s.add(sp);
+    return s;
+  };
+  const spGoneFuture = missingSp(future);
+  if (spGoneFuture.size) {
+    const dates = future.filter((d) => d.species.some((s) => spGoneFuture.has(s))).map((d) => d.date);
+    console.log(`\n✗ ${game}: ${spGoneFuture.size} SPECIES ids in FUTURE pins are absent from the tree (${[...spGoneFuture].slice(0, 3).join(", ")}).`);
+    console.log(`  Those tiles render as a bare id with no picture. RE-PIN these dates: ${dates.slice(0, 12).join(", ")}${dates.length > 12 ? ` …and ${dates.length - 12} more` : ""}`);
+  } else {
+    console.log(`species ids in future pins all resolve: ✓`);
+  }
+  const spGonePast = missingSp(days.filter((d) => !d.future));
+  if (spGonePast.size) {
+    console.log(`⚠ ${game}: ${spGonePast.size} species ids in SERVED pins no longer exist (${[...spGonePast].slice(0, 3).join(", ")}) — history, never re-rendered.`);
+  }
+
 
   // 1. the graft bug: one labelled group containing another on the same board
   let nested = 0;
