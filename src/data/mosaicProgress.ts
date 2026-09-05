@@ -9,13 +9,15 @@
 // reroll: dislike your board, refresh. That is the same hole that was deliberately closed on the
 // difficulty switch, and it stays open until the board survives a page load.
 //
-// There is no expiry. A daily has a rollover that justifies discarding an attempt; this has
-// none, and a half-guessed animal is still your game a week later. "Play another" is the way out.
+// Discarded at the rollover, the way every other game's is: yesterday's attempt is not today's.
 import type { WikiCredit } from "./wikipedia";
 
 export interface MosaicProgress {
   /** Bumped when the shape changes, so an old blob is discarded rather than misread. */
   v: number;
+  /** The day this board belongs to. The rollover test: a board from another date is not
+   *  resumable, however far into it you were. */
+  date: string;
   answerId: string;
   shot: { src: string; full: string; credit: WikiCredit | null };
   /** Guesses as IDS ONLY, re-scored from the tree on load. Keeps the blob small, and means a
@@ -34,7 +36,9 @@ export interface MosaicProgress {
   recentGroups: string[];
 }
 
-export const MOSAIC_PROGRESS_V = 1;
+// v2: the daily arrived. Every v1 blob is a beta board — sampled, dateless, and belonging to no
+// puzzle anyone else played — so there is nothing there worth migrating.
+export const MOSAIC_PROGRESS_V = 2;
 const KEY = "grebe.mosaic.progress";
 
 /** How many recently dealt animals to remember. Its whole job is not handing back the one you
@@ -52,11 +56,13 @@ export function sanitiseProgress(raw: unknown): MosaicProgress | null {
   const p = raw as Partial<MosaicProgress>;
   if (p.v !== MOSAIC_PROGRESS_V) return null;
   if (typeof p.answerId !== "string" || !p.answerId) return null;
+  if (typeof p.date !== "string" || !p.date) return null;
   const shot = p.shot;
   if (!shot || typeof shot.src !== "string" || !shot.src) return null;
   if (typeof p.tier !== "number" || !Number.isFinite(p.tier)) return null;
   return {
     v: MOSAIC_PROGRESS_V,
+    date: p.date,
     answerId: p.answerId,
     shot: {
       src: shot.src,
@@ -85,9 +91,18 @@ export function usableProgress(
     canBeAnswer: (id: string) => boolean;
     /** Does the tree still know this id? */
     knows: (id: string) => boolean;
+    /** Today. A board from another date has rolled over. */
+    date: string;
+    /** The answer the schedule says this date has. A stored daily that disagrees was dealt
+     *  before a re-pin moved the day, and resuming it would let one player finish a puzzle
+     *  nobody else was given. */
+    expectedAnswerId?: string;
   }
 ): MosaicProgress | null {
   if (!p) return null;
+  // The day rolled over. Same rule as every other game: yesterday's attempt is not today's.
+  if (p.date !== opts.date) return null;
+  if (opts.expectedAnswerId !== undefined && p.answerId !== opts.expectedAnswerId) return null;
   // A difficulty change deals a new animal, so a board from another tier is not resumable.
   if (p.tier !== opts.tier) return null;
   // A taxonomy rebuild can drop a species, and the obscurity floor can move under it.

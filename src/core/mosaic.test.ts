@@ -12,7 +12,7 @@ import {
   mosaicAnswerFor, mosaicPool, scoreMosaicGuess, mosaicRung, mosaicAids, mosaicAidsFor,
   mosaicTierForDate, mosaicDegrees, mosaicScopeId, mosaicLineagePath, mosaicDrillOptions,
   mosaicSampleAnswer, mosaicTileOrder, mosaicMinViews, mosaicLadder,
-  MOSAIC_MIN_VIEWS, MOSAIC_MIN_VIEWS_NO_LIST, MOSAIC_GROUP_PENALTY, MOSAIC_GROUP_WINDOW,
+  MOSAIC_MIN_VIEWS, MOSAIC_MIN_VIEWS_FAMOUS, MOSAIC_GROUP_PENALTY, MOSAIC_GROUP_WINDOW,
   MOSAIC_BLUR_LADDER, MOSAIC_SHUFFLE_LADDER, MOSAIC_MAX_GUESSES, MOSAIC_DEFAULT_MECHANIC,
 } from "./mosaic";
 
@@ -93,6 +93,37 @@ describe("mosaic board", () => {
     }
     // no repeat anywhere in a 60-day run (the window is 45)
     expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  // The dated draw used to hold ONE pool at the base floor, so raising Monday's floor moved
+  // the settings picker and nothing else: the daily would have kept dealing 9000-view animals
+  // on the days that are supposed to be the famous ones.
+  it("draws each day from its own band's pool", () => {
+    for (let i = 0; i < 28; i++) {
+      const d = new Date(Date.UTC(2026, 8, 7) + i * 86400000).toISOString().slice(0, 10);
+      const views = tree.byId.get(mosaicAnswerFor(tree, d)!)!.views ?? 0;
+      expect(views, `${d} (tier ${mosaicTierForDate(d)})`)
+        .toBeGreaterThanOrEqual(mosaicMinViews(mosaicTierForDate(d)));
+    }
+  });
+
+  // Same species, same date, whoever asks: the pinner walks from the anchor and so does the
+  // client fallback, and a disagreement between them is a board that changes under the player.
+  it("resolves a date the same way whatever order it is asked in", () => {
+    const dates = ["2026-09-07", "2026-09-12", "2026-10-01", "2026-11-20"];
+    const forward = dates.map((d) => mosaicAnswerFor(tree, d));
+    const backward = [...dates].reverse().map((d) => mosaicAnswerFor(tree, d)).reverse();
+    expect(backward).toEqual(forward);
+    expect(forward.every(Boolean)).toBe(true);
+  });
+
+  it("keeps a species off the day another game is using it", () => {
+    const date = "2026-09-07";
+    const plain = mosaicAnswerFor(tree, date)!;
+    const avoided = mosaicAnswerFor(tree, date, undefined, (d) =>
+      d === date ? new Set([plain]) : new Set());
+    expect(avoided).not.toBe(plain);
+    expect(avoided).toBeTruthy();
   });
 
   it("scores an exact guess as correct and all-matching", () => {
@@ -189,18 +220,46 @@ describe("mosaic week", () => {
     expect(mosaicTierForDate(day(6))).toBe(7); // Sunday
   });
 
+  // How much the closeness column hands you in plain language, most first. Not an information
+  // ordering: the number carries far more of that than the rank does. It is a HELP ordering,
+  // and the rank comes first because it is a scope the drill can act on. See MosaicProximityMode.
+  const PROX_HELP: Record<string, number> = { both: 0, named: 1, degrees: 2 };
+
   it("takes an aid away, never gives one back, across the week", () => {
     const week = [0, 1, 2, 3, 4, 5, 6].map((n) => mosaicAidsFor(day(n)));
     // Monotonic: once a lever is off it stays off for the rest of the week.
     for (let i = 1; i < week.length; i++) {
       expect(Number(week[i].lookup)).toBeLessThanOrEqual(Number(week[i - 1].lookup));
-      expect(Number(week[i].subset)).toBeLessThanOrEqual(Number(week[i - 1].subset));
-      if (week[i - 1].proximity === "degrees") expect(week[i].proximity).toBe("degrees");
+      expect(PROX_HELP[week[i].proximity]).toBeGreaterThanOrEqual(PROX_HELP[week[i - 1].proximity]);
     }
-    expect(week[0]).toMatchObject({ lookup: true, subset: true, proximity: "named" });
-    expect(week[2]).toMatchObject({ lookup: true, subset: true, proximity: "degrees" });
-    expect(week[3]).toMatchObject({ lookup: false, subset: true, proximity: "degrees" });
-    expect(week[6]).toMatchObject({ lookup: false, subset: false, proximity: "degrees" });
+    // The drill never goes. It carries the candidate NAME list, and a day without that is not a
+    // harder Mosaic, it is a worse one. Asserted rather than left to the monotonicity above,
+    // which a constant-false week would also satisfy.
+    for (const a of week) expect(a.subset).toBe(true);
+
+    expect(week[0]).toMatchObject({ lookup: true, proximity: "both" });    // Mon
+    expect(week[2]).toMatchObject({ lookup: true, proximity: "named" });   // Wed
+    expect(week[3]).toMatchObject({ lookup: true, proximity: "degrees" }); // Thu
+    expect(week[6]).toMatchObject({ lookup: false, proximity: "degrees" }); // Sun
+  });
+
+  // One lever per boundary, so a band differs from the one before it in exactly one way, and a
+  // reader of the table can always say which. Wednesday is the declared exception: its mechanics
+  // are Monday's, so the fame floor has to carry that step and moves alongside the column.
+  it("changes one lever per band boundary, Wednesday excepted", () => {
+    const week = [1, 2, 3, 4, 5, 6, 7].map(mosaicAids);
+    const levers = (a: typeof week[number], b: typeof week[number]) =>
+      Number(a.lookup !== b.lookup) +
+      Number(a.proximity !== b.proximity) +
+      Number(a.subset !== b.subset) +
+      Number(mosaicMinViews(a.tier) !== mosaicMinViews(b.tier));
+
+    expect(levers(week[0], week[1])).toBe(0); // Mon = Tue
+    expect(levers(week[1], week[2])).toBe(2); // Tue -> Wed: floor AND column, on purpose
+    expect(levers(week[2], week[3])).toBe(1); // Wed -> Thu: the column
+    expect(levers(week[3], week[4])).toBe(0); // Thu = Fri
+    expect(levers(week[4], week[5])).toBe(1); // Fri -> Sat: the lookup
+    expect(levers(week[5], week[6])).toBe(0); // Sat = Sun
   });
 
   it("gives more guesses as it takes the aids away, and never fewer", () => {
@@ -208,9 +267,12 @@ describe("mosaic week", () => {
     for (let i = 1; i < week.length; i++) {
       expect(week[i].guesses).toBeGreaterThanOrEqual(week[i - 1].guesses);
     }
-    // The baseline is the aided end of the week; the weekend, which has nothing, gets the most.
+    // The baseline is the aided end of the week; the days that give something up get more.
     expect(week[0].guesses).toBe(MOSAIC_MAX_GUESSES);
     expect(week[6].guesses).toBeGreaterThan(week[0].guesses);
+    // The extra guess is compensation for the LOOKUP now, not for a lost candidate list, so it
+    // arrives with the first band that has less than a full toolkit and does not climb again.
+    expect(week[3].guesses).toBe(week[6].guesses);
     // Every day still ends on a guess the player can actually make at the clearest rung.
     for (const a of week) expect(a.guesses).toBeGreaterThan(MOSAIC_SHUFFLE_LADDER.length - 1);
   });
@@ -498,27 +560,36 @@ describe("mosaic variety", () => {
 describe("mosaic obscurity floor", () => {
   const scope = mosaicScopeId(tree);
 
-  it("rises exactly where the candidate list is gone", () => {
-    // Mon..Fri have the narrowing, so an unfamiliar name is recognisable in a list.
-    for (const t of [1, 2, 3, 4, 5]) expect(mosaicMinViews(t)).toBe(MOSAIC_MIN_VIEWS);
-    // Saturday and Sunday have nothing but the picture, so the animal has to be recallable.
-    for (const t of [6, 7]) expect(mosaicMinViews(t)).toBe(MOSAIC_MIN_VIEWS_NO_LIST);
-    expect(MOSAIC_MIN_VIEWS_NO_LIST).toBeGreaterThan(MOSAIC_MIN_VIEWS);
+  it("is stated per band and does not track any other lever", () => {
+    // Monday and Tuesday draw from the famous end. It is their only difference from Wednesday.
+    for (const t of [1, 2]) expect(mosaicMinViews(t)).toBe(MOSAIC_MIN_VIEWS_FAMOUS);
+    // Wednesday on, including the weekend, which keeps the candidate list that makes an
+    // unfamiliar animal recognisable.
+    for (const t of [3, 4, 5, 6, 7]) expect(mosaicMinViews(t)).toBe(MOSAIC_MIN_VIEWS);
+    expect(MOSAIC_MIN_VIEWS_FAMOUS).toBeGreaterThan(MOSAIC_MIN_VIEWS);
   });
 
-  it("leaves the weekend a pool worth drawing from", () => {
-    const weekend = mosaicPool(tree, scope, MOSAIC_MIN_VIEWS_NO_LIST);
-    const weekday = mosaicPool(tree, scope, MOSAIC_MIN_VIEWS);
-    expect(weekend.length).toBeGreaterThan(300);
-    expect(weekend.length).toBeLessThan(weekday.length);
+  // The regression guard for the trap this replaced: the floor used to read `aids.subset`, so
+  // putting the drill on all week would have collapsed every day onto the base floor in silence
+  // and made the weekend MORE obscure than the opening. Tie it to nothing but the tier.
+  it("does not move when the aids do", () => {
+    expect(mosaicAids(1).subset).toBe(mosaicAids(7).subset);
+    expect(mosaicMinViews(1)).not.toBe(mosaicMinViews(7));
+  });
+
+  it("leaves the opening days a pool worth drawing from", () => {
+    const famous = mosaicPool(tree, scope, MOSAIC_MIN_VIEWS_FAMOUS);
+    const base = mosaicPool(tree, scope, MOSAIC_MIN_VIEWS);
+    expect(famous.length).toBeGreaterThan(300);
+    expect(famous.length).toBeLessThan(base.length);
     // A subset, not a different pool: raising the floor only removes.
-    expect(weekend.every((id) => weekday.includes(id))).toBe(true);
+    expect(famous.every((id) => base.includes(id))).toBe(true);
   });
 
   it("never deals below the day's floor", () => {
     for (let i = 0; i < 200; i++) {
-      const id = mosaicSampleAnswer(tree, { scopeRootId: scope, minViews: MOSAIC_MIN_VIEWS_NO_LIST })!;
-      expect(tree.byId.get(id)!.views ?? 0).toBeGreaterThanOrEqual(MOSAIC_MIN_VIEWS_NO_LIST);
+      const id = mosaicSampleAnswer(tree, { scopeRootId: scope, minViews: MOSAIC_MIN_VIEWS_FAMOUS })!;
+      expect(tree.byId.get(id)!.views ?? 0).toBeGreaterThanOrEqual(MOSAIC_MIN_VIEWS_FAMOUS);
     }
   });
 });

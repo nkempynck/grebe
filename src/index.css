@@ -2055,6 +2055,13 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
   padding: 2px 4px; margin-left: 1px; border-radius: 3px; align-self: flex-start;
   border: 1px solid currentColor; opacity: .7;
 }
+/* The "New" chip on a home card. Same idea as .gamehead-beta on the game header: a small
+   mark that a game has only just landed, not a warning that it is unfinished. */
+.home-card-new {
+  margin-left: .4rem; padding: .05rem .35rem; border-radius: 999px;
+  font-size: .68rem; letter-spacing: .04em; text-transform: uppercase;
+  background: var(--game, var(--brass)); color: #fff; vertical-align: .05em;
+}
 .gamehead-beta {
   border: 1px solid var(--game, var(--brass)); color: var(--game, var(--brass));
   border-radius: 999px; padding: 0 .45rem; font-size: .68rem; font-weight: 600;
@@ -2487,29 +2494,12 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
   position: relative; border-radius: 14px; overflow: hidden; background: var(--bg-3, #eee);
   display: flex; align-items: center; justify-content: center; min-height: 12rem;
 }
-/* Player settings. One quiet row above the picture: present without asking for attention, and
-   costing a line of height rather than a panel. Wraps to two rows on a narrow screen. */
-.mosaic-settings {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem 1rem;
-  font-size: .78rem; opacity: .8; max-width: 100%;
-}
-/* min-width:0 and a capped select, because a <select> sizes itself to its LONGEST OPTION and
-   ignores the room available. "Wednesday · Tricky · narrowing and lookups · 8 guesses" made this
-   row 455px wide inside a 390px phone, and since the page then laid out at 455 the nav rows
-   stopped wrapping and were simply cut off instead. One overflowing control, three symptoms. */
-.mosaic-setting { display: flex; align-items: center; gap: .35rem; min-width: 0; max-width: 100%; }
-.mosaic-setting-name {
-  font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; opacity: .6;
-}
-.mosaic-setting select {
-  font: inherit; font-size: .78rem; padding: .12rem 1.1rem .12rem .3rem; border-radius: 6px;
-  border: 1px solid var(--line, #ddd); background: transparent; color: inherit;
-  min-width: 0; max-width: 100%; cursor: pointer;
-  overflow: hidden; text-overflow: ellipsis;
-}
-.mosaic-setting select:hover { border-color: var(--game, var(--brass)); }
-.mosaic-settings-note { display: flex; align-items: center; gap: .5rem; font-size: .72rem; opacity: .55; }
-.mosaic-settings-note .linkbtn { font-size: .72rem; }
+/* The settings row is gone: both surviving preferences are set from where they take effect
+   (the region tabs over the guess table, the reveal mechanic in the bench). Its <select> is
+   worth remembering though, because it caused three symptoms at once: a select sizes itself to
+   its LONGEST OPTION and ignores the room available, so a long difficulty label made the row
+   455px wide inside a 390px phone, the page then laid out at 455, and the nav rows stopped
+   wrapping and were cut off. Cap any control that sizes itself from its content. */
 
 /* The stage is one box carrying the PHOTOGRAPH's aspect ratio, set inline from the file the
    browser actually loaded (see MosaicPicture). Shuffle then divides that box into an n×n grid,
@@ -2608,6 +2598,36 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
    whole cell and takes the cell's own weight. */
 .mosaic-table td.prox > span + span.prox-deg { margin-left: .3rem; opacity: .7; }
 .mosaic-table tr.hit tbody th, .mosaic-table tr.hit th { color: #2e7d5b; }
+/* The caption row over the guess table: what the closeness column means on the left, the two
+   maps on the right. Wraps rather than shrinks, because on a phone the caption is a full line
+   of prose and the tabs are not going to fit beside it. */
+.mosaic-table-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: .3rem .8rem;
+}
+.mosaic-table-head .mosaic-table-note { margin: 0; }
+.mosaic-geotabs { display: flex; gap: .25rem; flex: none; }
+.mosaic-geotab {
+  padding: .15rem .55rem; font-size: .72rem; cursor: pointer; color: inherit; opacity: .65;
+  border: 1px solid var(--line, #ddd); border-radius: 999px; background: transparent;
+  white-space: nowrap;
+}
+.mosaic-geotab:hover { opacity: 1; }
+.mosaic-geotab.is-on {
+  opacity: 1; border-color: var(--game, var(--brass)); color: var(--game, var(--brass));
+  font-weight: 600;
+}
+
+/* The shared result: the row of squares, then the copy button. Squares are emoji, so they
+   inherit whatever the platform draws them at; the row gets its own letter-spacing rather than
+   a font-size bump, which is what keeps it legible without towering over the verdict. */
+.mosaic-share { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .45rem; }
+.mosaic-share-row { letter-spacing: .08em; line-height: 1; }
+.mosaic-share-btn {
+  padding: .25rem .7rem; font-size: .78rem; cursor: pointer; color: inherit;
+  border: 1px solid var(--line, #ddd); border-radius: 999px; background: transparent;
+}
+.mosaic-share-btn:hover { border-color: var(--game, var(--brass)); color: var(--game, var(--brass)); }
 .mosaic-giveup { align-self: flex-start; background: none; border: 0; color: inherit; opacity: .6; text-decoration: underline; cursor: pointer; font-size: .82rem; }
 .mosaic-nostage { display: flex; flex-direction: column; gap: .4rem; align-items: center; justify-content: center; min-height: 12rem; padding: 1rem; text-align: center; }
 .mosaic-nostage span { font-size: .78rem; opacity: .65; }

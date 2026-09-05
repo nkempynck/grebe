@@ -6,7 +6,7 @@ import { groupOf, boardGroupOf } from "./data/clades";
 import { useStats } from "./hooks/useStats";
 import { useFieldStats } from "./hooks/useFieldStats";
 import { usePlayer } from "./hooks/usePlayer";
-import { recordGame, recordGridGame, recordBranchesGame, fetchGameBadges, fetchOverallBadges, type GameId } from "./data/games";
+import { recordGame, recordGridGame, recordBranchesGame, recordMosaicGame, fetchGameBadges, fetchOverallBadges, type GameId } from "./data/games";
 import { enqueuePendingSubmit, loadPendingSubmits, clearPendingSubmits } from "./data/pendingSubmits";
 import { catchUpCounts, countPlay } from "./data/playCount";
 import { newDailyWins, type WinSource } from "./data/badges";
@@ -35,8 +35,7 @@ import { DiscussionPanel } from "./ui/DiscussionPanel";
 import { ReplyBell } from "./ui/ReplyBell";
 import { AccountPanel } from "./ui/AccountPanel";
 import { StatsTabs } from "./ui/StatsTabs";
-// PROTOTYPE — a nav tab on this branch only, so it can be played. No stats, no leaderboard,
-// no pinned puzzle, no persistence: none of those answer whether the game is any fun.
+// A daily like the other three: pinned board, weekday difficulty, scored and ranked.
 import { MosaicGame } from "./ui/MosaicGame";
 import { AboutPanel } from "./ui/AboutPanel";
 import { AdminPanel } from "./ui/AdminPanel";
@@ -49,6 +48,7 @@ import { CombinedLeaderboard } from "./ui/CombinedLeaderboard";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import type { GridComplete } from "./hooks/useGridGame";
 import type { BranchesComplete } from "./hooks/useBranchesGame";
+import type { MosaicComplete } from "./hooks/useMosaicGame";
 import { RESOLUTION_PRESETS, SCOPE_PRESETS } from "./data/presets";
 import { useTheme } from "./data/theme";
 import logoUrl from "../logo.png";
@@ -99,10 +99,11 @@ const GAME_ICONS: Record<GameView, string> = {
   lineage: "🧬", kinship: "🧩", branches: "🌿", mosaic: "🖼",
 };
 
-/** Games that are not finished yet, marked wherever they are offered. A player choosing between
- *  four tabs should know before they tap that one of them is not the same for everyone and keeps
- *  no score, rather than finding out from a note once they are in it. */
-const BETA_GAMES: ReadonlySet<GameView> = new Set<GameView>(["mosaic"]);
+/** Games that are not finished yet, marked wherever they are offered, so a player knows before
+ *  they tap rather than from a note once they are in it. Empty now that Mosaic is a scored
+ *  daily like the other three: "new" is not the same claim as "unfinished", and the badge on
+ *  the home card says the first without this saying the second. */
+const BETA_GAMES: ReadonlySet<GameView> = new Set<GameView>();
 
 const SECTION_LABELS: Record<(typeof SECTIONS)[number] | GameView, string> = {
   home: "Home", games: "Games", leaderboard: "Leaderboard", stats: "Stats",
@@ -110,7 +111,7 @@ const SECTION_LABELS: Record<(typeof SECTIONS)[number] | GameView, string> = {
   lineage: "Lineage", kinship: "Kinship", branches: "Branches", mosaic: "Mosaic",
 };
 
-const WIN_GAME_LABEL: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches" };
+const WIN_GAME_LABEL: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches", mosaic: "Mosaic" };
 
 /** The celebration line for one source's newly-seen wins. Topping the combined
  *  board beats topping any single game, so it says so in its own words (and gets
@@ -185,9 +186,20 @@ export default function App() {
     },
     [tree, pinEpoch]
   );
+  // Mosaic's day is ONE species, so its group is that species' group — no board to fold up
+  // like Kinship's and Branches'. Reads the pin, so a day whose pin is not cached yet stays
+  // out of the bars until it is, exactly as the other two do.
+  const mosaicGroupOf = useCallback(
+    (dateKey: string): string | null => {
+      const pin = pinnedPuzzleCached("mosaic", dateKey);
+      if (!tree || !pin) return null;
+      return groupOf(tree, pin.answerId) || null;
+    },
+    [tree, pinEpoch]
+  );
   const groupResolvers = useMemo(
-    () => ({ lineage: dailyGroupOf, kinship: kinshipGroupOf, branches: branchesGroupOf }),
-    [dailyGroupOf, kinshipGroupOf, branchesGroupOf]
+    () => ({ lineage: dailyGroupOf, kinship: kinshipGroupOf, branches: branchesGroupOf, mosaic: mosaicGroupOf }),
+    [dailyGroupOf, kinshipGroupOf, branchesGroupOf, mosaicGroupOf]
   );
   // The answer species for a past date — shown on that day's leaderboard. Callers
   // only use it for finished days, never today's puzzle.
@@ -199,7 +211,7 @@ export default function App() {
     },
     [tree, answerIdFor]
   );
-  const { stats, store, record, recordKinship, recordBranches } = useStats(userId, groupResolvers);
+  const { stats, store, record, recordKinship, recordBranches, recordMosaic } = useStats(userId, groupResolvers);
   // How this player scored against the field on the days they scored (public
   // per-day averages; null when there is no backend or field.sql has not run).
   const field = useFieldStats(store, groupResolvers);
@@ -212,7 +224,8 @@ export default function App() {
   const playedTodayLineage = stats.daily.playedDates.includes(dayKey);
   const playedTodayKinship = stats.kinship.playedDates.includes(dayKey);
   const playedTodayBranches = stats.branches.playedDates.includes(dayKey);
-  const playedTodayAny = playedTodayLineage || playedTodayKinship || playedTodayBranches;
+  const playedTodayMosaic = stats.mosaic.playedDates.includes(dayKey);
+  const playedTodayAny = playedTodayLineage || playedTodayKinship || playedTodayBranches || playedTodayMosaic;
   // The combined board is earned by playing ANY of a day's three puzzles, so its
   // discussion unlocks on the union of the three played-date lists — matching what
   // has_played() allows for the 'combined' key on the server.
@@ -249,7 +262,7 @@ export default function App() {
   // window; older days get nothing rather than an error. Per game, keyed off that
   // game's own played-dates so the client lock matches what the server will allow.
   const discussionFor = useCallback(
-    (game: "lineage" | "kinship" | "branches" | "combined", playedDates: string[]) =>
+    (game: "lineage" | "kinship" | "branches" | "mosaic" | "combined", playedDates: string[]) =>
       (date: string) => {
         if (date > dayKey || date < prevDayKey) return null;
         return (
@@ -383,9 +396,10 @@ export default function App() {
   const [kinBoardReload, setKinBoardReload] = useState(0);
   // Same idea for the Branches board after a result is submitted.
   const [branchBoardReload, setBranchBoardReload] = useState(0);
+  const [mosaicBoardReload, setMosaicBoardReload] = useState(0);
   // Which game's rankings the Leaderboard tab is showing ("combined" = all three,
   // normalised into one daily total).
-  const [lbGame, setLbGame] = useState<"combined" | "lineage" | "kinship" | "branches">("combined");
+  const [lbGame, setLbGame] = useState<"combined" | "lineage" | "kinship" | "branches" | "mosaic">("combined");
   // Daily-winner celebration: on sign-in, fetch the player's recent winning days
   // for every game AND the combined board, and surface any not yet shown on this
   // device (see newDailyWins for the per-source baseline). One banner per source,
@@ -444,6 +458,26 @@ export default function App() {
       }
     },
     [recordBranches, player.session, player.configured]
+  );
+
+  // Record a finished Mosaic daily: local stat + streak always; a signed-in player also gets a
+  // durable leaderboard row. Same three steps, same order, as the Branches path above.
+  const recordMosaicResult = useCallback(
+    (r: MosaicComplete) => {
+      recordMosaic({ won: r.won, guesses: r.guesses, maxGuesses: r.maxGuesses, gaveUp: r.gaveUp, tier: r.tier, group: r.group ?? undefined });
+      void countPlay("mosaic", r.date, r.won); // anonymous count; Mosaic is daily-only
+      const args = { puzzleDate: r.date, won: r.won, guesses: r.guesses, maxGuesses: r.maxGuesses };
+      if (player.session) {
+        void recordMosaicGame(args).then((ok) => {
+          if (ok) setMosaicBoardReload((c) => c + 1);
+          else if (player.configured) enqueuePendingSubmit({ game: "mosaic", args });
+        });
+      } else if (player.configured) {
+        // Signed out: stash for the leaderboard, replayed when they sign in.
+        enqueuePendingSubmit({ game: "mosaic", args });
+      }
+    },
+    [recordMosaic, player.session, player.configured]
   );
 
   const daily = g.mode === "daily";
@@ -626,6 +660,7 @@ export default function App() {
         if (cancelled) return;
         if (p.game === "lineage") await recordGame(p.args);
         else if (p.game === "kinship") await recordGridGame(p.args);
+        else if (p.game === "mosaic") await recordMosaicGame(p.args);
         else await recordBranchesGame(p.args);
       }
       if (cancelled) return;
@@ -633,6 +668,7 @@ export default function App() {
       setBoardReload((c) => c + 1);
       setKinBoardReload((c) => c + 1);
       setBranchBoardReload((c) => c + 1);
+      setMosaicBoardReload((c) => c + 1);
     })();
     return () => { cancelled = true; };
   }, [player.session]);
@@ -1083,6 +1119,10 @@ export default function App() {
             tree={g.tree}
             userId={userId}
             configured={player.configured}
+            onComplete={recordMosaicResult}
+            reloadKey={mosaicBoardReload}
+            me={boardName}
+            streak={stats.mosaic.currentStreak}
             onHowItWorks={() => openAbout("about-mosaic")}
           />
         </div>
@@ -1133,6 +1173,7 @@ export default function App() {
             <button role="tab" aria-selected={lbGame === "lineage"} data-game="lineage" className={`lb-seg${lbGame === "lineage" ? " is-on" : ""}`} onClick={() => setLbGame("lineage")}>🧬 Lineage</button>
             <button role="tab" aria-selected={lbGame === "kinship"} data-game="kinship" className={`lb-seg${lbGame === "kinship" ? " is-on" : ""}`} onClick={() => setLbGame("kinship")}>🧩 Kinship</button>
             <button role="tab" aria-selected={lbGame === "branches"} data-game="branches" className={`lb-seg${lbGame === "branches" ? " is-on" : ""}`} onClick={() => setLbGame("branches")}>🌿 Branches</button>
+            <button role="tab" aria-selected={lbGame === "mosaic"} data-game="mosaic" className={`lb-seg${lbGame === "mosaic" ? " is-on" : ""}`} onClick={() => setLbGame("mosaic")}>🖼 Mosaic</button>
           </div>
           {/* Two boards per game: today's, and the filterable one (past days, weeks,
               months, all time). Both are signed-in only now, so neither is guarded here;
@@ -1158,10 +1199,15 @@ export default function App() {
               <Leaderboard game="kinship" label="Kinship" me={boardName} variant="today" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." />
               <Leaderboard game="kinship" label="Kinship" me={boardName} variant="config" streak={stats.kinship.currentStreak} playedToday={playedTodayKinship} note="Score rewards harder days and fewer mistakes. A clean board earns the full weight." renderForDate={discussionFor("kinship", stats.kinship.playedDates)} />
             </>
-          ) : (
+          ) : lbGame === "branches" ? (
             <>
               <Leaderboard game="branches" label="Branches" me={boardName} variant="today" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." />
               <Leaderboard game="branches" label="Branches" me={boardName} variant="config" streak={stats.branches.currentStreak} playedToday={playedTodayBranches} note="Score rewards harder days and correct placements. Hints and peeks trim it." renderForDate={discussionFor("branches", stats.branches.playedDates)} />
+            </>
+          ) : (
+            <>
+              <Leaderboard game="mosaic" label="Mosaic" me={boardName} variant="today" streak={stats.mosaic.currentStreak} playedToday={playedTodayMosaic} note="Score rewards harder days and naming the animal in fewer guesses." />
+              <Leaderboard game="mosaic" label="Mosaic" me={boardName} variant="config" streak={stats.mosaic.currentStreak} playedToday={playedTodayMosaic} note="Score rewards harder days and naming the animal in fewer guesses." renderForDate={discussionFor("mosaic", stats.mosaic.playedDates)} />
             </>
           )}
         </>

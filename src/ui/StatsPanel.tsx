@@ -278,7 +278,7 @@ function BestClade({ groups, strengthId, byClade, bestId }: {
  *  local score, so this is a sum, not a rank), plus the one comparative number that
  *  spans every game. */
 export function OverallStatsPanel({ stats, field }: { stats: DerivedStats; field: FieldStats | null }) {
-  const games = [stats.daily, stats.kinship, stats.branches];
+  const games = [stats.daily, stats.kinship, stats.branches, stats.mosaic];
   const points = games.reduce((s, g) => s + g.points.total, 0);
   const played = games.reduce((s, g) => s + g.played, 0);
   const wins = games.reduce((s, g) => s + g.wins, 0);
@@ -296,6 +296,7 @@ export function OverallStatsPanel({ stats, field }: { stats: DerivedStats; field
           <div className="stat"><b>{stats.daily.currentStreak}</b><span>Lineage streak</span></div>
           <div className="stat"><b>{stats.kinship.currentStreak}</b><span>Kinship streak</span></div>
           <div className="stat"><b>{stats.branches.currentStreak}</b><span>Branches streak</span></div>
+          <div className="stat"><b>{stats.mosaic.currentStreak}</b><span>Mosaic streak</span></div>
         </div>
       )}
       {field?.overall ? (
@@ -317,15 +318,20 @@ const EMPTY: Record<GameId, string> = {
   lineage: "Play a daily to start scoring. Points reward harder days, fewer guesses, and no hints.",
   kinship: "Play the daily Kinship grid to start scoring. Fewer mistakes score more; a clean board earns the full weight.",
   branches: "Play the daily Branches board to start scoring. Correct placements score; hints, peeks and mistakes trim it.",
+  mosaic: "Play the daily Mosaic picture to start scoring. Naming the animal in fewer guesses scores more.",
 };
-const TITLE: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches" };
+const TITLE: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches", mosaic: "Mosaic" };
 
 /** One game's daily stats: its numbers, its per-clade scoring, and — for Lineage,
  *  the only game with free play — its practice tally, so everything about a game
  *  sits in one block, above that game's badges. */
 export function GameStatsPanel({ stats, field, game }: { stats: DerivedStats; field: FieldStats | null; game: GameId }) {
-  const { daily, practice, kinship, branches } = stats;
-  const s = game === "lineage" ? daily : game === "kinship" ? kinship : branches;
+  const { daily, practice, kinship, branches, mosaic } = stats;
+  const s =
+    game === "lineage" ? daily
+    : game === "kinship" ? kinship
+    : game === "mosaic" ? mosaic
+    : branches;
   const flawless = game === "lineage" ? null : (s as typeof kinship).flawless;
   // Which reading of the clade bars is showing. Defaults to vs-field when there is
   // one: it's the more informative of the two, and the other is a click away.

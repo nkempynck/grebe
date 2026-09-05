@@ -23,9 +23,11 @@ import { DAILY_EPOCH, todayKey } from "../core/daily";
 import { resolveDailyRules, dailyAnswerFor } from "./dailySchedule";
 import { gridBoardFor } from "./gridDaily";
 import { branchesBoardFor } from "./branchesDaily";
+import { mosaicAnswerFor, mosaicScopeId, mosaicTierForDate } from "../core/mosaic";
+import { guardFrom } from "./boardGuardCore";
 import { supabase } from "./supabase";
 
-export type Game = "lineage" | "kinship" | "branches";
+export type Game = "lineage" | "kinship" | "branches" | "mosaic";
 
 /** A Lineage daily, fully frozen: the answer plus the rules the player faced. */
 export interface LineagePuzzle {
@@ -58,10 +60,22 @@ export interface BranchesPuzzle {
   tray: string[];
 }
 
+/** A Mosaic daily: one species, plus the pool it was drawn from and the band it was drawn for.
+ *
+ *  The picture is NOT frozen. It is fetched live from Wikipedia at play time, so a photograph
+ *  swapped upstream changes the tiles a pinned date shows. That is deliberate: freezing a URL
+ *  would pin a file that can be deleted, and the puzzle is the animal, not the photograph. */
+export interface MosaicPuzzle {
+  answerId: string;
+  scopeRootId: string;
+  tier: number;
+}
+
 export interface PuzzleByGame {
   lineage: LineagePuzzle;
   kinship: KinshipPuzzle;
   branches: BranchesPuzzle;
+  mosaic: MosaicPuzzle;
 }
 
 /** How the DB stores a puzzle: the resolved payload, base64'd so a glance in the
@@ -79,6 +93,21 @@ function b64decode(s: string): string {
   return new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0)));
 }
 
+/** Extra input a generator may want that it cannot derive from (tree, date) alone.
+ *
+ *  Optional by construction: the client fallback passes nothing, so computing a puzzle stays
+ *  cheap and offline. Only the pinner fills this in, and only the pin is authoritative. */
+export interface ComputeOpts {
+  /** Species another game is already using on a date, so Mosaic does not deal the same animal
+   *  twice on one day. Reaches mosaicAnswerFor's `avoidOn`.
+   *
+   *  Pin-time only, and it has to be: the answer walk asks this for EVERY date from the anchor
+   *  onward, and the honest source is the other games' pinned boards, which the client cannot
+   *  read in bulk. Regenerating them instead would put two board generators on a render path,
+   *  which is seconds of work per day, per day walked. */
+  avoidOn?: (dateKey: string) => ReadonlySet<string>;
+}
+
 interface Resolver<G extends Game> {
   game: G;
   /** Bump when this game's generation logic changes, so a pin records which
@@ -87,7 +116,7 @@ interface Resolver<G extends Game> {
   /** The canonical puzzle for a date, from the committed generator. Returns null
    *  only if the tree can't field one. This is the fallback AND what the pinner
    *  freezes. */
-  compute(tree: Tree, date: string): PuzzleByGame[G] | null;
+  compute(tree: Tree, date: string, opts?: ComputeOpts): PuzzleByGame[G] | null;
   encode(p: PuzzleByGame[G]): StoredPayload;
   decode(raw: StoredPayload): PuzzleByGame[G];
 }
@@ -105,7 +134,14 @@ const lineageResolver: Resolver<"lineage"> = {
   // v4 (2026-08-14): no Lineage code change, but the shipped taxonomy did change — 20 base
   //   species whose "common name" was really a scientific synonym lost it (patch-latin-names),
   //   which moves any answer/scope draw that touched them. Re-pin un-played future dates.
-  version: 4,
+  // v5 (2026-09-05): again no Lineage code change, but the base tree lost a species —
+  //   Ameranthropoides loysi, "De Loys's ape", a 1929 hoax named from one photograph, which
+  //   the base pool carried because the cryptid exclusion only ever screened the augment.
+  //   The answer is `xmur3(date::scope) % leaves.length` into a list of ids, so removing one
+  //   leaf moves every unpinned draw in any scope containing it. More to the point, a pinned
+  //   future answer_id pointing AT it would now dangle and break that whole day. → re-pin
+  //   un-played future dates.
+  version: 5,
   compute(tree, date) {
     const rules = resolveDailyRules(date);
     return {
@@ -178,7 +214,16 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   boards 27 -> 17. Latin LABELS go 65% -> 77% of slots; Latin TILES stay at 1%, so what
   //   players read while playing is unchanged. Every board moves → re-pin un-played future
   //   dates.
-  version: 11,
+  // v12 (2026-09-05): two changes. A group may no longer be followed by its own ANCESTOR or
+  //   DESCENDANT within the anti-repeat window. The window compared clade ids, and
+  //   mixed-granularity containers put a group and its child in one candidate pool, so
+  //   2026-09-03 followed 09-02 with Cebidae → Callitrichinae and Atelidae → Atelinae: four
+  //   "fresh" ids, two of them yesterday's groups one rank down, on a second consecutive
+  //   Simiiformes board. Consecutive-day nesting 6·7 → 0·0 a year with no measurable variety
+  //   cost (distinct sets 345·341 → 334·343, all inside the noise band). And the tree lost
+  //   De Loys's ape, so any board that used it as a tile is now invalid. → re-pin un-played
+  //   future dates.
+  version: 12,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -296,7 +341,12 @@ const branchesResolver: Resolver<"branches"> = {
   //   setServedBranchesHistory therefore REQUIRES groupIds: without them a served day
   //   signs as the empty string and the board that was just played comes straight back.
   //   → re-pin un-played future dates.
-  version: 13,
+  // v14 (2026-09-05): no Branches code change. The rich tree lost De Loys's ape, a named
+  //   species with enough pageviews to be an eligible leaf, so any pinned board carrying it
+  //   references an id the tree no longer has. None of the served rows used it, but the
+  //   future ones were written against the old tree and can't be read back with the anon
+  //   key. → re-pin un-played future dates.
+  version: 14,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
@@ -307,28 +357,58 @@ const branchesResolver: Resolver<"branches"> = {
   decode: (raw) => JSON.parse(b64decode(raw.enc)) as BranchesPuzzle,
 };
 
+const mosaicResolver: Resolver<"mosaic"> = {
+  game: "mosaic",
+  // v1: Mosaic's first pinned schedule. Everything before this was the beta, which SAMPLED an
+  // animal when you opened the game rather than reading one from the day, so no date it ever
+  // showed was a puzzle anybody else got and there is nothing here to stay compatible with.
+  // v2 (2026-09-05): the schedule was re-rolled before anything was pinned, via
+  //   MOSAIC_SCHEDULE_SALT — the generator had been run during development and its first
+  //   fortnight read out loud, which is a spoiler rather than a bug, and the cheapest moment to
+  //   fix it is while no date is frozen. No rule changed; every date moved. Bumped anyway so
+  //   that IF a v1 row was written before this landed, the admin calendar flags it as stale
+  //   rather than leaving a day silently on the old walk. Re-pin with --force if so.
+  version: 2,
+  compute(tree, date, opts) {
+    const scopeRootId = mosaicScopeId(tree);
+    const answerId = mosaicAnswerFor(tree, date, scopeRootId, opts?.avoidOn);
+    if (!answerId) return null;
+    return { answerId, scopeRootId, tier: mosaicTierForDate(date) };
+  },
+  encode: (p) => ({ enc: b64encode(JSON.stringify(p)) }),
+  decode: (raw) => JSON.parse(b64decode(raw.enc)) as MosaicPuzzle,
+};
+
 const RESOLVERS: { [G in Game]: Resolver<G> } = {
   lineage: lineageResolver,
   kinship: kinshipResolver,
   branches: branchesResolver,
+  mosaic: mosaicResolver,
 };
 
 export const puzzleVersion = (game: Game): number => RESOLVERS[game].version;
 
-/** All three games, in display order. */
-export const GAMES: Game[] = ["lineage", "kinship", "branches"];
+/** Every game, in display order. Mosaic goes last: it is the newest, and the avoider that keeps
+ *  its answer off the other boards means it must be RESOLVED after them (see repinFuture). */
+export const GAMES: Game[] = ["lineage", "kinship", "branches", "mosaic"];
 
 /** The current generator version of every game — what a fresh pin would record. */
 export const currentVersions = (): Record<Game, number> => ({
   lineage: puzzleVersion("lineage"),
   kinship: puzzleVersion("kinship"),
   branches: puzzleVersion("branches"),
+  mosaic: puzzleVersion("mosaic"),
 });
 
 /** The synchronous generator result for a date — the fallback used for instant,
  *  offline render and for un-pinned/future dates. */
-export function computePuzzle<G extends Game>(game: G, tree: Tree, date: string): PuzzleByGame[G] | null {
-  return RESOLVERS[game].compute(tree, date);
+export function computePuzzle<G extends Game>(
+  game: G,
+  tree: Tree,
+  date: string,
+  opts?: ComputeOpts
+): PuzzleByGame[G] | null {
+  return RESOLVERS[game].compute(tree, date, opts);
 }
 
 const shiftDateKey = (dateKey: string, delta: number): string => {
@@ -374,6 +454,31 @@ export async function fetchPinnedIndex(fromDate: string = DAILY_EPOCH): Promise<
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** Every pinned Kinship and Branches payload, for Mosaic's avoider. Paginated like the index
+ *  above; a read failure returns what it has, and the caller loses avoidance for the rest, which
+ *  is the same outcome as those days not being pinned. */
+async function fetchGuardRows(): Promise<PinnedRow[]> {
+  if (!supabase) return [];
+  const out: PinnedRow[] = [];
+  const PAGE = 1000;
+  try {
+    for (let offset = 0; ; offset += PAGE) {
+      const { data, error } = await supabase
+        .from("daily_puzzles")
+        .select("game, puzzle_date, payload")
+        .in("game", ["kinship", "branches"])
+        .order("puzzle_date")
+        .range(offset, offset + PAGE - 1);
+      if (error || !data) break;
+      out.push(...(data as PinnedRow[]));
+      if (data.length < PAGE) break;
+    }
+  } catch {
+    return out;
+  }
+  return out;
+}
+
 export interface RepinProgress {
   done: number;
   total: number;
@@ -396,7 +501,7 @@ export async function repinFuture(
     onProgress?: (p: RepinProgress) => void;
     /** The rich tree (base + augment). Kinship/Branches boards are generated from
      *  it — pins MUST match what players see, and players play the rich tree. Lineage
-     *  always uses the base `tree` (its answer pool is the curated in-set). */
+     *  and Mosaic always use the base `tree` (their answer pools are the curated in-set). */
     richTree?: Tree;
   } = {}
 ): Promise<RepinProgress> {
@@ -407,15 +512,28 @@ export async function repinFuture(
   const start = opts.from ?? DAILY_EPOCH;
   const cutoff = todayKey(); // never write today or earlier (mirrors the RPC guard)
 
+  // Mosaic's answer must dodge whatever Kinship and Branches already have in play that day, and
+  // the walk asks that question for every date from its anchor onward — including dates this run
+  // is not writing. So the answer comes from the PINS, read once, rather than from regenerating
+  // two boards per day in the browser. No pins, no avoidance: an unpinned day has no board to
+  // clash with.
+  let avoidOn: ComputeOpts["avoidOn"];
+  if (games.includes("mosaic")) {
+    const rows = await fetchGuardRows();
+    const map = avoidMapFrom(rows);
+    const none: ReadonlySet<string> = new Set();
+    avoidOn = (d) => map.get(d) ?? none;
+  }
+
   const jobs: { game: Game; date: string; payload: StoredPayload; version: number }[] = [];
   for (let i = 0; i < days; i++) {
     const date = shiftDateKey(start, i);
     if (date <= cutoff) continue; // future only — the past is frozen
     for (const game of games) {
-      // Kinship/Branches generate from the rich tree (what players play); Lineage
+      // Kinship/Branches generate from the rich tree (what players play); Lineage and Mosaic
       // from the curated base. Fall back to base if no rich tree was supplied.
-      const t = game === "lineage" ? tree : opts.richTree ?? tree;
-      const p = computePuzzle(game, t, date);
+      const t = game === "lineage" || game === "mosaic" ? tree : opts.richTree ?? tree;
+      const p = computePuzzle(game, t, date, { avoidOn });
       if (!p) continue;
       jobs.push({ game, date, payload: encodePuzzle(game, p), version: puzzleVersion(game) });
     }
@@ -466,6 +584,37 @@ export function decodePuzzle<G extends Game>(game: G, raw: unknown): PuzzleByGam
   } catch {
     return null;
   }
+}
+
+/** One pinned row as it comes back from the table, before it is decoded. */
+export interface PinnedRow {
+  game: string;
+  puzzle_date: string;
+  payload: unknown;
+}
+
+/** date -> species another game has in play that day, for Mosaic's pin-time avoider.
+ *
+ *  Takes ROWS rather than fetching, because the two callers hold different clients: the in-app
+ *  re-pin uses the player's session (an admin, who may read future rows) and `npm run pin` uses
+ *  the service key. Both decode the same way, so the decoding lives here and the fetching does
+ *  not — which also makes this the only part worth testing.
+ *
+ *  A date with no rows is absent, and the caller reads that as "nothing to avoid". That is the
+ *  right reading: a day Kinship and Branches have not been pinned for has no board to clash
+ *  with yet. It does mean the avoider is only as complete as the pins, so pin Mosaic LAST. */
+export function avoidMapFrom(rows: Iterable<PinnedRow>): Map<string, ReadonlySet<string>> {
+  const byDate = new Map<string, { kinship: KinshipPuzzle | null; branches: BranchesPuzzle | null }>();
+  for (const r of rows) {
+    if (r.game !== "kinship" && r.game !== "branches") continue;
+    let day = byDate.get(r.puzzle_date);
+    if (!day) { day = { kinship: null, branches: null }; byDate.set(r.puzzle_date, day); }
+    if (r.game === "kinship") day.kinship = decodePuzzle("kinship", r.payload);
+    else day.branches = decodePuzzle("branches", r.payload);
+  }
+  const out = new Map<string, ReadonlySet<string>>();
+  for (const [date, day] of byDate) out.set(date, guardFrom(day.kinship, day.branches).species);
+  return out;
 }
 
 /** The frozen puzzle for a date from Supabase, or null when there's no backend,

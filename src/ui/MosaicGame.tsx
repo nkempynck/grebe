@@ -9,19 +9,20 @@ import { useMemo, useState } from "react";
 import type { Tree, GameConfig, GuessResult } from "../core";
 import { isAncestor, resolveGuess, suggestGuesses } from "../core";
 import { CHARACTERS } from "../core/mosaicChars";
-import { mosaicTierForDate } from "../core/mosaic";
+import { dailyNumber } from "../core";
+import { mosaicShareRow, gameUrl } from "./share";
+import type { MosaicProximityMode } from "../core/mosaic";
 import { geoCell, regionLabels } from "../data/geo";
-import { useMosaicGame } from "../hooks/useMosaicGame";
+import { useMosaicGame, type MosaicComplete } from "../hooks/useMosaicGame";
 import { useDev } from "../data/devMode";
 import { GameHeader } from "./GameHeader";
 import { GuessInput } from "./GuessInput";
 import { PlaytestBar } from "./PlaytestBar";
 import { MosaicBench } from "./MosaicBench";
 import { MosaicPicture } from "./MosaicPicture";
-import { MosaicSettings } from "./MosaicSettings";
 import { DiscussionPanel } from "./DiscussionPanel";
-import { MOSAIC_FEEDBACK_BOARD, OPEN_BOARD_DATE } from "../data/discussion";
-import { useMosaicPrefs } from "../data/mosaicPrefs";
+import { Leaderboard } from "./Leaderboard";
+import { LeaderboardNudge } from "./LeaderboardNudge";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 /** Same bands, same words as Lineage's ramp — see DIFFICULTY in data/dailySchedule. */
@@ -37,16 +38,25 @@ interface Props {
   configured?: boolean;
   /** Render inside the admin test bench: playtest controls, never recorded. */
   sandbox?: boolean;
+  /** Fired once when the day's round ends, for the stat, the count and the board row. */
+  onComplete?: (r: MosaicComplete) => void;
+  /** Bumped by App after a leaderboard row lands, so the post-game board refetches. */
+  reloadKey?: number;
+  /** Leaderboard name to highlight (null when signed out). */
+  me?: string | null;
+  /** The viewer's current Mosaic streak, shared on a win and shown in the board footer. */
+  streak?: number | null;
 }
 
-export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandbox }: Props) {
+export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandbox, onComplete, reloadKey, me, streak }: Props) {
   const devSettings = useDev();
-  const prefs = useMosaicPrefs();
   const g = useMosaicGame(tree, {
     date,
     dev: sandbox ? { tier: devSettings.tier, nonce: devSettings.nonce } : null,
+    onComplete,
   });
   const [zoom, setZoom] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [reject, setReject] = useState<string | null>(null);
   const [lookup, setLookup] = useState("");
   const [looked, setLooked] = useState<string | null>(null);
@@ -88,6 +98,28 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
   // The header and the stage render before a board exists, so the page does not jump when one
   // arrives a fetch later. Everything a player can ACT on waits for it: no guess bar, no
   // narrowing and no give-up against an animal that has not been dealt yet.
+  // The shareable result: one square per guess, and never the animal. Same shape as the other
+  // three games' (see share.ts), so a Grebe result reads the same whichever game it came from.
+  const shareText = (() => {
+    const head = `🖼 Grebe Mosaic · №${dailyNumber(g.date)} · ${DIFFICULTY[g.aids.tier - 1]}`;
+    const row = mosaicShareRow(g.guesses.map((x) => ({ degrees: x.degrees, correct: x.correct })));
+    const n = g.guesses.length;
+    const streakLine = g.status === "won" && streak != null && streak > 0 ? ` · 🔥${streak}` : "";
+    const verdict = g.status === "won"
+      ? `Named it in ${n} · ${g.points} pts${streakLine}`
+      : `Missed it · ${n} ${n === 1 ? "guess" : "guesses"}`;
+    return `${head}\n${row}\n${verdict}\n${gameUrl()}`;
+  })();
+  const copyShare = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard unavailable — no-op */
+    }
+  };
+
   const answer = g.answerId ? tree.byId.get(g.answerId) : undefined;
   const ready = Boolean(g.answerId);
   const done = g.status !== "playing";
@@ -101,34 +133,29 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
         dayName={DAY_NAMES[aids.tier - 1]}
         difficulty={DIFFICULTY[aids.tier - 1]}
         onHowItWorks={onHowItWorks}
-        meta={<span className="gamehead-beta">Beta</span>}
+        meta={<span className="gamehead-beta">New</span>}
         blurb={
           <>
-            Name the animal. The photograph is cut into tiles and shuffled, and every wrong
-            guess puts more of it back together. The table shows which traits your guess shares
-            with the answer.
+            You are an explorer, and you have just met a species you cannot name. Unfortunately
+            you drank a toxic baboon juice, which made your vision blurry. Every wrong guess
+            somehow fixes that a little, and the table tells you which traits you share with the thing
+            in front of you.
             <span className="gamehead-blurb-note">
               {g.guardReady || !(aids.lookup || aids.subset)
                 ? aidsNote(aids.lookup, aids.subset)
                 : "Checking today’s other boards…"}
             </span>
-            {/* What beta actually means for the player, in the three ways it will bite: the
-                animal is not the same for everyone, the points do not go anywhere, and there is
-                more than one board a day. Saying it here is cheaper than an explanation after
-                someone has compared their animal with a friend's. */}
+            {/* One line, and it stays only while Mosaic is genuinely new. It asks for patience
+                and points at where a bug report gets read; everything it used to explain about
+                what was missing is now false, because nothing is. */}
             <span className="gamehead-blurb-note is-beta">
-              Mosaic is in beta. The animal is drawn at random rather than set for the day, so
-              yours is not everyone’s, and nothing is scored or recorded yet. Finish a board and
-              you can play another. This is a lil community effort so feel free to leave feedback in the discussion panel below.
-              Just as long as your feedback does not require me to do too much effort.
+              Just launched, so be patient por favor. Lmk if u find bugs.
             </span>
           </>
         }
       />
 
       {sandbox && <MosaicBench g={g} />}
-
-      <MosaicSettings prefs={prefs} todayTier={mosaicTierForDate(g.date)} />
 
       <div className={`mosaic-stage${done && zoom ? " is-zoom" : ""}`}>
         {g.missing ? (
@@ -139,7 +166,7 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
           </div>
         ) : !g.imageUrl ? (
           <div className="mosaic-nostage" aria-busy="true">
-            <span>Finding an animal…</span>
+            <span>Finding today’s animal…</span>
           </div>
         ) : (
           <div
@@ -190,10 +217,14 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
               )}
             </span>
           )}
-          {/* The board is sampled, not scheduled, so there is another one waiting and no reason
-              to make anyone reload the page for it. When Mosaic becomes a daily this button
-              stops being the way out of a finished round and starts being the practice mode. */}
-          <button className="mosaic-again" onClick={g.newBoard}>Play another →</button>
+          <div className="mosaic-share">
+            <span className="mosaic-share-row" aria-label="Your guesses, coldest to warmest">
+              {mosaicShareRow(g.guesses.map((x) => ({ degrees: x.degrees, correct: x.correct })))}
+            </span>
+            <button className="mosaic-share-btn" onClick={copyShare}>
+              {copied ? "Copied" : "Share result"}
+            </button>
+          </div>
         </div>
       )}
 
@@ -218,13 +249,36 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
 
       {g.guesses.length > 0 && (
         <div className="mosaic-table-wrap">
-          <p className="mosaic-table-note">{tableNote(aids.proximity)}</p>
+          <div className="mosaic-table-head">
+            <p className="mosaic-table-note">{tableNote(aids.proximity)}</p>
+            {/* Both maps, a tap apart, rather than one chosen once in a settings row. They
+                genuinely disagree — realms follow the wildlife rather than the coastlines, so
+                they split Indonesia and file Mexico with South America — and which one is
+                interesting depends on the animal in front of you. A tab, not a second column:
+                the table is already the widest thing on a phone. */}
+            <div className="mosaic-geotabs" role="tablist" aria-label="Which map the regions column speaks">
+              {(["continent", "realm"] as const).map((scheme) => (
+                <button
+                  key={scheme}
+                  role="tab"
+                  aria-selected={g.regionScheme === scheme}
+                  className={`mosaic-geotab${g.regionScheme === scheme ? " is-on" : ""}`}
+                  onClick={() => g.setRegionScheme(scheme)}
+                  title={scheme === "continent"
+                    ? "Continents, as anyone would draw them"
+                    : "Biogeographic realms: they follow the wildlife rather than the coastlines, so they split Indonesia and put Mexico with South America"}
+                >
+                  {scheme === "continent" ? "Continents" : "Realms"}
+                </button>
+              ))}
+            </div>
+          </div>
           <table className="mosaic-table">
             <thead>
               <tr>
                 <th>Guess</th>
-                <th title={aids.proximity === "named" ? "The rank you share, never which one" : "Warmer is closer, 100 is the answer"}>
-                  {aids.proximity === "named" ? "How close" : "°"}
+                <th title={proxTitle(aids.proximity)}>
+                  {aids.proximity === "degrees" ? "°" : "How close"}
                 </th>
                 <th title="Where your guess is recorded. Highlighted where the answer is too.">
                   Recorded in
@@ -237,7 +291,8 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                 <tr key={row.node.id} className={row.correct ? "hit" : ""}>
                   <th scope="row">{row.node.common ?? row.node.sciName}</th>
                   <td className="prox">
-                    {aids.proximity === "named" ? row.proximity : `${row.degrees}°`}
+                    {aids.proximity !== "degrees" && <span>{row.proximity}</span>}
+                    {aids.proximity !== "named" && <span className="prox-deg">{row.degrees}°</span>}
                   </td>
                   {/* Overlap, not equality: a guess recorded across Europe and Asia against an
                       answer recorded only in Asia is neither a hit nor a miss, it is half
@@ -392,22 +447,26 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
         </>
       )}
 
-      {/* A STANDING board, not today's. The other three games each get a board per puzzle,
-          which is right when everyone has the same puzzle; here nobody does, so a per-day
-          thread would be a room full of people describing different animals. What a beta wants
-          instead is one place the feedback accumulates and can still be read next week.
+      {done && <LeaderboardNudge show={!!configured && !me} />}
 
-          Not gated on finishing, unlike the others: there is no play record to gate on, and
-          somebody who gave up after two boards is exactly who you want to hear from. */}
+      {done && configured && (
+        <Leaderboard
+          game="mosaic" label="Mosaic" variant="today" me={me ?? null} reloadKey={reloadKey} streak={streak}
+          note="Score rewards harder days and naming the animal in fewer guesses."
+        />
+      )}
+
+      {/* Same reusable board as the other three, different key. It was a STANDING board during
+          the beta, when nobody shared an animal and a per-day thread would have been a room full
+          of people describing different pictures. That is no longer true, so this is the day's
+          thread like everywhere else. */}
       <DiscussionPanel
-        board={MOSAIC_FEEDBACK_BOARD}
-        date={OPEN_BOARD_DATE}
-        permanent
-        title="Beta feedback"
+        board="mosaic"
+        date={g.date}
         configured={!!configured}
         signedIn={!!userId}
-        played
-        label="Mosaic"
+        played={done}
+        label="today’s Mosaic"
       />
 
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
@@ -426,10 +485,22 @@ function isRanked(rank: string): boolean {
 /** One line over the table. It used to claim the board was "not how closely related you are",
  *  which stopped being true when the closeness column arrived beside the traits. It now names
  *  that column and leaves the rest to About: a caption is not the place for the full rules. */
-function tableNote(proximity: "named" | "degrees"): string {
+function tableNote(proximity: MosaicProximityMode): string {
+  if (proximity === "both") {
+    return "How close: the rank you share with the answer, never which one, and how closely related out of 100.";
+  }
   return proximity === "named"
     ? "How close: the rank you share with the answer, never which one."
     : "Degrees: how closely related, 100 is the answer.";
+}
+
+/** The column header's tooltip. Same three cases, kept beside the caption they have to agree
+ *  with rather than inline in the table. */
+function proxTitle(proximity: MosaicProximityMode): string {
+  if (proximity === "both") return "The rank you share, never which one, and how close out of 100";
+  return proximity === "named"
+    ? "The rank you share, never which one"
+    : "Warmer is closer, 100 is the answer";
 }
 
 /** The geography cell: the guess's regions, with the ones the answer shares picked out.

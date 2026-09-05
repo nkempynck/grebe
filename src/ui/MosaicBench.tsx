@@ -3,7 +3,7 @@ import type { UseMosaicGame } from "../hooks/useMosaicGame";
 /** Mosaic's own test-bench row, above the generic PlaytestBar.
  *
  *  What is left here is only what a PLAYER must never have. The mechanic, the region scheme and
- *  the forced difficulty all moved out to MosaicSettings once the beta gave players the settings
+ *  the forced difficulty all moved out to the player's own controls once the beta shipped them
  *  view, and they belong there: each changes what the game IS, and none of them is a way to skip
  *  playing it.
  *

@@ -275,7 +275,29 @@ describe("mosaicPoints", () => {
 
   it("is the agreed Monday curve", () => {
     const row = [1, 2, 3, 4, 5, 6, 7, 8].map((k) => mosaicPoints(MON, true, k, 8));
-    expect(row).toEqual([100, 97, 90, 81, 68, 52, 32, 10]);
+    // Guess 7 is 33, not the 32 this asserted before Mosaic was scored server-side. Its exact
+    // value is 32.5, and the old float form landed a hair under it while Postgres `numeric`
+    // landed exactly on it — so the client showed 32 and the board would have ranked 33. The
+    // arithmetic is integer now and both agree; see mosaicPoints.
+    expect(row).toEqual([100, 97, 90, 81, 68, 52, 33, 10]);
+  });
+
+  // The guard against that class of bug coming back. Every (tier, budget, guess) the ramp can
+  // produce must be a whole number reached the same way the server reaches it, which is only
+  // true while the formula stays one integer ratio divided once.
+  it("never lands on a rounding boundary the server would resolve differently", () => {
+    for (let tier = 1; tier <= 7; tier++) {
+      for (const G of [8, 9]) {
+        for (let k = 1; k <= G; k++) {
+          const exact = (tierWeight(tier) * ((G - 1) * G * 10 - 9 * (k - 1) * k)) / ((G - 1) * G * 10);
+          // Exact decimal (the server) rounds .5 away from zero; this asserts the client's
+          // value IS that number, computed the same way rather than approached from below.
+          const half = Math.abs(exact - Math.floor(exact) - 0.5) < 1e-9;
+          const expected = half ? Math.floor(exact) + 1 : Math.round(exact);
+          expect(mosaicPoints(tier, true, k, G), `tier ${tier} G${G} k${k}`).toBe(expected);
+        }
+      }
+    }
   });
 
   // The whole point of the shape: being wrong against 400 shuffled tiles is the game, being

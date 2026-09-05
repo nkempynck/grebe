@@ -78,12 +78,13 @@ function indexAverages(averages: DayAverage[]): Record<string, number> {
 export function deriveField(store: StatsStore, averages: DayAverage[], groupFor?: GroupResolvers): FieldStats {
   const avg = indexAverages(averages);
   const pointsOf = pointsByDate(store);
-  const ratios: Record<GameId, number[]> = { lineage: [], kinship: [], branches: [] };
-  const cladeRatios: Record<GameId, Record<string, number[]>> = { lineage: {}, kinship: {}, branches: {} };
+  const ratios: Record<GameId, number[]> = { lineage: [], kinship: [], branches: [], mosaic: [] };
+  const cladeRatios: Record<GameId, Record<string, number[]>> = { lineage: {}, kinship: {}, branches: {}, mosaic: {} };
   const taggedGroup: Record<GameId, (d: string) => string | null> = {
     lineage: (d) => store.history[d]?.group ?? groupFor?.lineage?.(d) ?? null,
     kinship: (d) => store.kinship[d]?.group ?? groupFor?.kinship?.(d) ?? null,
     branches: (d) => store.branches[d]?.group ?? groupFor?.branches?.(d) ?? null,
+    mosaic: (d) => store.mosaic?.[d]?.group ?? groupFor?.mosaic?.(d) ?? null,
   };
 
   const collect = (game: GameId, dates: string[]) => {
@@ -105,10 +106,11 @@ export function deriveField(store: StatsStore, averages: DayAverage[], groupFor?
   collect("lineage", Object.keys(store.history ?? {}));
   collect("kinship", Object.keys(store.kinship ?? {}));
   collect("branches", Object.keys(store.branches ?? {}));
+  collect("mosaic", Object.keys(store.mosaic ?? {}));
 
-  const byClade: Record<GameId, Record<string, FieldStat>> = { lineage: {}, kinship: {}, branches: {} };
-  const bestCladeId: Record<GameId, string | null> = { lineage: null, kinship: null, branches: null };
-  for (const game of ["lineage", "kinship", "branches"] as GameId[]) {
+  const byClade: Record<GameId, Record<string, FieldStat>> = { lineage: {}, kinship: {}, branches: {}, mosaic: {} };
+  const bestCladeId: Record<GameId, string | null> = { lineage: null, kinship: null, branches: null, mosaic: null };
+  for (const game of ["lineage", "kinship", "branches", "mosaic"] as GameId[]) {
     for (const [gid, rs] of Object.entries(cladeRatios[game])) {
       const s = statOf(rs);
       if (s) byClade[game][gid] = s;
@@ -121,7 +123,7 @@ export function deriveField(store: StatsStore, averages: DayAverage[], groupFor?
 
   // Overall pools every day from every game, so it's weighted by how much you play
   // each — not an equal-weight average of three game figures.
-  const all = [...ratios.lineage, ...ratios.kinship, ...ratios.branches];
+  const all = [...ratios.lineage, ...ratios.kinship, ...ratios.branches, ...ratios.mosaic];
 
   return {
     overall: statOf(all),
@@ -129,6 +131,7 @@ export function deriveField(store: StatsStore, averages: DayAverage[], groupFor?
       lineage: statOf(ratios.lineage),
       kinship: statOf(ratios.kinship),
       branches: statOf(ratios.branches),
+      mosaic: statOf(ratios.mosaic),
     },
     byClade,
     bestCladeId,

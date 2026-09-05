@@ -182,23 +182,24 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
           </p>
           <p>
             Every guess also gets a <b>closeness</b> reading, and that one <i>is</i> relatedness.
-            Early in the week it names the rank you share, <i>same family</i> or <i>same
-            order</i>, never which one. From midweek it is a number in <b>degrees</b>, where 0
-            shares nothing with the answer but being an animal and 100 is the answer itself.
+            It can name the rank you share, <i>same family</i> or <i>same order</i>, never which
+            one. It can also be a number in <b>degrees</b>, where 0 shares nothing with the answer
+            but being an animal and 100 is the answer itself. Monday and Tuesday give you both.
+            Wednesday keeps the rank, and from Thursday it is the number alone.
           </p>
           <p>
-            What changes through the week is the <b>help</b>. Early on you can narrow the field to
-            a group and look any animal up to see where it sits. Midweek the lookup goes, and by
-            the weekend it is the photograph and the table alone. Harder days give you more
-            guesses to make up for it, and the picture comes back in smaller steps. The answer is
-            always an animal well known enough to have a decent picture.
+            What else changes through the week is the <b>help</b>. You can narrow the field to a
+            group on any day, which is how an unfamiliar animal stays guessable. What goes is the
+            lookup, the panel that shows you where any animal sits: it is there until the weekend
+            and gone on Saturday and Sunday, which give you an extra guess instead and bring the
+            picture back in smaller steps. The answer is always an animal well known enough to
+            have a decent picture, and on Monday and Tuesday a good deal better known than that.
           </p>
           <p>
-            Mosaic is in <b>beta</b>. Unlike the other three it is not yet a daily: the animal is
-            drawn at random each time you open it, so yours is not everyone's and there is nothing
-            to compare. Nothing is scored or recorded, you can play as many as you like, and the
-            difficulty is yours to set rather than the day's. Tell us how it plays on the feedback
-            board under the game.
+            Mosaic is the <b>newest</b> of the four and now works like the rest: one animal a
+            day, the same one for everybody, scored on the leaderboard and counted towards a
+            streak. It has only just launched, so expect the odd rough edge. There is a feedback
+            board under the game, and patience is appreciated while it settles.
           </p>
         </div>
 

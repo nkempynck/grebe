@@ -30,6 +30,28 @@ function square(r: GuessResult): string {
   return "🟥";
 }
 
+/** Mosaic's shared result: one square per guess, coldest to hottest, plus the bullseye for
+ *  the one that named it.
+ *
+ *  Reads DEGREES, not the rank label, for two reasons. It is the finer of the two readings
+ *  (65 distinct values against six), and it is the one every day computes whether or not the
+ *  day shows it — so a Monday grid and a Sunday grid mean the same thing, which a grid built
+ *  from whatever that day happened to display would not.
+ *
+ *  The answer is never encoded, only how close each guess landed, so the row is safe to post. */
+export function mosaicShareRow(guesses: { degrees: number; correct: boolean }[]): string {
+  return guesses
+    .map((g) => {
+      if (g.correct) return "🎯";
+      if (g.degrees < 20) return "⬜";
+      if (g.degrees < 40) return "🟦";
+      if (g.degrees < 60) return "🟨";
+      if (g.degrees < 80) return "🟧";
+      return "🟥";
+    })
+    .join("") || "—";
+}
+
 export interface LineageShare {
   label: string; scope: string; res: string; row: string;
   verdict: string; hintLine: string; score: number | null;

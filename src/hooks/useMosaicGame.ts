@@ -1,15 +1,14 @@
-// Mosaic's game state. Still no persistence, stats, leaderboard or pinned puzzle — those are
-// the shipping work.
+// Mosaic's game state. Stats and the leaderboard are the shipping work still outstanding.
 //
-// THE BOARD IS SAMPLED, NOT DATED, for the beta. It draws a species when you open the game and
-// pulls that species' photograph straight from Wikipedia, which is what lets all 942 animals in
-// the pool be playable instead of the twenty days that were ever staged as files. The dated draw
-// (mosaicAnswerFor) is still there and is still where this is going; when Mosaic is pinned like
-// the other three, the schedule supplies the opening board and this sampling becomes the button
-// that deals another.
+// THE BOARD IS THE DAY'S. It comes from the pin, read like every other game's (fetchPinnedPuzzle,
+// with the local generator as the offline fallback): one animal, the same for everyone, at the
+// weekday's difficulty, with no reroll and no difficulty of your own. The beta sampled an animal
+// per visit instead, and that is gone from the game — it survives only in the test bench, which
+// is admin-only and is where trying a tier or a different animal belongs.
 //
-// The weekday still decides the AIDS. Difficulty is a function of the day even while the board
-// is not, so a Sunday is brutal whichever animal you drew.
+// The photograph is still fetched live from Wikipedia, which is what made the sampled board
+// possible in the first place and is why a pinned date does not freeze an image URL: the puzzle
+// is the animal, and a frozen URL is a file that can be deleted.
 //
 // Everything the test bench needs comes in through `dev`, and is null for the real game.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -21,7 +20,8 @@ import { mosaicPoints } from "../data/score";
 import { fetchBoardGuard, boardGuardCached, GUARD_UNKNOWN, type BoardGuard } from "../data/boardGuard";
 import { todayKey } from "../core/daily";
 import {
-  mosaicSampleAnswer, scoreMosaicGuess, mosaicRung, mosaicPool, mosaicScopeId, mosaicDrillOptions,
+  mosaicSampleAnswer, mosaicAnswerFor, scoreMosaicGuess, mosaicRung, mosaicPool, mosaicScopeId,
+  mosaicDrillOptions,
   mosaicCandidates, mosaicLineagePath, mosaicAids, mosaicTierForDate, mosaicMinViews,
   mosaicLadder,
   MOSAIC_GROUP_WINDOW,
@@ -33,9 +33,26 @@ import {
   loadMosaicProgress, saveMosaicProgress, clearMosaicProgress, usableProgress,
   MOSAIC_PROGRESS_V,
 } from "../data/mosaicProgress";
+import { fetchPinnedPuzzle, pinnedPuzzleCached, type MosaicPuzzle } from "../data/pinnedPuzzles";
 import type { TaxonNode } from "../core";
 
 export type MosaicStatus = "playing" | "won" | "lost";
+
+/** What a finished Mosaic daily reports upward, for the stat, the streak and the leaderboard
+ *  row. Mirrors BranchesComplete: the hook owns the round, App owns what is done with it. */
+export interface MosaicComplete {
+  won: boolean;
+  /** Guesses spent. On a win, the one that named it. */
+  guesses: number;
+  /** The day's budget, so a past game keeps the budget it was played against. */
+  maxGuesses: number;
+  /** Ran out versus stopped. Both score zero; only the wording differs. */
+  gaveUp: boolean;
+  tier: number;
+  date: string;
+  /** The answer's clade group, for per-clade stats. */
+  group: string | null;
+}
 
 export interface MosaicCredit {
   artist: string | null;
@@ -87,8 +104,9 @@ export interface UseMosaicGame {
   imageFull: string;
   /** True while a species is being drawn and its photograph looked up. */
   loading: boolean;
-  /** Draw another animal. The beta's board is sampled, so this is a legitimate move rather than
-   *  a reroll of something scheduled; it ends the current round without scoring it. */
+  /** Try the board again after the picture failed to load, and deal a fresh animal in the
+   *  bench. Not a reroll: on a real board the answer is the day's and does not move, so this
+   *  only re-runs the photograph fetch that failed. */
   newBoard: () => void;
   credit: MosaicCredit | null;
   /** Drill-down path from the game's root, deepest last. The guess bar is restricted to the
@@ -150,12 +168,18 @@ const MOSAIC_IMAGE_WIDTH = 1024;
 
 export function useMosaicGame(
   tree: Tree | null,
-  opts: { date?: string; dev?: MosaicDev | null } = {}
+  opts: { date?: string; dev?: MosaicDev | null; onComplete?: (r: MosaicComplete) => void } = {}
 ): UseMosaicGame {
-  const { date: dateOverride, dev = null } = opts;
-  // The date no longer picks the animal, only the aids and which other boards to hide. The
-  // override stays because the bench and the admin previews still ask for a specific weekday.
+  const { date: dateOverride, dev = null, onComplete } = opts;
+  // Held in a ref so a caller passing a fresh closure each render cannot re-fire the finish.
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+  // The date picks the animal, the aids, and which of the other games' boards to hide. The
+  // override stays because the bench and the admin previews ask for a specific weekday.
   const date = dateOverride ?? todayKey();
+  // The bench SAMPLES: it exists to try tiers and animals, which a scheduled board cannot do.
+  // Everywhere else — which is to say, the game — takes the day's board.
+  const daily = dev === null;
   const [missing, setMissing] = useState(false);
   const [guesses, setGuesses] = useState<MosaicGuess[]>([]);
   const [gaveUp, setGaveUp] = useState(false);
@@ -196,13 +220,42 @@ export function useMosaicGame(
   // Precedence: the bench's forced tier, then the player's, then the weekday. Two overrides
   // rather than one because the bench has to be able to sit on top of whatever a tester left
   // in their own settings.
-  const forcedTier = (dev && dev.tier) || prefs.tier;
+  // The weekday and nothing else. A difficulty a player picks for themselves is not a difficulty
+  // anyone can be ranked against, so the only override left is the bench's.
+  const forcedTier = (dev && dev.tier) || 0;
   const aids = useMemo(
     () => mosaicAids(forcedTier || mosaicTierForDate(date)),
     [forcedTier, date]
   );
 
   const rootId = useMemo(() => (tree ? mosaicScopeId(tree) : null), [tree]);
+
+  // THE DAY'S ANSWER, for daily play. Read from the pin like every other game, because the pin
+  // is the only thing that survives a taxonomy edit or a generator change: the local generator
+  // would happily resolve the same date to a different animal after either, and it is here only
+  // as the offline fallback and the pre-pin preview.
+  //
+  // `undefined` means "still asking", which the deal effect waits on. Distinguishing that from
+  // "asked, and there is no pin" is what stops the game dealing the fallback animal for a beat
+  // and then swapping it for the pinned one.
+  const [pinned, setPinned] = useState<MosaicPuzzle | null | undefined>(() =>
+    daily ? pinnedPuzzleCached("mosaic", date) : null
+  );
+  useEffect(() => {
+    if (!daily) { setPinned(null); return; }
+    const cached = pinnedPuzzleCached("mosaic", date);
+    if (cached !== undefined) { setPinned(cached); return; }
+    setPinned(undefined);
+    let live = true;
+    void fetchPinnedPuzzle("mosaic", date).then((p) => { if (live) setPinned(p); });
+    return () => { live = false; };
+  }, [daily, date]);
+
+  /** The animal the day is, pin first and the generator behind it. Null while still asking. */
+  const dailyAnswerId = useMemo(() => {
+    if (!daily || !tree || pinned === undefined) return null;
+    return pinned?.answerId ?? mosaicAnswerFor(tree, date);
+  }, [daily, tree, pinned, date]);
 
   // How obscure the answer may be. It follows the candidate LIST rather than the difficulty:
   // 9000 pageviews is fair when twelve names are on screen and unfair when nothing is.
@@ -228,16 +281,19 @@ export function useMosaicGame(
     return g;
   }, [tree]);
 
-  // Deal a board: draw a species, then ask Wikipedia for its picture. Both or neither, because
-  // an animal whose article leads with a range map is not a puzzle — fetchWikiImage already
-  // rejects those, and here a rejection just means draw again.
+  // Put a board on screen: settle on the animal, then ask Wikipedia for its picture. Both or
+  // neither, because an animal whose article leads with a range map is not a puzzle.
   //
-  // It waits for the cross-game guard, which is the one thing that has to be known BEFORE the
-  // draw rather than after it: the guard names today's Kinship and Branches species, and the
-  // point is not to deal one of them. Waiting costs nothing the game was not already waiting
-  // for, since the aids stay shut until the guard resolves either way.
+  // It waits for the cross-game guard either way. The daily does not need it to CHOOSE — the pin
+  // already dodged today's other boards, at pin time, where the other games' rows can be read in
+  // bulk — but the aids stay shut until the guard resolves regardless, so waiting costs nothing.
+  // The bench, which samples, does need it: an unpinned draw could otherwise land on a species
+  // Kinship is using an hour later.
   useEffect(() => {
     if (!tree || !rootId || guard === undefined) return;
+    // Daily play also waits on the pin. Dealing the fallback animal first and swapping it for
+    // the pinned one a moment later is a board that changes under the player.
+    if (daily && (pinned === undefined || !dailyAnswerId)) return;
     let live = true;
     setMissing(false);
     // The board a reload interrupted, if it is still playable. Tried before dealing rather than
@@ -246,8 +302,14 @@ export function useMosaicGame(
       tier: aids.tier,
       canBeAnswer: (id) => pool.has(id),
       knows: (id) => tree.byId.has(id),
+      date,
+      // A stored board that is not the day's answer was dealt before a re-pin moved the date.
+      // Either way it is not today's puzzle.
+      expectedAnswerId: dailyAnswerId ?? undefined,
     });
-    if (saved) {
+    // The bench never restores. It exists to deal something new, and it does not save either,
+    // so the only board it could restore is the player's real one.
+    if (saved && daily) {
       seen.current = new Set(saved.seen);
       recentGroups.current = [...saved.recentGroups];
       setBoard({ answerId: saved.answerId, shot: saved.shot });
@@ -270,6 +332,30 @@ export function useMosaicGame(
     setGaveUp(false);
     setBenchSolved(false);
     setPathIds([]);
+    // DAILY: the animal is already decided, so there is nothing to draw and nothing to reroll.
+    // Only the photograph is fetched, and a failure REPORTS itself rather than quietly dealing
+    // something else, because dealing something else would hand a different puzzle to everyone
+    // who reloaded. The sampled beta could retry with another animal; a daily cannot.
+    //
+    // Measured before relying on it: every one of the next 120 dailies resolves a usable
+    // photograph. What looked at first like a 58% failure rate was Wikipedia throttling the
+    // check itself — asked one at a time, "Stoat", "American bison" and "Red-winged blackbird"
+    // all return images. So the failure this branch handles is a rate limit or an outage, which
+    // is transient and is what the retry button is for, not a species with no picture.
+    if (daily) {
+      const node = dailyAnswerId ? tree.byId.get(dailyAnswerId) : null;
+      if (!node) { setMissing(true); return; }
+      void (async () => {
+        const image = await fetchWikiImage(node);
+        if (!live) return;
+        if (!image?.full) { setMissing(true); return; }
+        const shot = await fetchWikiShot(image, MOSAIC_IMAGE_WIDTH);
+        if (!live) return;
+        setBoard({ answerId: node.id, shot });
+      })();
+      return () => { live = false; };
+    }
+
     void (async () => {
       const draw = (exclude: ReadonlySet<string>) => mosaicSampleAnswer(tree, {
         scopeRootId: rootId,
@@ -304,7 +390,10 @@ export function useMosaicGame(
       if (live) setMissing(true);
     })();
     return () => { live = false; };
-  }, [tree, rootId, guard, deal, dev?.nonce, aids.tier, pool]);
+    // NOT keyed on the bench's photoSource. A resumed board restores its stored shot, so
+    // re-running this would swap the source for a fresh deal and silently keep the old
+    // picture for a board in progress. Deal a new board (🎲) to see the other source.
+  }, [tree, rootId, guard, deal, dev?.nonce, aids.tier, pool, daily, date, dailyAnswerId]);
 
   const answerId = board?.answerId ?? null;
 
@@ -415,6 +504,7 @@ export function useMosaicGame(
     if (!board || dev) return;
     saveMosaicProgress({
       v: MOSAIC_PROGRESS_V,
+      date,
       answerId: board.answerId,
       shot: board.shot,
       guessIds: guesses.map((x) => x.node.id),
@@ -424,7 +514,30 @@ export function useMosaicGame(
       seen: [...seen.current],
       recentGroups: recentGroups.current,
     });
-  }, [board, guesses, gaveUp, pathIds, aids.tier, dev]);
+  }, [board, guesses, gaveUp, pathIds, aids.tier, dev, date]);
+
+  // Report the finish upward, ONCE. App turns it into the local stat, the anonymous count and
+  // the leaderboard row, the same way it does for the other three.
+  //
+  // Fired from an effect rather than from guess()/giveUp() because a round can also end by
+  // being restored from storage already finished, and a ref rather than state because firing it
+  // must not itself cause a render. The bench is exempt: its rounds are forced tiers and
+  // autosolves, and recording them would file a real result for a board nobody played.
+  const firedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!daily || dev || status === "playing" || !board) return;
+    if (firedFor.current === date) return;
+    firedFor.current = date;
+    onCompleteRef.current?.({
+      won: status === "won",
+      guesses: guesses.length,
+      maxGuesses: aids.guesses,
+      gaveUp,
+      tier: aids.tier,
+      date,
+      group: groupFor(board.answerId) || null,
+    });
+  }, [daily, dev, status, board, date, guesses.length, aids.guesses, aids.tier, gaveUp, groupFor]);
 
   // Attribution came with the picture, so there is nothing to fetch. Held back until the round
   // is over all the same: the photographer's name is not a clue, but a name under a scrambled

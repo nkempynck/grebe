@@ -203,6 +203,29 @@ export async function recordGridGame(g: { puzzleDate: string; won: boolean; mist
   }
 }
 
+/** Record one finished Mosaic daily via submit_mosaic_game(). Direct INSERT is denied by RLS.
+ *  The server pins `tier` from the date and scores from won/guesses/max; both counts are
+ *  client-reported, exactly as the other three games' are. One row per player per day.
+ *  Best-effort. */
+export async function recordMosaicGame(g: {
+  puzzleDate: string; won: boolean; guesses: number; maxGuesses: number;
+}): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.rpc("submit_mosaic_game", {
+      p_puzzle_date: g.puzzleDate,
+      p_won: g.won,
+      p_guesses: g.guesses,
+      p_max_guesses: g.maxGuesses,
+    });
+    if (error) { console.warn("submit_mosaic_game failed", error); return false; }
+    return true;
+  } catch (e) {
+    console.warn("submit_mosaic_game threw", e);
+    return false;
+  }
+}
+
 // ---- Branches (see supabase/branches.sql) ----
 
 /** Record one finished Branches daily via submit_branches_game() (direct INSERT
@@ -235,7 +258,7 @@ export async function recordBranchesGame(g: {
 // maps a game to its function names so the UI can share one leaderboard component.
 // Lineage additionally filters by clade group; the others don't.
 
-export type GameId = "lineage" | "kinship" | "branches";
+export type GameId = "lineage" | "kinship" | "branches" | "mosaic";
 
 /** A player's standing, normalised across games: the game-specific "par" (avg
  *  guesses / mistakes / correct) is surfaced as a single `par` field + label. */
@@ -254,6 +277,7 @@ const GAME_LB: Record<GameId, GameLbConfig> = {
   lineage:  { lb: "leaderboard",          standing: "leaderboard_standing",          badges: "player_badges",          parKey: "avg_guesses",  parLabel: "guesses",  groups: true },
   kinship:  { lb: "grid_leaderboard",     standing: "grid_leaderboard_standing",     badges: "grid_player_badges",     parKey: "avg_mistakes", parLabel: "mistakes", groups: false },
   branches: { lb: "branches_leaderboard", standing: "branches_leaderboard_standing", badges: "branches_player_badges", parKey: "avg_correct",  parLabel: "correct",  groups: false },
+  mosaic:   { lb: "mosaic_leaderboard",   standing: "mosaic_leaderboard_standing",   badges: "mosaic_player_badges",   parKey: "avg_guesses",  parLabel: "guesses",  groups: false },
 };
 
 /** The noun for a game's population "par" line (e.g. "mistakes"). */
@@ -310,15 +334,15 @@ export async function fetchGameStanding(
 
 export interface CombinedEntry {
   display_name: string;
-  /** The three normalised game scores averaged into a single 0–100 total. */
+  /** The normalised game scores averaged into a single 0–100 total. */
   combined: number;
-  /** How many of the three games the player has a ranked result for that day. */
+  /** How many games the player has a ranked result for that day. */
   played: number;
   /** Each game's score as a 0–100 share of that game's top score on the day. */
-  parts: { lineage: number; kinship: number; branches: number };
+  parts: { lineage: number; kinship: number; branches: number; mosaic: number };
 }
 
-const COMBINED_GAMES: GameId[] = ["lineage", "kinship", "branches"];
+const COMBINED_GAMES: GameId[] = ["lineage", "kinship", "branches", "mosaic"];
 
 /** The combined daily board for one date: each game's per-player score is scaled
  *  to a 0–100 share of that game's best score on the day (so every game weighs the
@@ -339,15 +363,24 @@ export async function fetchCombinedDaily(forDate: string, limit = 200): Promise<
     for (const r of rows) {
       const e =
         acc.get(r.display_name) ??
-        { display_name: r.display_name, combined: 0, played: 0, parts: { lineage: 0, kinship: 0, branches: 0 } };
+        { display_name: r.display_name, combined: 0, played: 0, parts: { lineage: 0, kinship: 0, branches: 0, mosaic: 0 } };
       e.parts[COMBINED_GAMES[gi]] = Math.round((r.total_score / maxOf[gi]) * 100);
       e.played += 1;
       acc.set(r.display_name, e);
     }
   });
+  // THE DENOMINATOR IS NOT ALWAYS FOUR. Mosaic counts only on days it actually ran, which is
+  // to say days its board has at least one ranked row. Dividing by four unconditionally would
+  // have rescored every day before Mosaic launched, quietly cutting three games' worth of
+  // history by a quarter for a game that did not exist yet. The other three stay in the
+  // denominator whether or not they drew an entrant, because that is the arithmetic every
+  // existing day was scored under and changing it would move the same history by the back door.
+  const divisor = 3 + (boards[COMBINED_GAMES.indexOf("mosaic")].length > 0 ? 1 : 0);
   const out = [...acc.values()].map((e) => ({
     ...e,
-    combined: Math.round((e.parts.lineage + e.parts.kinship + e.parts.branches) / 3),
+    combined: Math.round(
+      (e.parts.lineage + e.parts.kinship + e.parts.branches + e.parts.mosaic) / divisor
+    ),
   }));
   out.sort(
     (a, b) => b.combined - a.combined || b.played - a.played || a.display_name.localeCompare(b.display_name)
@@ -362,7 +395,8 @@ export interface CombinedPeriodEntry {
   combined: number;
   /** Days in the window they have a ranked result on. */
   days: number;
-  /** Game-days played across the window (3 per fully-played day). */
+  /** Game-days played across the window (one per game finished, so 4 on a fully-played day
+   *  once Mosaic is running, 3 on days before it launched). */
   games: number;
 }
 

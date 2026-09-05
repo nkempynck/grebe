@@ -47,6 +47,7 @@ import {
   type LineagePuzzle,
   type KinshipPuzzle,
   type BranchesPuzzle,
+  type MosaicPuzzle,
 } from "../data/pinnedPuzzles";
 import { Turnstile, captchaEnabled } from "./Turnstile";
 
@@ -321,6 +322,7 @@ const GAME_META: Record<Game, { icon: string; label: string }> = {
   lineage: { icon: "🧬", label: "Lineage" },
   kinship: { icon: "🧩", label: "Kinship" },
   branches: { icon: "🌿", label: "Branches" },
+  mosaic: { icon: "🖼️", label: "Mosaic" },
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -333,24 +335,34 @@ type PinCellState = "blank" | "past" | "empty" | "partial" | "stale" | "full";
  *  dates. Admin-only, so it's fine that it reveals answers. */
 function DayInspector({ tree, richTree, date, versions, onClose }: { tree: Tree; richTree: Tree; date: string; versions?: Partial<Record<Game, number>>; onClose: () => void }) {
   const cur = useMemo(() => currentVersions(), []);
-  const [data, setData] = useState<{ lineage: LineagePuzzle | null; kinship: KinshipPuzzle | null; branches: BranchesPuzzle | null } | null>(null);
-  const [source, setSource] = useState<Record<Game, "pinned" | "preview">>({ lineage: "preview", kinship: "preview", branches: "preview" });
+  const [data, setData] = useState<{ lineage: LineagePuzzle | null; kinship: KinshipPuzzle | null; branches: BranchesPuzzle | null; mosaic: MosaicPuzzle | null } | null>(null);
+  const [source, setSource] = useState<Record<Game, "pinned" | "preview">>({ lineage: "preview", kinship: "preview", branches: "preview", mosaic: "preview" });
 
   useEffect(() => {
     let alive = true;
     setData(null);
     (async () => {
-      const [l, k, b] = await Promise.all([
+      const [l, k, b, m] = await Promise.all([
         fetchPinnedPuzzle("lineage", date),
         fetchPinnedPuzzle("kinship", date),
         fetchPinnedPuzzle("branches", date),
+        fetchPinnedPuzzle("mosaic", date),
       ]);
       if (!alive) return;
-      setSource({ lineage: l ? "pinned" : "preview", kinship: k ? "pinned" : "preview", branches: b ? "pinned" : "preview" });
+      setSource({
+        lineage: l ? "pinned" : "preview",
+        kinship: k ? "pinned" : "preview",
+        branches: b ? "pinned" : "preview",
+        mosaic: m ? "pinned" : "preview",
+      });
       setData({
         lineage: l ?? computePuzzle("lineage", tree, date),
         kinship: k ?? computePuzzle("kinship", richTree, date),
         branches: b ?? computePuzzle("branches", richTree, date),
+        // Base tree, like Lineage: Mosaic's pool is fame-filtered species with a usable
+        // photograph, and the augment's leaves have neither. The preview also skips the
+        // pin-time avoider, so an unpinned date can show an animal the real pin will not.
+        mosaic: m ?? computePuzzle("mosaic", tree, date),
       });
     })();
     return () => { alive = false; };
@@ -360,7 +372,7 @@ function DayInspector({ tree, richTree, date, versions, onClose }: { tree: Tree;
   // boards resolve, not just base taxa.
   const nm = (id: string) => richTree.byId.get(id)?.common ?? richTree.byId.get(id)?.sciName ?? id;
   const weekday = new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
-  const tier = data?.lineage?.tier ?? data?.kinship?.tier ?? data?.branches?.tier ?? null;
+  const tier = data?.lineage?.tier ?? data?.kinship?.tier ?? data?.branches?.tier ?? data?.mosaic?.tier ?? null;
 
   const tag = (g: Game) => {
     const v = versions?.[g];
@@ -428,6 +440,23 @@ function DayInspector({ tree, richTree, date, versions, onClose }: { tree: Tree;
               </div>
             ) : <div className="admin-day-body is-none">no puzzle</div>}
           </div>
+
+          <div className="admin-day-game">
+            <div className="admin-day-gttl">🖼️ Mosaic {tag("mosaic")}</div>
+            {data.mosaic ? (
+              <div className="admin-day-body">
+                <b>{nm(data.mosaic.answerId)}</b>
+                {/* The overlap this is here to catch: Mosaic's answer sitting on one of the
+                    other two boards the same day. The pin-time avoider prevents it, so a hit
+                    here means the pin was written without one. */}
+                {(data.kinship?.tiles.includes(data.mosaic.answerId) ||
+                  data.branches?.leafIds.includes(data.mosaic.answerId) ||
+                  data.branches?.tray.includes(data.mosaic.answerId)) && (
+                  <span className="admin-day-meta is-none">also on another board today</span>
+                )}
+              </div>
+            ) : <div className="admin-day-body is-none">no puzzle</div>}
+          </div>
         </div>
       )}
     </div>
@@ -467,8 +496,8 @@ function PinManager({ tree, richTree }: { tree: Tree; richTree: Tree }) {
 
   // Coverage stats over FUTURE pinned days (the only re-pinnable ones).
   const stats = useMemo(() => {
-    const stale: Record<Game, number> = { lineage: 0, kinship: 0, branches: 0 };
-    const missing: Record<Game, number> = { lineage: 0, kinship: 0, branches: 0 };
+    const stale: Record<Game, number> = { lineage: 0, kinship: 0, branches: 0, mosaic: 0 };
+    const missing: Record<Game, number> = { lineage: 0, kinship: 0, branches: 0, mosaic: 0 };
     let future = 0;
     let lastDate = "";
     for (const d of index ?? []) {
@@ -652,6 +681,7 @@ const GAME_COLOR: Record<Game, string> = {
   lineage: "var(--brass)",
   kinship: "var(--cold)",
   branches: "var(--vermilion)",
+  mosaic: "var(--indigo)",
 };
 
 const RANGES = [7, 30, 90] as const;
@@ -764,6 +794,7 @@ function Analytics() {
       lineage: { played: Array(dates.length).fill(0), solved: Array(dates.length).fill(0) },
       kinship: { played: Array(dates.length).fill(0), solved: Array(dates.length).fill(0) },
       branches: { played: Array(dates.length).fill(0), solved: Array(dates.length).fill(0) },
+      mosaic: { played: Array(dates.length).fill(0), solved: Array(dates.length).fill(0) },
     };
     for (const r of rows ?? []) {
       const i = idx.get(r.day);
@@ -783,6 +814,7 @@ function Analytics() {
       lineage: { plays: zero(), solves: zero(), signedIn: zero() },
       kinship: { plays: zero(), solves: zero(), signedIn: zero() },
       branches: { plays: zero(), solves: zero(), signedIn: zero() },
+      mosaic: { plays: zero(), solves: zero(), signedIn: zero() },
     };
     for (const r of playRows ?? []) {
       const i = idx.get(r.day);

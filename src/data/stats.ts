@@ -8,7 +8,7 @@
 
 import { DAILY_EPOCH } from "../core/daily";
 import { CLADE_GROUPS, cladeGroup, OTHER_GROUP } from "./clades";
-import { gamePoints, kinshipPoints, branchesPoints, KINSHIP_FREE_REVEALS } from "./score";
+import { gamePoints, kinshipPoints, branchesPoints, mosaicPoints, KINSHIP_FREE_REVEALS } from "./score";
 import { supabase } from "./supabase";
 
 export interface DailyEntry {
@@ -64,6 +64,25 @@ export interface BranchesEntry {
   group?: string;
 }
 
+/** One finished Mosaic daily. There is no partial credit and no help to forfeit: you name the
+ *  animal or you do not, and the only lever is how many guesses it took. `maxGuesses` is stored
+ *  rather than derived from the tier because the band's budget is a tuning number (see
+ *  AIDS_BY_TIER) and a past game must keep the budget it was actually played against. */
+export interface MosaicEntry {
+  won: boolean;
+  /** Guesses spent. On a win, the one that named it. */
+  guesses: number;
+  /** How many the day allowed. */
+  maxGuesses: number;
+  /** Gave up rather than ran out. Scores the same zero; the reveal words it differently. */
+  gaveUp?: boolean;
+  tier: number;
+  /** Points FROZEN at play time; see DailyEntry.points. */
+  points?: number;
+  /** Clade group of the day's animal, as KinshipEntry.group. */
+  group?: string;
+}
+
 /** Free-play tally per clade group (practice is unranked → no points). */
 interface CladeFree {
   played: number;
@@ -71,7 +90,7 @@ interface CladeFree {
 }
 
 export interface StatsStore {
-  version: 6;
+  version: 7;
   /** date (YYYY-MM-DD) -> the Lineage daily result (drives ALL daily stats). */
   history: Record<string, DailyEntry>;
   /** group id -> free-play tally (drives ALL practice stats). */
@@ -80,6 +99,8 @@ export interface StatsStore {
   kinship: Record<string, KinshipEntry>;
   /** date (YYYY-MM-DD) -> the Branches daily result (drives ALL Branches stats). */
   branches: Record<string, BranchesEntry>;
+  /** date (YYYY-MM-DD) -> the Mosaic daily result (drives ALL Mosaic stats). */
+  mosaic: Record<string, MosaicEntry>;
 }
 
 /** Per-clade DAILY performance — score-based. */
@@ -176,11 +197,15 @@ export interface BranchesStats {
   strengthId: string | null;
 }
 
+/** Same shape as Kinship's and Branches': three games, one panel, one set of badges. */
+export type MosaicStats = BranchesStats;
+
 export interface DerivedStats {
   daily: DailyStats;
   practice: PracticeStats;
   kinship: KinshipStats;
   branches: BranchesStats;
+  mosaic: MosaicStats;
 }
 
 const KEY = "grebe.stats.v1"; // renamed from cladensis.* at launch (2026-07-22): the
@@ -203,6 +228,7 @@ const kinshipPts = (e: KinshipEntry) =>
     e.paidReveals ?? Math.max(0, (e.reveals ?? 0) - (KINSHIP_FREE_REVEALS + (e.status === "won" ? 4 : 0)))
   );
 const branchesPts = (e: BranchesEntry) => e.points ?? branchesPoints(e.tier, e.won, e.total, e.correct, e.mistakes ?? 0, e.hinted, e.peeked);
+const mosaicPts = (e: MosaicEntry) => e.points ?? mosaicPoints(e.tier, e.won, e.guesses, e.maxGuesses);
 
 /** One day's frozen points per game, or null if that game wasn't played that day.
  *  For code that needs a single day's score rather than an aggregate (the vs-field
@@ -212,10 +238,11 @@ export function pointsByDate(store: StatsStore) {
     lineage: (d: string) => (store.history?.[d] ? dailyPts(store.history[d]) : null),
     kinship: (d: string) => (store.kinship?.[d] ? kinshipPts(store.kinship[d]) : null),
     branches: (d: string) => (store.branches?.[d] ? branchesPts(store.branches[d]) : null),
+    mosaic: (d: string) => (store.mosaic?.[d] ? mosaicPts(store.mosaic[d]) : null),
   };
 }
 
-const emptyStore = (): StatsStore => ({ version: 6, history: {}, clades: {}, kinship: {}, branches: {} });
+const emptyStore = (): StatsStore => ({ version: 7, history: {}, clades: {}, kinship: {}, branches: {}, mosaic: {} });
 
 /** Accept a raw payload (localStorage or DB) and coerce to a valid store. Lineage
  *  history carries over from any prior version; v1/v2 clade tallies had an
@@ -228,6 +255,7 @@ function migrate(parsed: unknown): StatsStore {
     clades?: Record<string, CladeFree>;
     kinship?: Record<string, KinshipEntry>;
     branches?: Record<string, BranchesEntry>;
+    mosaic?: Record<string, MosaicEntry>;
   } | null;
   if (!s || typeof s !== "object") return emptyStore();
   const v = s.version ?? 0;
@@ -235,11 +263,13 @@ function migrate(parsed: unknown): StatsStore {
   const clades = v >= 3 && s.clades ? s.clades : {};
   const kinship = v >= 4 && s.kinship ? s.kinship : {};
   const branches = v >= 5 && s.branches ? s.branches : {};
+  const mosaic = v >= 7 && s.mosaic ? s.mosaic : {};
   // v6: freeze each entry's points once, so a later formula change can't move past games.
   for (const e of Object.values(history)) e.points = dailyPts(e);
   for (const e of Object.values(kinship)) e.points = kinshipPts(e);
   for (const e of Object.values(branches)) e.points = branchesPts(e);
-  return { version: 6, history, clades, kinship, branches };
+  for (const e of Object.values(mosaic)) e.points = mosaicPts(e);
+  return { version: 7, history, clades, kinship, branches, mosaic };
 }
 
 export function loadStore(): StatsStore {
@@ -317,7 +347,8 @@ export function isEmptyStore(store: StatsStore): boolean {
     Object.keys(store.history).length === 0 &&
     Object.keys(store.clades).length === 0 &&
     Object.keys(store.kinship).length === 0 &&
-    Object.keys(store.branches).length === 0
+    Object.keys(store.branches).length === 0 &&
+    Object.keys(store.mosaic ?? {}).length === 0
   );
 }
 
@@ -407,6 +438,20 @@ export function recordBranches(dateKey: string, entry: BranchesEntry): StatsStor
   return store;
 }
 
+/** Apply a finished Mosaic daily onto a store IN PLACE, once per date. */
+export function applyMosaic(store: StatsStore, dateKey: string, entry: MosaicEntry): StatsStore {
+  if (!store.mosaic) store.mosaic = {};
+  if (!store.mosaic[dateKey]) store.mosaic[dateKey] = { ...entry, points: mosaicPts(entry) };
+  return store;
+}
+
+/** Record a Mosaic daily result to local storage, once per date. */
+export function recordMosaic(dateKey: string, entry: MosaicEntry): StatsStore {
+  const store = applyMosaic(loadStore(), dateKey, entry);
+  saveStore(store);
+  return store;
+}
+
 /** Fold any dated daily results present in `local` but missing from `base` into
  *  `base` (mutated in place), for all three games. Cloud wins on a date collision,
  *  so it never rewrites an already-synced result. Returns the number of entries
@@ -423,13 +468,17 @@ export function mergeMissingDailies(base: StatsStore, local: StatsStore): number
   for (const [d, e] of Object.entries(local.history)) if (!base.history[d]) { base.history[d] = e; added++; }
   for (const [d, e] of Object.entries(local.kinship)) if (!base.kinship[d]) { base.kinship[d] = e; added++; }
   for (const [d, e] of Object.entries(local.branches)) if (!base.branches[d]) { base.branches[d] = e; added++; }
+  for (const [d, e] of Object.entries(local.mosaic ?? {})) {
+    if (!base.mosaic) base.mosaic = {};
+    if (!base.mosaic[d]) { base.mosaic[d] = e; added++; }
+  }
   return added;
 }
 
 /** One day's score as the SERVER has it frozen (my_points(), see
  *  supabase/stats-truth-2026-08-06.sql). */
 export interface ServerPoints {
-  game: "lineage" | "kinship" | "branches";
+  game: "lineage" | "kinship" | "branches" | "mosaic";
   day: string;
   points: number;
 }
@@ -449,10 +498,11 @@ export interface ServerPoints {
  *  exists. This never adds a day the store doesn't have — a bare (date, points)
  *  can't say what was guessed, which clade it was, or whether it was won. */
 export function adoptServerPoints(store: StatsStore, rows: ServerPoints[]): number {
-  const section = {
+  const section: Record<ServerPoints["game"], Record<string, { points?: number }> | undefined> = {
     lineage: store.history,
     kinship: store.kinship,
     branches: store.branches,
+    mosaic: store.mosaic,
   };
   let changed = 0;
   for (const r of rows) {
@@ -760,6 +810,60 @@ function deriveBranches(
   };
 }
 
+/** Mosaic daily stats. The same shape as Kinship's and Branches', because it is the same
+ *  question asked three ways: played, won, streak, points, and per-clade strength.
+ *
+ *  "Flawless" is the one thing a game has to define for itself, and Mosaic has no hints, peeks
+ *  or mistakes to forfeit — the only currency is guesses. So a flawless board is one named on
+ *  the FIRST guess, from the picture alone with nothing in the trait table yet. Rare on purpose:
+ *  it is the badge for recognising an animal from 576 shuffled squares. */
+function deriveMosaic(
+  mosaic: Record<string, MosaicEntry>,
+  todayKey: string,
+  groupForDate?: DailyGroupResolver
+): MosaicStats {
+  const dates = Object.keys(mosaic);
+  const played = dates.length;
+  const isWin = (d: string) => mosaic[d].won;
+  const isFlawless = (d: string) => mosaic[d].won && mosaic[d].guesses === 1;
+  const wins = dates.filter(isWin).length;
+  const flawless = dates.filter(isFlawless).length;
+
+  let total = 0;
+  let best = 0;
+  for (const d of dates) {
+    const p = mosaicPts(mosaic[d]);
+    total += p;
+    if (p > best) best = p;
+  }
+
+  const { currentStreak, maxStreak, bestStreakStart, bestStreakEnd } = deriveStreaks(dates, todayKey, isWin);
+
+  const { groups, strengthId } = cladeScores(
+    dates,
+    (d) => mosaic[d].group ?? groupForDate?.(d) ?? null,
+    isWin,
+    (d) => mosaicPts(mosaic[d])
+  );
+
+  return {
+    played,
+    wins,
+    flawless,
+    winPct: pct(wins, played),
+    currentStreak,
+    maxStreak,
+    playedDates: [...dates].sort(),
+    solvedDates: dates.filter(isWin).sort(),
+    flawlessDates: dates.filter(isFlawless).sort(),
+    bestStreakStart,
+    bestStreakEnd,
+    points: { total: Math.round(total), avg: played ? Math.round(total / played) : 0, best: Math.round(best) },
+    groups,
+    strengthId,
+  };
+}
+
 /** Days before the public launch (DAILY_EPOCH) were a shakedown: their server rows
  *  were wiped at launch (supabase/launch-reset.sql), so counting them locally would
  *  inflate streaks, totals and badges past anything the boards can corroborate.
@@ -780,6 +884,7 @@ export interface GroupResolvers {
   lineage?: DailyGroupResolver;
   kinship?: DailyGroupResolver;
   branches?: DailyGroupResolver;
+  mosaic?: DailyGroupResolver;
 }
 
 export function derive(store: StatsStore, todayKey: string, groupFor?: GroupResolvers): DerivedStats {
@@ -792,5 +897,6 @@ export function derive(store: StatsStore, todayKey: string, groupFor?: GroupReso
     practice: derivePractice(store.clades ?? {}),
     kinship: deriveKinship(sinceLaunch(store.kinship ?? {}), todayKey, groupFor?.kinship),
     branches: deriveBranches(sinceLaunch(store.branches ?? {}), todayKey, groupFor?.branches),
+    mosaic: deriveMosaic(sinceLaunch(store.mosaic ?? {}), todayKey, groupFor?.mosaic),
   };
 }

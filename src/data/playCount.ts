@@ -2,10 +2,14 @@ import { supabase } from "./supabase";
 import { loadDailyProgress } from "./dailyProgress";
 import { loadGridProgress } from "./gridProgress";
 import { loadBranchesProgress } from "./branchesProgress";
+import { loadMosaicProgress } from "./mosaicProgress";
 import { loadStore } from "./stats";
 
-/** The three daily games, as bump_play() names them (see supabase/plays.sql). */
-export type CountedGame = "lineage" | "kinship" | "branches";
+/** The four daily games, as bump_play() names them (see supabase/plays.sql, widened for
+ *  Mosaic by the dated patch alongside it). The server drops an unknown game SILENTLY, so a
+ *  name that is here and not there costs nothing and reports nothing: the symptom is a flat
+ *  zero in the admin activity view, never an error. */
+export type CountedGame = "lineage" | "kinship" | "branches" | "mosaic";
 
 /** The day counting started. Earlier dates have no anonymous data at all (the
  *  counter didn't exist), which is NOT the same as nobody playing — the admin
@@ -126,5 +130,13 @@ export async function catchUpCounts(today: string): Promise<void> {
     // Branches progress stores no win flag (it's derived from the board), so take it
     // from the stats entry this device wrote when the round finished.
     await countPlay("branches", today, loadStore().branches?.[today]?.won ?? false);
+  }
+  // Mosaic keeps no status field: the board is finished when it was given up on, or when one
+  // of the guesses was right. Both are answerable from the blob, which is why this reads the
+  // guess ids rather than a flag that would have to be kept in step with the hook.
+  const mosaic = loadMosaicProgress();
+  if (mosaic?.date === today) {
+    const won = mosaic.guessIds.includes(mosaic.answerId);
+    if (won || mosaic.gaveUp) await countPlay("mosaic", today, won);
   }
 }

@@ -68,8 +68,8 @@ export interface OverallBadges {
   month_dates?: string[];
 }
 
-/** Where a celebrated win came from: one of the three games, or the combined board. */
-export type WinSource = "lineage" | "kinship" | "branches" | "overall";
+/** Where a celebrated win came from: one of the four games, or the combined board. */
+export type WinSource = "lineage" | "kinship" | "branches" | "mosaic" | "overall";
 
 /** Celebrated-wins storage, one key per source so each game's banner is tracked
  *  independently. Lineage keeps the original un-suffixed key: it was the only
@@ -79,6 +79,7 @@ const SEEN_WINS_KEY: Record<WinSource, string> = {
   lineage: "grebe.seenWins",
   kinship: "grebe.seenWins.kinship",
   branches: "grebe.seenWins.branches",
+  mosaic: "grebe.seenWins.mosaic",
   overall: "grebe.seenWins.overall",
 };
 
@@ -284,6 +285,12 @@ export function lineageBadges(stats: DerivedStats): Badge[] {
 export function kinshipBadges(stats: DerivedStats): Badge[] {
   const k = stats.kinship;
   return milestoneBadges({ ns: "kin", noun: "board", playedDates: k.playedDates, solvedDates: k.solvedDates, maxStreak: k.maxStreak, bestStreakStart: k.bestStreakStart, flawlessDates: k.flawlessDates, flawlessDesc: "no mistakes or paid peeks" });
+}
+
+/** Mosaic milestones, including flawless (named on the first guess) pictures. */
+export function mosaicBadges(stats: DerivedStats): Badge[] {
+  const m = stats.mosaic;
+  return milestoneBadges({ ns: "mos", noun: "picture", playedDates: m.playedDates, solvedDates: m.solvedDates, maxStreak: m.maxStreak, bestStreakStart: m.bestStreakStart, flawlessDates: m.flawlessDates, flawlessDesc: "no wrong guesses" });
 }
 
 /** Branches milestones, including flawless (no mistake, hint or peek) full rebuilds. */

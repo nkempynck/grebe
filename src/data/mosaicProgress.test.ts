@@ -5,6 +5,7 @@ import {
 
 const board = (over: Partial<MosaicProgress> = {}): MosaicProgress => ({
   v: MOSAIC_PROGRESS_V,
+  date: "2026-09-07",
   answerId: "lion",
   shot: { src: "https://x/lion-1024.jpg", full: "https://x/lion.jpg", credit: null },
   guessIds: ["tiger", "wolf"],
@@ -57,9 +58,23 @@ describe("mosaic progress, from storage", () => {
 describe("mosaic progress, against the world", () => {
   const opts = {
     tier: 1,
+    date: "2026-09-07",
     canBeAnswer: (id: string) => id === "lion",
     knows: (id: string) => ["lion", "tiger", "carnivores"].includes(id),
   };
+
+  it("will not resume yesterday's board", () => {
+    // The rollover. Mosaic is a daily: a board dealt on another date is not today's puzzle,
+    // however far into it the player was.
+    expect(usableProgress(board({ date: "2026-09-06" }), opts)).toBeNull();
+  });
+
+  it("will not resume a board the schedule has moved off", () => {
+    // A re-pin changed the day's answer under a board already in progress. Resuming it would
+    // let one player finish a puzzle nobody else was given.
+    expect(usableProgress(board(), { ...opts, expectedAnswerId: "tiger" })).toBeNull();
+    expect(usableProgress(board(), { ...opts, expectedAnswerId: "lion" })?.answerId).toBe("lion");
+  });
 
   it("resumes a board that is still playable", () => {
     expect(usableProgress(board(), opts)?.answerId).toBe("lion");

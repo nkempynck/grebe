@@ -240,6 +240,18 @@ export function mosaicPoints(
   if (!won) return 0;
   const G = Math.max(2, Math.round(maxGuesses));
   const k = Math.max(1, Math.round(guesses));
-  const spent = ((k - 1) * k) / ((G - 1) * G);
-  return Math.max(0, Math.round(tierWeight(tier) * (1 - (1 - MOSAIC_WIN_FLOOR) * spent)));
+  // WHOLE NUMBERS UNTIL THE LAST STEP, and this is not fussiness. The server scores the same
+  // formula in Postgres `numeric`, which is exact decimal, while this ran on binary floats: at
+  // tier 1, guess 7 of 8, the true value is exactly 32.5, and 0.9 * 0.75 in binary comes out a
+  // hair over 0.675, so this returned 32 while the leaderboard ranked 33. Three of the 112
+  // (tier, budget, guess) combinations disagreed by a point — the player is shown one number
+  // and ranked on another.
+  //
+  // Written as one integer ratio, both sides land on the same exact rational and round it the
+  // same way, verified across every tier for budgets 2..40. The 10 and the 9 are the win floor
+  // (1 - 0.1) cleared of decimals; MOSAIC_WIN_FLOOR stays the documented name for it.
+  const floorPct = Math.round(MOSAIC_WIN_FLOOR * 10); // 1
+  const den = (G - 1) * G * 10;
+  const num = den - (10 - floorPct) * (k - 1) * k;
+  return Math.max(0, Math.round((tierWeight(tier) * num) / den));
 }

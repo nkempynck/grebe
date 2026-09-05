@@ -15,9 +15,9 @@ import { CLADE_GROUPS } from "./clades";
 const won = (): DailyEntry => ({ status: "won", guesses: 3, hints: 0, tier: 1 });
 const gaveUp = (guesses: number): DailyEntry => ({ status: "gaveup", guesses, hints: 0, tier: 1 });
 
-const store = (history: Record<string, DailyEntry>): StatsStore => ({ version: 6, history, clades: {}, kinship: {}, branches: {} });
-const kinStore = (kinship: Record<string, KinshipEntry>): StatsStore => ({ version: 6, history: {}, clades: {}, kinship, branches: {} });
-const brnStore = (branches: Record<string, BranchesEntry>): StatsStore => ({ version: 6, history: {}, clades: {}, kinship: {}, branches });
+const store = (history: Record<string, DailyEntry>): StatsStore => ({ version: 7, history, clades: {}, kinship: {}, branches: {}, mosaic: {} });
+const kinStore = (kinship: Record<string, KinshipEntry>): StatsStore => ({ version: 7, history: {}, clades: {}, kinship, branches: {}, mosaic: {} });
+const brnStore = (branches: Record<string, BranchesEntry>): StatsStore => ({ version: 7, history: {}, clades: {}, kinship: {}, branches, mosaic: {} });
 
 // Sign-in carryover: a daily finished while SIGNED OUT is saved locally, and its
 // leaderboard row replays via pendingSubmits — but a returning account's authoritative
@@ -128,11 +128,12 @@ describe("pre-launch results don't count", () => {
 
   it("drops days before the epoch from every game's stats", () => {
     const s: StatsStore = {
-      version: 6,
+      version: 7,
       history: { [beforeLaunch]: won(), [atLaunch]: won() },
       clades: {},
       kinship: { [beforeLaunch]: { status: "won", mistakes: 0, tier: 1 } },
       branches: { [beforeLaunch]: { won: true, correct: 5, total: 5, hinted: 0, peeked: 0, tier: 1 } },
+      mosaic: { [beforeLaunch]: { won: true, guesses: 3, maxGuesses: 8, tier: 1 } },
     };
     const d = derive(s, TODAY);
     expect(d.daily.played).toBe(1);                    // launch day only
@@ -254,7 +255,7 @@ describe("per-clade scoring beyond Lineage", () => {
 
   it("keeps each game's clades separate", () => {
     const s: StatsStore = {
-      version: 6, clades: {}, history: {},
+      version: 7, clades: {}, history: {}, mosaic: {},
       kinship: { "2026-08-10": kin(100, BIRDS) },
       branches: { "2026-08-10": brn(20, BIRDS) },
     };
@@ -295,11 +296,12 @@ describe("server points win over the local freeze", () => {
 
   it("routes each game to its own section", () => {
     const s: StatsStore = {
-      version: 6,
+      version: 7,
       history: { "2026-08-01": day(10) },
       clades: {},
       kinship: { "2026-08-01": { status: "won", mistakes: 0, reveals: 0, tier: 1, points: 20 } },
       branches: { "2026-08-01": { won: true, total: 8, correct: 8, hinted: 0, peeked: 0, mistakes: 0, tier: 1, points: 30 } },
+      mosaic: { "2026-08-01": { won: true, guesses: 2, maxGuesses: 8, tier: 1, points: 40 } },
     };
     const moved = adoptServerPoints(s, [
       { game: "lineage", day: "2026-08-01", points: 11 },

@@ -3,7 +3,8 @@ import taxonomy from "./taxonomy.json";
 import { buildTree } from "../core";
 import { dailyAnswerFor, resolveDailyRules } from "./dailySchedule";
 import { gridBoardFor } from "./gridDaily";
-import { computePuzzle, encodePuzzle, kinshipBoard } from "./pinnedPuzzles";
+import { avoidMapFrom, computePuzzle, encodePuzzle, kinshipBoard } from "./pinnedPuzzles";
+import { mosaicAnswerFor, mosaicMinViews, mosaicScopeId, mosaicTierForDate } from "../core/mosaic";
 
 const tree = buildTree((taxonomy as { nodes: Parameters<typeof buildTree>[0] }).nodes);
 
@@ -68,5 +69,80 @@ describe("kinshipBoard reconstruction", () => {
     const board = gridBoardFor(tree, d)!;
     const rebuilt = kinshipBoard(tree, d, computePuzzle("kinship", tree, d)!);
     expect(rebuilt).toEqual(board);
+  });
+});
+
+// Mosaic's resolver. The only one that takes something beyond (tree, date): the day's answer
+// has to dodge whatever Kinship and Branches already have on the board, and that is supplied at
+// pin time rather than derived, because deriving it means generating two boards per day walked.
+describe("mosaic resolver", () => {
+  const dates = ["2026-09-07", "2026-09-12", "2026-11-03"];
+
+  it("matches mosaicAnswerFor and carries the weekday band", () => {
+    for (const d of dates) {
+      const p = computePuzzle("mosaic", tree, d)!;
+      expect(p.answerId).toBe(mosaicAnswerFor(tree, d));
+      expect(p.tier).toBe(mosaicTierForDate(d));
+      expect(p.scopeRootId).toBe(mosaicScopeId(tree));
+    }
+  });
+
+  it("draws the opening days from the famous pool", () => {
+    // The band's floor has to reach the pinned answer, not just the settings row it came from.
+    for (const d of dates) {
+      const p = computePuzzle("mosaic", tree, d)!;
+      const views = tree.byId.get(p.answerId)!.views ?? 0;
+      expect(views, `${d} tier ${p.tier}`).toBeGreaterThanOrEqual(mosaicMinViews(p.tier));
+    }
+  });
+
+  it("survives base64 storage", () => {
+    const p = computePuzzle("mosaic", tree, "2026-09-07")!;
+    expect(JSON.parse(atob(encodePuzzle("mosaic", p).enc))).toEqual(p);
+  });
+
+  it("moves off an animal another game is using that day", () => {
+    const d = "2026-09-07";
+    const plain = computePuzzle("mosaic", tree, d)!;
+    const dodged = computePuzzle("mosaic", tree, d, {
+      avoidOn: (day) => (day === d ? new Set([plain.answerId]) : new Set()),
+    })!;
+    expect(dodged.answerId).not.toBe(plain.answerId);
+  });
+});
+
+// The avoider's input side: pinned rows in, "species in play that day" out. Kept as a pure
+// function of rows because the two callers hold different clients — the in-app re-pin uses the
+// player's session, `npm run pin` uses the service key — and only the decoding is shared.
+describe("avoidMapFrom", () => {
+  const d = "2026-09-07";
+  const rows = () => {
+    const kin = computePuzzle("kinship", tree, d)!;
+    const bra = computePuzzle("branches", tree, d)!;
+    return [
+      { game: "kinship", puzzle_date: d, payload: encodePuzzle("kinship", kin) },
+      { game: "branches", puzzle_date: d, payload: encodePuzzle("branches", bra) },
+      // Another game's row, which must not contribute: Lineage's answer is a legitimate Mosaic
+      // answer, and blocking it would shrink the pool for no reason.
+      { game: "lineage", puzzle_date: d, payload: encodePuzzle("lineage", computePuzzle("lineage", tree, d)!) },
+    ];
+  };
+
+  it("collects the species both boards have in play", () => {
+    const map = avoidMapFrom(rows());
+    const got = map.get(d)!;
+    const kin = computePuzzle("kinship", tree, d)!;
+    const bra = computePuzzle("branches", tree, d)!;
+    for (const t of kin.tiles) expect(got.has(t)).toBe(true);
+    for (const l of bra.leafIds) expect(got.has(l)).toBe(true);
+    for (const t of bra.tray) expect(got.has(t)).toBe(true);
+    // Clades are hidden from the LOOKUP, not from the draw: an answer is a species, so a group
+    // id in this set could only ever block something that was never a candidate.
+    expect(got.has(kin.groups[0].cladeId)).toBe(false);
+    expect(got.has(computePuzzle("lineage", tree, d)!.answerId)).toBe(false);
+  });
+
+  it("reports nothing for a day it has no rows for", () => {
+    expect(avoidMapFrom(rows()).get("2026-09-08")).toBeUndefined();
   });
 });

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { DerivedStats } from "../data/stats";
 import type { UsePlayer } from "../hooks/usePlayer";
 import { fetchGameBadges, fetchGameStanding, type GameId, type GameStanding } from "../data/games";
-import { competitiveBadges, lineageBadges, kinshipBadges, branchesBadges, nextPlayMilestone, type Badge, type PlayerBadges } from "../data/badges";
+import { competitiveBadges, lineageBadges, kinshipBadges, branchesBadges, mosaicBadges, nextPlayMilestone, type Badge, type PlayerBadges } from "../data/badges";
 import { BadgeGrid } from "./BadgeGrid";
 
 interface Props {
@@ -12,8 +12,8 @@ interface Props {
   game: GameId;
 }
 
-const LABEL: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches" };
-const NOUN: Record<GameId, string> = { lineage: "puzzle", kinship: "board", branches: "board" };
+const LABEL: Record<GameId, string> = { lineage: "Lineage", kinship: "Kinship", branches: "Branches", mosaic: "Mosaic" };
+const NOUN: Record<GameId, string> = { lineage: "puzzle", kinship: "board", branches: "board", mosaic: "picture" };
 
 export function BadgesPanel({ stats, player, game }: Props) {
   const [server, setServer] = useState<PlayerBadges | null>(null);
@@ -31,10 +31,18 @@ export function BadgesPanel({ stats, player, game }: Props) {
 
   // Local (streak/play/flawless) milestones per game, plus the server-side
   // competitive badges shared by all games.
-  const local = game === "lineage" ? lineageBadges(stats) : game === "kinship" ? kinshipBadges(stats) : branchesBadges(stats);
+  const local =
+    game === "lineage" ? lineageBadges(stats)
+    : game === "kinship" ? kinshipBadges(stats)
+    : game === "mosaic" ? mosaicBadges(stats)
+    : branchesBadges(stats);
   const badges: Badge[] = [...competitiveBadges(server), ...local];
   const noun = NOUN[game];
-  const played = game === "lineage" ? stats.daily.played : game === "kinship" ? stats.kinship.played : stats.branches.played;
+  const played =
+    game === "lineage" ? stats.daily.played
+    : game === "kinship" ? stats.kinship.played
+    : game === "mosaic" ? stats.mosaic.played
+    : stats.branches.played;
   const nextUp = nextPlayMilestone(played, noun);
 
   return (

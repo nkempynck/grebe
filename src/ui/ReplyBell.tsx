@@ -16,6 +16,7 @@ const GAME_LABEL: Record<string, string> = {
   lineage: "Lineage",
   kinship: "Kinship",
   branches: "Branches",
+  mosaic: "Mosaic",
 };
 
 /** Which day a reply landed on, in words: boards are readable for two days, so

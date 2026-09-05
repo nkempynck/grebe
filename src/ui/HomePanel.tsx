@@ -39,7 +39,8 @@ const GAMES = [
     tagline:
       "Name the animal in a photograph that has been cut into tiles and shuffled. Every wrong guess puts a little more of the picture back together.",
     inspired: null,
-    // Not a daily yet, so the card must not promise one: the animal is sampled per visit.
+    // The flag now means "newest", not "unfinished": Mosaic is a scored daily like the other
+    // three. Kept on while it settles, so a rough edge is expected rather than surprising.
     beta: true,
   },
 ];
@@ -60,8 +61,11 @@ export function HomePanel({ onPlay }: Props) {
           <button key={game.id} className={`home-card is-${game.id}`} data-game={game.id} onClick={() => onPlay(game.id)}>
             <div className="home-card-top">
               <span className="home-card-ico" aria-hidden="true">{game.icon}</span>
+              {/* A new game still says which day it is: it IS a daily, and dropping that in
+                  favour of the badge made the card read as a different kind of thing. */}
               <span className="home-card-daily">
-                {game.beta ? "Beta" : label === "Preview" ? "Preview" : `Daily ${label}`}
+                {label === "Preview" ? "Preview" : `Daily ${label}`}
+                {game.beta && <span className="home-card-new">New</span>}
               </span>
             </div>
             <h2 className="home-card-name">{game.name}</h2>

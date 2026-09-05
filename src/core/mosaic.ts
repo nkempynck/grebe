@@ -65,7 +65,16 @@ export const MOSAIC_MAX_GUESSES = MOSAIC_BLUR_LADDER.length + 1;
  *  your last guess without learning what you are warm to. Same underlying tree, far less to
  *  act on, and neither one ever names the shared clade — that is Lineage's mechanic and
  *  handing it over would make this game a reskin. */
-export type MosaicProximityMode = "named" | "degrees";
+/** Which closeness reading the guess table prints. Both are always computed (see mosaicScore),
+ *  so this only decides what is shown.
+ *
+ *  "both" is not a fourth reading, it is the named rank with the number beside it. It exists
+ *  because the two are not a ladder of the same quantity: the rank is coarse and directly
+ *  ACTIONABLE (a "same order" reading is a scope you can click into with the drill), the number
+ *  is precise and only useful by comparison across several guesses. Measured over 150 pairs the
+ *  number carries far more information (4.25 bits against 0.59), which is exactly why it is not
+ *  the beginner's reading: information you cannot act on is not help. */
+export type MosaicProximityMode = "both" | "named" | "degrees";
 
 /** What the player gets besides the picture, on a given day. */
 export interface MosaicAids {
@@ -84,35 +93,48 @@ export interface MosaicAids {
 }
 
 /** THE WEEK. Mosaic's difficulty is not the picture — every day runs the same ladder against
- *  the same pool — it is how much help you get turning a picture into a name. Two levers, each
- *  stepping down once:
+ *  the same pool — it is how much help you get turning a picture into a name.
  *
- *    Mon/Tue  lookup + subset, named proximity   (Gentle)    8 guesses
- *    Wed      lookup + subset, degrees           (Tricky)    8 guesses
- *    Thu/Fri  subset, degrees                    (Harder)    9 guesses
- *    Sat/Sun  nothing but the picture, degrees   (Brutal)   10 guesses
+ *    Mon/Tue  drill + lookup, rank AND degrees   (Gentle)   8 guesses, 20000 view floor
+ *    Wed      drill + lookup, rank              (Tricky)   8 guesses,  9000 view floor
+ *    Thu/Fri  drill + lookup, degrees           (Harder)   9 guesses,  9000 view floor
+ *    Sat/Sun  drill, degrees                    (Brutal)   9 guesses,  9000 view floor
  *
- *  The guess count is the compensation, and it is deliberately small. A day that takes the
- *  narrowing away has removed the only tool for turning "some kind of bird" into a name, so it
- *  gives back time to look instead: the reveal is resampled onto more rungs (see mosaicLadder),
- *  so the picture comes back in finer steps rather than the player getting more attempts at the
- *  clearest one. More time with the picture, not more shots at a nearly-solved board.
+ *  THE RULE THIS TABLE OBEYS: one lever tightens per boundary, never two. Tuesday to Wednesday
+ *  is the deliberate exception, because Wednesday's mechanics are otherwise identical to
+ *  Monday's and something has to separate them; the fame floor is that something, and the
+ *  degrees column goes at the same time. Wednesday to Thursday moves the closeness reading and
+ *  nothing else. Friday to Saturday takes the lookup and nothing else.
+ *
+ *  WHY THE DRILL IS ON ALL WEEK, including the weekend. Losing it was never one lever among
+ *  several: it takes the candidate NAME list with it, and a player who cannot turn "some kind of
+ *  bird" into a name has not been given a harder puzzle, they have been given a different and
+ *  worse one. The weekend is now the picture, the table, the drill and a number, which is
+ *  plenty without being a wall.
+ *
+ *  WHY THE RANK COMES BEFORE THE NUMBER, when the number measurably carries more information:
+ *  see MosaicProximityMode. Short version, the rank is a scope you can click.
+ *
+ *  The guess count is compensation for the lookup, and it is deliberately small. It buys TIME
+ *  with the picture rather than extra shots at the clearest rung: the reveal is resampled onto
+ *  more rungs (see mosaicLadder), so the picture comes back in finer steps. It stops at 9,
+ *  where it used to reach 10, because 10 was paying for the lost candidate list and the
+ *  weekend no longer loses it.
  *
  *  Those are the same four bands, on the same weekdays, as Lineage's resolution ramp — see
  *  DIFFICULTY in data/dailySchedule. Not a coincidence worth engineering around, but the
  *  labels line up, so the two games describe their Wednesday the same way.
  *
- *  Note what this ramp does NOT touch: the character table is on all week. It is the game's
- *  mechanic, not an aid, and a Sunday without it is not a harder puzzle but a different and
- *  worse one. */
+ *  Note what this ramp does NOT touch: the character table is on all week, for the same reason
+ *  the drill now is. It is the game's mechanic, not an aid. */
 const AIDS_BY_TIER: ReadonlyArray<Omit<MosaicAids, "tier">> = [
-  { lookup: true,  subset: true,  proximity: "named",   guesses: 8 },  // Mon
-  { lookup: true,  subset: true,  proximity: "named",   guesses: 8 },  // Tue
-  { lookup: true,  subset: true,  proximity: "degrees", guesses: 8 },  // Wed
-  { lookup: false, subset: true,  proximity: "degrees", guesses: 9 },  // Thu
-  { lookup: false, subset: true,  proximity: "degrees", guesses: 9 },  // Fri
-  { lookup: false, subset: false, proximity: "degrees", guesses: 10 }, // Sat
-  { lookup: false, subset: false, proximity: "degrees", guesses: 10 }, // Sun
+  { lookup: true,  subset: true, proximity: "both",    guesses: 8 }, // Mon
+  { lookup: true,  subset: true, proximity: "both",    guesses: 8 }, // Tue
+  { lookup: true,  subset: true, proximity: "named",   guesses: 8 }, // Wed
+  { lookup: true,  subset: true, proximity: "degrees", guesses: 9 }, // Thu
+  { lookup: true,  subset: true, proximity: "degrees", guesses: 9 }, // Fri
+  { lookup: false, subset: true, proximity: "degrees", guesses: 9 }, // Sat
+  { lookup: false, subset: true, proximity: "degrees", guesses: 9 }, // Sun
 ];
 
 /** Weekday difficulty tier for a date (Mon=1 … Sun=7) — matches dailySchedule and the other
@@ -147,7 +169,8 @@ export function mosaicScopeId(tree: Tree): string {
   return tree.rootId;
 }
 
-/** Below this many Wikipedia pageviews a species is not a fair answer.
+/** Below this many Wikipedia pageviews a species is not a fair answer. The floor from Wednesday
+ *  on; Monday and Tuesday sit higher (see MOSAIC_MIN_VIEWS_FAMOUS).
  *
  *  It started at 20000 (472 animals), because naming an organism you have never met is not
  *  hard, it is unfair. The candidate list changes that calculus: once the drill is narrow the
@@ -156,19 +179,23 @@ export function mosaicScopeId(tree: Tree): string {
  *  headline species, which was making boards easy on fame alone. */
 export const MOSAIC_MIN_VIEWS = 9000;
 
-/** …and where the floor goes back on the days that have no candidate list.
+/** …and the higher floor the opening days draw against: 472 animals, median 37000 views
+ *  against the base pool's 20000.
  *
- *  9000 is only defensible BECAUSE of the list: an Amami rabbit is recognisable among twelve
- *  names and unnameable from nothing. Saturday and Sunday take the narrowing away, so on those
- *  days the animal itself has to be recallable, and the floor returns to where it sat before the
- *  list existed. Unfair is not the same as hard, and the weekend was quietly being both. */
-export const MOSAIC_MIN_VIEWS_NO_LIST = 20000;
+ *  This is Monday and Tuesday's ONLY difference from Wednesday, so it has to be a real step,
+ *  and it is the whole reason Wednesday exists as its own band. */
+export const MOSAIC_MIN_VIEWS_FAMOUS = 20000;
 
-/** The obscurity floor for a tier: it tracks the candidate list, not the difficulty band. What
- *  makes an unfamiliar animal fair is being able to RECOGNISE its name in a list, so the floor
- *  rises exactly where that list is gone. */
+/** The obscurity floor for a tier.
+ *
+ *  READ THIS BEFORE CHANGING IT. This used to be `aids.subset ? base : higher`, on the reasoning
+ *  that an unfamiliar animal is fair when you can RECOGNISE its name in a candidate list and
+ *  unfair when you have to recall it cold. That reasoning was sound and its wiring was a trap:
+ *  the moment the drill went on all week the condition became constant, every day silently
+ *  collapsed to the base floor, and the weekend would have got MORE obscure by accident while
+ *  looking like nothing had changed. The floor is now stated per band, where it can be read. */
 export function mosaicMinViews(tier: number): number {
-  return mosaicAids(tier).subset ? MOSAIC_MIN_VIEWS : MOSAIC_MIN_VIEWS_NO_LIST;
+  return tier <= 2 ? MOSAIC_MIN_VIEWS_FAMOUS : MOSAIC_MIN_VIEWS;
 }
 
 export interface MosaicCell {
@@ -328,6 +355,22 @@ export const MOSAIC_ANTI_REPEAT_WINDOW = 45;
  *  one you ask for. Before it, days are drawn with no history. */
 export const MOSAIC_ANCHOR = "2026-08-01";
 
+/** Salt mixed into every date's seed, so the whole schedule can be re-rolled at will.
+ *
+ *  WHY THIS EXISTS. The schedule is a pure function of (tree, date, scope), which is what makes
+ *  a pin reproducible and is also the problem: anyone who runs the generator has read the next
+ *  two years. During development that is exactly what happens, and it happened here — the first
+ *  fortnight was printed to check the ramp, which spoiled it for the person the game is for.
+ *
+ *  Changing this string moves EVERY unpinned date and no pinned one, so it is safe to change
+ *  right up until the first pin and never afterwards. If a schedule matters to you and you would
+ *  rather nobody else had seen it, set it to something of your own and re-pin BEFORE launch: the
+ *  value never has to be shared, and nothing else in the code needs to know what it is.
+ *
+ *  After the first pin, treat it as frozen. Changing it then leaves pinned days on the old walk
+ *  and unpinned days on the new one, and the anti-repeat window straddles the seam. */
+export const MOSAIC_SCHEDULE_SALT = "s1";
+
 const shiftDay = (d: string, n: number) => {
   const t = new Date(`${d}T00:00:00Z`);
   t.setUTCDate(t.getUTCDate() + n);
@@ -336,6 +379,42 @@ const shiftDay = (d: string, n: number) => {
 
 /** date -> answer, per (tree, scope). The walk is forward-only and each day is O(pool). */
 const answerCache = new WeakMap<Tree, Map<string, Map<string, string>>>();
+
+/** One weighted draw's worth of pool, built once per (tree, scope, floor).
+ *
+ *  There is more than one floor in a week now (see mosaicMinViews), so the walk cannot hold a
+ *  single pool the way it used to. Building it per day would rebuild the same two pools forty
+ *  times over on the way to a date, hence the cache. */
+interface MosaicDraw {
+  pool: string[];
+  weights: number[];
+  total: number;
+}
+const drawCache = new WeakMap<Tree, Map<string, MosaicDraw>>();
+
+function mosaicDraw(tree: Tree, scope: string, minViews: number): MosaicDraw {
+  let byKey = drawCache.get(tree);
+  if (!byKey) { byKey = new Map(); drawCache.set(tree, byKey); }
+  const key = `${scope} ${minViews}`;
+  let d = byKey.get(key);
+  if (!d) {
+    const pool = mosaicPool(tree, scope, minViews);
+    // Flatter than a square root. sqrt still drew the same handful of headliners over and over,
+    // which is a second way of making the game easy; this keeps a lean toward the known without
+    // letting the top of the pool dominate.
+    const weights = pool.map((id) => Math.pow(tree.byId.get(id)?.views ?? 1, 0.3));
+    let total = 0;
+    for (const w of weights) total += w;
+    d = { pool, weights, total };
+    byKey.set(key, d);
+  }
+  return d;
+}
+
+/** The pool a given DATE draws from: its band's fame floor, from mosaicMinViews. Monday and
+ *  Tuesday deal from the famous 472; the rest of the week from all 942. */
+const drawOn = (tree: Tree, scope: string, dateKey: string): MosaicDraw =>
+  mosaicDraw(tree, scope, mosaicMinViews(mosaicTierForDate(dateKey)));
 
 /** The day's answer, avoiding anything served in the previous MOSAIC_ANTI_REPEAT_WINDOW days.
  *
@@ -358,18 +437,17 @@ export function mosaicAnswerFor(
   avoidOn?: (dateKey: string) => ReadonlySet<string>
 ): string | null {
   const scope = scopeRootId ?? mosaicScopeId(tree);
-  const pool = mosaicPool(tree, scope);
-  if (!pool.length) return null;
-  // Flatter than a square root. sqrt still drew the same handful of headliners over and over,
-  // which is a second way of making the game easy; this keeps a lean toward the known without
-  // letting the top of the pool dominate.
-  const weights = pool.map((id) => Math.pow(tree.byId.get(id)?.views ?? 1, 0.3));
-  let total = 0;
-  for (const w of weights) total += w;
+  if (!mosaicDraw(tree, scope, MOSAIC_MIN_VIEWS).pool.length) return null;
 
-  const seedOf = (d: string, attempt: number) =>
-    attempt === 0 ? `grebe:mosaic:${d}:${scope}` : `grebe:mosaic:${d}:${scope}:${attempt}`;
-  if (dateKey < MOSAIC_ANCHOR) return drawFrom(pool, weights, total, seedOf(dateKey, 0));
+  const seedOf = (d: string, attempt: number) => {
+    const base = `grebe:mosaic:${MOSAIC_SCHEDULE_SALT}:${d}:${scope}`;
+    return attempt === 0 ? base : `${base}:${attempt}`;
+  };
+  const drawDay = (d: string, attempt: number) => {
+    const { pool, weights, total } = drawOn(tree, scope, d);
+    return drawFrom(pool, weights, total, seedOf(d, attempt));
+  };
+  if (dateKey < MOSAIC_ANCHOR) return drawDay(dateKey, 0);
 
   // The memo is per (tree, scope) and holds picks made under ONE set of rules. An avoider
   // changes those rules, so it gets its own map rather than reading picks drawn without it.
@@ -386,11 +464,10 @@ export function mosaicAnswerFor(
       // Re-roll until the draw is neither a recent answer nor on another game's board today.
       // Bounded: a pool of hundreds against a window of tens always has something left.
       const avoid = avoidOn?.(d);
-      const rejected = (id: string) => recent.includes(id) || avoid?.has(id) === true;
-      pick = drawFrom(pool, weights, total, seedOf(d, 0));
-      for (let a = 1; a <= 24 && rejected(pick); a++) {
-        pick = drawFrom(pool, weights, total, seedOf(d, a));
-      }
+      const rejected = (id: string | null) =>
+        id === null || recent.includes(id) || avoid?.has(id) === true;
+      pick = drawDay(d, 0);
+      for (let a = 1; a <= 24 && rejected(pick); a++) pick = drawDay(d, a);
       days.set(d, pick);
     }
     if (d === dateKey) return pick;

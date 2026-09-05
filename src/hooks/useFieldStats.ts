@@ -19,12 +19,16 @@ import { countsForStats, type GroupResolvers, type StatsStore } from "../data/st
 export function useFieldStats(store: StatsStore, groupFor?: GroupResolvers): FieldStats | null {
   const [rows, setRows] = useState<DayAverage[] | null>(null);
 
-  // The inclusive span of counted days across all three games.
+  // The inclusive span of counted days across EVERY game. Missing one here does not just
+  // omit it: the span is the window the averages are fetched for, so a game left out has its
+  // days fall outside the range, and a player whose only days are that game's gets no
+  // comparison at all.
   const span = useMemo(() => {
     const dates = [
       ...Object.keys(store.history ?? {}),
       ...Object.keys(store.kinship ?? {}),
       ...Object.keys(store.branches ?? {}),
+      ...Object.keys(store.mosaic ?? {}),
     ].filter(countsForStats).sort();
     return dates.length ? { from: dates[0], to: dates[dates.length - 1] } : null;
   }, [store]);
@@ -45,7 +49,7 @@ export function useFieldStats(store: StatsStore, groupFor?: GroupResolvers): Fie
     // Warn only when the player HAS days to compare. A signed-out device is cleared
     // while the already-fetched averages stay in hand (they're public, not the
     // player's), so an empty store here is expected, not a key mismatch.
-    const hasDays = [store.history, store.kinship, store.branches]
+    const hasDays = [store.history, store.kinship, store.branches, store.mosaic]
       .some((s) => Object.keys(s ?? {}).some(countsForStats));
     if (import.meta.env.DEV && hasDays && !field.overall) {
       // Both inputs are non-empty yet nothing lined up. Print enough to tell a thin
@@ -58,6 +62,7 @@ export function useFieldStats(store: StatsStore, groupFor?: GroupResolvers): Fie
           lineage: Object.keys(store.history ?? {}).slice(-3),
           kinship: Object.keys(store.kinship ?? {}).slice(-3),
           branches: Object.keys(store.branches ?? {}).slice(-3),
+          mosaic: Object.keys(store.mosaic ?? {}).slice(-3),
         }
       );
     }

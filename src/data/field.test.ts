@@ -8,7 +8,7 @@ import type { StatsStore } from "./stats";
 const D1 = "2026-08-01", D2 = "2026-08-02", D3 = "2026-08-03";
 
 const store = (over: Partial<StatsStore> = {}): StatsStore => ({
-  version: 6, history: {}, clades: {}, kinship: {}, branches: {}, ...over,
+  version: 7, history: {}, clades: {}, kinship: {}, branches: {}, mosaic: {}, ...over,
 });
 // A daily whose frozen points and clade group are set directly.
 const day = (points: number, group = "birds") => ({ status: "won" as const, guesses: 3, hints: 0, tier: 1, group, points });
@@ -131,7 +131,7 @@ describe("vs-field comparison", () => {
   it("is null with no field data at all", () => {
     const f = deriveField(store({ history: { [D1]: day(100) } }), []);
     expect(f.overall).toBeNull();
-    expect(f.bestCladeId).toEqual({ lineage: null, kinship: null, branches: null });
+    expect(f.bestCladeId).toEqual({ lineage: null, kinship: null, branches: null, mosaic: null });
   });
 
   it("formats with an explicit sign", () => {

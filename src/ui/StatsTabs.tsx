@@ -20,6 +20,7 @@ const TABS: { id: "overall" | GameId; label: string }[] = [
   { id: "lineage", label: "🧬 Lineage" },
   { id: "kinship", label: "🧩 Kinship" },
   { id: "branches", label: "🌿 Branches" },
+  { id: "mosaic", label: "🖼️ Mosaic" },
 ];
 
 /** The Stats section: one tab per game (plus an overall tab), each holding that

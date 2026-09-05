@@ -7,6 +7,7 @@ import {
   applyFree,
   applyKinship,
   applyBranches,
+  applyMosaic,
   derive,
   fetchCloudStats,
   loadStore,
@@ -16,6 +17,7 @@ import {
   recordFree,
   recordKinship as recordKinshipLocal,
   recordBranches as recordBranchesLocal,
+  recordMosaic as recordMosaicLocal,
   saveStore,
   clearStore,
   isEmptyStore,
@@ -25,6 +27,7 @@ import {
   type DailyEntry,
   type KinshipEntry,
   type BranchesEntry,
+  type MosaicEntry,
   type GroupResolvers,
   type DerivedStats,
   type StatsStore,
@@ -35,7 +38,8 @@ import { consumeDeliberateSignOut } from "../data/signOutIntent";
 type PendingRecord =
   | { kind: "daily" | "free"; groupId: string; entry: DailyEntry; date: string }
   | { kind: "kinship"; entry: KinshipEntry; date: string }
-  | { kind: "branches"; entry: BranchesEntry; date: string };
+  | { kind: "branches"; entry: BranchesEntry; date: string }
+  | { kind: "mosaic"; entry: MosaicEntry; date: string };
 
 export interface UseStats {
   stats: DerivedStats;
@@ -49,6 +53,8 @@ export interface UseStats {
   recordKinship: (entry: KinshipEntry) => void;
   /** Record a finished Branches daily (ranked, once per date). */
   recordBranches: (entry: BranchesEntry) => void;
+  /** Record a finished Mosaic daily (ranked, once per date). */
+  recordMosaic: (entry: MosaicEntry) => void;
 }
 
 /** @param userId  signed-in player's id, or null for local-only.
@@ -111,6 +117,7 @@ export function useStats(userId: string | null, groupFor?: GroupResolvers): UseS
         for (const p of pending.current) {
           if (p.kind === "kinship") base = applyKinship(base, p.date, p.entry);
           else if (p.kind === "branches") base = applyBranches(base, p.date, p.entry);
+          else if (p.kind === "mosaic") base = applyMosaic(base, p.date, p.entry);
           else if (p.kind === "daily") base = applyDaily(base, p.date, p.entry, p.groupId);
           else base = applyFree(base, p.entry, p.groupId);
         }
@@ -192,5 +199,24 @@ export function useStats(userId: string | null, groupFor?: GroupResolvers): UseS
     [today, userId]
   );
 
-  return { stats, store, syncing, record, recordKinship, recordBranches };
+  const recordMosaic = useCallback(
+    (entry: MosaicEntry) => {
+      const next = recordMosaicLocal(today, entry);
+      const cloned = {
+        ...next,
+        history: { ...next.history }, clades: { ...next.clades },
+        kinship: { ...next.kinship }, branches: { ...next.branches }, mosaic: { ...next.mosaic },
+      };
+      setStore(cloned);
+      if (!userId) return;
+      if (!synced.current) {
+        pending.current.push({ kind: "mosaic", entry, date: today });
+        return;
+      }
+      void pushCloudStats(cloned);
+    },
+    [today, userId]
+  );
+
+  return { stats, store, syncing, record, recordKinship, recordBranches, recordMosaic };
 }

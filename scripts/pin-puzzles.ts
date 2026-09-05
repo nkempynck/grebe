@@ -26,11 +26,16 @@ import augment from "../src/data/taxonomyAugment.json";
 import { buildTree, DAILY_EPOCH, type TaxonNode, type Tree } from "../src/core";
 import { CLADE_COMMON } from "../src/data/cladeNames";
 import { SPECIES_COMMON } from "../src/data/speciesCommon";
-import { computePuzzle, decodePuzzle, encodePuzzle, puzzleVersion, type Game } from "../src/data/pinnedPuzzles";
+import {
+  avoidMapFrom, computePuzzle, decodePuzzle, encodePuzzle, puzzleVersion,
+  type Game, type PinnedRow,
+} from "../src/data/pinnedPuzzles";
 import { setServedGridHistory, type ServedGridDay } from "../src/core/grid";
 import { setServedBranchesHistory } from "../src/core/branches";
 
-const GAMES: Game[] = ["lineage", "kinship", "branches"];
+// Mosaic LAST. Its answer dodges whatever Kinship and Branches hold that day, and it reads
+// that from their pinned rows, so a run that writes all four wants theirs on disk first.
+const GAMES: Game[] = ["lineage", "kinship", "branches", "mosaic"];
 const DEFAULT_CHUNK = 200; // rows per request; --chunk lowers it for a weak connection
 const UPSERT_ATTEMPTS = 5; // per chunk, backing off 0.5s, 1s, 2s, 4s
 
@@ -93,7 +98,7 @@ async function main() {
   const baseNodes = (taxonomy as { nodes: TaxonNode[] }).nodes;
   const tree = withCommon(baseNodes);                                   // Lineage: curated in-set
   const richTree = withCommon([...baseNodes, ...(augment as { nodes: TaxonNode[] }).nodes]); // Kinship/Branches
-  const treeFor = (game: Game): Tree => (game === "lineage" ? tree : richTree);
+  const treeFor = (game: Game): Tree => (game === "lineage" || game === "mosaic" ? tree : richTree);
   const client = createClient(url, key, { auth: { persistSession: false } });
 
   // Optional per-game filter, e.g. `--game branches`, so a single generator can be
@@ -168,6 +173,44 @@ async function main() {
     }
   }
 
+  // MOSAIC'S SAME-DAY OVERLAP GUARD.
+  //
+  // Mosaic must not deal an animal that is already a tile on that day's Kinship board or in
+  // that day's Branches tray. Its answer walk asks that of EVERY date from its anchor forward,
+  // not just the ones this run writes, so the answer has to come from the rows already pinned.
+  // Two sources, in this order:
+  //   1. what is in the table (covers the past, and any horizon pinned by an earlier run)
+  //   2. what THIS run computes, merged in as it goes — which is why mosaic is last in GAMES
+  //      and why the date loop runs forward: by the time a date's mosaic puzzle is computed,
+  //      that date's other two boards are already in the map.
+  // A date neither source covers avoids nothing, which is correct: no board, no clash.
+  const avoidByDate = new Map<string, Set<string>>();
+  const NO_AVOID: ReadonlySet<string> = new Set();
+  let avoidOn: ((d: string) => ReadonlySet<string>) | undefined;
+  if (games.includes("mosaic")) {
+    const guardRows: PinnedRow[] = [];
+    const PAGE = 1000;
+    for (let offset = 0; ; offset += PAGE) {
+      const { data, error } = await client
+        .from("daily_puzzles")
+        .select("game, puzzle_date, payload")
+        .in("game", ["kinship", "branches"])
+        .order("puzzle_date")
+        .range(offset, offset + PAGE - 1);
+      if (error) {
+        console.error(`Could not read the other games' boards (${error.message}). Refusing to ` +
+          `pin Mosaic blind: it would happily deal an animal another game is using that day.`);
+        process.exit(1);
+      }
+      if (!data?.length) break;
+      guardRows.push(...(data as PinnedRow[]));
+      if (data.length < PAGE) break;
+    }
+    for (const [d, sp] of avoidMapFrom(guardRows)) avoidByDate.set(d, new Set(sp));
+    avoidOn = (d) => avoidByDate.get(d) ?? NO_AVOID;
+    console.log(`Mosaic overlap guard: ${avoidByDate.size} days of Kinship/Branches boards read.`);
+  }
+
   // Build every (game, date) row from the shared registry.
   //
   // Under --force the upsert REWRITES whatever it is given, and `from` defaults to the
@@ -183,9 +226,18 @@ async function main() {
     const date = shiftDate(from, i);
     if (force && date <= today) { pastBlocked++; continue; }
     for (const game of games) {
-      const puzzle = computePuzzle(game, treeFor(game), date);
+      const puzzle = computePuzzle(game, treeFor(game), date, { avoidOn });
       if (!puzzle) { skipped++; continue; } // tree can't field this puzzle — rare
-      rows.push({ game, puzzle_date: date, payload: encodePuzzle(game, puzzle), version: puzzleVersion(game) });
+      const payload = encodePuzzle(game, puzzle);
+      // Feed this run's own boards into the guard, so a first run (nothing pinned yet) still
+      // keeps Mosaic off them. Round-trips through the payload rather than re-deriving the
+      // species, so there is exactly one definition of "in play today".
+      if (avoidOn && (game === "kinship" || game === "branches")) {
+        const set = avoidByDate.get(date) ?? new Set<string>();
+        for (const sp of avoidMapFrom([{ game, puzzle_date: date, payload }]).get(date) ?? []) set.add(sp);
+        avoidByDate.set(date, set);
+      }
+      rows.push({ game, puzzle_date: date, payload, version: puzzleVersion(game) });
     }
   }
 
