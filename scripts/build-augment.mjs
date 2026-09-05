@@ -31,6 +31,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { latinBinomialTest } from "./latin-name.mjs";
+import { EXCLUDE_SCI } from "./exclude-taxa.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const C = resolve(ROOT, "node_modules/.cache");
 
@@ -44,14 +45,8 @@ const NEW_GENUS_MIN = 4;
 // a group (matches MAX_THEME_LEAVES in grid.ts) but can still host genus groups.
 const MAX_THEME_LEAVES = 25;
 
-// Junk taxa (by scientific name) to keep OUT of the augment. The Wikidata/GBIF pool
-// carries a few cryptids and disputed "species" that have Wikipedia articles but aren't
-// valid — as tiles they read as real organisms and pad a genus to a fake group. Add a
-// line here whenever one surfaces.
-const EXCLUDE_SCI = new Set([
-  "Trichechus hydropithecus", // "Steller's sea ape" — a cryptid, never a valid species
-  "Trichechus pygmaeus",      // "Dwarf manatee" — disputed; widely held to be juvenile Amazonian manatees
-]);
+// Junk taxa to keep out — now shared with build-pool.mjs, which builds the BASE set and
+// used not to consult this list at all (see exclude-taxa.mjs for why that mattered).
 
 const tax = JSON.parse(readFileSync(resolve(ROOT, "src/data/taxonomy.json"), "utf8"));
 const pool = JSON.parse(readFileSync(resolve(C, "sel-pool.json"), "utf8"));

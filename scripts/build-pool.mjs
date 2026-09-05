@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { EXCLUDE_SCI } from "./exclude-taxa.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const C = resolve(ROOT, "node_modules/.cache");
 const OUT = resolve(C, "sel-pool.json");
@@ -77,9 +78,11 @@ const famSet = new Set(set.map((f) => f.name));
 const genusCount = {};
 for (const s of pool) genusCount[s.genus] = (genusCount[s.genus] ?? 0) + 1;
 const REP_SITELINKS = 30; // a genus-page redirect with >= this many sitelinks is the famous representative
-const dropped = { junk: 0, family: 0, genusRedirect: 0 };
+const dropped = { junk: 0, excluded: 0, family: 0, genusRedirect: 0 };
 pool = pool.filter((s) => {
   if (junkRe.test(s.article) || junkRe.test(s.sci)) { dropped.junk++; return false; }
+  if (EXCLUDE_SCI.has(s.sci)) { dropped.excluded++; return false; } // cryptid / disputed non-species
+
   if (famSet.has(s.article)) { dropped.family++; return false; }
   if (s.article === s.genus && genusCount[s.genus] >= 2 && s.sl < REP_SITELINKS) { dropped.genusRedirect++; return false; }
   return true;
@@ -87,7 +90,7 @@ pool = pool.filter((s) => {
 pool.sort((a, b) => b.v - a.v);
 writeFileSync(OUT, JSON.stringify(pool));
 console.log(`\n✓ pool: ${cand.length} candidates -> ${deduped} deduped -> ${pool.length} after clean`);
-console.log(`  cleaned: ${dropped.junk} junk, ${dropped.family} family-page, ${dropped.genusRedirect} inflated genus-redirects`);
+console.log(`  cleaned: ${dropped.junk} junk, ${dropped.excluded} excluded non-species, ${dropped.family} family-page, ${dropped.genusRedirect} inflated genus-redirects`);
 // sanity: the known synonym dups gone?
 const lion = pool.filter((s) => (s.article ?? "").toLowerCase() === "lion");
 const apple = pool.filter((s) => (s.article ?? "").toLowerCase() === "apple");
