@@ -99,4 +99,23 @@ describe("Kinship anti-repeat", () => {
         expect(shared, `days ${i}→${j} share ${shared.join(", ")}`).toEqual([]);
       }
   });
+
+  // The bug this guards: the windows above compare clade IDS, so a group and its own
+  // PARENT read as unrelated. Mixed-granularity containers put both in one candidate
+  // pool, so 2026-09-03 followed 2026-09-02 with Cebidae → Callitrichinae and
+  // Atelidae → Atelinae — yesterday's groups, one rank down, scoring as fresh.
+  // Asserted at 7 days against a 14-day gate, like the group window above.
+  it("never shows a group's ancestor or descendant within 7 days", () => {
+    const isAncestor = (a: string, b: string): boolean => {
+      for (let c = tree.byId.get(b)?.parentId; c; c = tree.byId.get(c)?.parentId)
+        if (c === a) return true;
+      return false;
+    };
+    for (let i = 0; i < boards.length; i++)
+      for (let j = i + 1; j < Math.min(i + 8, boards.length); j++) {
+        const clashes = boards[j].groups.flatMap((g) =>
+          boards[i].groups.filter((h) => isAncestor(g, h) || isAncestor(h, g)).map((h) => `${h}⊃${g}`));
+        expect(clashes, `days ${i}→${j} nest ${clashes.join(", ")}`).toEqual([]);
+      }
+  });
 }, 30000); // O(n²) over 120 full anchored replays — heavy but deterministic

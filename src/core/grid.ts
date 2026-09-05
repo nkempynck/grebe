@@ -1142,6 +1142,33 @@ const SPECIES_REPEAT_COST = 8;
  *  revisit recent groups instead of exploring. Tightening to 21 does buy the fewest
  *  near-repeats (103·111) but the most identical group returns (125·111). */
 const GRID_GROUP_ANTI_REPEAT_WINDOW = 14;
+/** Days a group must stay clear of its own ANCESTORS AND DESCENDANTS, not merely its own id.
+ *
+ *  The window above compares clade ids, so a parent and its child read as two unrelated
+ *  groups — and since mixed-granularity containers offer a container's groups PLUS the
+ *  groups one level finer (see `containers`), a parent and its child sit in the same
+ *  candidate pool. That let 2026-09-03 follow 2026-09-02 with `Cebidae → Callitrichinae`
+ *  and `Atelidae → Atelinae`: four "fresh" ids, two of them yesterday's groups one rank
+ *  down, on a second consecutive Simiiformes board.
+ *
+ *  Measured over a shuffled null, the old generator sat exactly AT chance on this relation
+ *  (2.7% of consecutive days either way), i.e. it was neither causing nor preventing it —
+ *  it simply could not see it.
+ *
+ *  SWEPT at 0/3/7/14 over two independent 365-day windows. Three findings:
+ *    - ANY window ≥ 3 takes consecutive-day ancestry overlap to zero (baseline 6·7 a year).
+ *      The reported complaint needs nothing more than 3.
+ *    - The variety cost is not measurable at any setting. Distinct four-group sets
+ *      345·341 → 334·343, distinct groups 275·263 → 274·273, distinct species
+ *      1611·1565 → 1604·1603: all inside the noise band the earlier group-window sweep
+ *      established. Expected, given the survey already had a median 48 clean candidates a
+ *      day — an extra gate just takes a different one of them.
+ *    - So 14 is free, and buys the most: it also cuts the FORTNIGHT-wide relation 107·80 →
+ *      39·28, with the best near-repeat (32·43) and max-reuse (11·11) rows of the sweep.
+ *  Held equal to GRID_GROUP_ANTI_REPEAT_WINDOW deliberately — same relation, same horizon.
+ *  A shorter window was the pre-measurement guess, on the theory that a relation occurring
+ *  on a third of days must be expensive to gate. It isn't; the supply absorbs it. */
+const GRID_ANCESTRY_WINDOW = GRID_GROUP_ANTI_REPEAT_WINDOW;
 // Beyond the hard window, a group still costs something, decaying linearly to zero at this
 // age. This is what stops a board reassembling itself the moment its groups expire.
 const GRID_GROUP_SPACING = 45;
@@ -1161,6 +1188,20 @@ const BAND_PENALTY_CAP = 135;
  *  which puzzle a date resolves to"): anchoring the replay at DAILY_EPOCH short-circuited
  *  every date at-or-before it to EMPTY history, so back-to-back pre-launch days repeated. */
 const ANTIREPEAT_ANCHOR = "2026-06-22";
+
+/** Whether `id` overlaps, by ancestry either way, a group shown within GRID_ANCESTRY_WINDOW.
+ *  Two directions, one cheap walk each:
+ *    DESCENDANT — `id` sits inside a group that was shown (walk id's parents vs groupSeenAt)
+ *    ANCESTOR   — a group shown was inside `id` (lineageSeenAt, populated in commitDay)
+ *  An exact id match is already handled by GRID_GROUP_ANTI_REPEAT_WINDOW, so the parent walk
+ *  deliberately starts one level up. */
+function ancestryRecent(tree: Tree, hist: History, id: string, dayIdx: number): boolean {
+  const fresh = (seen: number | undefined) => seen !== undefined && dayIdx - seen < GRID_ANCESTRY_WINDOW;
+  if (fresh(hist.lineageSeenAt.get(id))) return true;
+  for (let p = tree.byId.get(id)?.parentId; p; p = tree.byId.get(p)?.parentId)
+    if (fresh(hist.groupSeenAt.get(p))) return true;
+  return false;
+}
 
 /** One day's board. Surveys EVERY eligible container that day (tierPool) in a stable
  *  per-date order and scores each buildable board, lowest-is-best, on three ordered
@@ -1207,8 +1248,9 @@ function boardForDay(
     // replay had candidates free of any recent group, median 48 of them), and beyond it the
     // cost decays to zero over GRID_GROUP_SPACING, which pushes a repeat of all four groups
     // far out without ever forbidding it.
-    let recentGroups = 0, spacing = 0;
+    let recentGroups = 0, spacing = 0, ancestryClashes = 0;
     for (const g of board.groups) {
+      if (ancestryRecent(tree, hist, g.cladeId, dayIdx)) ancestryClashes++;
       const seen = groupSeenAt.get(g.cladeId);
       if (seen === undefined) continue;
       const age = dayIdx - seen;
@@ -1247,7 +1289,10 @@ function boardForDay(
     // whose ENTIRE four-group set was a repeat scored better than one reusing a single group
     // (4), so once the difficulty gates tightened the pool the generator started preferring
     // to replay a whole board. A repeated set must cost more than a repeated group.
-    const score = spacing + setCost + speciesCost + Math.min(BAND_PENALTY_CAP, offBy * BAND_PENALTY_PER_RANK);
+    // Zero for every board that passes the gate below, so this leaves the swept weights
+    // untouched; it only orders the last-resort fallbacks by how much ancestry they echo.
+    const score = spacing + setCost + speciesCost + Math.min(BAND_PENALTY_CAP, offBy * BAND_PENALTY_PER_RANK)
+      + ancestryClashes * GRID_GROUP_SPACING;
     const gap = GROUP_MIN_GAP.get(c.group!);
     const classSeen = classSeenAt.get(c.group!);
     const classTooSoon = gap !== undefined && classSeen !== undefined && dayIdx - classSeen < gap;
@@ -1288,7 +1333,7 @@ function boardForDay(
         : (TRAP_SIZE[tier] ?? 3) >= 3
         ? pairTrap && riderOk && (tripleTrap || uniform)
         : pairTrap && riderOk);
-    if (classTooSoon || recentGroups > 0 || setTooSoon || tooObscure || !shapeOk) {
+    if (classTooSoon || recentGroups > 0 || ancestryClashes > 0 || setTooSoon || tooObscure || !shapeOk) {
       if (score < floorFallbackScore) { floorFallback = board; floorFallbackScore = score; }
       continue; // giveaway group, or nothing on the board to confuse — see the gates
     }
@@ -1330,6 +1375,7 @@ interface History {
   idx: number;
   seenAt: Map<string, number>;        // category-set → day index last shown
   groupSeenAt: Map<string, number>;   // clade id → day index last shown
+  lineageSeenAt: Map<string, number>; // ANCESTOR of a shown group → day index (see GRID_ANCESTRY_WINDOW)
   classSeenAt: Map<string, number>;   // broad group → day index last shown (see GROUP_MIN_GAP)
   speciesSeenAt: Map<string, number>; // species leaf id → day index last shown
 }
@@ -1338,12 +1384,14 @@ interface ReplayCursor extends History {
 }
 /** A board generated with no history to avoid — pre-anchor days and arbitrary seeds. */
 const emptyHistory = (): History => ({
-  idx: 0, seenAt: new Map(), groupSeenAt: new Map(), classSeenAt: new Map(), speciesSeenAt: new Map(),
+  idx: 0, seenAt: new Map(), groupSeenAt: new Map(), lineageSeenAt: new Map(),
+  classSeenAt: new Map(), speciesSeenAt: new Map(),
 });
 const cloneHistory = (h: History): History => ({
   idx: h.idx,
   seenAt: new Map(h.seenAt),
   groupSeenAt: new Map(h.groupSeenAt),
+  lineageSeenAt: new Map(h.lineageSeenAt),
   classSeenAt: new Map(h.classSeenAt),
   speciesSeenAt: new Map(h.speciesSeenAt),
 });
@@ -1394,6 +1442,11 @@ function commitDay(tree: Tree, cur: History, groups: { cladeId: string; memberId
   cur.seenAt.set(groups.map((g) => g.cladeId).sort().join(","), cur.idx);
   for (const g of groups) {
     cur.groupSeenAt.set(g.cladeId, cur.idx);
+    // Every ancestor too, so a LATER candidate that CONTAINS this group can recognise the
+    // overlap. The descendant direction needs no store: a candidate walks its own parents
+    // against groupSeenAt. See ancestryRecent.
+    for (let p = tree.byId.get(g.cladeId)?.parentId; p; p = tree.byId.get(p)?.parentId)
+      cur.lineageSeenAt.set(p, cur.idx);
     for (const m of g.memberIds) cur.speciesSeenAt.set(m, cur.idx);
   }
   // Recomputed rather than stored on the board: GridBoard is the pinned payload shape.
