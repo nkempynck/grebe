@@ -15,6 +15,11 @@ export interface GridProgress {
   /** Reveals billed as PAID so far — tracked live because the free-peek balance
    *  (3 + one per solved group, spent in order) makes it order-dependent. */
   paidReveals?: number;
+  /** Tile display order. Stored because the player can arrange the board by hand, and
+   *  GridGame unmounts on every tab switch (App renders it behind `view === "kinship"`),
+   *  so without this a layout you built would vanish on a trip to another game. Restored
+   *  only when it still describes the live board — see the restore effect. */
+  order?: string[];
   status: "playing" | "won" | "lost";
 }
 

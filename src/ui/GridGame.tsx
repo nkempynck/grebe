@@ -60,6 +60,13 @@ const PICTURE_MODE_MIN_TIER = 6;
  *  information than four unnamed photos did, and it gives every player somewhere to begin. */
 const MIXED_PICTURE_COUNT = 2;
 
+/** The Arrange note's window, inclusive. MOVE THESE to the real deploy date: this ships
+ *  behind a Kinship repin, so the day it reaches players isn't the day it was written. A
+ *  window in the past shows nothing, which is how it retires itself. */
+const ARRANGE_NOTE_FROM = "2026-09-05";
+const ARRANGE_NOTE_UNTIL = "2026-09-12";
+const ARRANGE_NOTE_KEY = "grebe.announce.arrange";
+
 /** How many tiles make a group — the count the solve animation photographs. */
 const GRID_GROUP_SIZE = 4;
 /** The guess animation runs in three beats, and the first one happens BEFORE the guess is
@@ -159,21 +166,18 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   // Species with no Wikipedia image (fetch resolved empty) — in picture mode their
   // name shows as a fallback rather than flashing every name before images load.
   const [noImg, setNoImg] = useState<Set<string>>(new Set());
-  // Which tiles are showing their hidden half. This is DERIVED from g.revealed rather than
-  // tracked alongside it, because g.revealed is persisted and this component is not: every
-  // tab switch unmounts GridGame (App renders it behind `view === "kinship"`), and when a
-  // plain `flipped` set lived here the board came back face-down while the reveals stayed
-  // spent — and paid for. Re-clicking was at least free, since doFlip only bills a tile
-  // absent from g.revealed, but it read as having lost the peek.
+  // Which tiles are showing their hidden half: exactly the revealed ones. A REVEAL IS
+  // PERMANENT. It used to be a toggle, so a revealed tile offered "Hide picture" and could be
+  // put back face-down. That was wrong in both directions: the peek is already spent and
+  // billed, so hiding refunds nothing, and offering an undo next to something you just paid
+  // for implies it might. There is also nothing to gain from it, since the tile shows both
+  // halves once flipped.
   //
-  // So the only local state is the inverse: tiles the player deliberately flipped BACK.
-  // That one is right to lose on unmount — it is a momentary "hide this again", not
-  // something bought.
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const flipped = useMemo(
-    () => new Set(g.revealed.filter((id) => !hidden.has(id))),
-    [g.revealed, hidden]
-  );
+  // Derived from g.revealed rather than tracked separately, because g.revealed is persisted
+  // and this component is not: every tab switch unmounts GridGame (App renders it behind
+  // `view === "kinship"`), and when a local `flipped` set lived here the board came back
+  // face-down while the reveals stayed spent, and paid for.
+  const flipped = useMemo(() => new Set(g.revealed), [g.revealed]);
   // Full-res image per species for the click-to-enlarge overlay (fetched alongside
   // the thumbnail, so no extra request), and which tile is currently enlarged.
   const [fulls, setFulls] = useState<Record<string, string>>({});
@@ -287,6 +291,46 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
     if (wikiId) wikiRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [wikiId]);
 
+  // ARRANGE MODE — pick up a tile, then tap another to swap them, so candidate groups can be
+  // put side by side instead of tracked in a notes app.
+  //
+  // A mode rather than a drag on purpose. Tap already means "select for a guess", so
+  // arranging needs its own verb, and real touch drag would mean long-press (the least
+  // discoverable gesture there is) to keep it apart from a page scroll. Branches reached the
+  // same conclusion: its HTML5 `draggable` is desktop-only and phones use tap-to-place.
+  // A visible toggle beside Shuffle costs one button and works identically everywhere.
+  const [arranging, setArranging] = useState(false);
+  const [held, setHeld] = useState<string | null>(null);
+  // One-time note that Arrange exists. Dated so it takes itself down: once ARRANGE_NOTE_UNTIL
+  // has passed these three lines and the aside below can be deleted. Using Arrange counts as
+  // having read it, the same way tapping through counted for the Mosaic announcement.
+  const [noteSeen, setNoteSeen] = useState(() => {
+    try { return localStorage.getItem(ARRANGE_NOTE_KEY) === "1"; } catch { return false; }
+  });
+  const markNoteSeen = () => {
+    setNoteSeen(true);
+    try { localStorage.setItem(ARRANGE_NOTE_KEY, "1"); } catch { /* shows again next visit */ }
+  };
+  const showArrangeNote = !noteSeen && todayKey() >= ARRANGE_NOTE_FROM && todayKey() <= ARRANGE_NOTE_UNTIL;
+  // Leaving the mode must not strand a held tile, and a finished board has no board to
+  // arrange. Selection and pick-up are mutually exclusive, so entering clears the selection.
+  const toggleArrange = () => {
+    setArranging((on) => {
+      if (!on) g.deselectAll();
+      return !on;
+    });
+    setHeld(null);
+    markNoteSeen();
+  };
+  // `g.status` rather than `over`, which is computed below the board's early returns.
+  const finished = g.status !== "playing";
+  useEffect(() => { if (finished) { setArranging(false); setHeld(null); } }, [finished]);
+  const arrangeTap = (id: string) => {
+    if (held === null) { setHeld(id); return; }
+    if (held !== id) g.swap(held, id);
+    setHeld(null); // tapping the held tile again just puts it down
+  };
+
   // Reveal mode is Kinship's PRIMARY difficulty lever (3/2/2 across the week):
   //   Mon–Wed (tier ≤ 3)  name + picture — both shown free, easiest.
   //   Thu–Fri (tier 4–5)  name only — pictures hidden behind the reveal penalty.
@@ -388,34 +432,22 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
     return kinshipPoints(true, g.tier, 0, g.paidReveals) - kinshipPoints(true, g.tier, 0, g.paidReveals + 1);
   };
 
-  // Actually flip a tile to its picture (reveal on first flip, then just toggle).
+  // Reveal a tile's hidden half. One way only: once revealed it stays revealed.
   function doFlip(id: string) {
-    // A FIRST flip always ends up shown; only a later one toggles. Without the distinction
-    // the first flip would reveal the tile and immediately hide it again, since `hidden`
-    // starts empty for a tile nobody has hidden yet.
-    const first = !g.revealed.includes(id);
-    if (first) g.reveal(id);
+    if (g.revealed.includes(id)) return;
+    g.reveal(id);
     if (!thumbs[id]) {
       const node = tree.byId.get(id);
       if (node) fetchWikiImage(node).then((img) => {
         if (img) { setThumbs((t) => ({ ...t, [id]: img.thumb })); setFulls((f) => ({ ...f, [id]: img.full })); }
       });
     }
-    // g.reveal above is what makes a tile show; this only tracks a deliberate flip BACK,
-    // so toggling is "un-hide or hide" rather than "add or remove from shown".
-    setHidden((h) => {
-      const n = new Set(h);
-      if (first) n.delete(id);
-      else if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
   }
 
-  // A first reveal that would cost points warns first; free flips (and toggling an
-  // already-revealed tile) go straight through.
+  // A reveal that would cost points warns first; free ones go straight through.
   function flip(id: string) {
-    if (!g.revealed.includes(id) && revealCostOf(g.revealed.length) > 0) {
+    if (g.revealed.includes(id)) return;
+    if (revealCostOf(g.revealed.length) > 0) {
       setPendingReveal(id);
       return;
     }
@@ -543,6 +575,17 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       {/* The live board. */}
       {!over && (
         <>
+          {showArrangeNote && (
+            <aside className="announce" data-game="kinship">
+              <span className="announce-tag">New</span>
+              <p className="announce-text">
+                You can sort the board by hand now. Tap <b>Arrange</b> below, then tap two
+                species to swap them.
+              </p>
+              <button className="announce-x" aria-label="Dismiss" onClick={markNoteSeen}>×</button>
+            </aside>
+          )}
+
           <div className="grid-board" role="group" aria-label="Species tiles" ref={boardRef}>
             {(fly ? fly.frozen : g.remaining).map((id) => {
               // A tile that has flown: its cell stays, empty and invisible, so the grid keeps
@@ -567,23 +610,23 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
               // none on a given tile (nothing is hidden), and — in either mode — none
               // for an image-less tile: there's nothing to reveal, so flipping it must
               // never cost a reveal.
-              const canReveal = given ? false : asPicture ? hasImg : !preshow && hasImg;
+              // …and gone once spent: a reveal is one-way, so the control retires with the
+              // thing it revealed rather than turning into an undo that refunds nothing.
+              const canReveal = (given ? false : asPicture ? hasImg : !preshow && hasImg) && !g.revealed.includes(id);
               const noun = asPicture ? "name" : "picture";
               const nextCost = revealCostOf(g.revealed.length);
-              const flipTitle = g.revealed.includes(id)
-                ? `Hide ${noun}`
-                : nextCost > 0
+              const flipTitle = nextCost > 0
                 ? `Reveal its ${noun} (−${nextCost} pts)`
                 : `Reveal its ${noun} (free)`;
               return (
                 <button
                   key={id}
                   data-tile={id}
-                  className={`grid-tile${on ? " is-sel" : ""}${imgShown ? " is-flipped" : ""}${popping?.includes(id) ? " is-pop" : ""}`}
-                  aria-pressed={on}
+                  className={`grid-tile${on ? " is-sel" : ""}${imgShown ? " is-flipped" : ""}${popping?.includes(id) ? " is-pop" : ""}${arranging ? " is-arranging" : ""}${held === id ? " is-held" : ""}`}
+                  aria-pressed={arranging ? held === id : on}
                   // Locked while a guess is popping: the selection on screen must be the one
                   // that gets resolved when the beat ends.
-                  onClick={() => { if (!popping) g.toggle(id); }}
+                  onClick={() => { if (popping) return; if (arranging) arrangeTap(id); else g.toggle(id); }}
                 >
                   {imgShown && <img className="grid-tile-bg" src={thumbs[id]} alt="" aria-hidden="true" />}
                   {imgShown && <img className="grid-tile-img" src={thumbs[id]} alt="" />}
@@ -648,15 +691,24 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
 
           {g.feedback && <div className="grid-feedback" role="status">{g.feedback}</div>}
 
+          {arranging && (
+            <p className="grid-arrange-note" role="status">
+              {held ? "Now tap where it should go." : "Tap a species, then tap another to swap them."}
+            </p>
+          )}
+
           <div className="grid-controls">
-            <button className="linkbtn" onClick={g.shuffle} disabled={!!popping}>Shuffle</button>
-            <button className="linkbtn" onClick={g.deselectAll} disabled={g.selected.length === 0 || !!popping}>
+            <button className="linkbtn" onClick={g.shuffle} disabled={!!popping || arranging}>Shuffle</button>
+            <button className={`linkbtn${arranging ? " is-on" : ""}`} onClick={toggleArrange} disabled={!!popping} aria-pressed={arranging}>
+              {arranging ? "Done arranging" : "Arrange"}
+            </button>
+            <button className="linkbtn" onClick={g.deselectAll} disabled={g.selected.length === 0 || !!popping || arranging}>
               Deselect all
             </button>
             <button
               className="grid-submit"
               onClick={handleSubmit}
-              disabled={g.selected.length !== 4 || !!popping}
+              disabled={g.selected.length !== 4 || !!popping || arranging}
             >
               Guess
             </button>

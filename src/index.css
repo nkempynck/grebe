@@ -1704,6 +1704,18 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 }
 
 .grid-peek-note { font-size: 12.5px; font-style: italic; color: var(--ink-faint); text-align: center; margin: 0 0 14px; }
+
+/* ARRANGE MODE — hand-sorting the board. Deliberately a different signal from selection
+   (--sel): arranging is not guessing, and a player mid-arrange must never think the four
+   tiles they moved are staged for a guess. */
+.grid-arrange-note { font-size: 12.5px; font-style: italic; color: var(--ink-faint); text-align: center; margin: 0 0 8px; }
+.grid-tile.is-arranging { cursor: grab; }
+.grid-tile.is-held {
+  cursor: grabbing; border-color: var(--brass);
+  box-shadow: 0 0 0 3px var(--brass), 0 6px 16px rgba(0, 0, 0, 0.28);
+  transform: scale(1.04); z-index: 3;
+}
+.linkbtn.is-on { color: var(--brass); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .grid-member-link {
   background: none; border: none; padding: 0; margin: 0; cursor: pointer;
   font: inherit; color: inherit; text-decoration: underline;

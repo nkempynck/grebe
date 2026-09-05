@@ -79,8 +79,18 @@ export interface UseGridGame {
   submit: () => void;
   deselectAll: () => void;
   shuffle: () => void;
+  /** Swap two tiles in the display order (hand-arranging the board). */
+  swap: (a: string, b: string) => void;
   /** Test bench: jump straight to a solved board (never recorded). */
   solve: () => void;
+}
+
+/** Whether a stored tile order is a permutation of the live board's tiles — the guard on
+ *  restoring one. Length plus set membership is enough: ids are unique within a board. */
+function describesBoard(order: string[] | undefined, tiles: string[]): boolean {
+  if (!order || order.length !== tiles.length) return false;
+  const want = new Set(tiles);
+  return order.every((id) => want.has(id)) && new Set(order).size === order.length;
 }
 
 function shuffled<T>(arr: T[]): T[] {
@@ -236,7 +246,11 @@ export function useGridGame(
       setStatus("playing");
     }
     setSelected([]);
-    setOrder(board.tiles);
+    // A saved order is only usable if it still describes THIS board: same ids, same count.
+    // Anything else (a stale day, a playtest reshuffle, a hand-edited store) falls back to
+    // the board's own order rather than dropping or duplicating tiles.
+    const saved = prog && prog.date === date ? prog.order : undefined;
+    setOrder(describesBoard(saved, board.tiles) ? saved! : board.tiles);
     setHydratedSig(hydrationToken(date, board));
   }, [board, date, devActive]);
 
@@ -254,8 +268,8 @@ export function useGridGame(
       const saved = loadGridProgress();
       if (saved && saved.date === date && saved.status !== "playing") return;
     }
-    saveGridProgress({ date, solved, mistakes, attempts, revealed, paidReveals, status });
-  }, [board, date, devActive, solved, mistakes, attempts, revealed, paidReveals, status, hydratedSig]);
+    saveGridProgress({ date, solved, mistakes, attempts, revealed, paidReveals, status, order });
+  }, [board, date, devActive, solved, mistakes, attempts, revealed, paidReveals, status, order, hydratedSig]);
 
   // Signed-in players: restore an already-played board from the server (works on
   // any device/domain, where localStorage is empty). Runs once per (user, date),
@@ -324,6 +338,23 @@ export function useGridGame(
 
   const deselectAll = useCallback(() => { setFeedback(null); setSelected([]); }, []);
   const shuffle = useCallback(() => { setFeedback(null); setOrder((o) => shuffled(o)); }, []);
+
+  /** Swap two tiles in the display order, so the player can group candidates by hand
+   *  instead of tracking them in a notes app. Operates on the FULL order, not the
+   *  remaining view, so solved tiles keep their slots and `remaining` (which filters
+   *  them out) stays consistent. */
+  const swap = useCallback((a: string, b: string) => {
+    if (a === b) return;
+    setFeedback(null);
+    setOrder((o) => {
+      const i = o.indexOf(a), j = o.indexOf(b);
+      if (i < 0 || j < 0) return o;
+      const next = [...o];
+      next[i] = b;
+      next[j] = a;
+      return next;
+    });
+  }, []);
 
   // Test bench only: mark every group solved and win. onComplete never fires from
   // here, and a playtest board isn't recorded anyway.
@@ -409,6 +440,7 @@ export function useGridGame(
     submit,
     deselectAll,
     shuffle,
+    swap,
     solve,
   };
 }
