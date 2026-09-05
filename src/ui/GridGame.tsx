@@ -4,9 +4,10 @@ import { dailyNumber } from "../core";
 import { useGridGame, PRESHOW_MAX_TIER, type GridComplete } from "../hooks/useGridGame";
 import { resolveDailyRules } from "../data/dailySchedule";
 import { kinshipPoints, kinshipFreeReveals } from "../data/score";
-import { fetchWikiImage } from "../data/wikipedia";
+import { fetchWikiImage, type WikiCredit } from "../data/wikipedia";
 import { GameHeader } from "./GameHeader";
 import { WikiCard } from "./WikiCard";
+import { PhotoCredit } from "./PhotoZoom";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
 import { DiscussionPanel } from "./DiscussionPanel";
@@ -181,6 +182,10 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   // Full-res image per species for the click-to-enlarge overlay (fetched alongside
   // the thumbnail, so no extra request), and which tile is currently enlarged.
   const [fulls, setFulls] = useState<Record<string, string>>({});
+  // Photographer + licence, shown in the enlarged view. Kept beside the URLs rather than
+  // replacing them with the whole WikiImage: the tiles read `thumbs[id]` in a dozen places
+  // and only the overlay has room for a credit line.
+  const [credits, setCredits] = useState<Record<string, WikiCredit>>({});
   const [zoomId, setZoomId] = useState<string | null>(null);
   // Post-game Wikipedia reader.
   const [wikiId, setWikiId] = useState<string | null>(null);
@@ -407,6 +412,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         if (img) {
           setThumbs((t) => (t[id] ? t : { ...t, [id]: img.thumb }));
           setFulls((f) => (f[id] ? f : { ...f, [id]: img.full }));
+          if (img.credit) setCredits((c) => (c[id] ? c : { ...c, [id]: img.credit! }));
         } else setNoImg((s) => (s.has(id) ? s : new Set(s).add(id)));
       });
     }
@@ -439,7 +445,11 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
     if (!thumbs[id]) {
       const node = tree.byId.get(id);
       if (node) fetchWikiImage(node).then((img) => {
-        if (img) { setThumbs((t) => ({ ...t, [id]: img.thumb })); setFulls((f) => ({ ...f, [id]: img.full })); }
+        if (img) {
+          setThumbs((t) => ({ ...t, [id]: img.thumb }));
+          setFulls((f) => ({ ...f, [id]: img.full }));
+          if (img.credit) setCredits((c) => ({ ...c, [id]: img.credit! }));
+        }
       });
     }
   }
@@ -810,7 +820,10 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         return (
           <div className="grid-zoom" role="dialog" aria-label={zoomNameShown ? `${zoomName} picture` : "Enlarged picture"} onClick={() => setZoomId(null)}>
             <img src={fulls[zoomId] ?? thumbs[zoomId]} alt={zoomName} />
-            <span className="grid-zoom-cap">{zoomNameShown ? `${zoomName} · tap to close` : "tap to close"}</span>
+            <span className="grid-zoom-cap">
+              {zoomNameShown ? `${zoomName} · tap to close` : "tap to close"}
+              <PhotoCredit credit={credits[zoomId]} />
+            </span>
           </div>
         );
       })()}

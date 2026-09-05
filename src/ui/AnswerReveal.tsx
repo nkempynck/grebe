@@ -173,7 +173,7 @@ export function AnswerReveal({
           </button>
         )}
         {zoomed && img !== null && img !== "pending" && (
-          <PhotoZoom src={img.full || img.thumb} caption={name} onClose={() => setZoomed(false)} />
+          <PhotoZoom src={img.full || img.thumb} caption={name} credit={img.credit} onClose={() => setZoomed(false)} />
         )}
 
         <div className="reveal-body">

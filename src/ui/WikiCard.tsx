@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { TaxonNode, Tree } from "../core";
 import { isFullyRedacted, leavesUnder, redactSpoilers, type Spoiler } from "../core";
 import { fetchWikiImage, fetchWikiSummary, wikiUrlFor, type WikiImage, type WikiSummary } from "../data/wikipedia";
+import { PhotoCredit } from "./PhotoZoom";
 
 /** A small Wikipedia reader, opened by tapping a species or a clade. Shared by
  *  the games so the field-notes card looks and behaves the same everywhere.
@@ -97,7 +98,10 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
           onClick={() => setZoomed(false)}
         >
           <img src={img.full ?? img.thumb} alt={shownName} />
-          <span className="clado-zoom-cap">{shownName} · tap to close</span>
+          <span className="clado-zoom-cap">
+            {shownName} · tap to close
+            <PhotoCredit credit={img.credit} />
+          </span>
         </div>
       )}
     </div>

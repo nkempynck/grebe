@@ -1,5 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import type { WikiCredit } from "../data/wikipedia";
+
+/** The photographer and licence for one picture.
+ *
+ *  Wikimedia's images ship credited by the About panel, which points at the file page for
+ *  each one. The iNaturalist photographs cannot be covered that way: CC-BY and its variants
+ *  ask for the creator by name wherever the work is shown, and there is no article behind
+ *  the picture to carry it. So the credit travels WITH the image and is rendered wherever a
+ *  photograph is shown at a size worth reading — the enlarged views and the answer reveal.
+ *  A 96px tile has nowhere to put a name, which is the case the licences' "in any reasonable
+ *  manner" allowance exists for.
+ *
+ *  Renders nothing at all when there is no credit to show, so a Wikimedia picture is
+ *  unchanged. */
+export function PhotoCredit({ credit, className }: { credit?: WikiCredit | null; className?: string }) {
+  if (!credit?.licence) return null;
+  return (
+    <span className={`photo-credit${className ? ` ${className}` : ""}`}>
+      Photo: {credit.artist ?? "unknown"} · {credit.licence}
+      {credit.filePage && (
+        <> · <a href={credit.filePage} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>source</a></>
+      )}
+    </span>
+  );
+}
 
 /** The enlarged-picture overlay. A 96px square crop is fine for recognising a fox
  *  and useless for telling two beetles apart, so every photograph in the game can
@@ -22,7 +47,7 @@ import { createPortal } from "react-dom";
  *      transform, not to the viewport. The answer reveal's card keeps one from its
  *      entrance animation (fill-mode `both`), so a zoom opened from the hero photo
  *      would have been trapped inside that card. */
-export function PhotoZoom({ src, caption, onClose }: { src: string; caption?: string | null; onClose: () => void }) {
+export function PhotoZoom({ src, caption, credit, onClose }: { src: string; caption?: string | null; credit?: WikiCredit | null; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -49,7 +74,10 @@ export function PhotoZoom({ src, caption, onClose }: { src: string; caption?: st
       onClick={onClose}
     >
       <img src={src} alt={caption ?? ""} />
-      <span className="photo-zoom-cap">{caption ? `${caption} · tap to close` : "tap to close"}</span>
+      <span className="photo-zoom-cap">
+        {caption ? `${caption} · tap to close` : "tap to close"}
+        <PhotoCredit credit={credit} />
+      </span>
     </div>,
     document.body
   );
@@ -63,10 +91,11 @@ export function PhotoZoom({ src, caption, onClose }: { src: string; caption?: st
  *  no larger file. `className` is passed through so each host keeps its own
  *  footprint — the button must occupy exactly what the bare <img> did, or the
  *  layout around it shifts. */
-export function ZoomableShot({ src, full, caption, className, title }: {
+export function ZoomableShot({ src, full, caption, credit, className, title }: {
   src: string;
   full?: string | null;
   caption?: string | null;
+  credit?: WikiCredit | null;
   className?: string;
   title?: string;
 }) {
@@ -83,7 +112,7 @@ export function ZoomableShot({ src, full, caption, className, title }: {
         <img src={src} alt={caption ?? ""} />
         <span className="zoom-shot-icon" aria-hidden="true">⤢</span>
       </button>
-      {zoomed && <PhotoZoom src={full || src} caption={caption} onClose={() => setZoomed(false)} />}
+      {zoomed && <PhotoZoom src={full || src} caption={caption} credit={credit} onClose={() => setZoomed(false)} />}
     </>
   );
 }

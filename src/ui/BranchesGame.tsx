@@ -8,6 +8,7 @@ import { BRANCHES_MAX_HINTS, branchesPoints, tierWeight } from "../data/score";
 import { fetchWikiImage, type WikiImage } from "../data/wikipedia";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } from "./cladoLayout";
 import { WikiCard } from "./WikiCard";
+import { PhotoCredit } from "./PhotoZoom";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
 import { DiscussionPanel } from "./DiscussionPanel";
@@ -736,7 +737,10 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
       {zoomId && trayImgs[zoomId] && (
         <div className="branches-zoom" role="dialog" aria-label={`${nameOf(tree, zoomId)} picture`} onClick={() => setZoomId(null)}>
           <img src={trayImgs[zoomId].full} alt={nameOf(tree, zoomId)} />
-          <span className="branches-zoom-cap">{nameOf(tree, zoomId)} · tap to close</span>
+          <span className="branches-zoom-cap">
+            {nameOf(tree, zoomId)} · tap to close
+            <PhotoCredit credit={trayImgs[zoomId].credit} />
+          </span>
         </div>
       )}
 

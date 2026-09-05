@@ -2235,7 +2235,18 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
 .branches-zoom-cap, .grid-zoom-cap, .clado-zoom-cap, .photo-zoom-cap {
   font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
   color: var(--on-accent); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  text-align: center;
 }
+/* Photographer and licence for a CC-licensed photograph, under the caption. A BLOCK on
+   purpose: each caption is a single span, so without this the credit runs on after
+   "tap to close" as one long line. Renders only when there is a credit to show, which
+   today means the iNaturalist photos; a Wikimedia picture is covered by the About panel
+   and leaves the caption exactly as it was. */
+.photo-credit {
+  display: block; margin-top: 7px;
+  font-size: 11px; letter-spacing: 0.02em; opacity: 0.72;
+}
+.photo-credit a { color: inherit; text-decoration: underline; }
 
 /* A thumbnail that opens itself. Sheds the button chrome so it keeps the exact
    footprint the bare <img> had — the same trap .clado-wiki-shot documents. */

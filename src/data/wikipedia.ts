@@ -1,4 +1,5 @@
 import type { TaxonNode } from "../core/types";
+import { inatPageUrl, inatPhotosFor, inatUrl } from "./speciesPhotos";
 
 // Wikipedia's REST summary endpoint is CORS-enabled, so it works straight from
 // the browser with no proxy. If you later hit rate limits, add a small backend
@@ -50,6 +51,13 @@ export interface WikiImage {
   thumb: string;
   /** Larger image for an enlarged view (falls back to the thumb). */
   full: string;
+  /** Which source produced it. Wikimedia will not render an arbitrary width from a
+   *  rewritten URL, so a Wikimedia image has to ASK for a size (fetchWikiShot); an
+   *  iNaturalist URL is built directly and needs no request at all. */
+  source?: "wiki" | "inat";
+  /** Present for iNaturalist, whose credit is baked alongside the photo. Wikimedia's
+   *  arrives later, from fetchWikiShot, because it costs a request. */
+  credit?: WikiCredit;
 }
 
 // Images are shown on many tiles at once, so cache per node id (including misses,
@@ -112,9 +120,20 @@ function fileWords(url: string): string[] {
 /** True when a file URL/name looks like a map, diagram, icon, chart or plate of food
  *  rather than a photograph of the organism. Pass the ORIGINAL file URL (or a File:
  *  title). */
-function looksNonPhoto(url: string | undefined): boolean {
+export function looksNonPhoto(url: string | undefined): boolean {
   if (!url) return true;
-  if (/\.svg$/i.test(decodeURIComponent(url.split("?")[0]))) return true;
+  const path = decodeURIComponent(url.split("?")[0]);
+  // A vector reaches us RASTERISED, so testing the tail for .svg never fires. Wikipedia
+  // renders an SVG to a PNG and the summary endpoint hands over that rendering as
+  // `originalimage`, so a range map arrives named "1280px-Foo_map-fr.svg.png" — ending in
+  // .png, and read as a photograph. Both known escapes were exactly this: the dotted
+  // humming frog's IUCN range map and the Indus river dolphin's size-comparison chart, the
+  // second one wearing a word ("size") the tail rule would have caught had the rasterised
+  // ".svg" not displaced it from the end of the name.
+  //
+  // ".svg." is safe to match anywhere: it only occurs in a name Wikipedia derived from a
+  // vector, and no photograph's filename contains it.
+  if (/\.svg$/i.test(path) || /\.svg\./i.test(path.split("/").pop() ?? "")) return true;
   const words = fileWords(url);
   if (words.some((w) => NON_PHOTO_WORDS.has(w) || FOOD_WORDS.has(w))) return true;
   return words.length > 0 && NON_PHOTO_TAIL.has(words[words.length - 1]);
@@ -159,22 +178,64 @@ function bestPhoto(imgs: PageImage[]): WikiImage | null {
   return p ? { thumb: p.thumb, full: p.full } : null;
 }
 
-/** Lead image(s) for a node (no prose), cached. Normally one request (the image
- *  rides along in the summary payload); when the lead image looks like a map,
- *  icon or line drawing rather than a photo, it makes one extra request to scan
- *  the article for a real photograph. Returns null when there's no usable image. */
+/** Where pictures come from, in the order they are tried. Change this array and nothing
+ *  else to change the app's primary image source.
+ *
+ *  Today Wikipedia leads and iNaturalist covers for it. The blind comparison that prompted
+ *  this said iNaturalist should probably lead outright (it won 20-10 over 30 species), and
+ *  when that happens the only edit is to move "inat" to the front. It is deliberately not
+ *  first yet: every pinned Mosaic day would get a different photograph, and since the photo
+ *  IS the puzzle there, that silently re-rolls the difficulty of days already scheduled.
+ *
+ *  "pageScan" stays LAST on purpose. It takes the largest JPEG on the article, which is a
+ *  file-size proxy and not a quality one — the rule that once served a cafeteria tray of
+ *  fish as the picture of a blue grenadier. It is a last resort, never a second choice. */
+const SOURCE_ORDER: ReadonlyArray<"wiki" | "inat" | "pageScan"> = ["wiki", "inat", "pageScan"];
+
+/** Image for a node, cached, from the first source in SOURCE_ORDER that has a real
+ *  photograph of it. Returns null when none does.
+ *
+ *  A REJECTED LEAD IS NOT A FALLBACK. This used to keep the suspect lead image when the
+ *  article scan turned up nothing better, which is how a range map ends up on a Kinship
+ *  tile. A map is not a picture of the animal, and the games all handle "no image" properly
+ *  — Kinship stops offering a reveal, Mosaic draws a different animal — so nothing is
+ *  returned rather than something misleading. */
 export async function fetchWikiImage(node: TaxonNode): Promise<WikiImage | null> {
   const hit = imgCache.get(node.id);
   if (hit !== undefined) return hit;
-  const summary = await fetchWikiSummary(node);
-  let img: WikiImage | null = summary?.thumbnail
-    ? { thumb: summary.thumbnail, full: summary.original ?? summary.thumbnail }
-    : null;
-  // Prefer an actual photo when the lead image is (or looks like) a map/drawing.
-  if (summary?.title && (!img || looksNonPhoto(summary.original ?? summary.thumbnail))) {
-    const better = bestPhoto(await fetchPageImages(summary.title));
-    if (better) img = better;
+
+  // Fetched at most once each, and only if a source actually asks for them.
+  let summary: WikiSummary | null | undefined;
+  const getSummary = async () => (summary === undefined ? (summary = await fetchWikiSummary(node)) : summary);
+
+  let img: WikiImage | null = null;
+  for (const source of SOURCE_ORDER) {
+    if (source === "wiki") {
+      const s = await getSummary();
+      const lead = s?.original ?? s?.thumbnail;
+      if (s?.thumbnail && !looksNonPhoto(lead)) {
+        img = { thumb: s.thumbnail, full: s.original ?? s.thumbnail, source: "wiki" };
+      }
+    } else if (source === "inat") {
+      const photo = (await inatPhotosFor(node))[0];
+      if (photo) {
+        img = {
+          thumb: inatUrl(photo, "medium"),
+          full: inatUrl(photo, "large"),
+          source: "inat",
+          credit: { artist: photo.by, licence: photo.l, filePage: inatPageUrl(photo) },
+        };
+      }
+    } else {
+      const s = await getSummary();
+      if (s?.title) {
+        const better = bestPhoto(await fetchPageImages(s.title));
+        if (better) img = { ...better, source: "wiki" };
+      }
+    }
+    if (img) break;
   }
+
   imgCache.set(node.id, img);
   return img;
 }
@@ -238,6 +299,10 @@ const shotCache = new Map<string, WikiShot>();
  *  Asked of en.wikipedia rather than Commons on purpose: a local query resolves files on the
  *  shared repo too, so one request covers both homes instead of a miss and a retry. */
 export async function fetchWikiShot(img: WikiImage, width: number): Promise<WikiShot> {
+  // An iNaturalist photo already knows its own URL and carries its credit from the baked
+  // map, so there is nothing to ask anyone. `full` is the 1024px rendering, which is what
+  // the width argument would have requested anyway.
+  if (img.source === "inat") return { src: img.full, full: img.full, credit: img.credit ?? null };
   const bare: WikiShot = { src: img.full, full: img.full, credit: null };
   const title = fileTitleFrom(img.full);
   if (!title) return bare;
