@@ -11,7 +11,7 @@ import { todayKey } from "../core/daily";
 
 /** The window, inclusive both ends. Move these if the release slips; nothing else needs to
  *  change, and a window in the past is the same as this component not existing. */
-const FROM = "2026-09-07";
+const FROM = "2026-09-06";
 const UNTIL = "2026-09-13";
 
 const KEY = "grebe.announce.mosaic";
@@ -39,10 +39,8 @@ export function MosaicAnnounce({ onPlay, onClose }: { onPlay: () => void; onClos
     <aside className="announce" data-game="mosaic">
       <span className="announce-tag">New</span>
       <p className="announce-text">
-        <b>Mosaic</b> is the fourth game: name the animal in a photograph cut into tiles and
-        shuffled, with every wrong guess putting a little more of it back together. It is in
-        beta, so nothing is scored yet and the feedback board under it is the place to say how
-        it plays.
+        <b>Mosaic</b> has launched. Also new: in Kinship and Branches, enlarge a species and you
+        can flip through several photos of it.
       </p>
       <button
         className="announce-go"
