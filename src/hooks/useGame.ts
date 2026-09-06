@@ -25,6 +25,7 @@ import { effectivePlan, fetchRemotePlan, type DailyPlan } from "../data/dailyPla
 import { isSupabaseConfigured } from "../data/supabase";
 import { fetchTodayDaily } from "../data/games";
 import { loadDailyProgress, saveDailyProgress } from "../data/dailyProgress";
+import { loadRuledOut, saveRuledOut } from "../data/ruledOut";
 import { markCountedElsewhere } from "../data/playCount";
 import { todayKey } from "../core/daily";
 
@@ -123,6 +124,16 @@ export interface UseGame {
   /** True when today's daily was restored from a prior attempt (cloud or local)
    *  — it's already recorded, so it shouldn't be counted again. */
   dailyLocked: boolean;
+  /** Scratchpad: has the player crossed this organism off, either directly or by
+   *  crossing off a group it belongs to? Purely their own note — nothing here is
+   *  checked against the answer or reaches the score. */
+  isRuledOut: (id: string) => boolean;
+  /** Cross an organism or group off, or put it back. */
+  toggleRuledOut: (id: string) => void;
+  /** How many marks are set (nodes marked, not species covered). */
+  ruledOutCount: number;
+  /** Clear the whole scratchpad. */
+  clearRuledOut: () => void;
 }
 
 const DEFAULT_CONFIG: GameConfig = { scopeRootId: DEFAULT_SCOPE_ID, winWithin: 0 };
@@ -172,6 +183,8 @@ export function useGame(
   const [error, setError] = useState<string | null>(null);
   const [hintIds, setHintIds] = useState<string[]>([]);
   const [dailyLocked, setDailyLocked] = useState(false);
+  // The player's own "can't be it" marks. Restored/reset alongside the round below.
+  const [ruledOut, setRuledOut] = useState<Set<string>>(() => new Set());
   // Identity (MODE + date + answer) the current state has been restored for. The
   // save effect refuses to persist until this matches the live daily, so a render
   // carrying the previous day's finished state (e.g. an open tab crossing the
@@ -316,7 +329,12 @@ export function useGame(
       setStatus("playing");
       setDailyLocked(false);
     }
-    setHydratedFor(hydrationToken(mode, today, ans));
+    // The daily's scratchpad is stored under the same token, so it comes back with
+    // the round it was written for and is dropped by anything that changes the
+    // round. Free play starts empty every time (nothing is persisted for it).
+    const token = hydrationToken(mode, today, ans);
+    setRuledOut(new Set(mode === "daily" ? loadRuledOut(token).filter((id) => tree.byId.has(id)) : []));
+    setHydratedFor(token);
   }, [tree, mode, config.scopeRootId, daily.answerId, pinnedDaily]);
 
   // Signed-in players restore an already-played daily from the cloud (works on
@@ -382,6 +400,40 @@ export function useGame(
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, tree, answerId, guesses, hintIds, status, hydratedFor]);
+
+  // Persist the DAILY's scratchpad only. Free play is in-memory by design: its
+  // rounds are never restored (every mount draws a fresh specimen), and the admin
+  // test bench is a second useGame on the same storage key — persisting free rounds
+  // would let a bench session overwrite the real daily's marks.
+  useEffect(() => {
+    if (isLiveDailyState(hydratedFor, today, answerId)) saveRuledOut(hydratedFor!, [...ruledOut]);
+  }, [hydratedFor, today, answerId, ruledOut]);
+
+  const toggleRuledOut = useCallback((id: string) => {
+    setRuledOut((cur) => {
+      const next = new Set(cur);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearRuledOut = useCallback(() => setRuledOut(new Set()), []);
+
+  // Marking a GROUP crosses off everything inside it, which is the point: Lineage
+  // already lets you think in groups, so "not snakes" should be one mark and not
+  // forty. Only the marked node is stored; membership is derived by walking up.
+  const isRuledOut = useCallback(
+    (id: string): boolean => {
+      if (ruledOut.size === 0) return false; // the usual case, kept free
+      if (ruledOut.has(id)) return true;
+      if (!tree) return false;
+      for (let cur = tree.byId.get(id)?.parentId; cur; cur = tree.byId.get(cur)?.parentId ?? null) {
+        if (ruledOut.has(cur)) return true;
+      }
+      return false;
+    },
+    [ruledOut, tree]
+  );
 
   const setMode = useCallback((m: GameMode) => setModeState(m), []);
 
@@ -477,6 +529,7 @@ export function useGame(
     setAnswerId(randomAnswerId(tree, config.scopeRootId, blocked));
     setGuesses([]);
     setHintIds([]);
+    setRuledOut(new Set()); // new specimen, so the old notes mean nothing
     setStatus("playing");
     setError(null);
   }, [tree, config.scopeRootId]);
@@ -519,5 +572,9 @@ export function useGame(
     canHint,
     hintState,
     dailyLocked,
+    isRuledOut,
+    toggleRuledOut,
+    ruledOutCount: ruledOut.size,
+    clearRuledOut,
   };
 }

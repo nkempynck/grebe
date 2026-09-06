@@ -8,6 +8,7 @@ import { dailyRules, resolveDailyRules, dailyAnswerFor } from "../data/dailySche
 import { gridBoardFor } from "../data/gridDaily";
 import { branchesBoardFor } from "../data/branchesDaily";
 import { clearDailyProgress } from "../data/dailyProgress";
+import { clearStoredRuledOut } from "../data/ruledOut";
 import { clearGridProgress } from "../data/gridProgress";
 import { clearBranchesProgress } from "../data/branchesProgress";
 import { GridGame } from "./GridGame";
@@ -255,8 +256,14 @@ function LineageBench({ tree }: { tree: Tree }) {
       )}
       {over && <ResultCard tree={tree} answer={answer} won={g.status === "won"} guessCount={g.guesses.length} streak={null} par={null} />}
       <div className="playbar">
-        <GuessInput tree={tree} config={g.config} disabled={over} onSubmit={g.submit} onOutOfSetGuess={g.submitGraft} focusCladeId={g.assist ? g.focusCladeId : null} guesses={g.guesses} />
+        <GuessInput tree={tree} config={g.config} disabled={over} onSubmit={g.submit} onOutOfSetGuess={g.submitGraft} focusCladeId={g.assist ? g.focusCladeId : null} guesses={g.guesses} isRuledOut={g.isRuledOut} onRuleOut={g.toggleRuledOut} />
         <div className="errline">{g.error}</div>
+        {!over && g.ruledOutCount > 0 && (
+          <div className="ruledline">
+            <span>Crossed off: <b>{g.ruledOutCount}</b></span>
+            <button className="linkbtn" onClick={g.clearRuledOut}>Clear</button>
+          </div>
+        )}
         <div className="subactions">
           {!over && (
             <button className="linkbtn" onClick={g.revealHint} disabled={!g.canHint}>
@@ -278,6 +285,7 @@ function TestBench({ tree, richTree }: { tree: Tree; richTree: Tree }) {
   const [cleared, setCleared] = useState(false);
   const resetToday = () => {
     clearDailyProgress();
+    clearStoredRuledOut();
     clearGridProgress();
     clearBranchesProgress();
     setCleared(true);

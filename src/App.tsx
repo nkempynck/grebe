@@ -892,9 +892,21 @@ export default function App() {
             guesses={g.guesses}
             blocked={g.blocked}
             blockedLineage={g.blockedLineage}
+            isRuledOut={g.isRuledOut}
+            onRuleOut={g.toggleRuledOut}
           />
         )}
         <div className="errline">{g.error}</div>
+
+        {/* Only appears once something is crossed off. Individual marks come off
+            in the dropdown; this is the bulk undo, so nobody is stuck re-finding
+            twenty rows. */}
+        {!roundOver && g.ruledOutCount > 0 && (
+          <div className="ruledline">
+            <span>Crossed off: <b>{g.ruledOutCount}</b></span>
+            <button className="linkbtn" onClick={g.clearRuledOut}>Clear</button>
+          </div>
+        )}
 
         {/* The price, shown only once the button is armed, so it's an answer to
             "what will this cost me" rather than a number sitting there all game.

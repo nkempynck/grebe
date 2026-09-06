@@ -38,6 +38,13 @@ interface Props {
    *  that is part of its game; in Blur the answer is always one species, so a group is never
    *  something you would want to submit and only clutters the list. */
   speciesOnly?: boolean;
+  /** Scratchpad, both halves optional together: has the player crossed this entry off, and the
+   *  toggle for doing so. Wired → every row gets an ✕ beside its Wikipedia link. Crossed-off
+   *  rows are struck through but otherwise unchanged — still ordered the same, still selectable,
+   *  still guessable. It is a note to yourself, not a filter, so it must never be the reason a
+   *  name you typed commits a different row than the one you meant. */
+  isRuledOut?: (id: string) => boolean;
+  onRuleOut?: (id: string) => void;
 }
 
 interface Cand {
@@ -58,7 +65,7 @@ const label = (c: Cand) => (c.common ? `${c.common} (${c.sci})` : c.sci);
  *  matches themselves are never capped. */
 const OOS_TOPUP_TO = 8;
 
-export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses, blocked, blockedLineage, speciesOnly = false }: Props) {
+export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses, blocked, blockedLineage, speciesOnly = false, isRuledOut, onRuleOut }: Props) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -270,12 +277,18 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
               const r = guessedById.get(c.id);
               const isActive = c.id === activeId;
               const warm = r ? warmthColor(r.warmth, r.isWin) : undefined;
+              // An out-of-set hit isn't on the tree yet, so it has no id to mark —
+              // and it can't be the answer anyway, which is the only thing a mark
+              // is about. Already-guessed rows carry a real verdict; a hunch on top
+              // of that would only be noise.
+              const canRule = !!onRuleOut && !c.oos && !r;
+              const ruled = canRule && !!isRuledOut?.(c.id);
               return (
                 <li
                   key={c.id}
                   role="option"
                   aria-selected={isActive}
-                  className={`gs-opt${c.kind === "group" ? " is-group" : ""}${c.oos ? " is-oos" : ""}${r ? " is-guessed" : ""}${isActive ? " is-active" : ""}`}
+                  className={`gs-opt${onRuleOut ? " has-x" : ""}${c.kind === "group" ? " is-group" : ""}${c.oos ? " is-oos" : ""}${r ? " is-guessed" : ""}${ruled ? " is-ruled" : ""}${isActive ? " is-active" : ""}`}
                   // preventDefault keeps input focus so the click registers before blur
                   onMouseDown={(e) => { e.preventDefault(); if (!r) choose(c); }}
                 >
@@ -289,6 +302,22 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
                     <span className="gs-done" style={{ color: warm }}>
                       {r.isWin ? "✓ found" : `guessed · ${Math.round(r.warmth * 100)}°`}
                     </span>
+                  )}
+                  {/* Cross-off toggle, beside the read-up link. Same isolation as
+                      that link: stop the row's own mousedown so marking never
+                      commits the guess, and preventDefault so the input keeps
+                      focus and the dropdown stays open for the next mark. */}
+                  {canRule && (
+                    <button
+                      type="button"
+                      className="gs-x"
+                      aria-pressed={ruled}
+                      title={ruled ? `Put ${c.common ?? c.sci} back in play` : `Cross ${c.common ?? c.sci} off — your own note, it doesn’t affect scoring`}
+                      aria-label={ruled ? `Put ${c.common ?? c.sci} back in play` : `Cross off ${c.common ?? c.sci}`}
+                      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onRuleOut!(c.id); }}
+                    >
+                      ✕
+                    </button>
                   )}
                   {/* Read-up link. Isolated from the row's click so it opens
                       Wikipedia instead of committing the guess, and keeps input

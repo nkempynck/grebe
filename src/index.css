@@ -452,6 +452,33 @@ body {
 /* already-guessed: dimmed and non-interactive */
 .gs-opt.is-guessed { cursor: default; opacity: 0.6; }
 .gs-opt.is-guessed .gs-name { color: var(--ink-soft); font-weight: 500; text-decoration: line-through; text-decoration-color: var(--line); }
+
+/* Cross-off toggle (Lineage scratchpad), immediately left of the Wikipedia link.
+   Once it's in the row it takes over the auto-margin, so the pair sits together
+   at the right edge instead of the wiki link's margin splitting them. */
+.gs-opt.has-x .gs-wiki { margin-left: 0; }
+.gs-x {
+  margin-left: auto; flex: none; align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+  min-width: 34px; padding: 0; background: none; border: none;
+  color: var(--ink-faint); font-size: 13px; line-height: 1; cursor: pointer;
+}
+.gs-x:hover, .gs-x:focus-visible { color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, transparent); }
+/* Crossed off: the ✕ stays lit so it reads as set, and the name is struck in the
+   same red — distinct from the grey strike an already-guessed row wears. */
+.gs-opt.is-ruled .gs-x { color: var(--danger); }
+.gs-opt.is-ruled .gs-name { color: var(--ink-faint); font-weight: 500; text-decoration: line-through; text-decoration-color: var(--danger); }
+.gs-opt.is-ruled .gs-sci, .gs-opt.is-ruled .gs-tag { opacity: 0.55; }
+/* A guessed row has no ✕, so put its wiki link back on the auto-margin. */
+.gs-opt.has-x.is-guessed .gs-wiki { margin-left: 8px; }
+
+/* One-line scratchpad summary under the guess bar — the only way to undo in bulk. */
+.ruledline {
+  display: flex; align-items: baseline; gap: 10px;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-faint);
+  margin: 0 2px 8px;
+}
+.ruledline b { color: var(--ink-soft); font-weight: 700; }
 .guessbar button {
   font-family: var(--font-mono); font-weight: 700; font-size: 13px;
   letter-spacing: 0.1em; text-transform: uppercase;
