@@ -11,6 +11,7 @@ import { isAncestor, resolveGuess, suggestGuesses } from "../core";
 import { CHARACTERS } from "../core/mosaicChars";
 import { dailyNumber } from "../core";
 import { mosaicShareRow, gameUrl } from "./share";
+import { MOSAIC_LAUNCH } from "../core/mosaic";
 import type { MosaicProximityMode } from "../core/mosaic";
 import { geoCell, regionLabels } from "../data/geo";
 import { useMosaicGame, type MosaicComplete } from "../hooks/useMosaicGame";
@@ -101,7 +102,8 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
   // The shareable result: one square per guess, and never the animal. Same shape as the other
   // three games' (see share.ts), so a Grebe result reads the same whichever game it came from.
   const shareText = (() => {
-    const head = `🖼 Grebe Mosaic · №${dailyNumber(g.date)} · ${DIFFICULTY[g.aids.tier - 1]}`;
+    // Numbered from MOSAIC_LAUNCH, not the platform epoch: this game's first board is its №1.
+    const head = `🖼 Grebe Mosaic · №${dailyNumber(g.date, MOSAIC_LAUNCH)} · ${DIFFICULTY[g.aids.tier - 1]}`;
     const row = mosaicShareRow(g.guesses.map((x) => ({ degrees: x.degrees, correct: x.correct })));
     const n = g.guesses.length;
     const streakLine = g.status === "won" && streak != null && streak > 0 ? ` · 🔥${streak}` : "";
@@ -158,7 +160,15 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
       {sandbox && <MosaicBench g={g} />}
 
       <div className={`mosaic-stage${done && zoom ? " is-zoom" : ""}`}>
-        {g.missing ? (
+        {/* Reachable only by deep link or a restored last-view: the nav tab and the home card
+            are both withheld before the launch date. Says when rather than just refusing, and
+            names the hour, because the rollover is 09:00 and not midnight. */}
+        {g.notYet ? (
+          <div className="mosaic-nostage">
+            <strong>Mosaic opens on {MOSAIC_LAUNCH}</strong>
+            <span>The first board is dealt at the daily rollover, 09:00 Brussels time.</span>
+          </div>
+        ) : g.missing ? (
           <div className="mosaic-nostage">
             <strong>No picture to play</strong>
             <span>Wikipedia could not be reached. Please try again.</span>

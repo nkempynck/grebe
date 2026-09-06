@@ -12,6 +12,7 @@ import {
   type LeaderboardPeriod,
 } from "../data/games";
 import { todayKey, dailyNumber } from "../core/daily";
+import { MOSAIC_LAUNCH } from "../core/mosaic";
 import { periodStart } from "../core/period";
 import { PeriodNav, windowNoun } from "./PeriodNav";
 
@@ -125,7 +126,7 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, p
         {isToday
           ? `Today’s ${label} board`
           : browsingDay
-            ? `${label} №${dailyNumber(anchor)}`
+            ? `${label} №${dailyNumber(anchor, game === "mosaic" ? MOSAIC_LAUNCH : undefined)}`
             : `${label} rankings`}
       </div>
 

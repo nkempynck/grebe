@@ -1,4 +1,5 @@
 import { dailyLabel, todayKey } from "../core/daily";
+import { mosaicIsLive } from "../core/mosaic";
 
 interface Props {
   onPlay: (view: "lineage" | "kinship" | "branches" | "mosaic") => void;
@@ -47,7 +48,11 @@ const GAMES = [
 
 /** The platform landing: what Grebe is, and a card per game to choose from. */
 export function HomePanel({ onPlay }: Props) {
-  const label = dailyLabel(todayKey());
+  const today = todayKey();
+  const label = dailyLabel(today);
+  // A game that has not opened yet is not offered. Same test the nav uses, on the PUZZLE date,
+  // so the card appears at the 09:00 rollover rather than at midnight.
+  const games = GAMES.filter((g) => g.id !== "mosaic" || mosaicIsLive(today));
   return (
     <div className="home">
       <p className="home-intro">
@@ -57,7 +62,7 @@ export function HomePanel({ onPlay }: Props) {
       </p>
 
       <div className="home-games">
-        {GAMES.map((game) => (
+        {games.map((game) => (
           <button key={game.id} className={`home-card is-${game.id}`} data-game={game.id} onClick={() => onPlay(game.id)}>
             <div className="home-card-top">
               <span className="home-card-ico" aria-hidden="true">{game.icon}</span>

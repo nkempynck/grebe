@@ -3,6 +3,7 @@ import { useGame } from "./hooks/useGame";
 import { loadRichTree } from "./data/loadTaxonomy";
 import { informedPar, type Tree } from "./core";
 import { groupOf, boardGroupOf } from "./data/clades";
+import { mosaicIsLive } from "./core/mosaic";
 import { useStats } from "./hooks/useStats";
 import { useFieldStats } from "./hooks/useFieldStats";
 import { usePlayer } from "./hooks/usePlayer";
@@ -1055,7 +1056,7 @@ export default function App() {
 
       {isGameView(view) && (
         <nav className="gamenav" role="tablist" aria-label="Games">
-          {GAME_VIEWS.map((v) => (
+          {GAME_VIEWS.filter((v) => v !== "mosaic" || mosaicIsLive(dayKey)).map((v) => (
             <button
               key={v}
               role="tab"

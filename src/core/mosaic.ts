@@ -352,6 +352,27 @@ export function mosaicSampleAnswer(
  *  and the draw is weighted hard toward the famous end, so without this the same headline
  *  species really does land twice in a week — a test caught the horse on two consecutive days. */
 export const MOSAIC_ANTI_REPEAT_WINDOW = 45;
+/** The first day Mosaic exists. Before it the game is not offered, cannot be dealt and cannot
+ *  be recorded — the tab is not in the nav and the card is not on the home page.
+ *
+ *  WHY A CONSTANT RATHER THAN JUST NOT DEPLOYING YET. The puzzle date flips at 09:00
+ *  Europe/Brussels, not midnight (see todayKey), so a build shipped at 23:00 or at 07:00 is
+ *  still serving the PREVIOUS day. Deploying "the night before" therefore puts Mosaic live on a
+ *  date it was never pinned for, and worse, on a date the other three have already been played:
+ *  the combined board divides by 3 plus whether Mosaic ran that day, so the first overnight
+ *  player to finish a Mosaic board flips that day's divisor to 4 for EVERYONE, cutting the
+ *  combined score of people who never had a Mosaic board to play.
+ *
+ *  A launch date decouples shipping the code from starting the game. Deploy whenever; the game
+ *  opens at the rollover on this date and not a moment sooner.
+ *
+ *  It is also the honest record of why no pin exists before it. Safe to leave here forever. */
+export const MOSAIC_LAUNCH = "2026-09-07";
+
+/** Is Mosaic open on this puzzle date? Compares date STRINGS, which is sound for YYYY-MM-DD and
+ *  keeps the whole question on the 09:00 rollover the rest of the game already runs on. */
+export const mosaicIsLive = (dateKey: string): boolean => dateKey >= MOSAIC_LAUNCH;
+
 /** Fixed point the anti-repeat walk starts from, so every date resolves identically whichever
  *  one you ask for. Before it, days are drawn with no history. */
 export const MOSAIC_ANCHOR = "2026-08-01";
@@ -396,7 +417,7 @@ const drawCache = new WeakMap<Tree, Map<string, MosaicDraw>>();
 function mosaicDraw(tree: Tree, scope: string, minViews: number): MosaicDraw {
   let byKey = drawCache.get(tree);
   if (!byKey) { byKey = new Map(); drawCache.set(tree, byKey); }
-  const key = `${scope} ${minViews}`;
+  const key = `${scope}\u0000${minViews}`;
   let d = byKey.get(key);
   if (!d) {
     const pool = mosaicPool(tree, scope, minViews);

@@ -42,11 +42,16 @@ export const DAILY_EPOCH = "2026-07-22";
 /** The daily's sequence number (#1, #2, …) for a date — days since DAILY_EPOCH,
  *  1-based, computed in UTC so it flips at the same instant everywhere. Negative /
  *  zero before the epoch (the pre-launch shakedown days). */
-export function dailyNumber(dateKey = todayKey()): number {
+export function dailyNumber(dateKey = todayKey(), epochKey = DAILY_EPOCH): number {
   const day = Math.floor(Date.parse(`${dateKey}T00:00:00Z`) / 86_400_000);
-  const epoch = Math.floor(Date.parse(`${DAILY_EPOCH}T00:00:00Z`) / 86_400_000);
+  const epoch = Math.floor(Date.parse(`${epochKey}T00:00:00Z`) / 86_400_000);
   return day - epoch + 1;
 }
+
+// A game's own day one comes from the optional second argument. Three of the four opened with
+// the platform, so DAILY_EPOCH is their first board and callers pass nothing. Mosaic arrived
+// months later: counting it from the platform epoch announced its opening board as №47, which
+// is true of Grebe and false of Mosaic.
 
 /** True on the pre-launch days (before DAILY_EPOCH): the games are playable for
  *  testing but their results are wiped at launch, so the UI labels them "Preview"

@@ -22,7 +22,7 @@ import {
   mosaicSampleAnswer, mosaicAnswerFor, scoreMosaicGuess, mosaicRung, mosaicPool, mosaicScopeId,
   mosaicDrillOptions,
   mosaicCandidates, mosaicLineagePath, mosaicAids, mosaicTierForDate, mosaicMinViews,
-  mosaicLadder,
+  mosaicLadder, mosaicIsLive,
   MOSAIC_GROUP_WINDOW,
   type MosaicGuess, type MosaicMechanic, type MosaicAids,
 } from "../core/mosaic";
@@ -123,6 +123,9 @@ export interface UseMosaicGame {
   /** True when no animal with a usable photograph could be dealt. Wikipedia being unreachable,
    *  in practice: the pool is large and the retry runs several times. */
   missing: boolean;
+  /** True before MOSAIC_LAUNCH. The game exists in the build but has not opened yet, so there
+   *  is no board and nothing is recordable. Lets the code ship ahead of the start. */
+  notYet: boolean;
   onImageError: () => void;
 }
 
@@ -172,6 +175,10 @@ export function useMosaicGame(
   // The date picks the animal, the aids, and which of the other games' boards to hide. The
   // override stays because the bench and the admin previews ask for a specific weekday.
   const date = dateOverride ?? todayKey();
+  // Before the launch date there is no game: no board, no record, no leaderboard row. Checked
+  // on the PUZZLE date rather than the wall clock, so it flips at the 09:00 rollover with
+  // everything else rather than at midnight.
+  const notYet = !mosaicIsLive(date);
   // The bench SAMPLES: it exists to try tiers and animals, which a scheduled board cannot do.
   // Everywhere else — which is to say, the game — takes the day's board.
   const daily = dev === null;
@@ -285,6 +292,7 @@ export function useMosaicGame(
   // The bench, which samples, does need it: an unpinned draw could otherwise land on a species
   // Kinship is using an hour later.
   useEffect(() => {
+    if (notYet) return;
     if (!tree || !rootId || guard === undefined) return;
     // Daily play also waits on the pin. Dealing the fallback animal first and swapping it for
     // the pinned one a moment later is a board that changes under the player.
@@ -388,7 +396,7 @@ export function useMosaicGame(
     // NOT keyed on the bench's photoSource. A resumed board restores its stored shot, so
     // re-running this would swap the source for a fresh deal and silently keep the old
     // picture for a board in progress. Deal a new board (🎲) to see the other source.
-  }, [tree, rootId, guard, deal, dev?.nonce, aids.tier, pool, daily, date, dailyAnswerId]);
+  }, [tree, rootId, guard, deal, dev?.nonce, aids.tier, pool, daily, date, dailyAnswerId, notYet]);
 
   const answerId = board?.answerId ?? null;
 
@@ -496,7 +504,7 @@ export function useMosaicGame(
   // The bench is exempt. Its boards are forced tiers and autosolves, and letting them overwrite
   // a real game in progress would lose it.
   useEffect(() => {
-    if (!board || dev) return;
+    if (!board || dev || notYet) return;
     saveMosaicProgress({
       v: MOSAIC_PROGRESS_V,
       date,
@@ -520,7 +528,7 @@ export function useMosaicGame(
   // autosolves, and recording them would file a real result for a board nobody played.
   const firedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!daily || dev || status === "playing" || !board) return;
+    if (notYet || !daily || dev || status === "playing" || !board) return;
     if (firedFor.current === date) return;
     firedFor.current = date;
     onCompleteRef.current?.({
@@ -532,7 +540,7 @@ export function useMosaicGame(
       date,
       group: groupFor(board.answerId) || null,
     });
-  }, [daily, dev, status, board, date, guesses.length, aids.guesses, aids.tier, gaveUp, groupFor]);
+  }, [notYet, daily, dev, status, board, date, guesses.length, aids.guesses, aids.tier, gaveUp, groupFor]);
 
   // Attribution came with the picture, so there is nothing to fetch. Held back until the round
   // is over all the same: the photographer's name is not a clue, but a name under a scrambled
@@ -594,6 +602,7 @@ export function useMosaicGame(
     giveUp: () => setGaveUp(true),
     solve: () => setBenchSolved(true),
     missing,
+    notYet,
     // A stored picture can 404 later: Wikimedia files get renamed and deleted. Drop the
     // board rather than stranding the player on one that can never render.
     onImageError: () => { clearMosaicProgress(); setMissing(true); },

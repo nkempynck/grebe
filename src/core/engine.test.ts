@@ -26,6 +26,14 @@ describe("dailyNumber", () => {
     expect(dailyNumber(DAILY_EPOCH)).toBe(1);
     expect(dailyNumber(dayAfterEpoch.toISOString().slice(0, 10))).toBe(2);
   });
+
+  // A game that opened after the platform counts from ITS OWN first board. Mosaic launched
+  // months in, so the platform epoch would have called its opening board №47.
+  it("counts from a game's own epoch when given one", () => {
+    expect(dailyNumber("2026-09-07", "2026-09-07")).toBe(1);
+    expect(dailyNumber("2026-09-08", "2026-09-07")).toBe(2);
+    expect(dailyNumber("2026-09-07")).toBeGreaterThan(40); // the platform's count, for contrast
+  });
 });
 
 describe("dailyAnswerId", () => {
