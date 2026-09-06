@@ -8,10 +8,16 @@
 // Two ways out for the player, because an announcement that cannot be dismissed is an advert:
 // tapping through to the game counts as having seen it, and so does closing it.
 import { todayKey } from "../core/daily";
+import { MOSAIC_LAUNCH } from "../core/mosaic";
 
 /** The window, inclusive both ends. Move these if the release slips; nothing else needs to
  *  change, and a window in the past is the same as this component not existing. */
-const FROM = "2026-09-06";
+// Tied to the launch constant rather than a date of its own, because the two drifted apart
+// once already. A banner saying "Mosaic has launched" while the nav is still withholding the
+// game is worse than no banner — and its Play button writes the dismissed flag before it
+// navigates, so a curious player clicking a day early would spend their one look on a
+// "opens tomorrow" notice and never see the announcement again.
+const FROM = MOSAIC_LAUNCH;
 const UNTIL = "2026-09-13";
 
 const KEY = "grebe.announce.mosaic";
