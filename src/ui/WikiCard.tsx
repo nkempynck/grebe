@@ -3,6 +3,7 @@ import type { TaxonNode, Tree } from "../core";
 import { isFullyRedacted, leavesUnder, redactSpoilers, type Spoiler } from "../core";
 import { fetchWikiImage, fetchWikiSummary, wikiUrlFor, type WikiImage, type WikiSummary } from "../data/wikipedia";
 import { PhotoCredit } from "./PhotoZoom";
+import { useDev } from "../data/devMode";
 
 /** A small Wikipedia reader, opened by tapping a species or a clade. Shared by
  *  the games so the field-notes card looks and behaves the same everywhere.
@@ -27,6 +28,7 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
   // fox and useless for telling two beetles apart. Tapping it opens the full-size
   // image, the same gesture the Kinship tiles and the Branches tray already use.
   const [zoomed, setZoomed] = useState(false);
+  const { photoSource } = useDev();
   useEffect(() => {
     let live = true;
     setLoading(true);
@@ -44,7 +46,8 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
     setZoomed(false); // a card reused for another node must not open on the old photo
     fetchWikiImage(node).then((i) => { if (live) setImg(i); });
     return () => { live = false; };
-  }, [node.id, hideImage]);
+    // photoSource: the test bench swaps image sources, and this card should follow.
+  }, [node.id, hideImage, photoSource]);
   const isLeaf = (tree.childrenOf.get(node.id) ?? []).length === 0;
   const sub = isLeaf ? "species" : `${leavesUnder(tree, node.id).length} species below`;
   // Hidden names are replaced by a fixed-width block, never by the text itself:

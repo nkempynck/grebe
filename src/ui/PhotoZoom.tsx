@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { WikiCredit } from "../data/wikipedia";
+import type { WikiCredit, WikiImage } from "../data/wikipedia";
 
 /** The photographer and licence for one picture.
  *
@@ -81,6 +81,76 @@ export function PhotoZoom({ src, caption, credit, onClose }: { src: string; capt
     </div>,
     document.body
   );
+}
+
+/** Paging through the several photographs we hold of one species, for the enlarged view in
+ *  Kinship and Branches.
+ *
+ *  One photograph is one angle, one lighting and one individual, and on a bad draw that is a
+ *  dead end: a bird seen only from behind, a fish on a slab, a plant that is arguably not
+ *  the right plant. The alternates are the escape hatch, and the only remedy for a
+ *  misidentified community photo that does not need someone to curate the species by hand.
+ *
+ *  `controls` is null when there is nothing to page through — a lone arrow pair over a
+ *  single image reads as a broken gallery.
+ *
+ *  The index resets on `key` (the species), not on the list: an overlay reused for the next
+ *  species must open on that species' first photo, never on whatever page the last one was
+ *  left at. */
+export function usePhotoPager(
+  images: WikiImage[],
+  key: string | null,
+  /** Supply both to offer "use this one": the picture currently in use for this species,
+   *  and what to do when a different one is chosen. The choice belongs to the HOST, which
+   *  holds it in component state for the life of the board — it is never stored, so it
+   *  cannot follow a player into tomorrow's puzzle and quietly give them a different board
+   *  from everyone else's. */
+  pick?: { current?: string | null; onPick: (image: WikiImage) => void }
+) {
+  const [i, setI] = useState(0);
+  useEffect(() => { setI(0); }, [key]);
+  // Open on the picture the species is actually using, so reopening a tile whose photo was
+  // swapped does not show page 1 while the tile behind it shows page 3.
+  const currentAt = pick?.current ? images.findIndex((im) => im.full === pick.current) : -1;
+  useEffect(() => { if (currentAt > 0) setI(currentAt); }, [currentAt, key]);
+  const n = images.length;
+  const at = n ? Math.min(i, n - 1) : 0;
+  const step = (d: number) => setI((x) => (n ? (Math.min(x, n - 1) + d + n) % n : 0));
+  // Arrow keys as well as the buttons. PhotoZoom owns Escape; these sit alongside it, and
+  // are bound only while there is more than one picture to move between.
+  useEffect(() => {
+    if (n < 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [n]);
+  const shown = images[at] ?? null;
+  const inUse = !!shown && (pick?.current ? pick.current === shown.full : at === 0);
+  return {
+    image: shown,
+    controls: n < 2 ? null : (
+      // stopPropagation: the overlay closes on any click, and every control here is a click.
+      <span className="photo-pager" onClick={(e) => e.stopPropagation()}>
+        <button type="button" onClick={() => step(-1)} aria-label="Previous photo">‹</button>
+        <span className="photo-pager-n">{at + 1}/{n}</span>
+        <button type="button" onClick={() => step(1)} aria-label="Next photo">›</button>
+        {pick && shown && (
+          <button
+            type="button"
+            className={`photo-pager-pick${inUse ? " is-on" : ""}`}
+            disabled={inUse}
+            onClick={() => pick.onPick(shown)}
+          >
+            {inUse ? "✓ In use" : "Use this one"}
+          </button>
+        )}
+      </span>
+    ),
+  };
 }
 
 /** A thumbnail that opens itself full-size: the button, its hover affordance and

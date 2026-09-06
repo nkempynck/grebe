@@ -25,6 +25,20 @@ export function PlaytestBar({ dev, onAutosolve }: { dev: DevSettings; onAutosolv
       </label>
       <button className="playtest-btn" onClick={() => reshuffleDev()}>🎲 New board</button>
       <button className="playtest-btn" onClick={onAutosolve}>✓ Autosolve</button>
+      {/* Unlike the controls beside it, this one changes the pictures across the whole
+          session, not just the sandbox board: judging the two sources means seeing them on
+          real boards. Per-browser, and it resets to Wikipedia on a fresh profile. */}
+      <label className="playtest-field">
+        Photos
+        <select
+          value={dev.photoSource}
+          onChange={(e) => setDev({ photoSource: e.target.value as "wiki" | "inat" })}
+          aria-label="Image source order"
+        >
+          <option value="wiki">Wikipedia first (live)</option>
+          <option value="inat">iNaturalist first</option>
+        </select>
+      </label>
       <span className="playtest-note">Not recorded</span>
     </div>
   );

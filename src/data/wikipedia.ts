@@ -1,5 +1,6 @@
 import type { TaxonNode } from "../core/types";
 import { inatPageUrl, inatPhotosFor, inatUrl } from "./speciesPhotos";
+import { getDev } from "./devMode";
 
 // Wikipedia's REST summary endpoint is CORS-enabled, so it works straight from
 // the browser with no proxy. If you later hit rate limits, add a small backend
@@ -63,6 +64,8 @@ export interface WikiImage {
 // Images are shown on many tiles at once, so cache per node id (including misses,
 // as null) to avoid re-fetching the same species across renders.
 const imgCache = new Map<string, WikiImage | null>();
+/** Which source order filled imgCache, so the bench toggle can invalidate it. */
+let cachedForOrder = "";
 
 // A page's lead image is often not a photo of the organism: range/distribution maps,
 // IUCN-status icons, size-comparison charts and old line-drawing plates all commonly sit
@@ -192,6 +195,14 @@ function bestPhoto(imgs: PageImage[]): WikiImage | null {
  *  fish as the picture of a blue grenadier. It is a last resort, never a second choice. */
 const SOURCE_ORDER: ReadonlyArray<"wiki" | "inat" | "pageScan"> = ["wiki", "inat", "pageScan"];
 
+/** The same three sources with iNaturalist leading. Reachable only from the test bench,
+ *  so the two can be compared on real boards before the default moves. */
+const INAT_FIRST: ReadonlyArray<"wiki" | "inat" | "pageScan"> = ["inat", "wiki", "pageScan"];
+
+function sourceOrder(): ReadonlyArray<"wiki" | "inat" | "pageScan"> {
+  return getDev().photoSource === "inat" ? INAT_FIRST : SOURCE_ORDER;
+}
+
 /** Image for a node, cached, from the first source in SOURCE_ORDER that has a real
  *  photograph of it. Returns null when none does.
  *
@@ -201,6 +212,12 @@ const SOURCE_ORDER: ReadonlyArray<"wiki" | "inat" | "pageScan"> = ["wiki", "inat
  *  — Kinship stops offering a reveal, Mosaic draws a different animal — so nothing is
  *  returned rather than something misleading. */
 export async function fetchWikiImage(node: TaxonNode): Promise<WikiImage | null> {
+  // Flipping the source in the test bench has to drop what the old order produced, or the
+  // tiles already on screen keep their pictures and the toggle looks like it does nothing.
+  const order = sourceOrder();
+  const orderKey = order.join(",");
+  if (orderKey !== cachedForOrder) { imgCache.clear(); cachedForOrder = orderKey; }
+
   const hit = imgCache.get(node.id);
   if (hit !== undefined) return hit;
 
@@ -209,7 +226,7 @@ export async function fetchWikiImage(node: TaxonNode): Promise<WikiImage | null>
   const getSummary = async () => (summary === undefined ? (summary = await fetchWikiSummary(node)) : summary);
 
   let img: WikiImage | null = null;
-  for (const source of SOURCE_ORDER) {
+  for (const source of order) {
     if (source === "wiki") {
       const s = await getSummary();
       const lead = s?.original ?? s?.thumbnail;
@@ -238,6 +255,34 @@ export async function fetchWikiImage(node: TaxonNode): Promise<WikiImage | null>
 
   imgCache.set(node.id, img);
   return img;
+}
+
+/** Every picture we can show for a node, best first: whatever fetchWikiImage settled on,
+ *  then the other iNaturalist photographs of the same species.
+ *
+ *  Kinship and Branches page through these from the enlarged view. One photograph is one
+ *  angle, one lighting and one individual, and on a bad draw that is a dead end: a bird
+ *  seen only from behind, a fish on a slab, a plant that turns out to be the wrong one. The
+ *  alternates are the escape hatch, and they are also the only remedy for a misidentified
+ *  community photo that does not require someone to curate the species by hand.
+ *
+ *  Deliberately NOT offered in Mosaic, where the photograph is the entire puzzle, or on the
+ *  post-game surfaces, which have no such problem to solve. */
+export async function fetchImageAlternates(node: TaxonNode): Promise<WikiImage[]> {
+  const first = await fetchWikiImage(node);
+  const out: WikiImage[] = first ? [first] : [];
+  for (const photo of await inatPhotosFor(node)) {
+    const full = inatUrl(photo, "large");
+    // The leading image is already one of these whenever iNaturalist is the primary source.
+    if (out.some((i) => i.full === full)) continue;
+    out.push({
+      thumb: inatUrl(photo, "medium"),
+      full,
+      source: "inat",
+      credit: { artist: photo.by, licence: photo.l, filePage: inatPageUrl(photo) },
+    });
+  }
+  return out;
 }
 
 export interface WikiCredit {

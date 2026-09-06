@@ -10,10 +10,18 @@ export interface DevSettings {
   tier: number;
   /** Reshuffle counter — bump to regenerate a fresh board at the current tier. */
   nonce: number;
+  /** Which image source leads, for comparing the two side by side. "wiki" is what the
+   *  site ships: Wikipedia's lead image, with iNaturalist covering the ~1-2% it fails on.
+   *  "inat" is the proposed flip, iNaturalist first with Wikipedia as the fallback.
+   *
+   *  Unlike the other two settings this one is NOT sandbox-only — it changes the pictures
+   *  everywhere in the session, because the point is to judge them on real boards. It is
+   *  still per-browser and off by default, so nobody else sees it. */
+  photoSource: "wiki" | "inat";
 }
 
 const KEY = "grebe.dev";
-const DEFAULT: DevSettings = { tier: 0, nonce: 0 };
+const DEFAULT: DevSettings = { tier: 0, nonce: 0, photoSource: "wiki" };
 
 /** The forced tier is a preference and persists. The reshuffle counter deliberately does
  *  NOT: it is a position in the daily sequence, and every board the bench deals has to

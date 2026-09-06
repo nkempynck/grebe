@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { TaxonNode } from "../core";
 import { fetchWikiImage, type WikiImage } from "../data/wikipedia";
 import { PhotoZoom } from "./PhotoZoom";
+import { useDev } from "../data/devMode";
 import {
   fetchGameLeaderboard,
   fetchGameStanding,
@@ -79,6 +80,7 @@ export function AnswerReveal({
   // of snapping in at whatever moment the network happens to deliver it.
   const [imgReady, setImgReady] = useState(false);
   const [zoomed, setZoomed] = useState(false);
+  const { photoSource } = useDev();
   const cardRef = useRef<HTMLDivElement>(null);
 
   // The lead image is often a range map, a status icon or a size chart, so this
@@ -90,7 +92,8 @@ export function AnswerReveal({
     setImgReady(false);
     fetchWikiImage(answer).then((i) => { if (live) setImg(i); });
     return () => { live = false; };
-  }, [answer.id]);
+    // photoSource: follow the test bench's image-source toggle.
+  }, [answer.id, photoSource]);
 
   // Focus moves into the card on open and back out on close — the card is the only
   // thing on screen that matters until it's dismissed. Deliberately its OWN effect,

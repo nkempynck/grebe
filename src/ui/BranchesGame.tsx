@@ -5,10 +5,10 @@ import { resolveDailyRules } from "../data/dailySchedule";
 import { GameHeader } from "./GameHeader";
 import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame";
 import { BRANCHES_MAX_HINTS, branchesPoints, tierWeight } from "../data/score";
-import { fetchWikiImage, type WikiImage } from "../data/wikipedia";
+import { fetchImageAlternates, fetchWikiImage, type WikiImage } from "../data/wikipedia";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } from "./cladoLayout";
 import { WikiCard } from "./WikiCard";
-import { PhotoCredit } from "./PhotoZoom";
+import { PhotoCredit, usePhotoPager } from "./PhotoZoom";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
 import { DiscussionPanel } from "./DiscussionPanel";
@@ -83,9 +83,15 @@ function branchesLayout(root: DisplayTreeNode, radial: boolean): GraphLayout {
 }
 
 /** Load Wikipedia lead images for the species-to-place (cached across renders). */
-function useSpeciesImages(tree: Tree, ids: string[]): Record<string, WikiImage> {
+function useSpeciesImages(tree: Tree, ids: string[]) {
   const key = ids.join(",");
+  // Swapping image source in the test bench must re-fetch the tray on the spot: the map
+  // below keeps an entry it already has, so a source change would otherwise show nothing.
+  // The tray itself changing clears it too, so a photo swapped by hand does not follow the
+  // species into the next board.
+  const { photoSource } = useDev();
   const [imgs, setImgs] = useState<Record<string, WikiImage>>({});
+  useEffect(() => { setImgs({}); }, [photoSource, key]);
   useEffect(() => {
     let live = true;
     for (const id of ids) {
@@ -97,8 +103,11 @@ function useSpeciesImages(tree: Tree, ids: string[]): Record<string, WikiImage> 
     }
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tree, key]);
-  return imgs;
+  }, [tree, key, photoSource]);
+  /** Swap one species' picture for another of the same species, for the life of this board.
+   *  Never stored: see the note on usePhotoPager's `pick`. */
+  const pick = (id: string, img: WikiImage) => setImgs((m) => ({ ...m, [id]: img }));
+  return { imgs, pick };
 }
 
 interface DragData {
@@ -139,8 +148,25 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
     () => (skeleton ? branchesLayout(skeleton, radial) : null),
     [skeleton, radial]
   );
-  const trayImgs = useSpeciesImages(tree, g.board?.tray ?? []);
+  const { imgs: trayImgs, pick: pickTrayImg } = useSpeciesImages(tree, g.board?.tray ?? []);
   const [zoomId, setZoomId] = useState<string | null>(null);
+  // The enlarged species' other photographs, loaded on open. See the same block in GridGame:
+  // only one tray tile is ever enlarged, so fetching every tile's alternates up front is
+  // work thrown away.
+  const [zoomAlts, setZoomAlts] = useState<WikiImage[]>([]);
+  const { photoSource } = useDev();
+  useEffect(() => {
+    if (!zoomId) { setZoomAlts([]); return; }
+    const node = tree.byId.get(zoomId);
+    if (!node) { setZoomAlts([]); return; }
+    let live = true;
+    fetchImageAlternates(node).then((a) => { if (live) setZoomAlts(a); });
+    return () => { live = false; };
+  }, [zoomId, tree, photoSource]);
+  const zoomPager = usePhotoPager(zoomAlts, zoomId, {
+    current: zoomId ? trayImgs[zoomId]?.full : null,
+    onPick: (img) => { if (zoomId) pickTrayImg(zoomId, img); },
+  });
 
   // Radial overlap cleanup: after render, slide any leaf tile that overlaps a clade label
   // (or an earlier tile) outward along its own branch until it's clear. Tiles carry no
@@ -736,10 +762,12 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
 
       {zoomId && trayImgs[zoomId] && (
         <div className="branches-zoom" role="dialog" aria-label={`${nameOf(tree, zoomId)} picture`} onClick={() => setZoomId(null)}>
-          <img src={trayImgs[zoomId].full} alt={nameOf(tree, zoomId)} />
+          {/* The pager's picture once loaded, else the one the tray was already showing. */}
+          <img src={zoomPager.image?.full ?? trayImgs[zoomId].full} alt={nameOf(tree, zoomId)} />
           <span className="branches-zoom-cap">
             {nameOf(tree, zoomId)} · tap to close
-            <PhotoCredit credit={trayImgs[zoomId].credit} />
+            {zoomPager.controls}
+            <PhotoCredit credit={zoomPager.image?.credit ?? trayImgs[zoomId].credit} />
           </span>
         </div>
       )}

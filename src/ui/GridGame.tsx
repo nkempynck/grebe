@@ -4,10 +4,10 @@ import { dailyNumber } from "../core";
 import { useGridGame, PRESHOW_MAX_TIER, type GridComplete } from "../hooks/useGridGame";
 import { resolveDailyRules } from "../data/dailySchedule";
 import { kinshipPoints, kinshipFreeReveals } from "../data/score";
-import { fetchWikiImage, type WikiCredit } from "../data/wikipedia";
+import { fetchImageAlternates, fetchWikiImage, type WikiCredit, type WikiImage } from "../data/wikipedia";
 import { GameHeader } from "./GameHeader";
 import { WikiCard } from "./WikiCard";
-import { PhotoCredit } from "./PhotoZoom";
+import { PhotoCredit, usePhotoPager } from "./PhotoZoom";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
 import { DiscussionPanel } from "./DiscussionPanel";
@@ -187,6 +187,36 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   // and only the overlay has room for a credit line.
   const [credits, setCredits] = useState<Record<string, WikiCredit>>({});
   const [zoomId, setZoomId] = useState<string | null>(null);
+  // Every photograph we hold of the enlarged species, so the overlay can page through them.
+  // Loaded on OPEN rather than with the board: a board is sixteen tiles and only one of them
+  // is ever enlarged, so fetching all sixteen species' alternates up front would be fifteen
+  // wasted reads of the photo map for every one that gets looked at.
+  const [zoomAlts, setZoomAlts] = useState<WikiImage[]>([]);
+  useEffect(() => {
+    if (!zoomId) { setZoomAlts([]); return; }
+    const node = tree.byId.get(zoomId);
+    if (!node) { setZoomAlts([]); return; }
+    let live = true;
+    fetchImageAlternates(node).then((a) => { if (live) setZoomAlts(a); });
+    return () => { live = false; };
+  }, [zoomId, tree, devSettings.photoSource]);
+  // Choosing a photo writes straight into the maps the tiles already read, so every place
+  // that renders this species picks it up. Component state and nothing else: it lasts as
+  // long as the board and is gone on reload, so one player's choice can never make their
+  // puzzle differ from everyone else's tomorrow.
+  const zoomPager = usePhotoPager(zoomAlts, zoomId, {
+    current: zoomId ? fulls[zoomId] : null,
+    onPick: (img) => {
+      if (!zoomId) return;
+      setThumbs((t) => ({ ...t, [zoomId]: img.thumb }));
+      setFulls((f) => ({ ...f, [zoomId]: img.full }));
+      setCredits((c) => {
+        const next = { ...c };
+        if (img.credit) next[zoomId] = img.credit; else delete next[zoomId];
+        return next;
+      });
+    },
+  });
   // Post-game Wikipedia reader.
   const [wikiId, setWikiId] = useState<string | null>(null);
   // SOLVE ANIMATION — the four tiles gather and lift into their group bar, as Connections
@@ -417,8 +447,27 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       });
     }
     return () => { live = false; };
+    // photoSource is in here so the test bench can swap sources on the board in front of
+    // you. Nothing else about the board depends on it, so the tiles and their arrangement
+    // stay put and only the pictures change, which is the whole point of the comparison.
+    // photoSource is in here so the test bench can swap sources on the board in front of
+    // you. Nothing else about the board depends on it, so the tiles and their arrangement
+    // stay put and only the pictures change, which is the whole point of the comparison.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preshow, pictureMode, tiles, tree]);
+  }, [preshow, pictureMode, tiles, tree, devSettings.photoSource]);
+
+  // Drop what the previous source produced when it changes, and drop the whole lot on a NEW
+  // BOARD so any photo swapped by hand goes with it. The prefetch above keeps an entry it
+  // already has (a picture must not flicker mid-board), so without this the old URLs simply
+  // stay: the bench toggle would look inert, and a chosen photo would follow the species
+  // into the next board. Refetching costs nothing — fetchWikiImage answers from its own
+  // cache, which the pick deliberately never touches.
+  useEffect(() => {
+    setThumbs({});
+    setFulls({});
+    setCredits({});
+    setNoImg(new Set());
+  }, [tiles, devSettings.photoSource]);
 
   // Points a NEW reveal costs right now: 0 within the free three (and on the "free"
   // reveal of each pair past it), about a mistake's worth on the others. Measured as
@@ -819,10 +868,13 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         const zoomName = zoomNameShown ? nameOf(zoomId) : "";
         return (
           <div className="grid-zoom" role="dialog" aria-label={zoomNameShown ? `${zoomName} picture` : "Enlarged picture"} onClick={() => setZoomId(null)}>
-            <img src={fulls[zoomId] ?? thumbs[zoomId]} alt={zoomName} />
+            {/* The pager's picture once its alternates have loaded; until then the one the
+                tile was already showing, so opening the overlay is never a blank frame. */}
+            <img src={zoomPager.image?.full ?? fulls[zoomId] ?? thumbs[zoomId]} alt={zoomName} />
             <span className="grid-zoom-cap">
               {zoomNameShown ? `${zoomName} · tap to close` : "tap to close"}
-              <PhotoCredit credit={credits[zoomId]} />
+              {zoomPager.controls}
+              <PhotoCredit credit={zoomPager.image?.credit ?? credits[zoomId]} />
             </span>
           </div>
         );
