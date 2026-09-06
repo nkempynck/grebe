@@ -368,7 +368,14 @@ const mosaicResolver: Resolver<"mosaic"> = {
   //   fix it is while no date is frozen. No rule changed; every date moved. Bumped anyway so
   //   that IF a v1 row was written before this landed, the admin calendar flags it as stale
   //   rather than leaving a day silently on the old walk. Re-pin with --force if so.
-  version: 2,
+  // v3 (2026-09-06): the fame floors went up, base 9000 -> 20000 and the opening days
+  //   20000 -> 30000. Judged on the FAINTEST animal a floor admits rather than the median: at
+  //   9000 the pool bottomed out at the Barn Funnel Weaver and the Eastern Boxelder Bug, which
+  //   are not reconstructible from a scrambled photograph however narrow the candidate list
+  //   gets. Every date moves, and 109 of the 365 days pinned at v2 held an answer now below the
+  //   floor — an answer outside the pool is UNREACHABLE, not merely obscure, because the drill
+  //   counts and the candidate list are both built from the pool. Re-pin with --force.
+  version: 3,
   compute(tree, date, opts) {
     const scopeRootId = mosaicScopeId(tree);
     const answerId = mosaicAnswerFor(tree, date, scopeRootId, opts?.avoidOn);

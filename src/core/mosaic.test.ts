@@ -96,7 +96,7 @@ describe("mosaic board", () => {
   });
 
   // The dated draw used to hold ONE pool at the base floor, so raising Monday's floor moved
-  // the settings picker and nothing else: the daily would have kept dealing 9000-view animals
+  // the settings picker and nothing else: the daily would have kept dealing base-floor animals
   // on the days that are supposed to be the famous ones.
   it("draws each day from its own band's pool", () => {
     for (let i = 0; i < 28; i++) {

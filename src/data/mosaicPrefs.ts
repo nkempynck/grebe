@@ -8,6 +8,12 @@
 // the picture without spending a guess. A setting a player can use to skip the game is not a
 // setting, it is a cheat with a label on it. See MosaicBench.
 //
+// NOR IS THE MAP. The guess table used to show one of continents or realms, chosen here and
+// flipped by a pair of tabs over the table. Both are now columns side by side: they disagree
+// often enough to be worth reading together, and a control that has to be found and clicked was
+// a worse trade than a column that is simply there. The stored field is gone rather than
+// ignored, for the same reason the difficulty below is.
+//
 // DIFFICULTY IS NOT A SETTING EITHER, and it briefly was, during the beta. Mosaic is a daily now:
 // the weekday decides the aids for everyone, the same way it does in the other three games, and a
 // tier a player picks for themselves is not a tier anyone can be ranked against. The stored field
@@ -19,15 +25,13 @@
 import { useEffect, useState } from "react";
 import type { MosaicMechanic } from "../core/mosaic";
 import { MOSAIC_DEFAULT_MECHANIC } from "../core/mosaic";
-import type { RegionScheme } from "./geo";
 
 export interface MosaicPrefs {
   mechanic: MosaicMechanic;
-  regionScheme: RegionScheme;
 }
 
 const KEY = "grebe.mosaic.prefs";
-const DEFAULT: MosaicPrefs = { mechanic: MOSAIC_DEFAULT_MECHANIC, regionScheme: "continent" };
+const DEFAULT: MosaicPrefs = { mechanic: MOSAIC_DEFAULT_MECHANIC };
 
 /** Field by field, never a spread. This is whatever a previous version of the app left in the
  *  browser, and a mechanic of "blurr" would otherwise reach the reveal ladder as though it were
@@ -38,8 +42,6 @@ export function sanitisePrefs(raw: unknown): MosaicPrefs {
   const p = (raw ?? {}) as Partial<MosaicPrefs>;
   return {
     mechanic: p.mechanic === "blur" || p.mechanic === "shuffle" ? p.mechanic : DEFAULT.mechanic,
-    regionScheme:
-      p.regionScheme === "realm" || p.regionScheme === "continent" ? p.regionScheme : DEFAULT.regionScheme,
   };
 }
 
@@ -78,7 +80,7 @@ export function resetMosaicPrefs(): void {
 
 /** True when nothing has been changed from the defaults, so the panel can say so. */
 export function mosaicPrefsAreDefault(p: MosaicPrefs): boolean {
-  return p.mechanic === DEFAULT.mechanic && p.regionScheme === DEFAULT.regionScheme;
+  return p.mechanic === DEFAULT.mechanic;
 }
 
 export function useMosaicPrefs(): MosaicPrefs {

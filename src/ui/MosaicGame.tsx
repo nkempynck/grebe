@@ -249,30 +249,7 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
 
       {g.guesses.length > 0 && (
         <div className="mosaic-table-wrap">
-          <div className="mosaic-table-head">
-            <p className="mosaic-table-note">{tableNote(aids.proximity)}</p>
-            {/* Both maps, a tap apart, rather than one chosen once in a settings row. They
-                genuinely disagree — realms follow the wildlife rather than the coastlines, so
-                they split Indonesia and file Mexico with South America — and which one is
-                interesting depends on the animal in front of you. A tab, not a second column:
-                the table is already the widest thing on a phone. */}
-            <div className="mosaic-geotabs" role="tablist" aria-label="Which map the regions column speaks">
-              {(["continent", "realm"] as const).map((scheme) => (
-                <button
-                  key={scheme}
-                  role="tab"
-                  aria-selected={g.regionScheme === scheme}
-                  className={`mosaic-geotab${g.regionScheme === scheme ? " is-on" : ""}`}
-                  onClick={() => g.setRegionScheme(scheme)}
-                  title={scheme === "continent"
-                    ? "Continents, as anyone would draw them"
-                    : "Biogeographic realms: they follow the wildlife rather than the coastlines, so they split Indonesia and put Mexico with South America"}
-                >
-                  {scheme === "continent" ? "Continents" : "Realms"}
-                </button>
-              ))}
-            </div>
-          </div>
+          <p className="mosaic-table-note">{tableNote(aids.proximity)}</p>
           <table className="mosaic-table">
             <thead>
               <tr>
@@ -280,8 +257,16 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                 <th title={proxTitle(aids.proximity)}>
                   {aids.proximity === "degrees" ? "°" : "How close"}
                 </th>
-                <th title="Where your guess is recorded. Highlighted where the answer is too.">
-                  Recorded in
+                {/* BOTH maps, side by side, rather than one behind a toggle. They disagree
+                    often enough to be worth reading together — realms follow the wildlife
+                    rather than the coastlines, so they split Indonesia and file Mexico with
+                    South America — and a control that has to be found and clicked is a worse
+                    trade than a column that is simply there. */}
+                <th title="Continents your guess is recorded in. Highlighted where the answer is too.">
+                  Continents
+                </th>
+                <th title="Biogeographic realms your guess is recorded in: they follow the wildlife rather than the coastlines. Highlighted where the answer is too.">
+                  Realms
                 </th>
                 {CHARACTERS.map((c) => <th key={c.id}>{c.label}</th>)}
               </tr>
@@ -298,7 +283,8 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                       answer recorded only in Asia is neither a hit nor a miss, it is half
                       right, and the cell shows which half. One column carries up to six bits
                       that way; six yes/no columns would carry the same and double the width. */}
-                  <td className="mosaic-geo">{renderGeo(row.node.sciName, answer?.sciName, g.regionScheme)}</td>
+                  <td className="mosaic-geo">{renderGeo(row.node.sciName, answer?.sciName, "continent")}</td>
+                  <td className="mosaic-geo">{renderGeo(row.node.sciName, answer?.sciName, "realm")}</td>
                   {row.cells.map((c) => (
                     <td
                       key={c.characterId}

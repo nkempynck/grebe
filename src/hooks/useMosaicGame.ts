@@ -15,7 +15,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Tree } from "../core";
 import { isAncestor } from "../core";
 import { CLADE_GROUPS, groupOf } from "../data/clades";
-import type { RegionScheme } from "../data/geo";
 import { mosaicPoints } from "../data/score";
 import { fetchBoardGuard, boardGuardCached, GUARD_UNKNOWN, type BoardGuard } from "../data/boardGuard";
 import { todayKey } from "../core/daily";
@@ -88,10 +87,6 @@ export interface UseMosaicGame {
   points: number;
   /** What naming it on the NEXT guess would still be worth, while playing. */
   pointsIfNext: number;
-  /** Which region scheme the geography column speaks. Continents are what a player thinks in;
-   *  realms are what the biology actually is. Both are in the data; this picks one. */
-  regionScheme: RegionScheme;
-  setRegionScheme: (s: RegionScheme) => void;
   /** Jump the filter straight to a clade chain (from the species lookup). */
   setPath: (ids: string[]) => void;
   /** Named clades a species belongs to, broad to narrow, for the lookup panel. `rank` is the
@@ -189,7 +184,7 @@ export function useMosaicGame(
   // The reveal mechanic, the region scheme and the forced tier are the PLAYER's settings
   // now, not this hook's state, so they survive a reload and a board change.
   const prefs = useMosaicPrefs();
-  const { mechanic, regionScheme } = prefs;
+  const { mechanic } = prefs;
   const [board, setBoard] = useState<DealtBoard | null>(null);
   // Bumped to deal again: by the player's own button, and by the bench's. Kept separate from
   // dev.nonce so the site has a way to ask for a new board without a dev setting.
@@ -576,8 +571,6 @@ export function useMosaicGame(
     // a player can actually act on.
     points: status === "won" ? mosaicPoints(aids.tier, true, guesses.length, aids.guesses) : 0,
     pointsIfNext: mosaicPoints(aids.tier, true, Math.min(guesses.length + 1, aids.guesses), aids.guesses),
-    regionScheme,
-    setRegionScheme: (s: RegionScheme) => setMosaicPrefs({ regionScheme: s }),
     setPath: (ids: string[]) => setPathIds(ids),
     lineageOf: (speciesId: string) => (tree ? mosaicLineagePath(tree, speciesId, pool, undefined, hidden) : []),
     guessesLeft: Math.max(0, aids.guesses - guesses.length),

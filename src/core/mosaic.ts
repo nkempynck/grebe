@@ -4,8 +4,8 @@
 //
 // Pure: tree in, board out. No React and no data layer, and it does not fetch the picture — but
 // it does decide WHICH picture. Two draws live here: mosaicAnswerFor, the dated one the game
-// will ship on once it is pinned like the other three, and mosaicSampleAnswer, the random one
-// the beta plays on while the picture comes live off Wikipedia instead of a staged file.
+// runs on, pinned like the other three; and mosaicSampleAnswer, a random one the beta played on
+// that now survives only in the admin test bench.
 import type { TaxonNode, Tree } from "./types";
 import { edgeDistance, leavesUnder, mrca } from "./tree";
 import { CHARACTERS, characterValue, NA } from "./mosaicChars";
@@ -57,14 +57,6 @@ export const MOSAIC_DEFAULT_MECHANIC: MosaicMechanic = "shuffle";
  *  shorter one. */
 export const MOSAIC_MAX_GUESSES = MOSAIC_BLUR_LADDER.length + 1;
 
-/** How a guess's distance is reported back.
- *
- *  "named" gives the shared RANK — "same family" — which is a instruction as much as a
- *  reading: it tells you where to go looking, and the narrowing panel is right there to go
- *  there with. "degrees" gives only Lineage's temperature, so you learn you are warmer than
- *  your last guess without learning what you are warm to. Same underlying tree, far less to
- *  act on, and neither one ever names the shared clade — that is Lineage's mechanic and
- *  handing it over would make this game a reskin. */
 /** Which closeness reading the guess table prints. Both are always computed (see mosaicScore),
  *  so this only decides what is shown.
  *
@@ -95,10 +87,10 @@ export interface MosaicAids {
 /** THE WEEK. Mosaic's difficulty is not the picture — every day runs the same ladder against
  *  the same pool — it is how much help you get turning a picture into a name.
  *
- *    Mon/Tue  drill + lookup, rank AND degrees   (Gentle)   8 guesses, 20000 view floor
- *    Wed      drill + lookup, rank              (Tricky)   8 guesses,  9000 view floor
- *    Thu/Fri  drill + lookup, degrees           (Harder)   9 guesses,  9000 view floor
- *    Sat/Sun  drill, degrees                    (Brutal)   9 guesses,  9000 view floor
+ *    Mon/Tue  drill + lookup, rank AND degrees   (Gentle)   8 guesses, 30000 view floor
+ *    Wed      drill + lookup, rank              (Tricky)   8 guesses, 20000 view floor
+ *    Thu/Fri  drill + lookup, degrees           (Harder)   9 guesses, 20000 view floor
+ *    Sat/Sun  drill, degrees                    (Brutal)   9 guesses, 20000 view floor
  *
  *  THE RULE THIS TABLE OBEYS: one lever tightens per boundary, never two. Tuesday to Wednesday
  *  is the deliberate exception, because Wednesday's mechanics are otherwise identical to
@@ -172,19 +164,28 @@ export function mosaicScopeId(tree: Tree): string {
 /** Below this many Wikipedia pageviews a species is not a fair answer. The floor from Wednesday
  *  on; Monday and Tuesday sit higher (see MOSAIC_MIN_VIEWS_FAMOUS).
  *
- *  It started at 20000 (472 animals), because naming an organism you have never met is not
- *  hard, it is unfair. The candidate list changes that calculus: once the drill is narrow the
- *  names are on screen, so an unfamiliar animal is recognisable even when it is not
- *  recallable. 9000 nearly doubles the pool to 942 and pulls the median day well off the
- *  headline species, which was making boards easy on fame alone. */
-export const MOSAIC_MIN_VIEWS = 9000;
+ *  IT WENT 20000 -> 9000 -> 20000, and the round trip is the useful part. The argument for
+ *  dropping it was real: once the drill is narrow the candidate NAMES are on screen, so an
+ *  unfamiliar animal is recognisable even when it is not recallable, and 9000 nearly doubled
+ *  the pool to 942 while pulling the median day off the headline species.
+ *
+ *  What that missed is that recognising a name is not the whole job — you still have to get
+ *  there from a scrambled photograph. Judge a floor by the FAINTEST animal it admits, not the
+ *  median. At 9000 that is the Barn Funnel Weaver, the Eastern Boxelder Bug, the Red garra and
+ *  the Asian Snakehead: animals most players could not pick out of a line-up. At 20000 it is
+ *  the Arctic tern, the Asian hornet and Cuvier's beaked whale — still a stretch, still
+ *  nameable.
+ *
+ *  472 animals is plenty against a 45-day anti-repeat window and one board a day. */
+export const MOSAIC_MIN_VIEWS = 20000;
 
-/** …and the higher floor the opening days draw against: 472 animals, median 37000 views
- *  against the base pool's 20000.
+/** …and the higher floor the opening days draw against: 308 animals, median 49000 views
+ *  against the base pool's 472 and 37000.
  *
  *  This is Monday and Tuesday's ONLY difference from Wednesday, so it has to be a real step,
- *  and it is the whole reason Wednesday exists as its own band. */
-export const MOSAIC_MIN_VIEWS_FAMOUS = 20000;
+ *  and it is the whole reason Wednesday exists as its own band. At this floor the faintest
+ *  animals a Monday can deal are the snowy owl and the North American beaver. */
+export const MOSAIC_MIN_VIEWS_FAMOUS = 30000;
 
 /** The obscurity floor for a tier.
  *
@@ -412,7 +413,7 @@ function mosaicDraw(tree: Tree, scope: string, minViews: number): MosaicDraw {
 }
 
 /** The pool a given DATE draws from: its band's fame floor, from mosaicMinViews. Monday and
- *  Tuesday deal from the famous 472; the rest of the week from all 942. */
+ *  Tuesday deal from the famous 308; the rest of the week from 472. */
 const drawOn = (tree: Tree, scope: string, dateKey: string): MosaicDraw =>
   mosaicDraw(tree, scope, mosaicMinViews(mosaicTierForDate(dateKey)));
 

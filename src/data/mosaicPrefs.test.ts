@@ -5,33 +5,29 @@ import { sanitisePrefs, mosaicPrefsAreDefault } from "./mosaicPrefs";
 // whatever anyone has typed into devtools. A mechanic of "blurr" reaches the ladder lookup as an
 // undefined rung width.
 describe("mosaic prefs", () => {
-  it("defaults to the shipping mechanic and continents", () => {
+  it("defaults to the shipping mechanic", () => {
     const p = sanitisePrefs(undefined);
-    expect(p).toEqual({ mechanic: "shuffle", regionScheme: "continent" });
+    expect(p).toEqual({ mechanic: "shuffle" });
     expect(mosaicPrefsAreDefault(p)).toBe(true);
   });
 
   it("keeps a stored choice", () => {
-    expect(sanitisePrefs({ mechanic: "blur", regionScheme: "realm" }))
-      .toEqual({ mechanic: "blur", regionScheme: "realm" });
+    expect(sanitisePrefs({ mechanic: "blur" })).toEqual({ mechanic: "blur" });
   });
 
-  // A beta player's browser still holds `tier`, and Mosaic is a daily now: the weekday sets the
-  // difficulty for everyone. Reading that field again would force whatever tier they last
-  // picked, with nothing on screen to explain why their week looked wrong.
-  it("drops a beta difficulty rather than carrying it into the daily", () => {
-    expect(sanitisePrefs({ tier: 6, mechanic: "blur", regionScheme: "realm" }))
-      .toEqual({ mechanic: "blur", regionScheme: "realm" });
+  // A beta player's browser still holds `tier` and `regionScheme`. The weekday sets the
+  // difficulty for everyone now, and the table shows both maps at once, so reading either field
+  // again would resurrect a setting with nothing on screen to explain it.
+  it("drops beta settings rather than carrying them into the daily", () => {
+    expect(sanitisePrefs({ tier: 6, regionScheme: "realm", mechanic: "blur" }))
+      .toEqual({ mechanic: "blur" });
   });
 
-  it("rejects an unknown mechanic or region scheme", () => {
-    const p = sanitisePrefs({ mechanic: "blurr", regionScheme: "countries" });
-    expect(p.mechanic).toBe("shuffle");
-    expect(p.regionScheme).toBe("continent");
+  it("rejects an unknown mechanic", () => {
+    expect(sanitisePrefs({ mechanic: "blurr" }).mechanic).toBe("shuffle");
   });
 
-  it("falls back per field, so one bad key does not discard the rest", () => {
-    expect(sanitisePrefs({ regionScheme: "realm", mechanic: "nonsense" }))
-      .toEqual({ mechanic: "shuffle", regionScheme: "realm" });
+  it("ignores a key it does not know", () => {
+    expect(sanitisePrefs({ somethingElse: 1, mechanic: "blur" })).toEqual({ mechanic: "blur" });
   });
 });

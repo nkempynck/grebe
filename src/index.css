@@ -2254,6 +2254,29 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
   font-size: 11px; letter-spacing: 0.02em; opacity: 0.72;
 }
 .photo-credit a { color: inherit; text-decoration: underline; }
+/* Paging through a species' other photographs, in the Kinship and Branches enlarged view.
+   Its own line under the caption, and it stops clicks: the overlay closes on any click and
+   an arrow is a click. */
+.photo-pager {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-top: 8px; cursor: default;
+}
+.photo-pager button {
+  width: 26px; height: 26px; padding: 0; line-height: 1; cursor: pointer;
+  font-size: 16px; color: var(--on-accent);
+  background: rgba(20, 18, 12, 0.55); border: 1px solid var(--line-soft); border-radius: 7px;
+}
+.photo-pager button:hover { background: rgba(20, 18, 12, 0.8); }
+.photo-pager-n { font-variant-numeric: tabular-nums; opacity: 0.75; }
+/* "Use this one" — swaps which photo this species shows for the rest of the board. Wider
+   than the arrows and set apart, since it is the one control here that changes anything
+   outside the overlay. Disabled once it IS the one in use, so the button states are
+   "switch to this" and "already showing", never a no-op click. */
+.photo-pager-pick {
+  width: auto !important; height: 26px; padding: 0 10px !important;
+  margin-left: 6px; font-size: 11px !important; letter-spacing: 0.03em;
+}
+.photo-pager-pick.is-on, .photo-pager-pick:disabled { opacity: 0.6; cursor: default; }
 
 /* A thumbnail that opens itself. Sheds the button chrome so it keeps the exact
    footprint the bare <img> had — the same trap .clado-wiki-shot documents. */
@@ -2573,6 +2596,8 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
    "where is this from", which is worth seeing even where it disagrees. */
 /* Names wrap inside the cell rather than stretching the row: a cosmopolitan guess can carry
    five of them, and the table must not grow a column wide enough for the worst case. */
+/* TWO of these now, continents then realms. The wrap above scrolls, so the pair costs
+   horizontal room inside the table rather than widening the page. */
 .mosaic-geo { white-space: normal; min-width: 6.5rem; max-width: 11rem; }
 .mosaic-geo-set { display: flex; flex-wrap: wrap; gap: 2px 3px; justify-content: center; }
 .mosaic-geo-r {
@@ -2598,26 +2623,6 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
    whole cell and takes the cell's own weight. */
 .mosaic-table td.prox > span + span.prox-deg { margin-left: .3rem; opacity: .7; }
 .mosaic-table tr.hit tbody th, .mosaic-table tr.hit th { color: #2e7d5b; }
-/* The caption row over the guess table: what the closeness column means on the left, the two
-   maps on the right. Wraps rather than shrinks, because on a phone the caption is a full line
-   of prose and the tabs are not going to fit beside it. */
-.mosaic-table-head {
-  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
-  gap: .3rem .8rem;
-}
-.mosaic-table-head .mosaic-table-note { margin: 0; }
-.mosaic-geotabs { display: flex; gap: .25rem; flex: none; }
-.mosaic-geotab {
-  padding: .15rem .55rem; font-size: .72rem; cursor: pointer; color: inherit; opacity: .65;
-  border: 1px solid var(--line, #ddd); border-radius: 999px; background: transparent;
-  white-space: nowrap;
-}
-.mosaic-geotab:hover { opacity: 1; }
-.mosaic-geotab.is-on {
-  opacity: 1; border-color: var(--game, var(--brass)); color: var(--game, var(--brass));
-  font-weight: 600;
-}
-
 /* The shared result: the row of squares, then the copy button. Squares are emoji, so they
    inherit whatever the platform draws them at; the row gets its own letter-spacing rather than
    a font-size bump, which is what keeps it legible without towering over the verdict. */
