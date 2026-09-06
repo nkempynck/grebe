@@ -1,19 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { WikiCredit, WikiImage } from "../data/wikipedia";
+import { fetchImageCredit, type WikiCredit, type WikiImage } from "../data/wikipedia";
 
-/** The photographer and licence for one picture.
+/** The photographer and licence for one picture, from either source.
  *
- *  Wikimedia's images ship credited by the About panel, which points at the file page for
- *  each one. The iNaturalist photographs cannot be covered that way: CC-BY and its variants
- *  ask for the creator by name wherever the work is shown, and there is no article behind
- *  the picture to carry it. So the credit travels WITH the image and is rendered wherever a
- *  photograph is shown at a size worth reading — the enlarged views and the answer reveal.
- *  A 96px tile has nowhere to put a name, which is the case the licences' "in any reasonable
- *  manner" allowance exists for.
+ *  CC-BY and its variants ask for the creator by name wherever the work is shown, so every
+ *  photograph displayed at a size worth reading carries one: the enlarged views and the
+ *  answer reveal. A 96px tile has nowhere to put a name, which is the case the licences'
+ *  "in any reasonable manner" allowance exists for.
  *
- *  Renders nothing at all when there is no credit to show, so a Wikimedia picture is
- *  unchanged. */
+ *  Renders nothing when there is no credit to show — a picture whose attribution has not
+ *  arrived yet, or could not be read at all, gets no line rather than a wrong one. */
 export function PhotoCredit({ credit, className }: { credit?: WikiCredit | null; className?: string }) {
   if (!credit?.licence) return null;
   return (
@@ -24,6 +21,26 @@ export function PhotoCredit({ credit, className }: { credit?: WikiCredit | null;
       )}
     </span>
   );
+}
+
+/** The credit for whatever picture is currently enlarged.
+ *
+ *  Every photograph shown at a readable size gets a line, whichever source it came from.
+ *  iNaturalist's rides along with the image; Wikimedia's costs one request, made here on
+ *  open, so a board of sixteen tiles pays nothing until somebody actually looks at one. */
+export function usePhotoCredit(image: WikiImage | null): WikiCredit | null {
+  const [credit, setCredit] = useState<WikiCredit | null>(image?.credit ?? null);
+  useEffect(() => {
+    if (!image) { setCredit(null); return; }
+    if (image.credit) { setCredit(image.credit); return; }
+    let live = true;
+    // Cleared first: paging from a credited photo to one still loading must not leave the
+    // previous photographer's name under the new picture.
+    setCredit(null);
+    fetchImageCredit(image).then((c) => { if (live) setCredit(c); });
+    return () => { live = false; };
+  }, [image?.full, image?.credit]);
+  return credit;
 }
 
 /** The enlarged-picture overlay. A 96px square crop is fine for recognising a fox
@@ -161,15 +178,20 @@ export function usePhotoPager(
  *  no larger file. `className` is passed through so each host keeps its own
  *  footprint — the button must occupy exactly what the bare <img> did, or the
  *  layout around it shifts. */
-export function ZoomableShot({ src, full, caption, credit, className, title }: {
+export function ZoomableShot({ src, full, image, caption, credit, className, title }: {
   src: string;
   full?: string | null;
+  /** The image behind `src`, when the host has it. Passing it lets the overlay credit a
+   *  Wikimedia photograph, whose attribution costs a request and so is only fetched once
+   *  the picture is actually opened. */
+  image?: WikiImage | null;
   caption?: string | null;
   credit?: WikiCredit | null;
   className?: string;
   title?: string;
 }) {
   const [zoomed, setZoomed] = useState(false);
+  const fetched = usePhotoCredit(zoomed ? image ?? null : null);
   return (
     <>
       <button
@@ -182,7 +204,7 @@ export function ZoomableShot({ src, full, caption, credit, className, title }: {
         <img src={src} alt={caption ?? ""} />
         <span className="zoom-shot-icon" aria-hidden="true">⤢</span>
       </button>
-      {zoomed && <PhotoZoom src={full || src} caption={caption} credit={credit} onClose={() => setZoomed(false)} />}
+      {zoomed && <PhotoZoom src={full || src} caption={caption} credit={credit ?? fetched} onClose={() => setZoomed(false)} />}
     </>
   );
 }

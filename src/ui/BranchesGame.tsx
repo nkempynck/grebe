@@ -8,7 +8,7 @@ import { BRANCHES_MAX_HINTS, branchesPoints, tierWeight } from "../data/score";
 import { fetchImageAlternates, fetchWikiImage, type WikiImage } from "../data/wikipedia";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } from "./cladoLayout";
 import { WikiCard } from "./WikiCard";
-import { PhotoCredit, usePhotoPager } from "./PhotoZoom";
+import { PhotoCredit, usePhotoCredit, usePhotoPager } from "./PhotoZoom";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
 import { DiscussionPanel } from "./DiscussionPanel";
@@ -167,6 +167,9 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
     current: zoomId ? trayImgs[zoomId]?.full : null,
     onPick: (img) => { if (zoomId) pickTrayImg(zoomId, img); },
   });
+  // One image drives both the picture and its credit, so they can never disagree.
+  const zoomImage = zoomPager.image ?? (zoomId ? trayImgs[zoomId] ?? null : null);
+  const zoomCredit = usePhotoCredit(zoomImage);
 
   // Radial overlap cleanup: after render, slide any leaf tile that overlaps a clade label
   // (or an earlier tile) outward along its own branch until it's clear. Tiles carry no
@@ -763,11 +766,11 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
       {zoomId && trayImgs[zoomId] && (
         <div className="branches-zoom" role="dialog" aria-label={`${nameOf(tree, zoomId)} picture`} onClick={() => setZoomId(null)}>
           {/* The pager's picture once loaded, else the one the tray was already showing. */}
-          <img src={zoomPager.image?.full ?? trayImgs[zoomId].full} alt={nameOf(tree, zoomId)} />
+          <img src={zoomImage?.full ?? trayImgs[zoomId].full} alt={nameOf(tree, zoomId)} />
           <span className="branches-zoom-cap">
             {nameOf(tree, zoomId)} · tap to close
             {zoomPager.controls}
-            <PhotoCredit credit={zoomPager.image?.credit ?? trayImgs[zoomId].credit} />
+            <PhotoCredit credit={zoomCredit} />
           </span>
         </div>
       )}

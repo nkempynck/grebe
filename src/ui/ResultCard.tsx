@@ -80,6 +80,9 @@ export function ResultCard({ tree, answer, won, guessCount, streak, par }: Props
             // it, enlarging a picture that came from the summary would show the
             // 320px thumbnail at 320px, which is not an enlargement.
             full={img?.full ?? wiki?.original}
+            // Lets the overlay credit the photographer; a Wikimedia attribution costs a
+            // request, so it is only made once the picture is opened.
+            image={img}
             caption={answer.common ?? answer.sciName}
           />
         )}

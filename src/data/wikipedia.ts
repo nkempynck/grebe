@@ -285,6 +285,22 @@ export async function fetchImageAlternates(node: TaxonNode): Promise<WikiImage[]
   return out;
 }
 
+/** Width asked of Wikimedia when only the CREDIT is wanted. The rendering itself goes
+ *  unused, but the request returns both and Mosaic already asks for 1024, so reusing that
+ *  number shares its cache entry instead of rendering a second size nobody looks at. */
+const CREDIT_WIDTH = 1024;
+
+/** Photographer and licence for an image, fetched only if it isn't already carried.
+ *
+ *  An iNaturalist photo arrives credited from the baked map. A Wikimedia one costs a
+ *  request, which is why this is called when a picture is ENLARGED rather than for all
+ *  sixteen tiles of a board: at tile size there is nowhere to put a name anyway, and a
+ *  board would otherwise open sixteen requests for lines nobody is reading. */
+export async function fetchImageCredit(img: WikiImage): Promise<WikiCredit | null> {
+  if (img.credit) return img.credit;
+  return (await fetchWikiShot(img, CREDIT_WIDTH)).credit;
+}
+
 export interface WikiCredit {
   artist: string | null;
   licence: string | null;

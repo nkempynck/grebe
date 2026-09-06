@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { TaxonNode } from "../core";
 import { fetchWikiImage, type WikiImage } from "../data/wikipedia";
-import { PhotoZoom } from "./PhotoZoom";
+import { PhotoZoom, usePhotoCredit } from "./PhotoZoom";
 import { useDev } from "../data/devMode";
 import {
   fetchGameLeaderboard,
@@ -81,6 +81,7 @@ export function AnswerReveal({
   const [imgReady, setImgReady] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const { photoSource } = useDev();
+  const credit = usePhotoCredit(zoomed && img !== "pending" ? img : null);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // The lead image is often a range map, a status icon or a size chart, so this
@@ -176,7 +177,7 @@ export function AnswerReveal({
           </button>
         )}
         {zoomed && img !== null && img !== "pending" && (
-          <PhotoZoom src={img.full || img.thumb} caption={name} credit={img.credit} onClose={() => setZoomed(false)} />
+          <PhotoZoom src={img.full || img.thumb} caption={name} credit={credit} onClose={() => setZoomed(false)} />
         )}
 
         <div className="reveal-body">

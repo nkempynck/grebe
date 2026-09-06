@@ -7,7 +7,7 @@ import { kinshipPoints, kinshipFreeReveals } from "../data/score";
 import { fetchImageAlternates, fetchWikiImage, type WikiCredit, type WikiImage } from "../data/wikipedia";
 import { GameHeader } from "./GameHeader";
 import { WikiCard } from "./WikiCard";
-import { PhotoCredit, usePhotoPager } from "./PhotoZoom";
+import { PhotoCredit, usePhotoCredit, usePhotoPager } from "./PhotoZoom";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
 import { DiscussionPanel } from "./DiscussionPanel";
@@ -217,6 +217,16 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       });
     },
   });
+  // What the overlay is actually showing: the pager's picture once its alternates land, and
+  // until then the one the tile already had. Both the <img> and the credit read this, so
+  // they can never describe different photographs.
+  const zoomImage = useMemo<WikiImage | null>(() => {
+    if (zoomPager.image) return zoomPager.image;
+    if (!zoomId) return null;
+    const full = fulls[zoomId] ?? thumbs[zoomId];
+    return full ? { thumb: thumbs[zoomId] ?? full, full, credit: credits[zoomId] } : null;
+  }, [zoomPager.image, zoomId, fulls, thumbs, credits]);
+  const zoomCredit = usePhotoCredit(zoomImage);
   // Post-game Wikipedia reader.
   const [wikiId, setWikiId] = useState<string | null>(null);
   // SOLVE ANIMATION — the four tiles gather and lift into their group bar, as Connections
@@ -870,11 +880,11 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
           <div className="grid-zoom" role="dialog" aria-label={zoomNameShown ? `${zoomName} picture` : "Enlarged picture"} onClick={() => setZoomId(null)}>
             {/* The pager's picture once its alternates have loaded; until then the one the
                 tile was already showing, so opening the overlay is never a blank frame. */}
-            <img src={zoomPager.image?.full ?? fulls[zoomId] ?? thumbs[zoomId]} alt={zoomName} />
+            <img src={zoomImage?.full ?? fulls[zoomId] ?? thumbs[zoomId]} alt={zoomName} />
             <span className="grid-zoom-cap">
               {zoomNameShown ? `${zoomName} · tap to close` : "tap to close"}
               {zoomPager.controls}
-              <PhotoCredit credit={zoomPager.image?.credit ?? credits[zoomId]} />
+              <PhotoCredit credit={zoomCredit} />
             </span>
           </div>
         );

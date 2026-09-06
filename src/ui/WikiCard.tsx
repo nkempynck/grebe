@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { TaxonNode, Tree } from "../core";
 import { isFullyRedacted, leavesUnder, redactSpoilers, type Spoiler } from "../core";
 import { fetchWikiImage, fetchWikiSummary, wikiUrlFor, type WikiImage, type WikiSummary } from "../data/wikipedia";
-import { PhotoCredit } from "./PhotoZoom";
+import { PhotoCredit, usePhotoCredit } from "./PhotoZoom";
 import { useDev } from "../data/devMode";
 
 /** A small Wikipedia reader, opened by tapping a species or a clade. Shared by
@@ -29,6 +29,8 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
   // image, the same gesture the Kinship tiles and the Branches tray already use.
   const [zoomed, setZoomed] = useState(false);
   const { photoSource } = useDev();
+  // Only fetched once the picture is opened; see usePhotoCredit.
+  const credit = usePhotoCredit(zoomed ? img : null);
   useEffect(() => {
     let live = true;
     setLoading(true);
@@ -103,7 +105,7 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
           <img src={img.full ?? img.thumb} alt={shownName} />
           <span className="clado-zoom-cap">
             {shownName} · tap to close
-            <PhotoCredit credit={img.credit} />
+            <PhotoCredit credit={credit} />
           </span>
         </div>
       )}
