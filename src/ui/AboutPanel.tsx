@@ -173,34 +173,30 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             <span className="about-game-src">a Grebe original</span>
           </div>
           <p>
-            Name the animal. Its photograph has been cut into tiles and shuffled, and every wrong
-            guess puts a little more of it back together, so the picture is clearest on your last
-            guess rather than your first. Beside it, a table shows which <b>traits</b> your guess
-            shares with the answer, things like how many legs it has, whether it flies, whether it
-            lives in water and what covers it. Those are traits, <b>not relatedness</b>: a dolphin
-            and a shark agree on almost every row and are not close relatives at all.
+            Name the animal from a photograph cut into tiles and shuffled. Every wrong guess puts
+            a little more of it back, so the picture is clearest on your last guess rather than
+            your first. Each guess is read two ways: a table of <b>traits</b> it shares with the
+            answer (legs, water, flight, warm blood, what covers it, what kind of animal it is),
+            and how <b>closely related</b> the two are. Traits are not relatedness. A dolphin and
+            a shark match on nearly every row and are not close relatives.
           </p>
-          <p>
-            Every guess also gets a <b>closeness</b> reading, and that one <i>is</i> relatedness.
-            It can name the rank you share, <i>same family</i> or <i>same order</i>, never which
-            one. It can also be a number in <b>degrees</b>, where 0 shares nothing with the answer
-            but being an animal and 100 is the answer itself. Monday and Tuesday give you both.
-            Wednesday keeps the rank, and from Thursday it is the number alone.
-          </p>
-          <p>
-            What else changes through the week is the <b>help</b>. You can narrow the field to a
-            group on any day, which is how an unfamiliar animal stays guessable. What goes is the
-            lookup, the panel that shows you where any animal sits: it is there until the weekend
-            and gone on Saturday and Sunday, which give you an extra guess instead and bring the
-            picture back in smaller steps. The answer is always an animal well known enough to
-            have a decent picture, and on Monday and Tuesday a good deal better known than that.
-          </p>
-          <p>
-            Mosaic is the <b>newest</b> of the four and now works like the rest: one animal a
-            day, the same one for everybody, scored on the leaderboard and counted towards a
-            streak. It has only just launched, so expect the odd rough edge. There is a feedback
-            board under the game, and patience is appreciated while it settles.
-          </p>
+          <details className="about-score">
+            <summary>How scoring works</summary>
+            <p>
+              Naming it wins the day's weight (<code>100–160 by day</code>), minus a penalty that
+              grows with every guess you spend. The first guess pays the whole day, the last pays
+              10%. A loss pays nothing. You get 8 guesses to Wednesday and 9 from Thursday. It
+              shares the weekday weight with the other three games, so scores line up across all
+              four.
+            </p>
+            <p>
+              The help tightens through the week. Closeness comes as both the rank you share
+              (<i>same family</i>, never which one) and a 0 to 100 number on Monday and Tuesday.
+              Wednesday keeps the rank, and from Thursday it is the number alone. You can narrow
+              the field to a group on any day. The lookup that shows where any animal sits goes on
+              Saturday and Sunday, which bring the picture back in finer steps instead.
+            </p>
+          </details>
         </div>
 
         <div className="about-game is-soon">
@@ -259,12 +255,21 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         </div>
       </div>
       <div className="about-src is-teal about-src-full">
-        <div className="about-src-tag">Images · Wikimedia</div>
+        <div className="about-src-tag">Images · Wikimedia &amp; iNaturalist</div>
         <p>
-          Every species picture is fetched live from Wikipedia and stays the property of its
-          respective photographer, author, and licensor. Grebe stores none of them and claims no
-          rights over them; each image is served straight from Wikimedia under its own licence, and
-          the full details for any picture are on its Wikipedia page.
+          Species pictures come from two places. Most are photographs taken by naturalists and
+          shared through{" "}
+          <a href="https://www.inaturalist.org" target="_blank" rel="noreferrer">iNaturalist</a>,
+          and Grebe uses only the ones their photographers released under a Creative Commons
+          licence. The rest are the lead images of Wikipedia articles, served from{" "}
+          <a href="https://commons.wikimedia.org" target="_blank" rel="noreferrer">Wikimedia
+          Commons</a>.
+        </p>
+        <p>
+          Every picture stays the property of its photographer, author and licensor. Grebe stores
+          none of them and claims no rights over them: each one is served from its own source under
+          its own licence. Enlarge any picture to see who took it and under what terms, with a link
+          to the original.
         </p>
       </div>
       <p className="about-p about-srcs-note">
@@ -293,6 +298,11 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         <li>
           <b>Name everything.</b> Give each species its everyday name from its Wikipedia title,
           falling back to Wikidata, and name the clades the same way.
+        </li>
+        <li>
+          <b>Find a picture.</b> Match each species to its iNaturalist page and keep the Creative
+          Commons photographs of it, so a species whose Wikipedia article leads with a range map
+          still gets a photo of the living animal.
         </li>
         <li>
           <b>Save a snapshot.</b> The result is baked into a single file bundled with the app, so
