@@ -15,7 +15,8 @@ export interface InatPhoto {
   e?: string;
 }
 
-interface PhotoFile { built: string; photos: Record<string, InatPhoto[]> }
+interface PrimaryFile { built: string; photos: Record<string, InatPhoto> }
+interface AltFile { built: string; photos: Record<string, InatPhoto[]> }
 
 /** Sizes iNaturalist renders. `original` is deliberately unused: a featured photo is
  *  regularly several megabytes, and `large` is already 1024 on the long side, which is what
@@ -31,26 +32,51 @@ export function inatPageUrl(photo: InatPhoto): string {
   return `https://www.inaturalist.org/photos/${photo.p}`;
 }
 
-// Lazy, and cached as one promise, exactly like the Kinship/Branches augment: the file is
-// ~1MB and the first paint does not need it, so it downloads as its own chunk the first time
-// anything asks for a picture.
-let cached: Promise<Record<string, InatPhoto[]>> | null = null;
+// TWO CHUNKS, SPLIT BY HOW OFTEN THEY ARE NEEDED. Both are lazy, and each is cached as one
+// promise, exactly like the Kinship/Branches augment.
+//
+// A board reads ONE photo per species; the alternates exist for the moment someone pages
+// through them in the enlarged view, which most players never do. Shipping all three
+// together meant every player downloading ~18,600 records to read sixteen of them, and the
+// combined file gzipped larger than the taxonomy itself. Split, the common path carries a
+// third of that and the rest arrives only if somebody asks for it.
+let cachedPrimary: Promise<Record<string, InatPhoto>> | null = null;
+let cachedAlts: Promise<Record<string, InatPhoto[]>> | null = null;
 
-export function loadSpeciesPhotos(): Promise<Record<string, InatPhoto[]>> {
-  if (!cached) {
-    cached = import("./speciesPhotos.json")
-      .then((m) => ((m.default ?? m) as unknown as PhotoFile).photos ?? {})
+export function loadSpeciesPhotos(): Promise<Record<string, InatPhoto>> {
+  if (!cachedPrimary) {
+    cachedPrimary = import("./speciesPhotos.json")
+      .then((m) => ((m.default ?? m) as unknown as PrimaryFile).photos ?? {})
       // A missing or malformed chunk must not take the pictures down with it: every caller
       // falls back to Wikipedia when this comes back empty.
       .catch(() => ({}));
   }
-  return cached;
+  return cachedPrimary;
 }
 
-/** The photos we hold for a node, best first. Empty for clades, and for any species
+function loadSpeciesPhotoAlts(): Promise<Record<string, InatPhoto[]>> {
+  if (!cachedAlts) {
+    cachedAlts = import("./speciesPhotosAlt.json")
+      .then((m) => ((m.default ?? m) as unknown as AltFile).photos ?? {})
+      // Failing here costs the pager its extra pages and nothing else.
+      .catch(() => ({}));
+  }
+  return cachedAlts;
+}
+
+/** The one photo the games show for a node. Null for clades, and for any species
  *  iNaturalist has no CC-licensed picture of. */
-export async function inatPhotosFor(node: TaxonNode): Promise<InatPhoto[]> {
-  if (node.rank !== "species" || node.virtual) return [];
+export async function inatPhotoFor(node: TaxonNode): Promise<InatPhoto | null> {
+  if (node.rank !== "species" || node.virtual) return null;
   const map = await loadSpeciesPhotos();
-  return map[node.id] ?? [];
+  return map[node.id] ?? null;
+}
+
+/** Every photo we hold for a node, best first. Downloads the alternates chunk, so call it
+ *  only where a player has asked to see more than one picture. */
+export async function inatPhotosFor(node: TaxonNode): Promise<InatPhoto[]> {
+  const first = await inatPhotoFor(node);
+  if (!first) return [];
+  const alts = await loadSpeciesPhotoAlts();
+  return [first, ...(alts[node.id] ?? [])];
 }

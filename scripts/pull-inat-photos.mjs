@@ -22,7 +22,8 @@
 // cheaper to keep one pool every game may use than to track which game may use which photo.
 //
 //   node scripts/pull-inat-photos.mjs [--limit N] [--fresh]
-//   cache: node_modules/.cache/inat-photos.json   out: src/data/speciesPhotos.json
+//   cache: node_modules/.cache/inat-photos.json
+//   out:   src/data/speciesPhotos.json (one per species) + speciesPhotosAlt.json (the rest)
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -31,6 +32,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CACHE_DIR = resolve(ROOT, "node_modules/.cache");
 const CACHE = resolve(CACHE_DIR, "inat-photos.json");
 const OUT = resolve(ROOT, "src/data/speciesPhotos.json");
+const OUT_ALT = resolve(ROOT, "src/data/speciesPhotosAlt.json");
 const UA = "GrebeGames/1.0 (species photo map; https://github.com/nkempynck/grebe)";
 const WDQS = "https://query.wikidata.org/sparql";
 const INAT = "https://api.inaturalist.org/v1";
@@ -210,23 +212,32 @@ for (const part of chunk(wanted, 30)) {
 }
 process.stderr.write("\n");
 
-// ---- phase 3: write the map ----
-const photos = {};
-let withPhoto = 0, licences = {};
+// ---- phase 3: write the maps ----
+//
+// SPLIT BY HOW THEY ARE USED, not by species. A board reads ONE photo per species and the
+// alternates exist for the rare moment someone pages through them, so shipping all three in
+// one file made every player download roughly 18,600 records to read sixteen. The primary
+// file is what the games load; the alternates are a second chunk that downloads only when a
+// player actually opens the pager, which most never will.
+const photos = {};   // species id -> the one photo the games show
+const alts = {};     // species id -> the rest, same order
+let withPhoto = 0, altCount = 0, licences = {};
 for (const s of species) {
   const t = inatIdBySpecies.get(s.id);
   const list = t ? cache.taxa[t] ?? [] : [];
   if (!list.length) continue;
-  photos[s.id] = list;
+  photos[s.id] = list[0];
+  if (list.length > 1) { alts[s.id] = list.slice(1); altCount += list.length - 1; }
   withPhoto++;
   for (const p of list) licences[p.l] = (licences[p.l] ?? 0) + 1;
 }
-writeFileSync(OUT, JSON.stringify({
-  built: new Date().toISOString().slice(0, 10),
-  note: "CC-licensed iNaturalist photos. URL: https://inaturalist-open-data.s3.amazonaws.com/photos/<p>/<size>.<e|jpg>, size in square|small|medium|large|original.",
-  photos,
-}));
+const NOTE = "CC-licensed iNaturalist photos. URL: https://inaturalist-open-data.s3.amazonaws.com/photos/<p>/<size>.<e|jpg>, size in square|small|medium|large|original.";
+const built = new Date().toISOString().slice(0, 10);
+writeFileSync(OUT, JSON.stringify({ built, note: NOTE, photos }));
+writeFileSync(OUT_ALT, JSON.stringify({ built, note: `${NOTE} Alternates only; the first photo of each species is in speciesPhotos.json.`, photos: alts }));
 
+const kb = (o) => (JSON.stringify(o).length / 1024).toFixed(0);
 console.error(`\n${withPhoto}/${species.length} species have a CC photo (${(100 * withPhoto / species.length).toFixed(1)}%)`);
 console.error(`licences: ${Object.entries(licences).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(", ")}`);
-console.error(`written to ${OUT} (${(JSON.stringify({ photos }).length / 1024).toFixed(0)} KB raw)`);
+console.error(`${OUT} — ${withPhoto} photos, ${kb({ photos })} KB raw`);
+console.error(`${OUT_ALT} — ${altCount} alternates, ${kb({ photos: alts })} KB raw`);

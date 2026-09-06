@@ -1,5 +1,5 @@
 import type { TaxonNode } from "../core/types";
-import { inatPageUrl, inatPhotosFor, inatUrl } from "./speciesPhotos";
+import { inatPageUrl, inatPhotoFor, inatPhotosFor, inatUrl } from "./speciesPhotos";
 import { getDev } from "./devMode";
 
 // Wikipedia's REST summary endpoint is CORS-enabled, so it works straight from
@@ -234,7 +234,9 @@ export async function fetchWikiImage(node: TaxonNode): Promise<WikiImage | null>
         img = { thumb: s.thumbnail, full: s.original ?? s.thumbnail, source: "wiki" };
       }
     } else if (source === "inat") {
-      const photo = (await inatPhotosFor(node))[0];
+      // inatPhotoFor, NOT inatPhotosFor: this runs for every tile on every board, and the
+      // plural one pulls down the alternates chunk nobody has asked to see.
+      const photo = await inatPhotoFor(node);
       if (photo) {
         img = {
           thumb: inatUrl(photo, "medium"),
