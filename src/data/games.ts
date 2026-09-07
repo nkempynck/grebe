@@ -86,6 +86,29 @@ export async function fetchTodayBranches(puzzleDate: string): Promise<TodayBranc
   }
 }
 
+export interface TodayMosaic { won: boolean; guesses: number; maxGuesses: number }
+
+/** The signed-in player's Mosaic row for a date, or null (RLS scopes it to the caller). Same
+ *  purpose and limits as fetchTodayGrid: it is how a daily stays finished on a SECOND DEVICE,
+ *  where localStorage knows nothing. The row is a summary, not a replay — it does not keep
+ *  which species were guessed, so the restore locks the result rather than the board. */
+export async function fetchTodayMosaic(puzzleDate: string): Promise<TodayMosaic | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("mosaic_games")
+      .select("won, guesses, max_guesses")
+      .eq("puzzle_date", puzzleDate)
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = data as { won: boolean; guesses: number; max_guesses: number };
+    return { won: row.won, guesses: row.guesses, maxGuesses: row.max_guesses };
+  } catch {
+    return null;
+  }
+}
+
 export interface LeaderboardEntry {
   display_name: string;
   total_score: number;

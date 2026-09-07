@@ -16,6 +16,8 @@ import type { Tree } from "../core";
 import { isAncestor } from "../core";
 import { CLADE_GROUPS, groupOf } from "../data/clades";
 import { mosaicPoints } from "../data/score";
+import { fetchTodayMosaic } from "../data/games";
+import { markCountedElsewhere } from "../data/playCount";
 import { fetchBoardGuard, boardGuardCached, GUARD_UNKNOWN, type BoardGuard } from "../data/boardGuard";
 import { todayKey } from "../core/daily";
 import {
@@ -123,6 +125,9 @@ export interface UseMosaicGame {
   /** True when no animal with a usable photograph could be dealt. Wikipedia being unreachable,
    *  in practice: the pool is large and the retry runs several times. */
   missing: boolean;
+  /** This day was finished on another device, so the result was read back from the server
+   *  rather than played here. The guess table is empty: the row is a summary, not a replay. */
+  playedElsewhere: boolean;
   /** True before MOSAIC_LAUNCH. The game exists in the build but has not opened yet, so there
    *  is no board and nothing is recordable. Lets the code ship ahead of the start. */
   notYet: boolean;
@@ -166,9 +171,16 @@ const MOSAIC_IMAGE_WIDTH = 1024;
 
 export function useMosaicGame(
   tree: Tree | null,
-  opts: { date?: string; dev?: MosaicDev | null; onComplete?: (r: MosaicComplete) => void } = {}
+  opts: {
+    date?: string;
+    dev?: MosaicDev | null;
+    onComplete?: (r: MosaicComplete) => void;
+    /** Signed-in player's id, or null. Restores an already-played day from the server, which is
+     *  what stops a second device dealing the same daily over again. */
+    userId?: string | null;
+  } = {}
 ): UseMosaicGame {
-  const { date: dateOverride, dev = null, onComplete } = opts;
+  const { date: dateOverride, dev = null, onComplete, userId = null } = opts;
   // Held in a ref so a caller passing a fresh closure each render cannot re-fire the finish.
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -186,6 +198,9 @@ export function useMosaicGame(
   const [guesses, setGuesses] = useState<MosaicGuess[]>([]);
   const [gaveUp, setGaveUp] = useState(false);
   const [benchSolved, setBenchSolved] = useState(false);
+  // A finished day read back from the server. Summary only: which species were guessed is not
+  // stored, so this locks the RESULT rather than replaying the board.
+  const [elsewhere, setElsewhere] = useState<{ won: boolean; guesses: number } | null>(null);
   const [pathIds, setPathIds] = useState<string[]>([]);
   const [rungOverride, setRungOverride] = useState<number | null>(null);
   // The reveal mechanic, the region scheme and the forced tier are the PLAYER's settings
@@ -398,6 +413,7 @@ export function useMosaicGame(
     // picture for a board in progress. Deal a new board (🎲) to see the other source.
   }, [tree, rootId, guard, deal, dev?.nonce, aids.tier, pool, daily, date, dailyAnswerId, notYet]);
 
+
   const answerId = board?.answerId ?? null;
 
   // The drill-down, derived from the pool above. Counting ANSWERS rather than guessable species
@@ -490,13 +506,43 @@ export function useMosaicGame(
     [tree, hereId, pool, remaining, aids.subset, guardReady]
   );
 
-  const won = benchSolved || guesses.some((g) => g.correct);
-  const status: MosaicStatus = won ? "won" : gaveUp || guesses.length >= aids.guesses ? "lost" : "playing";
+  const won = benchSolved || elsewhere?.won === true || guesses.some((g) => g.correct);
+  const status: MosaicStatus = won
+    ? "won"
+    : elsewhere || gaveUp || guesses.length >= aids.guesses ? "lost" : "playing";
   const wrong = guesses.filter((g) => !g.correct).length;
   const rung = rungOverride ?? mosaicRung(wrong, mechanic, aids.guesses);
   // The day's own ladder: as many rungs as it has guesses, resampled onto the same curve.
   const ladder = useMemo(() => mosaicLadder(mechanic, aids.guesses), [mechanic, aids.guesses]);
   const over = status !== "playing";
+
+  // SIGNED-IN PLAYERS: restore an already-played day from the server.
+  //
+  // Without this a daily is only finished on the device that finished it. Open Grebe on a phone
+  // after playing on a laptop and localStorage is empty, so Mosaic deals the day's board again
+  // and it is playable a second time — which the other three have never allowed. The submit is
+  // idempotent (one row per player per day), so the second attempt could never be recorded, but
+  // that is not the point: the board should not be offered.
+  //
+  // Runs only while the local state says "playing". A finished board in localStorage is the
+  // richer record — it has the actual guesses — so same-device replay keeps it.
+  const restored = useRef<string | null>(null);
+  useEffect(() => {
+    if (notYet || dev || !daily || !userId || !board) return;
+    const key = `${userId}:${date}`;
+    if (restored.current === key) return;
+    if (status !== "playing") { restored.current = key; return; }
+    let live = true;
+    void fetchTodayMosaic(date).then((row) => {
+      if (!live || !row) return;
+      restored.current = key;
+      // Counted on the device that played it. Claim the day locally WITHOUT counting, or the
+      // save below hands this board to catchUpCounts on the next mount as a fresh play.
+      markCountedElsewhere("mosaic", date);
+      setElsewhere({ won: row.won, guesses: row.guesses });
+    });
+    return () => { live = false; };
+  }, [notYet, dev, daily, userId, board, date, status]);
 
   // Write the board back on every change, finished ones included: a reload after a win should
   // show what you did rather than silently swapping the animal. Only "Play another" clears it.
@@ -577,7 +623,9 @@ export function useMosaicGame(
     // Scored on the guess that WON, so a win on the fourth pays the fourth's value. While
     // playing, the number shown is what the next guess would still be worth, which is the one
     // a player can actually act on.
-    points: status === "won" ? mosaicPoints(aids.tier, true, guesses.length, aids.guesses) : 0,
+    points: status === "won"
+      ? mosaicPoints(aids.tier, true, elsewhere?.guesses ?? guesses.length, aids.guesses)
+      : 0,
     pointsIfNext: mosaicPoints(aids.tier, true, Math.min(guesses.length + 1, aids.guesses), aids.guesses),
     setPath: (ids: string[]) => setPathIds(ids),
     lineageOf: (speciesId: string) => (tree ? mosaicLineagePath(tree, speciesId, pool, undefined, hidden) : []),
@@ -603,6 +651,7 @@ export function useMosaicGame(
     solve: () => setBenchSolved(true),
     missing,
     notYet,
+    playedElsewhere: elsewhere !== null,
     // A stored picture can 404 later: Wikimedia files get renamed and deleted. Drop the
     // board rather than stranding the player on one that can never render.
     onImageError: () => { clearMosaicProgress(); setMissing(true); },

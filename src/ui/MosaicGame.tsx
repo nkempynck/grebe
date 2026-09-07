@@ -55,6 +55,7 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
     date,
     dev: sandbox ? { tier: devSettings.tier, nonce: devSettings.nonce } : null,
     onComplete,
+    userId,
   });
   const [zoom, setZoom] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -218,6 +219,14 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
           )}
           {answer?.common && answer.sciName && (
             <span className="mosaic-verdict-sci">{answer.sciName}</span>
+          )}
+          {/* The server row is a summary, not a replay: it does not keep which species were
+              guessed. Without this line the reveal shows a result with an empty guess table
+              and no explanation for it. */}
+          {g.playedElsewhere && (
+            <span className="mosaic-verdict-sci">
+              Played on another device, so the guesses are not shown here.
+            </span>
           )}
           {g.credit?.licence && (
             <span className="mosaic-verdict-credit">
