@@ -9,6 +9,7 @@ import {
 } from "../data/games";
 import type { OverallBadges } from "../data/badges";
 import { todayKey, dailyNumber } from "../core/daily";
+import { mosaicIsLive } from "../core/mosaic";
 import { periodLabel, periodStart } from "../core/period";
 import { PeriodNav, windowNoun } from "./PeriodNav";
 
@@ -42,21 +43,27 @@ const PERIODS: { k: LeaderboardPeriod; label: string }[] = [
   { k: "day", label: "By day" },
 ];
 
-/** One row of either board, normalised for rendering: a day shows games out of
- *  three, a period shows how many days were played. */
+/** How many games a given day had. Mosaic made it four, but only from its launch: a day
+ *  before that had three, and labelling those "3/4" would tell someone they had missed a game
+ *  that did not exist yet. Mirrors the divisor in combined_daily_scores(), which counts Mosaic
+ *  only on days it actually ran. */
+const gamesOn = (dateKey: string): number => (mosaicIsLive(dateKey) ? 4 : 3);
+
+/** One row of either board, normalised for rendering: a day shows games out of the number
+ *  that ran that day, a period shows how many days were played. */
 interface Row {
   display_name: string;
   score: number;
-  /** "2/3" on a day, "5 days" over a period. */
+  /** "2/4" on a day, "5 days" over a period. */
   meta: string;
   /** The tie-break the rank shares: games on a day, days over a period. */
   tie: number;
   rank: number;
 }
 
-/** The combined board: each of the three games scored 0–100 (the player's score
+/** The combined board: each of the day's games scored 0–100 (the player's score
  *  as a share of that game's top score on the DAY), averaged for a daily total
- *  out of 100. A week, month or all-time board is the SUM of those daily scores.
+ *  out of 100. Three games until Mosaic launched, four after. A week, month or all-time board is the SUM of those daily scores.
  *
  *  Summing daily scores rather than ranking raw points is deliberate: a day where
  *  everyone maxed would otherwise dominate a week, and a brutal day you won with
@@ -92,7 +99,7 @@ export function CombinedLeaderboard({ me, playedToday = true, variant = "config"
     if (locked) return;
     const load = oneDay
       ? fetchCombinedDaily(anchor).then((rs: CombinedEntry[]) =>
-          rs.map((r) => ({ display_name: r.display_name, score: r.combined, meta: `${r.played}/3`, tie: r.played })))
+          rs.map((r) => ({ display_name: r.display_name, score: r.combined, meta: `${r.played}/${gamesOn(anchor)}`, tie: r.played })))
       : fetchCombinedPeriod(period, pastBucket ? anchor : null).then((rs: CombinedPeriodEntry[]) =>
           rs.map((r) => ({
             display_name: r.display_name,
