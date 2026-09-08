@@ -10,7 +10,13 @@
 #   • Supabase          — auth + RPC/REST            (connect-src *.supabase.co)
 #   • Cloudflare Turnstile — captcha script + iframe (script/frame/connect challenges.cloudflare.com)
 #   • Wikipedia         — REST summary API           (connect-src en.wikipedia.org)
-#                         + lead images              (img-src upload.wikimedia.org, *.wikipedia.org)
+#                         + lead images              (img-src *.wikimedia.org, *.wikipedia.org)
+#     WILDCARDED on purpose. It was upload.wikimedia.org until Wikipedia began serving
+#     summary thumbnails from thumb.wikimedia.org, which the policy did not allow, so those
+#     tiles rendered as broken images with nothing in the app able to detect it: the URL is
+#     valid and returns 200, the browser simply refuses to load it. Roughly one species in ten
+#     was affected. Naming hosts one at a time means the next host they add breaks tiles again
+#     the same silent way, and every wikimedia.org subdomain serves the same media anyway.
 #   • iNaturalist       — species photographs        (img-src inaturalist-open-data.s3.amazonaws.com)
 #     No connect-src entry, and that is not an oversight: the photo map is baked at build
 #     time (scripts/pull-inat-photos.mjs), so the app never calls their API. It only loads
@@ -36,7 +42,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-PO/pQhqitWhIIx4ClFM7VI1eOVPp/jW60mWSPv7RffI=' 'sha256-pREEHP1tF4hnFjsGWhCxTHPIc2H7oIFfztRnZeIy1s8=' 'sha256-gDzmt7a9vTUvBF/8qnm5VK4YUu1Hk+4a3O7/DekdwOs=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://upload.wikimedia.org https://*.wikipedia.org https://inaturalist-open-data.s3.amazonaws.com; connect-src 'self' https://*.supabase.co https://en.wikipedia.org https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-PO/pQhqitWhIIx4ClFM7VI1eOVPp/jW60mWSPv7RffI=' 'sha256-pREEHP1tF4hnFjsGWhCxTHPIc2H7oIFfztRnZeIy1s8=' 'sha256-gDzmt7a9vTUvBF/8qnm5VK4YUu1Hk+4a3O7/DekdwOs=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https://*.wikimedia.org https://*.wikipedia.org https://inaturalist-open-data.s3.amazonaws.com; connect-src 'self' https://*.supabase.co https://en.wikipedia.org https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
 
 # Cache strategy (SPA). index.html is the entry point and names the hashed JS/CSS
 # bundles; it MUST always be revalidated, or a returning browser keeps an old
