@@ -2266,9 +2266,14 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
   border-radius: 10px; border: 1px solid var(--line-soft);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
 }
+/* NEAR-WHITE IN BOTH THEMES, hardcoded on purpose. The scrim behind it is dark-ish either
+   way, so this caption wants one colour, not a theme-tracking token. Two tokens were tried
+   and both were wrong: --on-accent is #f7f2e4 in light (the look we want) but #10140b in
+   dark, so dark mode got black on black; --ink fixed dark mode and turned light mode's
+   caption black, which read far worse than the white it replaced. */
 .branches-zoom-cap, .grid-zoom-cap, .clado-zoom-cap, .photo-zoom-cap {
   font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
-  color: var(--on-accent); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  color: #f7f2e4; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
   text-align: center;
 }
 /* Photographer and licence for a CC-licensed photograph, under the caption. A BLOCK on
@@ -2278,32 +2283,61 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
    and leaves the caption exactly as it was. */
 .photo-credit {
   display: block; margin-top: 7px;
-  font-size: 11px; letter-spacing: 0.02em; opacity: 0.72;
+  font-size: 11px; letter-spacing: 0.02em; color: #f7f2e4; opacity: 0.8;
 }
 .photo-credit a { color: inherit; text-decoration: underline; }
 /* Paging through a species' other photographs, in the Kinship and Branches enlarged view.
    Its own line under the caption, and it stops clicks: the overlay closes on any click and
-   an arrow is a click. */
+   an arrow is a click.
+
+   HIGH CONTRAST ON PURPOSE. The first version was a 26px translucent-dark box holding a thin
+   chevron, sitting on an already-dark scrim, and a player reported not knowing the control
+   existed — they found the alternates with the keyboard arrows instead. On the first page the
+   pick button is also disabled ("in use"), so there was nothing on screen that read as
+   something to press. These are now solid, bordered, thumb-sized, and the counter says
+   "1 / 4" in words wide enough to look like part of a gallery. */
 .photo-pager {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  margin-top: 8px; cursor: default;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 10px; cursor: default;
 }
 .photo-pager button {
-  width: 26px; height: 26px; padding: 0; line-height: 1; cursor: pointer;
-  font-size: 16px; color: var(--on-accent);
-  background: rgba(20, 18, 12, 0.55); border: 1px solid var(--line-soft); border-radius: 7px;
+  min-width: 38px; height: 34px; padding: 0 10px; line-height: 1; cursor: pointer;
+  font-size: 18px; font-family: inherit; border-radius: 8px;
+  display: grid; place-items: center;
+  /* Same fixed palette as the caption, and for the same reason: the scrim is dark-ish in both
+     themes, so everything in this overlay is light-on-dark and nothing here reads a token.
+     Filled rather than outlined because the first version — a translucent dark box holding a
+     thin chevron — was missed entirely by a player, who found the alternates with the keyboard
+     instead. */
+  background: #f7f2e4;
+  color: #1a1810;
+  border: 1px solid #f7f2e4;
 }
-.photo-pager button:hover { background: rgba(20, 18, 12, 0.8); }
-.photo-pager-n { font-variant-numeric: tabular-nums; opacity: 0.75; }
+.photo-pager button:hover { filter: brightness(0.92); }
+.photo-pager button:active { transform: translateY(1px); }
+.photo-pager-n {
+  font-variant-numeric: tabular-nums; min-width: 3.5em; text-align: center;
+  font-size: 13px; letter-spacing: .06em;
+}
+/* "Use this one" — swaps which photo this species shows for the rest of the board. Outlined
+   in the same accent rather than filled, so it reads as secondary to the arrows, which are
+   what most people want. Disabled once it IS the picture in use, and then deliberately quiet:
+   on the first page there is nothing to switch to, and a bright button that does nothing is
+   worse than a dim one. */
+.photo-pager-pick {
+  min-width: 0 !important; height: 34px; padding: 0 12px !important;
+  font-size: 12px !important; letter-spacing: .03em;
+  background: transparent !important;
+  color: #f7f2e4 !important;
+  border-color: #f7f2e4 !important;
+}
+/* Quiet when it IS the picture in use, but not invisible: at 0.45 over the light scrim it
+   vanished altogether. */
+.photo-pager-pick:disabled { opacity: .6; cursor: default; }
 /* "Use this one" — swaps which photo this species shows for the rest of the board. Wider
    than the arrows and set apart, since it is the one control here that changes anything
    outside the overlay. Disabled once it IS the one in use, so the button states are
    "switch to this" and "already showing", never a no-op click. */
-.photo-pager-pick {
-  width: auto !important; height: 26px; padding: 0 10px !important;
-  margin-left: 6px; font-size: 11px !important; letter-spacing: 0.03em;
-}
-.photo-pager-pick.is-on, .photo-pager-pick:disabled { opacity: 0.6; cursor: default; }
 
 /* A thumbnail that opens itself. Sheds the button chrome so it keeps the exact
    footprint the bare <img> had — the same trap .clado-wiki-shot documents. */

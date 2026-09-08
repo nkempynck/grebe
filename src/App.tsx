@@ -3,7 +3,7 @@ import { useGame } from "./hooks/useGame";
 import { loadRichTree } from "./data/loadTaxonomy";
 import { informedPar, type Tree } from "./core";
 import { groupOf, boardGroupOf } from "./data/clades";
-import { mosaicIsLive } from "./core/mosaic";
+import { MOSAIC_LAUNCH, mosaicIsLive } from "./core/mosaic";
 import { useStats } from "./hooks/useStats";
 import { useFieldStats } from "./hooks/useFieldStats";
 import { usePlayer } from "./hooks/usePlayer";
@@ -697,6 +697,10 @@ export default function App() {
     view === "home" ? "Daily games on the tree of life" :
     view === "kinship" ? `Kinship · ${dailyLabel(today)}` :
     view === "branches" ? `Branches · ${dailyLabel(today)}` :
+    // Mosaic counts from its OWN launch, so its epoch is passed. Without a case here it fell
+    // through to the Lineage default at the bottom, and the masthead read "Lineage · №49"
+    // while the Mosaic tab was open: the wrong game AND the wrong number.
+    view === "mosaic" ? `Mosaic · ${dailyLabel(today, MOSAIC_LAUNCH)}` :
     view === "leaderboard" ? "Leaderboard" :
     view === "stats" ? "Your stats" :
     view === "account" ? "Your account" :
@@ -712,6 +716,8 @@ export default function App() {
       ? "Rebuild a slice of the tree: place each species on its correct branch."
       : view === "lineage"
       ? "Guess the organism. Every miss tells you where you branched apart."
+      : view === "mosaic"
+      ? "Name the animal from a photograph, a few tiles at a time."
       : "Daily puzzles on the tree of life.";
 
   const play = (

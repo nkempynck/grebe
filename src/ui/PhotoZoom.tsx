@@ -152,9 +152,9 @@ export function usePhotoPager(
     controls: n < 2 ? null : (
       // stopPropagation: the overlay closes on any click, and every control here is a click.
       <span className="photo-pager" onClick={(e) => e.stopPropagation()}>
-        <button type="button" onClick={() => step(-1)} aria-label="Previous photo">‹</button>
-        <span className="photo-pager-n">{at + 1}/{n}</span>
-        <button type="button" onClick={() => step(1)} aria-label="Next photo">›</button>
+        <button type="button" onClick={() => step(-1)} aria-label="Previous photo" title="Previous photo">‹</button>
+        <span className="photo-pager-n">{at + 1} / {n}</span>
+        <button type="button" onClick={() => step(1)} aria-label="Next photo" title="Next photo">›</button>
         {pick && shown && (
           <button
             type="button"
