@@ -466,11 +466,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
         onHowItWorks={onHowItWorks}
         blurb={
           <>
-            Drag each species onto the clade it belongs to, then Submit. Correct slots lock in. A wrong board costs a
-            mistake and sends the misplaced tiles back. A species already placed is a worked example to build from.
-            Reading a clade's card is free (species you still have to place are blanked out of the text). Looking up a
-            species you have to place costs points, and so does opening the full Wikipedia article, where nothing is
-            blanked out.
+            Drag each species onto the clade it belongs to. Correct slots lock in. A wrong board costs a
+            mistake and sends the misplaced tiles back.
             <span className="gamehead-blurb-note">
               No outside lookups. The fun is working out the tree from what you already know.
             </span>
