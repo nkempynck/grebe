@@ -2750,6 +2750,17 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
 .mosaic-cands-list { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 9rem; overflow-y: auto; }
 .mosaic-cand { border: 1px solid var(--line, #ddd); background: transparent; color: inherit; border-radius: var(--radius); padding: .22rem .55rem; font-size: .8rem; cursor: pointer; }
 .mosaic-cand:hover { border-color: currentColor; }
+/* ARMED: the first tap on a species chip, waiting for the second to spend a guess. Coloured
+   rather than merely outlined, because the whole point is that it should be obvious the tap
+   did something other than guess. */
+.mosaic-cand.is-armed, .mosaic-opt.is-armed {
+  border-color: var(--game, var(--brass));
+  box-shadow: inset 0 0 0 1px var(--game, var(--brass));
+}
+.mosaic-arm {
+  margin-left: .4rem; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--game, var(--brass)); white-space: nowrap;
+}
 /* A lookup step: the name, and under it the rank that says what kind of group it is. */
 .mosaic-path { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.25; }
 .mosaic-path-name { font-size: .82rem; }

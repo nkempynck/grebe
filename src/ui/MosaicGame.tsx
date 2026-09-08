@@ -5,7 +5,7 @@
 // What varies across the week is not the picture but the HELP — see mosaicAids. This component
 // renders panels that today's aids allow and simply does not render the others, so there is
 // never a disabled control explaining what you are not allowed to do.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Tree, GameConfig, GuessResult } from "../core";
 import { isAncestor, resolveGuess, suggestGuesses } from "../core";
 import { CHARACTERS } from "../core/mosaicChars";
@@ -60,6 +60,21 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
   const [zoom, setZoom] = useState(false);
   const [copied, setCopied] = useState(false);
   const [reject, setReject] = useState<string | null>(null);
+  // A guess costs a rung of the picture and cannot be taken back, and the two lists that can
+  // fire one are grids of small chips: on a phone the wrong one is easy to hit, and the whole
+  // guess is spent before you have read what you tapped. So a chip ARMS on the first tap and
+  // only guesses on the second. Holds the armed species id, or null.
+  const [armed, setArmed] = useState<string | null>(null);
+  // Disarm whenever the ground moves: a guess landing, the drill path changing, a new animal.
+  // A chip left armed while the list under it is rebuilt would otherwise sit primed, and the
+  // next tap in that spot is a different species.
+  useEffect(() => { setArmed(null); }, [g.guesses.length, g.path.length, g.answerId]);
+  /** First tap arms a species, second one guesses it. Anything else clears the arming, so a
+   *  chip left armed and forgotten cannot fire later on a stray tap. */
+  const armOrGuess = (id: string) => {
+    setReject(null);
+    if (armed === id) { setArmed(null); g.guess(id); } else setArmed(id);
+  };
   const [lookup, setLookup] = useState("");
   const [looked, setLooked] = useState<string | null>(null);
 
@@ -356,15 +371,17 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                 {g.options.map((o) => (
                   <button
                     key={o.id}
-                    className={`mosaic-opt${o.rank === "species" ? " is-leaf" : ""}`}
+                    className={`mosaic-opt${o.rank === "species" ? " is-leaf" : ""}${armed === o.id ? " is-armed" : ""}`}
                     onClick={() => {
-                      setReject(null);
-                      // A species has nothing finer to narrow to, so tapping it guesses it.
-                      // Drilling in would filter to one animal and make you pick it again.
-                      if (o.rank === "species") g.guess(o.id); else g.drillInto(o.id);
+                      // A species has nothing finer to narrow to, so tapping it guesses it
+                      // (on the second tap — see armOrGuess). Drilling in would filter to one
+                      // animal and make you pick it again.
+                      if (o.rank === "species") armOrGuess(o.id);
+                      else { setReject(null); setArmed(null); g.drillInto(o.id); }
                     }}
                   >
                     <span className="mosaic-opt-name">{o.label}</span>
+                    {armed === o.id && <span className="mosaic-arm">tap again to guess</span>}
                     <span className={`mosaic-opt-rank${isRanked(o.rank) ? "" : " is-unranked"}`}>
                       {isRanked(o.rank) ? o.rank : "unranked"}
                     </span>
@@ -381,8 +398,13 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                   <span className="mosaic-cands-label">{g.candidates.length} it could be</span>
                   <div className="mosaic-cands-list">
                     {g.candidates.map((c) => (
-                      <button key={c.id} className="mosaic-cand" onClick={() => { setReject(null); g.guess(c.id); }}>
+                      <button
+                        key={c.id}
+                        className={`mosaic-cand${armed === c.id ? " is-armed" : ""}`}
+                        onClick={() => armOrGuess(c.id)}
+                      >
                         {c.common ?? c.sciName}
+                        {armed === c.id && <span className="mosaic-arm">tap again to guess</span>}
                       </button>
                     ))}
                   </div>
