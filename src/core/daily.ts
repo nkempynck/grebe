@@ -61,9 +61,13 @@ export function isPreLaunch(dateKey = todayKey()): boolean {
 }
 
 /** Display label for a date's daily slot: "№N" once the series has started,
- *  else "Preview" for the pre-launch days (whose results reset at launch). */
-export function dailyLabel(dateKey = todayKey()): string {
-  const n = dailyNumber(dateKey);
+ *  else "Preview" for the pre-launch days (whose results reset at launch).
+ *
+ *  Takes the same optional epoch as dailyNumber, and for the same reason: a game that opened
+ *  later counts from its OWN first board. Without it Mosaic's second day was announced on the
+ *  home card as №49, which is Grebe's number and not Mosaic's. */
+export function dailyLabel(dateKey = todayKey(), epochKey = DAILY_EPOCH): string {
+  const n = dailyNumber(dateKey, epochKey);
   return n >= 1 ? `№${n}` : "Preview";
 }
 

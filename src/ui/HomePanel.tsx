@@ -1,5 +1,5 @@
 import { dailyLabel, todayKey } from "../core/daily";
-import { mosaicIsLive } from "../core/mosaic";
+import { MOSAIC_LAUNCH, mosaicIsLive } from "../core/mosaic";
 
 interface Props {
   onPlay: (view: "lineage" | "kinship" | "branches" | "mosaic") => void;
@@ -43,13 +43,18 @@ const GAMES = [
     // The flag now means "newest", not "unfinished": Mosaic is a scored daily like the other
     // three. Kept on while it settles, so a rough edge is expected rather than surprising.
     beta: true,
+    // Mosaic opened months after the platform, so its card counts from its OWN first board.
+    // The shared epoch called its second day №49, which is Grebe's number, not Mosaic's.
+    epoch: MOSAIC_LAUNCH,
   },
 ];
 
 /** The platform landing: what Grebe is, and a card per game to choose from. */
 export function HomePanel({ onPlay }: Props) {
   const today = todayKey();
-  const label = dailyLabel(today);
+  // Per GAME, not per day: three of the four opened with the platform and share its count,
+  // Mosaic carries its own.
+  const labelFor = (epoch?: string) => dailyLabel(today, epoch);
   // A game that has not opened yet is not offered. Same test the nav uses, on the PUZZLE date,
   // so the card appears at the 09:00 rollover rather than at midnight.
   const games = GAMES.filter((g) => g.id !== "mosaic" || mosaicIsLive(today));
@@ -69,7 +74,10 @@ export function HomePanel({ onPlay }: Props) {
               {/* A new game still says which day it is: it IS a daily, and dropping that in
                   favour of the badge made the card read as a different kind of thing. */}
               <span className="home-card-daily">
-                {label === "Preview" ? "Preview" : `Daily ${label}`}
+                {(() => {
+                  const label = labelFor(game.epoch);
+                  return label === "Preview" ? "Preview" : `Daily ${label}`;
+                })()}
                 {game.beta && <span className="home-card-new">New</span>}
               </span>
             </div>
