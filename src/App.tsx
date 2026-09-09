@@ -116,18 +116,22 @@ const WIN_GAME_LABEL: Record<GameId, string> = { lineage: "Lineage", kinship: "K
 
 /** The celebration line for one source's newly-seen wins. Topping the combined
  *  board beats topping any single game, so it says so in its own words (and gets
- *  the 🏆 and the brighter banner); the three games share one wording, named. */
+ *  the 🏆 and the brighter banner); the games share one wording, named.
+ *
+ *  NO № HERE, on purpose. The games no longer share one numbering — Mosaic counts from its
+ *  own launch — so a single number on a line that spans all of them is either wrong for one
+ *  game or ambiguous about which it means. The DATE says the same thing and cannot drift. */
 function winBannerText(source: WinSource, dates: string[]) {
   if (source === "overall") {
     return dates.length === 1 ? (
-      <>You topped the combined board across all three games: <b>№{dailyNumber(dates[0])}</b> ({dates[0]}). Overall champion badge earned.</>
+      <>You topped the combined board on <b>{dates[0]}</b>. Overall champion badge earned.</>
     ) : (
-      <>You topped <b>{dates.length}</b> recent combined boards, across all three games. Overall champion badge earned.</>
+      <>You topped <b>{dates.length}</b> recent combined boards. Overall champion badge earned.</>
     );
   }
   const label = WIN_GAME_LABEL[source];
   return dates.length === 1 ? (
-    <>You topped the <b>{label}</b> daily: <b>№{dailyNumber(dates[0])}</b> ({dates[0]}). Daily-winner badge earned.</>
+    <>You topped the <b>{label}</b> daily on <b>{dates[0]}</b>. Daily-winner badge earned.</>
   ) : (
     <>You topped <b>{dates.length}</b> recent <b>{label}</b> dailies. Daily-winner badge earned.</>
   );
