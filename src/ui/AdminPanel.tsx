@@ -553,7 +553,9 @@ function PinManager({ tree, richTree }: { tree: Tree; richTree: Tree }) {
 
   const run = async () => {
     if (!games.length) return;
-    const who = games.length === GAMES.length ? "all three games" : games.map((g) => GAME_META[g].label).join(", ");
+    // Counted, not spelled out: this read "all three games" while GAMES.length was the test,
+    // so selecting all four asked to re-pin "all three".
+    const who = games.length === GAMES.length ? `all ${GAMES.length} games` : games.map((g) => GAME_META[g].label).join(", ");
     if (!window.confirm(
       `Re-pin ${who} for the next ${days} days with the CURRENT logic?\n\n` +
         `Only future (unplayed) dates are written — today and the past stay frozen. ` +

@@ -303,7 +303,7 @@ export function OverallStatsPanel({ stats, field }: { stats: DerivedStats; field
         <p className="stats-strength">
           <span className="stats-strength-note">
             Vs field compares your score to the average of everyone who played that day, pooled
-            across all three games. A day anyone failed counts as the zero it scored, yours
+            across every game. A day anyone failed counts as the zero it scored, yours
             included, so a day the field found hard is worth more than an easy one.
           </span>
         </p>
