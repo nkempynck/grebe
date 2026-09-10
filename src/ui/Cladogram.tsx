@@ -112,6 +112,17 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
           : "Each guess hangs at the clade it shares with the hidden species. Guess to grow the tree downward."}
       </figcaption>
 
+      {/* Lineage only, and deliberately not in About's shared sources block: Kinship, Branches
+          and Mosaic are played without outside lookups, and Branches goes as far as blanking
+          clade members out of its cards and charging for the unedited article. A general note
+          about browsing the tree alongside Grebe would undercut that. This component only
+          renders in Lineage, so the note is scoped by where it lives. */}
+      <p className="clado-note">
+        An extra fun and educational source for playing Lineage:{" "}
+        <a href="https://www.onezoom.org" target="_blank" rel="noreferrer">OneZoom</a>. If you think this is a bit too overpowered and
+        takes the fun out of Lineage, leave it as feedback. But it's a great website that gave me more Lineage joy than Wikipedia lookups.
+      </p>
+
       <div className="clado-toolbar">
         <div className="branches-viewtoggle" role="tablist" aria-label="Tree view">
           <button role="tab" aria-selected={mode === "tree"} className={`branches-viewseg${mode === "tree" ? " is-on" : ""}`} onClick={() => setMode("tree")}>Tree</button>

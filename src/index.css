@@ -514,6 +514,12 @@ body {
 }
 .clado-cap b { color: var(--brass-bright); font-style: normal; font-weight: 500; }
 
+/* Sits under the caption: a pointer to OneZoom, quieter than the caption so it
+   reads as a footnote to the tree rather than instructions for the board. */
+.clado-note { font-family: var(--font-body); font-size: 13px; color: var(--ink-soft); margin: 0 0 8px; }
+.clado-note a { color: var(--brass-bright); text-decoration: none; border-bottom: 1px solid rgba(239, 154, 111, 0.35); }
+.clado-note a:hover { border-bottom-color: var(--brass-bright); }
+
 /* bounded to the column; the canvas inside can be wider/taller and scrolls */
 /* View toggle (Tree/Radial) on the left, "center on hidden" on the right. */
 .clado-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
