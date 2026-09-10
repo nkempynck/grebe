@@ -863,7 +863,9 @@ export function mosaicDrillOptions(
    *  there is nothing common-named below it — better a "Cercopithecidae" button than a dead
    *  end. */
   const rawBelow = (id: string) => {
-    const out: Array<{ id: string; label: string; count: number; rank: string }> = [];
+    // `common` is internal: it is how the walk knows whether descending past a Latin-only
+    // clade actually reached a name a player can read. Stripped before returning.
+    const out: Array<{ id: string; label: string; count: number; rank: string; common: boolean }> = [];
     // Returns how many POOL SPECIES this subtree's options account for, and it is the COUNT
     // that matters. Asking merely whether a subtree produced any option is what hid the fin
     // whale: Balaenopteridae holds two anonymous clades, one of them containing the fin whale
@@ -886,17 +888,37 @@ export function mosaicDrillOptions(
       // fallbacks below are skipped for it, but the species one is NOT, or veiling a genus whose
       // children are all species would delete them from the panel.
       const veiled = hidden.has(c);
-      if (n.common && !veiled) { out.push({ id: c, label: n.common, count, rank: rankOf(n) }); return count; }
+      if (n.common && !veiled) { out.push({ id: c, label: n.common, count, rank: rankOf(n), common: true }); return count; }
 
       const mark = out.length;
       let covered = 0;
       for (const k of tree.childrenOf.get(c) ?? []) covered += visit(k);
-      if (covered >= count) return covered;
 
-      // The children left something out. Prefer this level whole, under its own scientific name.
+      // DESCENDING HAS TO EARN ITS ROWS. The walk goes past a Latin-only clade to look for
+      // names a player can reason about: "Laurasiatheria" is a real clade and a useless
+      // button, and Bats and Carnivorans are underneath it, which is the whole point. But
+      // when the descent turns up nothing common-named it has bought nothing and cost rows.
+      // Longirostres came out as Crocodylus, Gavialis, Mecistops and Tomistoma — four Latin
+      // chips in place of one that means "the crocodiles and gharials" — because a Latin
+      // name was treated as a LAST RESORT rather than as a choice. So a Latin level is kept
+      // whole whenever nothing below it can be said in English.
+      //
+      // Not for a synthesised name, though. The junction splits leave labels like
+      // "Melloria & Gymnorhina & Cracticus", which say strictly less than the three chips
+      // they would replace, so those keep descending as before.
+      const nameable = Boolean(n.sciName) && !veiled && !SYNTHESISED_LABEL.test(n.sciName);
+      if (covered >= count) {
+        if (!nameable || out.slice(mark).some((o) => o.common)) return covered;
+        out.length = mark;
+        out.push({ id: c, label: n.sciName, count, rank: rankOf(n), common: false });
+        return count;
+      }
+
+      // The children left something out. Prefer this level whole, under its own scientific
+      // name — a synthesised one included, since the alternative here is losing the level.
       if (n.sciName && !veiled) {
         out.length = mark;
-        out.push({ id: c, label: n.sciName, count, rank: rankOf(n) });
+        out.push({ id: c, label: n.sciName, count, rank: rankOf(n), common: false });
         return count;
       }
       // Nothing here can name itself, so report the partial coverage upward and let an ancestor
@@ -928,7 +950,7 @@ export function mosaicDrillOptions(
         const c = stack.pop()!;
         const n = tree.byId.get(c);
         if (pool.has(c) && !reached.has(c)) {
-          out.push({ id: c, label: n?.common ?? n?.sciName ?? c, count: 1, rank: "species" });
+          out.push({ id: c, label: n?.common ?? n?.sciName ?? c, count: 1, rank: "species", common: Boolean(n?.common) });
         }
         for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
       }
@@ -943,7 +965,7 @@ export function mosaicDrillOptions(
   // siblings along, which is what keeps Cnidaria (3) reachable instead of stranding it
   // behind a branch nobody would ever tap.
   const DOMINANT = 0.9;
-  const carried: Array<{ id: string; label: string; count: number; rank: string }> = [];
+  const carried: ReturnType<typeof rawBelow> = [];
   let options = rawBelow(cladeId);
   for (let guard = 0; guard < 24; guard++) {
     if (options.length === 0) break;
@@ -955,8 +977,16 @@ export function mosaicDrillOptions(
     for (const o of options) if (o.id !== big.id) carried.push(o);
     options = below;
   }
-  return [...options, ...carried].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  return [...options, ...carried]
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .map(({ id, label, count, rank }) => ({ id, label, count, rank }));
 }
+
+/** The labels the junction splits synthesise for an unnamed node, "Melloria & Gymnorhina &
+ *  Cracticus" and the like. They are fine as the name of a group you have already chosen and
+ *  poor as a choice: the chip lists its own contents, so it says less than the chips it would
+ *  stand in for. See junctionSplits.json. */
+const SYNTHESISED_LABEL = / & /;
 
 /** The answer's own row, for the solved/failed state. */
 export function mosaicAnswerRow(tree: Tree, answerId: string): MosaicCell[] {

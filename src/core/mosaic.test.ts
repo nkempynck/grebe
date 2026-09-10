@@ -707,4 +707,30 @@ describe("every drill step accounts for everything under it", () => {
     const rorquals = mosaicDrillOptions(tree, sciId("Balaenopteridae"), pool);
     expect(rorquals.find((o) => o.id === sciId("Balaenoptera physalus"))?.rank).toBe("species");
   });
+
+  // The walk descends past a Latin-only clade to look for names a player can read, and that is
+  // right where it finds some. Where it finds none it used to descend anyway and spend four
+  // rows saying what one row said: Longirostres, the crocodiles and gharials, arrived as
+  // Crocodylus, Gavialis, Mecistops and Tomistoma.
+  it("keeps a Latin group whole when nothing below it has a common name", () => {
+    const sciId = (sci: string) => [...tree.byId.values()].find((n) => n.sciName === sci)!.id;
+    const reptiles = mosaicDrillOptions(tree, sciId("Sauropsida"), pool).map((o) => o.label);
+    expect(reptiles).toContain("Longirostres");
+    for (const genus of ["Crocodylus", "Gavialis", "Mecistops", "Tomistoma"]) {
+      expect(reptiles).not.toContain(genus);
+    }
+    // …and it still descends when descending PAYS. Alligatoridae is common-named, so it is
+    // offered instead of being swallowed, and the same list keeps the groups people can name.
+    expect(reptiles).toEqual(expect.arrayContaining(["Alligators & caimans", "Birds", "Turtles"]));
+  });
+
+  // The junction splits synthesise labels that list their own contents. As the name of a group
+  // you have already picked they are fine; as a CHOICE they say less than the chips they would
+  // replace, so the rule above deliberately does not use them.
+  it("does not offer a synthesised A & B label in place of its parts", () => {
+    const sciId = (sci: string) => [...tree.byId.values()].find((n) => n.sciName === sci)!.id;
+    const artamids = mosaicDrillOptions(tree, sciId("Artamidae"), pool).map((o) => o.label);
+    expect(artamids.some((l) => / & /.test(l))).toBe(false);
+    expect(artamids).toEqual(expect.arrayContaining(["Cracticus", "Gymnorhina", "Melloria", "Strepera"]));
+  });
 });
