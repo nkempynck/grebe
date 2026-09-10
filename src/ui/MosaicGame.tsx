@@ -142,6 +142,9 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
   const ready = Boolean(g.answerId);
   const done = g.status !== "playing";
   const { aids } = g;
+  // The looked-up species' clade chain, broad to narrow. Held here rather than called inline
+  // because tapping a link needs the whole chain ABOVE it, not just the one it is.
+  const lookedChain = looked ? g.lineageOf(looked) : [];
 
   return (
     <div className="mosaic">
@@ -338,7 +341,18 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
         <>
           {aids.subset && g.guardReady && (
             <div className="mosaic-drill">
-              <span className="mosaic-box-label">Narrow down</span>
+              {/* The COUNT rides on the label, because the list below is capped in height and
+                  scrolls. At Toothed whales it holds eight rows and shows five, so Porpoises,
+                  Sperm whales and Ziphius sat under the fold with nothing to say they were
+                  there — the box read as a complete list of five, and three of the nine
+                  candidates looked like they had no chip at all. The candidate list under it
+                  has always led with its count; this is the same promise. */}
+              <span className="mosaic-box-label">
+                Narrow down
+                {g.options.length > 1 && (
+                  <span className="mosaic-box-count">{g.options.length} options</span>
+                )}
+              </span>
               <div className="mosaic-crumbs">
                 <button className="mosaic-crumb" onClick={() => { setReject(null); g.drillTo(0); }}>All animals</button>
                 {g.path.map((p, i) => (
@@ -452,11 +466,21 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                       "Vertebrates" is a branch point with no rank at all. Which is which is the
                       difference between a name a player can place and one they cannot. */}
                   <div className="mosaic-lookup-chain">
-                    {g.lineageOf(looked).map((l) => (
+                    {/* Jumps to the WHOLE chain down to the one tapped, not to that clade alone.
+                        Setting a one-entry path threw the ancestors away, so tapping "Dolphins"
+                        left a breadcrumb reading "All animals › Dolphins" with no Toothed whales
+                        to step back out to — and the levels between were unreachable without
+                        starting the drill again from the top. */}
+                    {lookedChain.map((l, i) => (
                       <button
                         key={l.id}
                         className="mosaic-path"
-                        onClick={() => { setReject(null); g.setPath([l.id]); setLookup(""); setLooked(null); }}
+                        onClick={() => {
+                          setReject(null);
+                          g.setPath(lookedChain.slice(0, i + 1).map((x) => x.id));
+                          setLookup("");
+                          setLooked(null);
+                        }}
                       >
                         <span className="mosaic-path-name">{l.label}</span>
                         <span className={`mosaic-path-rank${isRanked(l.rank) ? "" : " is-unranked"}`}>

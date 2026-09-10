@@ -1,15 +1,16 @@
 import { describe, it, expect } from "vitest";
 import taxonomy from "../data/taxonomy.json";
 import augment from "../data/taxonomyAugment.json";
-import { buildTree, isAncestor } from "./index";
+import { buildTree } from "./index";
 import { generateGridBoard } from "./grid";
 import { guardFrom } from "../data/boardGuard";
 import { mosaicPoints, MOSAIC_WIN_FLOOR } from "../data/score";
-import { cladeGroup, groupOf, CLADE_GROUPS } from "../data/clades";
+import { cladeGroup, groupOf } from "../data/clades";
 import { CLADE_COMMON } from "../data/cladeNames";
+import { MOSAIC_TOP_GROUPS, groupClades } from "../data/mosaicGroups";
 import { CHARACTERS, characterRow, characterValue, missingCladeNames, NA } from "./mosaicChars";
 import {
-  mosaicAnswerFor, mosaicPool, scoreMosaicGuess, mosaicRung, mosaicAids, mosaicAidsFor,
+  mosaicAnswerFor, mosaicPool, mosaicBrowseSet, scoreMosaicGuess, mosaicRung, mosaicAids, mosaicAidsFor,
   mosaicTierForDate, mosaicDegrees, mosaicScopeId, mosaicLineagePath, mosaicDrillOptions,
   mosaicSampleAnswer, mosaicTileOrder, mosaicMinViews, mosaicLadder,
   MOSAIC_MIN_VIEWS, MOSAIC_MIN_VIEWS_FAMOUS, MOSAIC_GROUP_PENALTY, MOSAIC_GROUP_WINDOW,
@@ -307,6 +308,9 @@ describe("mosaic does not answer Kinship", () => {
   // Mosaic's aids run on the BASE tree; Kinship deals from the rich one. That mismatch is the
   // real configuration, so the test keeps it rather than tidying both onto one tree.
   const pool = new Set(mosaicPool(tree, mosaicScopeId(tree)));
+  // What the two AIDS count: every animal in the tree, not the fame-filtered answer set.
+  // Guarding that set here would test panels the player no longer sees.
+  const browse = new Set(mosaicBrowseSet(tree, mosaicScopeId(tree)));
   const richTree = buildTree([
     ...(taxonomy as { nodes: Nodes }).nodes,
     ...(augment as { nodes: Nodes }).nodes,
@@ -329,7 +333,7 @@ describe("mosaic does not answer Kinship", () => {
   const viaLookup = (hidden: ReadonlySet<string>) =>
     boards.flat().filter((g) =>
       g.memberIds.every((m) =>
-        mosaicLineagePath(tree, m, pool, undefined, hidden).some((l) => l.id === g.cladeId))).length;
+        mosaicLineagePath(tree, m, browse, undefined, hidden).some((l) => l.id === g.cladeId))).length;
 
   /** Groups the drill will name, anywhere below the game's root. */
   const viaDrill = (hidden: ReadonlySet<string>) => {
@@ -337,7 +341,7 @@ describe("mosaic does not answer Kinship", () => {
     const stack = [mosaicScopeId(tree)];
     for (let guard = 0; stack.length && guard < 20000; guard++) {
       const c = stack.pop()!;
-      for (const o of mosaicDrillOptions(tree, c, pool, hidden)) {
+      for (const o of mosaicDrillOptions(tree, c, browse, hidden)) {
         if (named.has(o.id)) continue;
         named.add(o.id);
         stack.push(o.id);
@@ -353,7 +357,7 @@ describe("mosaic does not answer Kinship", () => {
       // Nothing from THIS board survives in either panel.
       const exposed = groups.filter((g) =>
         g.memberIds.every((m) =>
-          mosaicLineagePath(tree, m, pool, undefined, hidden).some((l) => l.id === g.cladeId)));
+          mosaicLineagePath(tree, m, browse, undefined, hidden).some((l) => l.id === g.cladeId)));
       expect(exposed.map((g) => g.cladeId)).toEqual([]);
     }
   }, 30000);
@@ -390,8 +394,8 @@ describe("mosaic does not answer Kinship", () => {
   });
 
   it("leaves the lookup something to scope by", () => {
-    const sample = [...pool].filter((_, i) => i % 7 === 0);
-    const chains = sample.map((s) => mosaicLineagePath(tree, s, pool).length);
+    const sample = [...browse].filter((_, i) => i % 7 === 0);
+    const chains = sample.map((s) => mosaicLineagePath(tree, s, browse).length);
     const mean = chains.reduce((a, b) => a + b, 0) / chains.length;
     expect(mean).toBeGreaterThan(2);
     // A species the lookup can say nothing about is a dead panel, so it stays rare.
@@ -599,7 +603,7 @@ describe("mosaic obscurity floor", () => {
 // the first named node down four separate paths, so it appeared as one 756-species chip that
 // duplicated Birds, Mammals, Fish and Amphibians while hiding turtles, sharks, crocodilians,
 // the tuatara and the sea lamprey behind it.
-describe("mosaic narrowing reaches the whole pool", () => {
+describe("the first screen reaches every animal", () => {
   // The tree the GAME runs on, not the raw file. loadTaxonomy applies CLADE_COMMON as a
   // correction layer, and it decides which clades have a name to be offered under: without it
   // Chondrichthyes is anonymous and the sharks scatter, which is a different tree from the one
@@ -610,55 +614,46 @@ describe("mosaic narrowing reaches the whole pool", () => {
     )
   );
   const scope = mosaicScopeId(tree);
-  const pool = new Set(mosaicPool(tree, scope));
+  const browse = new Set(mosaicBrowseSet(tree, scope));
 
-  it("offers a first step toward every possible answer", () => {
-    // Mirrors the hook's first level: the curated groups, then whatever is left once options
-    // that SWALLOW a curated group are opened up rather than kept.
-    const covered = (id: string) => CLADE_GROUPS.some((g) => tree.byId.has(g.id) && (g.id === id || isAncestor(tree, g.id, id)));
-    const swallows = (id: string) => CLADE_GROUPS.some((g) => tree.byId.has(g.id) && isAncestor(tree, id, g.id));
-    const settle = (opts: ReturnType<typeof mosaicDrillOptions>, d: number): typeof opts => {
-      if (d > 8) return opts;
-      const out: typeof opts = [];
-      for (const o of opts) {
-        if (covered(o.id)) continue;
-        if (swallows(o.id)) out.push(...settle(mosaicDrillOptions(tree, o.id, pool), d + 1));
-        else out.push(o);
-      }
-      return out;
-    };
-    const top = [
-      ...CLADE_GROUPS.filter((g) => tree.byId.has(g.id)).map((g) => ({ id: g.id })),
-      ...settle(mosaicDrillOptions(tree, scope, pool), 0),
-    ];
-
-    const reachable = new Set<string>();
-    for (const o of top) {
-      const stack = [o.id];
-      while (stack.length) {
-        const c = stack.pop()!;
-        if (pool.has(c)) reachable.add(c);
-        for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+  // THE GUARD ON THE OPENING MENU. It used to be derived — the shared stats buckets plus
+  // whatever the tree walk turned up — and that only held together while the drill counted the
+  // fame-filtered answer pool, which kept the invertebrates out of the panel by accident. Once
+  // the panel counted every species the walk had nothing to collapse them into and the first
+  // screen filled with single obscure genera, because this tree's top is a chain of unnamed
+  // junctions. MOSAIC_TOP_GROUPS states the menu instead; this is what stops a taxonomy change
+  // quietly stranding a branch behind no chip at all.
+  it("puts every animal under one of the first-screen groups", () => {
+    const reached = new Set<string>();
+    for (const g of MOSAIC_TOP_GROUPS) {
+      for (const c of groupClades(tree, g)) {
+        const stack = [c.id];
+        while (stack.length) {
+          const k = stack.pop()!;
+          if (browse.has(k)) reached.add(k);
+          for (const x of tree.childrenOf.get(k) ?? []) stack.push(x);
+        }
       }
     }
-    const missed = [...pool].filter((id) => !reachable.has(id));
-    expect(missed.map((id) => tree.byId.get(id)?.common ?? id)).toEqual([]);
+    const missed = [...browse].filter((id) => !reached.has(id));
+    expect(missed.map((id) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName)).toEqual([]);
   });
 
-  it("keeps the first level inside what the panel renders", () => {
-    // The drill shows the first 24 chips. A list longer than that hides whole branches, which
-    // is the same failure in a different costume.
-    const covered = (id: string) => CLADE_GROUPS.some((g) => tree.byId.has(g.id) && (g.id === id || isAncestor(tree, g.id, id)));
-    const rest = mosaicDrillOptions(tree, scope, pool).filter((o) => !covered(o.id));
-    expect(CLADE_GROUPS.length + rest.length).toBeLessThanOrEqual(24);
+  it("names every clade it lists", () => {
+    // A group whose clades are all absent from the tree would render as an empty chip, and a
+    // typo in the table is exactly how that happens.
+    for (const g of MOSAIC_TOP_GROUPS) {
+      expect(groupClades(tree, g).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("stays a short menu", () => {
+    // The whole point of stating it. Seven chips fit on a phone without scrolling; a list that
+    // has grown past a dozen has stopped being a menu and is hiding branches again.
+    expect(MOSAIC_TOP_GROUPS.length).toBeLessThanOrEqual(12);
   });
 });
 
-// The drill is the only way to narrow when the pool is too big for the name list, so a species
-// no chip accounts for is a species the panel has quietly ruled out. This is the guard, and it
-// caught the fin whale: Balaenopteridae holds two anonymous clades, one of them containing the
-// fin whale beside Megaptera. Megaptera has a common name, so the branch looked handled and the
-// fin whale had no chip anywhere in the game.
 describe("every drill step accounts for everything under it", () => {
   const tree = buildTree(
     (taxonomy as { nodes: Nodes }).nodes.map((n) =>
@@ -666,7 +661,9 @@ describe("every drill step accounts for everything under it", () => {
     )
   );
   const scope = mosaicScopeId(tree);
-  const pool = new Set(mosaicPool(tree, scope));
+  // Every species the panel offers, which is every animal — the drill stopped counting the
+  // answer pool when that turned out to publish the fame floor.
+  const pool = new Set(mosaicBrowseSet(tree, scope));
   const under = (id: string) => {
     const out = new Set<string>();
     const stack = [id];

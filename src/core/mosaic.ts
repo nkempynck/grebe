@@ -252,6 +252,27 @@ export function mosaicPool(
     .sort();
 }
 
+/** Every species the drill, the lookup and the candidate list may show. NOT the answer pool.
+ *
+ *  These are two different questions and conflating them was a bug players could see. The
+ *  ANSWER pool is fame-filtered, because an animal nobody can name is not a puzzle. What you may
+ *  GUESS was never filtered that way: every animal in the tree is typeable, and a guess that
+ *  cannot win is still a probe worth spending.
+ *
+ *  The drill counted the answer pool, so it published the fame floor. Narrowing to a clade
+ *  listed only its famous members under the heading "it could be", while the guess bar offered
+ *  the rest of the clade in the same breath — and the absence of a species from that list WAS
+ *  the statement that it is not famous enough to be dealt. Counting every species says nothing
+ *  about which of them the game would draw from.
+ *
+ *  No `common` requirement either, for the same reason: a Latin-only species is guessable by its
+ *  scientific name, so it belongs in a list of what sits here. */
+export function mosaicBrowseSet(tree: Tree, scopeRootId: string): string[] {
+  return leavesUnder(tree, scopeRootId)
+    .filter((id) => tree.byId.get(id)?.rank === "species")
+    .sort();
+}
+
 /** One weighted draw. Weighted toward the better-known end of the pool, like Lineage, so the
  *  median day is a species people have actually heard of. `attempt` re-rolls it. */
 function drawFrom(pool: string[], weights: number[], total: number, seed: string): string {
@@ -784,8 +805,21 @@ export function mosaicCandidates(tree: Tree, cladeId: string, pool: Set<string>)
     if (pool.has(c)) { const n = tree.byId.get(c); if (n) out.push(n); }
     for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
   }
-  return out.sort((a, b) =>
-    (a.common ?? a.sciName).localeCompare(b.common ?? b.sciName));
+  return out.sort(byFame);
+}
+
+/** Best known first, ties broken by name. The list is there to be RECOGNISED, not searched:
+ *  you are holding a photograph and looking for the name that matches it, so the animals most
+ *  people could name belong at the top. Alphabetical put Araguaian river dolphin above the
+ *  bottlenose, which is the right order only if you already know the answer and are looking it
+ *  up.
+ *
+ *  A soft steer toward the likelier answers, and knowingly so: the daily draw is itself
+ *  weighted toward the better-known end. Nothing like the signal the list used to give, which
+ *  was to leave the unfamous out altogether. */
+export function byFame(a: TaxonNode, b: TaxonNode): number {
+  return (b.views ?? 0) - (a.views ?? 0)
+    || (a.common ?? a.sciName).localeCompare(b.common ?? b.sciName);
 }
 
 /** One step of the drill-down filter: the named clades directly below `cladeId`, with how many

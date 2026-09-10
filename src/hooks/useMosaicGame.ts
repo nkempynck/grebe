@@ -13,8 +13,8 @@
 // Everything the test bench needs comes in through `dev`, and is null for the real game.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Tree } from "../core";
-import { isAncestor } from "../core";
-import { CLADE_GROUPS, groupOf } from "../data/clades";
+import { groupOf } from "../data/clades";
+import { MOSAIC_TOP_GROUPS, groupClades, groupIdFor, topGroupById } from "../data/mosaicGroups";
 import { mosaicPoints } from "../data/score";
 import { fetchTodayMosaic } from "../data/games";
 import { markCountedElsewhere } from "../data/playCount";
@@ -22,8 +22,8 @@ import { fetchBoardGuard, boardGuardCached, GUARD_UNKNOWN, type BoardGuard } fro
 import { todayKey } from "../core/daily";
 import {
   mosaicSampleAnswer, mosaicAnswerFor, scoreMosaicGuess, mosaicRung, mosaicPool, mosaicScopeId,
-  mosaicDrillOptions,
-  mosaicCandidates, mosaicLineagePath, mosaicAids, mosaicTierForDate, mosaicMinViews,
+  mosaicBrowseSet, mosaicDrillOptions,
+  mosaicCandidates, byFame, mosaicLineagePath, mosaicAids, mosaicTierForDate, mosaicMinViews,
   mosaicLadder, mosaicIsLive,
   MOSAIC_GROUP_WINDOW,
   type MosaicGuess, type MosaicMechanic, type MosaicAids,
@@ -117,6 +117,8 @@ export interface UseMosaicGame {
   drillInto: (id: string) => void;
   /** Back out to `depth` entries of the path (0 = all animals). */
   drillTo: (depth: number) => void;
+  /** The clade the guess bar is held to, or null. Null while standing on a first-screen
+   *  group, which is several clades and not one node — see the comment where it is returned. */
   focusCladeId: string | null;
   guess: (id: string) => void;
   giveUp: () => void;
@@ -150,13 +152,6 @@ interface DealtBoard {
   shot: WikiShot;
 }
 
-/** Where a stats bucket's name would mislead as a drill chip.
- *
- *  CLADE_GROUPS is the by-clade STATS bucketing every game shares, so it cannot be reshaped for
- *  a drill: changing it would rewrite what past games were filed under. Its "Reptiles" bucket
- *  resolves to Squamata, which is fine as a stats bar and wrong as a chip sitting next to
- *  Turtles — the two are siblings, and neither contains the other. */
-const MOSAIC_GROUP_LABEL: Record<string, string> = { Squamata: "Lizards & snakes" };
 
 /** How many species to try before giving up on dealing a board. Each attempt costs one summary
  *  request, and a miss means the animal has no usable photograph, which is uncommon: the pool is
@@ -278,12 +273,20 @@ export function useMosaicGame(
   // 9000 pageviews is fair when twelve names are on screen and unfair when nothing is.
   const minViews = mosaicMinViews(aids.tier);
 
-  // Same floor as the draw. "How many things could this be" has to count the things it could
-  // actually be, or on a raised-floor day the breadcrumb would promise candidates the answer
-  // was never drawn from.
+  // Same floor as the draw. What the day's animal could be, and the ONLY thing this is for:
+  // restoring a saved board, which has to check the answer against the pool it was dealt from.
+  // Nothing a player looks at counts it — see `browse`.
   const pool = useMemo(
     () => (tree && rootId ? new Set(mosaicPool(tree, rootId, minViews)) : new Set<string>()),
     [tree, rootId, minViews]
+  );
+
+  // What the drill, the lookup and the candidate list count and show: every animal in the tree,
+  // which is exactly what the guess bar offers. Deliberately NOT the answer pool — counting the
+  // pool made every panel a readout of the fame floor. See mosaicBrowseSet.
+  const browse = useMemo(
+    () => (tree && rootId ? new Set(mosaicBrowseSet(tree, rootId)) : new Set<string>()),
+    [tree, rootId]
   );
 
   // Species to the group the stats bars already speak (Birds, Mammals, Insects…). Walked once
@@ -416,81 +419,100 @@ export function useMosaicGame(
 
   const answerId = board?.answerId ?? null;
 
-  // The drill-down, derived from the pool above. Counting ANSWERS rather than guessable species
-  // is what makes the number mean "how many things could this be".
+  // The drill-down, over the browse set. It counts GUESSABLE species, so the number agrees with
+  // the one the guess bar puts in its placeholder for the same clade — two panels an inch apart
+  // that used to disagree, because one counted what could be dealt and the other what could be
+  // typed.
+  // How many guessable species sit under a clade — or, for a first-screen group, under all of
+  // its clades at once. The group case is why this takes a list.
+  const countIn = useCallback((ids: string[]) => {
+    if (!tree) return 0;
+    let n = 0;
+    const stack = [...ids];
+    while (stack.length) {
+      const c = stack.pop()!;
+      if (browse.has(c)) n++;
+      for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+    }
+    return n;
+  }, [tree, browse]);
+
+  /** The clades a drill id stands for: one for an ordinary node, several for a group. */
+  const cladesAt = useCallback((id: string): Array<{ id: string; label: string }> => {
+    if (!tree) return [];
+    const group = topGroupById(id);
+    if (group) return groupClades(tree, group);
+    const n = tree.byId.get(id);
+    return n ? [{ id, label: n.common ?? n.sciName }] : [];
+  }, [tree]);
+
   const path = useMemo(() => {
     if (!tree) return [];
     return pathIds.map((id) => {
-      const n = tree.byId.get(id);
-      let count = 0;
-      const stack = [id];
-      while (stack.length) {
-        const c = stack.pop()!;
-        if (pool.has(c)) count++;
-        for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+      const group = topGroupById(id);
+      if (group) {
+        const ids = groupClades(tree, group).map((c) => c.id);
+        // A group is a shortcut, not a taxon. Saying "unranked" of it would be answering a
+        // question nobody asked; "group" says what it is.
+        return { id, label: group.label, count: countIn(ids), rank: "group" };
       }
-      return { id, label: n?.common ?? n?.sciName ?? id, count, rank: n?.sepRank ?? n?.rank ?? "" };
+      const n = tree.byId.get(id);
+      return {
+        id,
+        label: n?.common ?? n?.sciName ?? id,
+        count: countIn([id]),
+        rank: n?.sepRank ?? n?.rank ?? "",
+      };
     });
-  }, [tree, pathIds, pool]);
+  }, [tree, pathIds, countIn]);
   const hereId = pathIds.length ? pathIds[pathIds.length - 1] : rootId;
+  // Where the guess bar is held to: the deepest drill step, once there is one. May be a
+  // first-screen group rather than a clade node, which is why the interface also exposes the
+  // clade ids it stands for.
+  const focusId = aids.subset && guardReady && pathIds.length ? pathIds[pathIds.length - 1] : null;
   const options = useMemo(() => {
     if (!tree || !hereId || !aids.subset || !guardReady) return [];
-    const raw = mosaicDrillOptions(tree, hereId, pool, hidden);
-    if (pathIds.length) return raw;
-    // FIRST STEP ONLY: the curated player-facing groups the rest of the app already uses.
-    // Straight off the tree the opening move was "Chordates -> Lobe-finned fishes -> Mammal",
-    // three taps through names nobody thinks in to reach the one they wanted. Below this the
-    // tree's own names are fine (Rodents, Cetaceans, Weasel family, Bears).
-    const countUnder = (id: string) => {
-      let n = 0;
-      const stack = [id];
-      while (stack.length) {
-        const c = stack.pop()!;
-        if (pool.has(c)) n++;
-        for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
-      }
-      return n;
-    };
-    const curated = CLADE_GROUPS
-      .map((g) => {
-        const n = tree.byId.get(g.id);
-        const sci = n?.sciName ?? "";
-        return {
-          id: g.id,
-          label: MOSAIC_GROUP_LABEL[sci] ?? g.label,
-          count: countUnder(g.id),
-          rank: n?.sepRank ?? n?.rank ?? "",
-        };
-      })
-      .filter((o) => o.count > 0);
-
-    // Anything the curated list does not cover (cephalopods, jellyfish, sharks) still needs a
-    // way in, and the old filter only dropped options BELOW a curated group. Options ABOVE one
-    // survived, and "Chordates" is above four of them: it was the first named node on the way
-    // down, so it appeared as a 756-species chip that duplicated Birds, Mammals, Fish and
-    // Amphibians while being the only route to everything else in the phylum. Turtles, sharks,
-    // crocodilians, the tuatara and the sea lamprey — 78 possible answers — sat behind it.
-    //
-    // So an option that SWALLOWS a curated group is opened up and replaced by its own named
-    // children, repeatedly. Measured: first-level reach 864/942 -> 942/942, and the list stays
-    // inside the 24 the panel renders.
-    const covered = (id: string) => curated.some((c) => c.id === id || isAncestor(tree, c.id, id));
-    const swallows = (id: string) => curated.some((c) => isAncestor(tree, id, c.id));
-    const settle = (opts: typeof raw, depth: number): typeof raw => {
-      if (depth > 8) return opts; // paranoia; the tree is ~25 deep and this only ever descends
-      const out: typeof raw = [];
-      for (const o of opts) {
-        if (covered(o.id)) continue;
-        if (swallows(o.id)) out.push(...settle(mosaicDrillOptions(tree, o.id, pool, hidden), depth + 1));
-        else out.push(o);
-      }
-      return out;
-    };
-    const seen = new Set<string>();
-    const rest = settle(raw, 0).filter((o) => !seen.has(o.id) && seen.add(o.id));
-    return [...curated, ...rest].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [tree, hereId, pool, pathIds.length, aids.subset, guardReady, hidden]);
-  const remaining = path.length ? path[path.length - 1].count : pool.size;
+    // THE FIRST SCREEN is a stated list, not a walk — see MOSAIC_TOP_GROUPS for why the walk
+    // cannot produce one on this tree. A one-clade group is its clade, so tapping Mammals
+    // narrows to Mammalia exactly as before; Fish and Other animals are several clades and
+    // narrow to the group, which offers them as the next step.
+    if (!pathIds.length) {
+      return MOSAIC_TOP_GROUPS
+        .map((g) => {
+          const clades = groupClades(tree, g);
+          if (clades.length === 1) {
+            const n = tree.byId.get(clades[0].id);
+            return {
+              id: clades[0].id,
+              label: g.label,
+              count: countIn([clades[0].id]),
+              rank: n?.sepRank ?? n?.rank ?? "",
+            };
+          }
+          return {
+            id: groupIdFor(g.key),
+            label: g.label,
+            count: countIn(clades.map((c) => c.id)),
+            rank: "group",
+          };
+        })
+        .filter((o) => o.count > 0)
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    }
+    // INSIDE A GROUP: its clades, and from here down it is the ordinary walk again.
+    const group = topGroupById(hereId);
+    if (group) {
+      return groupClades(tree, group)
+        .map((c) => {
+          const n = tree.byId.get(c.id);
+          return { id: c.id, label: c.label, count: countIn([c.id]), rank: n?.sepRank ?? n?.rank ?? "" };
+        })
+        .filter((o) => o.count > 0)
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    }
+    return mosaicDrillOptions(tree, hereId, browse, hidden);
+  }, [tree, hereId, browse, pathIds.length, aids.subset, guardReady, hidden, countIn]);
+  const remaining = path.length ? path[path.length - 1].count : browse.size;
   // Listed once the filter is narrow enough to SCAN. Raised from 30 after drilling into
   // Perching birds (87 candidates) offered 57 genus chips holding two to four species each —
   // Corvus 4, Emberiza 3, Troglodytinae 3 — which is not a choice anyone can make, and no name
@@ -498,12 +520,17 @@ export function useMosaicGame(
   // between 57 genera you have never heard of.
   const CANDIDATE_LIST_MAX = 120;
   const candidates = useMemo(
-    // Gated on `subset` explicitly, not just on the threshold. Unnarrowed the pool is 942 and
-    // could never reach 120 anyway, but that is an accident of two numbers rather than a rule,
-    // and the weekend's whole difficulty is that this list does not exist.
-    () => (tree && hereId && aids.subset && guardReady && remaining > 0 && remaining <= CANDIDATE_LIST_MAX
-      ? mosaicCandidates(tree, hereId, pool) : []),
-    [tree, hereId, pool, remaining, aids.subset, guardReady]
+    // Gated on `subset` explicitly, not just on the threshold. Unnarrowed the whole animal tree
+    // could never reach the threshold anyway, but that is an accident of two numbers rather
+    // than a rule, and the weekend's whole difficulty is that this list does not exist.
+    () => {
+      if (!tree || !hereId || !aids.subset || !guardReady) return [];
+      if (remaining <= 0 || remaining > CANDIDATE_LIST_MAX) return [];
+      // A group has several roots, so its list is the union — re-sorted as one list, because
+      // two sorted halves read as a shuffle.
+      return cladesAt(hereId).flatMap((c) => mosaicCandidates(tree, c.id, browse)).sort(byFame);
+    },
+    [tree, hereId, browse, remaining, aids.subset, guardReady, cladesAt]
   );
 
   const won = benchSolved || elsewhere?.won === true || guesses.some((g) => g.correct);
@@ -628,7 +655,7 @@ export function useMosaicGame(
       : 0,
     pointsIfNext: mosaicPoints(aids.tier, true, Math.min(guesses.length + 1, aids.guesses), aids.guesses),
     setPath: (ids: string[]) => setPathIds(ids),
-    lineageOf: (speciesId: string) => (tree ? mosaicLineagePath(tree, speciesId, pool, undefined, hidden) : []),
+    lineageOf: (speciesId: string) => (tree ? mosaicLineagePath(tree, speciesId, browse, undefined, hidden) : []),
     guessesLeft: Math.max(0, aids.guesses - guesses.length),
     // ONE file for the whole round, scrambled in the browser at whichever rung is earned. The
     // staged ladder fetched a different file per rung, which kept the clear ones out of the
@@ -645,7 +672,12 @@ export function useMosaicGame(
     remaining,
     drillInto: (id: string) => setPathIds((p) => [...p, id]),
     drillTo: (depth: number) => setPathIds((p) => p.slice(0, depth)),
-    focusCladeId: aids.subset && guardReady && pathIds.length ? pathIds[pathIds.length - 1] : null,
+    // A first-screen GROUP is several clades at once, and the guess bar can only be held to
+    // one. Rather than widen a component Lineage shares, standing on Fish or Other animals
+    // simply does not restrict the bar — the chips and the name list still narrow, and one
+    // step further in (Ray-finned fish, Molluscs, anything that is a real clade) scopes it
+    // again. The drill is an aid, not a cage, so the looser rule costs nothing.
+    focusCladeId: focusId && !topGroupById(focusId) ? focusId : null,
     guess,
     giveUp: () => setGaveUp(true),
     solve: () => setBenchSolved(true),
