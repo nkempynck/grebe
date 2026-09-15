@@ -99,7 +99,9 @@ export function CombinedLeaderboard({ me, playedToday = true, variant = "config"
     if (locked) return;
     const load = oneDay
       ? fetchCombinedDaily(anchor).then((rs: CombinedEntry[]) =>
-          rs.map((r) => ({ display_name: r.display_name, score: r.combined, meta: `${r.played}/${gamesOn(anchor)}`, tie: r.played })))
+          // Shows attempts, ranks on scoring games. A failed game is one you played, so it
+          // belongs in the column; it is worth no points, so it stays out of the tie-break.
+          rs.map((r) => ({ display_name: r.display_name, score: r.combined, meta: `${r.attempted}/${gamesOn(anchor)}`, tie: r.played })))
       : fetchCombinedPeriod(period, pastBucket ? anchor : null).then((rs: CombinedPeriodEntry[]) =>
           rs.map((r) => ({
             display_name: r.display_name,

@@ -359,13 +359,34 @@ export interface CombinedEntry {
   display_name: string;
   /** The normalised game scores averaged into a single 0–100 total. */
   combined: number;
-  /** How many games the player has a ranked result for that day. */
+  /** How many games the player has a ranked result for that day. Ranks ties. */
   played: number;
+  /** How many of the day's games they actually sat down to, losses included. What the board
+   *  SHOWS, because `played` can't tell a failed game from one you haven't started. Falls
+   *  back to `played` where daily_attempts() hasn't been deployed. */
+  attempted: number;
   /** Each game's score as a 0–100 share of that game's top score on the day. */
   parts: { lineage: number; kinship: number; branches: number; mosaic: number };
 }
 
 const COMBINED_GAMES: GameId[] = ["lineage", "kinship", "branches", "mosaic"];
+
+/** How many of the day's games each player sat down to, losses included, by display name.
+ *
+ *  The per-game boards can't answer this: they all drop 0-point rows, so a game you played
+ *  and failed looks exactly like one you never started. Empty map when the backend isn't
+ *  configured or the migration hasn't run, and the caller then falls back to the scoring
+ *  count, which is what the board showed before this existed. */
+async function fetchDailyAttempts(forDate: string): Promise<Map<string, number>> {
+  if (!supabase) return new Map();
+  try {
+    const { data, error } = await supabase.rpc("daily_attempts", { p_date: forDate });
+    if (error || !data) return new Map();
+    return new Map((data as { display_name: string; attempts: number }[]).map((r) => [r.display_name, r.attempts]));
+  } catch {
+    return new Map();
+  }
+}
 
 /** The combined daily board for one date: each game's per-player score is scaled
  *  to a 0–100 share of that game's best score on the day (so every game weighs the
@@ -375,9 +396,10 @@ const COMBINED_GAMES: GameId[] = ["lineage", "kinship", "branches", "mosaic"];
  *  Players who skipped a game just score 0 for it. Ranked high to low. */
 export async function fetchCombinedDaily(forDate: string, limit = 200): Promise<CombinedEntry[]> {
   if (!supabase) return [];
-  const boards = await Promise.all(
-    COMBINED_GAMES.map((g) => fetchGameLeaderboard(g, "day", { forDate, limit }))
-  );
+  const [boards, attempts] = await Promise.all([
+    Promise.all(COMBINED_GAMES.map((g) => fetchGameLeaderboard(g, "day", { forDate, limit }))),
+    fetchDailyAttempts(forDate),
+  ]);
   // The day's top score in each game (≥1 so a game with no results can't divide by
   // zero — it simply contributes 0 to everyone).
   const maxOf = boards.map((rows) => Math.max(1, ...rows.map((r) => r.total_score)));
@@ -386,7 +408,7 @@ export async function fetchCombinedDaily(forDate: string, limit = 200): Promise<
     for (const r of rows) {
       const e =
         acc.get(r.display_name) ??
-        { display_name: r.display_name, combined: 0, played: 0, parts: { lineage: 0, kinship: 0, branches: 0, mosaic: 0 } };
+        { display_name: r.display_name, combined: 0, played: 0, attempted: 0, parts: { lineage: 0, kinship: 0, branches: 0, mosaic: 0 } };
       e.parts[COMBINED_GAMES[gi]] = Math.round((r.total_score / maxOf[gi]) * 100);
       e.played += 1;
       acc.set(r.display_name, e);
@@ -401,6 +423,10 @@ export async function fetchCombinedDaily(forDate: string, limit = 200): Promise<
   const divisor = 3 + (boards[COMBINED_GAMES.indexOf("mosaic")].length > 0 ? 1 : 0);
   const out = [...acc.values()].map((e) => ({
     ...e,
+    // Only ever raises the count: a player is on this board because they scored somewhere, so
+    // an attempt total below their scoring total would mean the two sources disagree, and the
+    // board should not then claim they played less than it can see.
+    attempted: Math.max(e.played, attempts.get(e.display_name) ?? 0),
     combined: Math.round(
       (e.parts.lineage + e.parts.kinship + e.parts.branches + e.parts.mosaic) / divisor
     ),
