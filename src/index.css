@@ -2612,9 +2612,12 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
 .mosaic-stage-shot.is-done { cursor: zoom-in; }
 /* Zoomed, the height cap comes off and the whole photo gets the viewport. */
 .mosaic-stage.is-zoom .mosaic-shot { max-width: 100% !important; cursor: zoom-out; }
+/* Sits under the stage, left-aligned, rather than floating over the photograph's bottom-left
+   corner. Off the picture it no longer needs to fight it for contrast, so it drops the dark
+   pill and reads as page text. `align-self` keeps it to its own width in the column. */
 .mosaic-rung {
-  position: absolute; left: .6rem; bottom: .6rem; padding: .25rem .6rem; border-radius: 999px;
-  background: rgba(0,0,0,.62); color: #fff; font-size: .74rem; font-variant-numeric: tabular-nums;
+  align-self: flex-start; margin-top: -.5rem;
+  color: var(--ink-soft); font-size: .78rem; font-variant-numeric: tabular-nums;
 }
 /* The reveal is the payoff and should look like it. It used to be a stark #fff rectangle —
    var(--card) is defined nowhere, so it always fell through to white and sat on the cream page
@@ -2994,8 +2997,10 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
    jitter as it falls, and set apart from the count: one is how many tries remain, the other is
    what a try is now worth, and they move for different reasons. */
 .mosaic-worth {
-  margin-left: .45rem; padding-left: .45rem; border-left: 1px solid rgba(255,255,255,.28);
-  font-weight: 700; font-variant-numeric: tabular-nums;
+  /* The divider was a white hairline for the dark pill this used to sit in; on the page it
+     has to be the page's own line colour or it is invisible. */
+  margin-left: .45rem; padding-left: .45rem; border-left: 1px solid var(--line);
+  font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink);
 }
 .mosaic-verdict-pts {
   font-family: var(--font-mono); font-size: .72rem; letter-spacing: .04em;

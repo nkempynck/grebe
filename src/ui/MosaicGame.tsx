@@ -213,16 +213,19 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
             />
           </div>
         )}
-        {!done && g.imageUrl && (
-          <span className="mosaic-rung">
-            {g.guessesLeft} {g.guessesLeft === 1 ? "guess" : "guesses"} left
-            {/* What naming it NOW is still worth. Guesses cost little early and a lot late, so
-                the number falling is the pressure the game runs on; hiding it until the end
-                would make that pressure invisible while it mattered. */}
-            <b className="mosaic-worth">{g.pointsIfNext} pts</b>
-          </span>
-        )}
       </div>
+
+      {/* Under the picture, not on it. As an overlay it sat over the bottom-left corner of the
+          photograph, which is part of what you are being asked to read. */}
+      {!done && g.imageUrl && (
+        <span className="mosaic-rung">
+          {g.guessesLeft} {g.guessesLeft === 1 ? "guess" : "guesses"} left
+          {/* What naming it NOW is still worth. Guesses cost little early and a lot late, so
+              the number falling is the pressure the game runs on; hiding it until the end
+              would make that pressure invisible while it mattered. */}
+          <b className="mosaic-worth">{g.pointsIfNext} pts</b>
+        </span>
+      )}
 
       {done && (
         <div className={`mosaic-verdict ${g.status}`}>
@@ -280,6 +283,7 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
             focusCladeId={g.focusCladeId}
             guesses={asGuessResults}
             speciesOnly
+            noLookup
           />
         </>
       )}

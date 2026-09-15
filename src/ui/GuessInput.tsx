@@ -38,6 +38,10 @@ interface Props {
    *  that is part of its game; in Blur the answer is always one species, so a group is never
    *  something you would want to submit and only clutters the list. */
   speciesOnly?: boolean;
+  /** Drop the ↗ Wikipedia link from every suggestion row. Lineage is played open-book and the
+   *  link is part of it; Mosaic, Kinship and Branches are not, and a lookup one tap from the
+   *  guess box quietly makes the daily a different game. */
+  noLookup?: boolean;
   /** Scratchpad, both halves optional together: has the player crossed this entry off, and the
    *  toggle for doing so. Wired → every row gets an ✕ beside its Wikipedia link. Crossed-off
    *  rows are struck through but otherwise unchanged — still ordered the same, still selectable,
@@ -65,7 +69,7 @@ const label = (c: Cand) => (c.common ? `${c.common} (${c.sci})` : c.sci);
  *  matches themselves are never capped. */
 const OOS_TOPUP_TO = 8;
 
-export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses, blocked, blockedLineage, speciesOnly = false, isRuledOut, onRuleOut }: Props) {
+export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, focusCladeId, guesses, blocked, blockedLineage, speciesOnly = false, noLookup = false, isRuledOut, onRuleOut }: Props) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -321,7 +325,9 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
                   )}
                   {/* Read-up link. Isolated from the row's click so it opens
                       Wikipedia instead of committing the guess, and keeps input
-                      focus so the dropdown doesn't blur shut first. */}
+                      focus so the dropdown doesn't blur shut first. Absent where the
+                      game is played closed-book (see `noLookup`). */}
+                  {!noLookup && (
                   <a
                     className="gs-wiki"
                     href={wikiHref(c)}
@@ -333,6 +339,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
                   >
                     ↗
                   </a>
+                  )}
                 </li>
               );
             })}
