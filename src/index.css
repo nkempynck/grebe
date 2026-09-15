@@ -547,14 +547,48 @@ body {
   border-left: 2px solid var(--line-soft);
 }
 .clado-canvas { position: relative; }
+/* Natural view: a fixed window onto a drawing positioned entirely by transform. No
+   scrolling, so nothing the browser owns can clamp or reset the framing when a guess
+   changes the layout under it. Dragging pans, the wheel zooms. */
+.clado-stage.is-viewport { overflow: hidden; height: min(460px, 52vh); max-height: none; touch-action: none; }
+.clado-stage.is-viewport .clado-canvas { position: absolute; inset: 0; }
+/* Holds the layout's own unscaled coordinate space; the natural view scales this whole
+   wrapper, geometry and labels together, and the canvas above carries the scaled size so
+   the stage scrolls the right distance. */
+.clado-zoomwrap { position: relative; transform-origin: 0 0; }
 .clado-links { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
 .clado-link { fill: none; stroke-width: 1.5; stroke-linejoin: round; opacity: 0.7; }
 .clado-link.is-strong { stroke-width: 2.2; opacity: 1; }
+/* Natural view: the path is a closed tapered outline, so it is filled rather than stroked.
+   A hairline stroke in the same colour keeps a hair-thin twig from disappearing. */
+.clado-link.is-stem { stroke: none; stroke-width: 0; opacity: 0.85; }
+.clado-link.is-stem.is-strong { opacity: 1; }
 
-/* a node = a dot + its name/rank, positioned so the dot sits on the branch point */
+/* Zoom controls, natural view only. Sits beside the view toggle. */
+.clado-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.clado-zoombar { display: inline-flex; align-items: center; gap: 2px; }
+.clado-zoombar button {
+  width: 24px; height: 24px; line-height: 1;
+  font-family: var(--font-mono); font-size: 14px;
+  color: var(--ink-soft); background: none; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  transition: border-color 0.12s, color 0.12s;
+}
+.clado-zoombar button:hover:not(:disabled) { border-color: var(--brass); color: var(--brass-bright); }
+.clado-zoombar button:disabled { opacity: 0.4; cursor: default; }
+.clado-zoomval {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft);
+  min-width: 42px; text-align: center;
+}
+
+/* a node = a dot + its name/rank, positioned so the dot sits on the branch point.
+   `--cz` is the natural view's inverse zoom: the drawing scales, labels scale back, so text
+   holds its size on screen and flying in buys room for more of it. Unset elsewhere → 1.
+   The origin is pinned to the dot so counter-scaling can't slide a label off its branch. */
 .clado-pt {
   position: absolute;
-  transform: translate(-5px, -50%);
+  transform: translate(-5px, -50%) scale(var(--cz, 1));
+  transform-origin: 5px 50%;
   display: grid; grid-template-columns: 12px 1fr; column-gap: 8px; align-items: center;
   width: 150px; padding: 0;
   background: none; border: none; cursor: pointer; text-align: left;
@@ -591,9 +625,33 @@ body {
    right, text right-aligned), so labels radiate outward instead of all pointing right. */
 .clado-pt.is-flip {
   grid-template-columns: 1fr 12px;
-  transform: translate(calc(-100% + 6px), -50%);
+  transform: translate(calc(-100% + 6px), -50%) scale(var(--cz, 1));
+  transform-origin: calc(100% - 6px) 50%;
   text-align: right;
 }
+/* Lost a label collision at this zoom: the dot stays on the branch, the name goes. Zoom in
+   and it comes back. Width collapses to the dot so a hidden label can't swallow clicks. */
+.clado-pt.is-nolabel { width: auto; grid-template-columns: 12px; }
+
+/* Natural view only. A node is a 150px-wide box, and in a coiled tree those boxes lie all
+   over the drawing, so most of the canvas was answering to a label's empty half rather
+   than to what you were actually pointing at. Only the ink takes the pointer here; the box
+   itself is transparent to it. Events still reach the button, since the ink is inside it. */
+.is-natural .clado-pt { pointer-events: none; }
+.is-natural .clado-pt .pt-dot,
+.is-natural .clado-pt .pt-mark,
+.is-natural .clado-pt .pt-name,
+.is-natural .clado-pt .pt-rank { pointer-events: auto; }
+/* Bare junctions stay unclickable, as in the other views, unless expanded. */
+.is-natural .clado-pt.is-junction .pt-dot { pointer-events: none; }
+.is-natural .clado-pt.is-junction.is-expanded .pt-dot { pointer-events: auto; }
+
+/* Drag the background to pan, which is what a zoomable view invites you to do. */
+.clado-stage.is-pannable { cursor: grab; }
+.clado-stage.is-panning { cursor: grabbing; }
+.clado-stage.is-panning .clado-pt { pointer-events: none; }
+.clado-pt.is-nolabel .pt-name,
+.clado-pt.is-nolabel .pt-rank { display: none; }
 .clado-pt.is-flip .pt-dot { grid-column: 2; }
 .clado-pt.is-flip .pt-name,
 .clado-pt.is-flip .pt-rank { grid-column: 1; }
@@ -633,7 +691,11 @@ body {
 
 /* the hidden-species marker at the bottom of the spine */
 .clado-pt.is-target {
-  transform: translate(-5px, -50%);
+  /* Must repeat the `--cz` counter-scale from `.clado-pt`: this rule overrides `transform`
+     wholesale, and without it the hidden species is the one label that grows with the
+     natural view's zoom instead of holding its size. */
+  transform: translate(-5px, -50%) scale(var(--cz, 1));
+  transform-origin: 5px 50%;
   display: grid; grid-template-columns: 14px 1fr; column-gap: 8px; align-items: center;
   width: 150px; pointer-events: none;
 }
