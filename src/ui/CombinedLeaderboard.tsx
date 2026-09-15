@@ -223,7 +223,8 @@ export function CombinedLeaderboard({ me, playedToday = true, variant = "config"
 
       {!fixedToday && <p className="lb-note">
         Each game scored 0–100 (your score as a share of the day’s best in that game), then averaged
-        across Lineage, Kinship and Branches for one daily total out of 100. Play all three to top it.
+        across Lineage, Kinship, Branches and Mosaic for one daily total out of 100. Play all four to
+        top it.
         A week, month or all-time board adds up those daily totals, so a hard day you won still counts
         for the full 100. Top a finished day (with ≥3 players) to earn the 👑, a finished week for the
         🏆, a finished month for the 🎖️. Match the leader exactly and you both keep it.

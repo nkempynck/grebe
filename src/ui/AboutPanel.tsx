@@ -161,7 +161,8 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
               the card in the app, and enlarging a species' picture, is free. Going{" "}
               <b>over the mistake limit</b> ends the board as a loss: you still keep the
               slots you'd locked, at 35% credit, but the streak resets. It shares the weekday weight
-              (<code>100–160 by day</code>) with Lineage and Kinship, so scores line up across all three.
+              (<code>100–160 by day</code>) with Lineage, Kinship and Mosaic, so scores line up across
+              all four.
             </p>
           </details>
         </div>
