@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { boardSpoilers, isFullyRedacted, namesTell, redactSpoilers, stem, tellingWords } from "./redact";
+import { boardSpoilers, isFullyRedacted, namesTell, redactSpoilers, safeName, stem, tellingWords } from "./redact";
 import type { TaxonNode } from "./types";
 
 const sp = (common: string, sciName: string): TaxonNode =>
@@ -94,6 +94,39 @@ describe("tellingWords / namesTell", () => {
     const words = tellingWords(cetaceans);
     expect(namesTell("Bottlenose Dolphin", words)).toBe(true); // "bottlenose" singles it out
     expect(words.has(stem("dolphin"))).toBe(false); // shared by three tiles
+  });
+});
+
+describe("safeName", () => {
+  const node = (common: string, sciName: string) => sp(common, sciName);
+
+  // Three boards shipped where hiding the clade label moved the giveaway one step down:
+  // the label went Latin and the worked example under it went on spelling the answer out.
+  // Labels and prefills answer to one rule now, which is this one.
+  it("shows the binomial for any name that carries a telling word", () => {
+    const telling = tellingWords([sp("Grey seal", "Halichoerus grypus"), sp("Japanese raccoon dog", "Nyctereutes viverrinus")]);
+    expect(safeName(node("True seals", "Phocidae"), telling)).toBe("Phocidae");
+    expect(safeName(node("Ringed seal", "Pusa hispida"), telling)).toBe("Pusa hispida");
+    expect(safeName(node("Common raccoon dog", "Nyctereutes procyonoides"), telling)).toBe("Nyctereutes procyonoides");
+  });
+
+  it("leaves the kind word every tile shares alone", () => {
+    // "shark" settles nothing on a board of sharks, and blanking it would cost the tree
+    // the one word that makes it read as sharks at all.
+    const telling = tellingWords([sp("Horn shark", "Heterodontus francisci"), sp("Whale shark", "Rhincodon typus")]);
+    expect(safeName(node("Tawny nurse shark", "Nebrius ferrugineus"), telling)).toBe("Tawny nurse shark");
+    // The wobbegong that started it: one tile carries the word, so it goes.
+    const sharks = tellingWords([sp("Spotted wobbegong", "Orectolobus maculatus"), sp("Whale shark", "Rhincodon typus")]);
+    expect(safeName(node("Japanese wobbegong", "Orectolobus japonicus"), sharks)).toBe("Orectolobus japonicus");
+  });
+
+  it("falls back rather than showing nothing", () => {
+    // Junction splits carry a common name and sciName:"" by the tree's convention; an
+    // empty string is a missing name, not a name, or a live board renders a blank label.
+    const telling = tellingWords([sp("Grey seal", "Halichoerus grypus")]);
+    expect(safeName(node("True seals", ""), telling)).toBe("True seals");
+    expect(safeName(node("", "Phocidae"), telling)).toBe("Phocidae");
+    expect(safeName(undefined, telling)).toBe("");
   });
 });
 

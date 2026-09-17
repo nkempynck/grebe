@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DisplayTreeNode, Tree } from "../core";
-import { inducedSubtree, dailyNumber, boardSpoilers, namesTell, tellingWords, widespreadWords } from "../core";
+import { inducedSubtree, dailyNumber, boardSpoilers, namesTell, safeName, tellingWords, widespreadWords } from "../core";
 import { resolveDailyRules } from "../data/dailySchedule";
 import { GameHeader } from "./GameHeader";
 import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame";
@@ -292,14 +292,18 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   // forces the switch. The Latin ("Passeridae", "Tursiops") gives nothing away.
   const unsolved = board.slotIds.filter((id) => !g.lockedSlots.includes(id)).map((id) => tree.byId.get(id));
   const telling = over ? new Set<string>() : tellingWords(unsolved);
-  const cladeTells = (id: string) => namesTell(tree.byId.get(id)?.common, telling);
+  const nameTells = (id: string) => namesTell(tree.byId.get(id)?.common, telling);
   const cladeLabel = (id: string) => {
     const n = tree.byId.get(id);
-    const latin = cladeLatinOnly || cladeTells(id);
     // `||` not `??`: an empty string is a missing name, not a name. A node carrying
     // sciName:"" rendered as a blank group label on a live board.
-    return (latin ? n?.sciName || n?.common : n?.common || n?.sciName) || id;
+    return (cladeLatinOnly ? n?.sciName || n?.common : safeName(n, telling)) || id;
   };
+  // The SAME rule, applied to the species already drawn on the tree: see safeName.
+  // A prefill whose name carries a telling word places the tray tile beside it by
+  // spelling rather than by recognition — a Ringed seal in the branch where the Grey
+  // seal goes, a Common raccoon dog beside the Japanese one.
+  const leafLabel = (id: string) => safeName(tree.byId.get(id), telling) || id;
   // Brutal weekend (Sat/Sun, tier ≥ 6): also hide the rank subtitle ("GENUS"/"FAMILY").
   // Knowing a group's rank narrows placement, so the final escalation removes it — you
   // still have the Latin name, the tree shape and the pictures. Shown again once solved.
@@ -396,9 +400,13 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
 
   function LeafTile({ id }: { id: string }) {
     if (anchors.has(id)) {
+      // The tooltip carries the Latin name beside the common one, so it has nothing
+      // left to add once the label itself has gone Latin — and showing the common
+      // name there instead would hand back what the label just withheld.
+      const latin = nameTells(id);
       return (
-        <div className="branches-leaf is-anchor" title={sciOf(tree, id)} onClick={() => setWikiId(id)}>
-          <span className="branches-leaf-name">{nameOf(tree, id)}</span>
+        <div className="branches-leaf is-anchor" title={latin ? undefined : sciOf(tree, id)} onClick={() => setWikiId(id)}>
+          <span className="branches-leaf-name">{leafLabel(id)}</span>
         </div>
       );
     }
@@ -667,9 +675,15 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
             onClose={closeWiki}
             hideImage={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0}
             redact={hiddenNames}
-            // Clades follow their board label: a common name that gives a tile away
-            // is not shown on the tree, so it can't be shown on the card either.
-            latinTitle={(tree.childrenOf.get(wikiNode.id) ?? []).length > 0 && (cladeLatinOnly || cladeTells(wikiNode.id))}
+            // Everything follows its board label: a common name that gives a tile away
+            // is not shown on the tree, so it can't be shown on the card either. Cards
+            // for prefilled species are free to open, so a Latin tile whose card was
+            // still headed "Ringed seal" would have cost a tap and given the word back.
+            latinTitle={
+              (tree.childrenOf.get(wikiNode.id) ?? []).length > 0
+                ? cladeLatinOnly || nameTells(wikiNode.id)
+                : anchors.has(wikiNode.id) && nameTells(wikiNode.id)
+            }
             // Only intercepted while it would cost: otherwise it stays a plain link.
             onFollowLink={readCosts(wikiNode.id) ? (url) => setPendingRead({ id: wikiNode.id, url }) : undefined}
             linkNote={readCosts(wikiNode.id) ? `(up to ${lookupCost} pts)` : undefined}

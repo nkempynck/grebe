@@ -169,6 +169,25 @@ export function namesTell(name: string | undefined, telling: Set<string>): boole
   return nameStems(name).some((s) => telling.has(s));
 }
 
+/** The name a board may show for a node: its common name, or the scientific one when
+ *  the common name carries a telling word.
+ *
+ *  Every name Branches draws goes through this, the clade labels and the species
+ *  already placed on the tree alike. They used to be judged separately, and the gap
+ *  between them was a live leak: the generator lets a prefill carry the answer's word
+ *  when the clade's own label carries it too, reasoning that the prefill then adds
+ *  nothing the player can already read — but the label is hidden by this very test, so
+ *  the word simply moved from the label to the prefill. "Wobbegong" became
+ *  Orectolobidae over a tray holding the Spotted wobbegong, and a Japanese wobbegong
+ *  sat in the branch underneath spelling out the answer. One rule over both names
+ *  closes it: the branch is still drawn and still forks, it just stops naming the tile.
+ *
+ *  `||` not `??` throughout: an empty string is a missing name, not a name. */
+export function safeName(node: TaxonNode | undefined, telling: Set<string>): string {
+  const tells = namesTell(node?.common, telling);
+  return (tells ? node?.sciName || node?.common : node?.common || node?.sciName) || "";
+}
+
 /** What to hide for a whole board: one spoiler per species still to place. `spare`
  *  is passed through to `tellingWords`. */
 export function boardSpoilers(species: Array<TaxonNode | undefined>, spare?: Set<string>): Spoiler[] {
