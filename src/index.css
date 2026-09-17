@@ -490,11 +490,17 @@ body {
 .guessbar button:disabled { opacity: 0.35; cursor: not-allowed; }
 .errline { color: var(--danger); font-size: 14px; min-height: 20px; margin: 5px 2px 14px; font-style: italic; }
 
-.subactions { display: flex; gap: 18px; margin-bottom: 26px; }
+/* Wraps because the row can hold three links at once (hint, the armed give-up, and
+   its Cancel), which is wider than a phone. */
+.subactions { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 26px; }
 /* The hint price, shown only while the button is armed. Muted on purpose: it's a
    number to weigh, not a warning. */
 .hintcost { font-size: 12px; color: var(--ink-faint); margin: 0 2px 6px; }
 .hintcost b { color: var(--ink-soft); font-weight: 600; }
+/* Same slot and size as the hint price, but this one IS a warning: the next press
+   reveals the answer and closes the day. */
+.giveupwarn { font-size: 12px; color: var(--danger); margin: 0 2px 6px; }
+.giveupwarn b { font-weight: 600; }
 /* Armed state: the next press spends the hint, so it stops looking like the rest
    of the link row. */
 .linkbtn.is-armed { color: var(--brass); text-decoration-color: var(--brass); font-weight: 600; }
@@ -2704,6 +2710,11 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
 }
 .mosaic-share-btn:hover { border-color: var(--game, var(--brass)); color: var(--game, var(--brass)); }
 .mosaic-giveup { align-self: flex-start; background: none; border: 0; color: inherit; opacity: .6; text-decoration: underline; cursor: pointer; font-size: .82rem; }
+/* The armed give-up: the warning line sits above the button and Cancel beside it, so the
+   second press is a choice rather than the same tap landing twice. */
+.mosaic-giveup-box { align-self: flex-start; display: flex; flex-direction: column; gap: 5px; }
+.mosaic-giveup-row { display: flex; align-items: baseline; gap: 14px; }
+.mosaic-giveup.is-armed { opacity: 1; color: var(--brass); font-weight: 600; }
 .mosaic-nostage { display: flex; flex-direction: column; gap: .4rem; align-items: center; justify-content: center; min-height: 12rem; padding: 1rem; text-align: center; }
 .mosaic-nostage span { font-size: .78rem; opacity: .65; }
 .mosaic-again {

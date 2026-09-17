@@ -75,6 +75,11 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
     setReject(null);
     if (armed === id) { setArmed(null); g.guess(id); } else setArmed(id);
   };
+  // Giving up ends the day at 0 points and cannot be undone, so it takes two presses too —
+  // the same rule as the chips above, for the same reason: it's a small link in a column of
+  // small controls. Playtesting in the bench keeps the one-press version.
+  const [giveUpArmed, setGiveUpArmed] = useState(false);
+  useEffect(() => { setGiveUpArmed(false); }, [g.guesses.length, g.answerId]);
   const [lookup, setLookup] = useState("");
   const [looked, setLooked] = useState<string | null>(null);
 
@@ -498,7 +503,35 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
             </div>
           )}
 
-          <button className="mosaic-giveup linkbtn" onClick={g.giveUp}>Give up</button>
+          {sandbox ? (
+            <button className="mosaic-giveup linkbtn" onClick={g.giveUp}>Give up</button>
+          ) : (
+            <div className="mosaic-giveup-box">
+              {giveUpArmed && (
+                <div className="giveupwarn" role="alert">
+                  Giving up reveals the animal and ends today’s Mosaic: <b>0 points</b>, and no win
+                  means no streak.
+                </div>
+              )}
+              <div className="mosaic-giveup-row">
+                <button
+                  className={`mosaic-giveup linkbtn${giveUpArmed ? " is-armed" : ""}`}
+                  onClick={() => {
+                    setArmed(null);
+                    if (giveUpArmed) { g.giveUp(); setGiveUpArmed(false); }
+                    else setGiveUpArmed(true);
+                  }}
+                >
+                  {giveUpArmed ? "Confirm give up" : "Give up"}
+                </button>
+                {giveUpArmed && (
+                  <button className="mosaic-giveup linkbtn" onClick={() => setGiveUpArmed(false)}>
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
 

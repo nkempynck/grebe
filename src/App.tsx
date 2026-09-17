@@ -494,6 +494,12 @@ export default function App() {
   // the quoted number can never be stale by the time it's confirmed.
   const [hintArmed, setHintArmed] = useState(false);
   useEffect(() => { setHintArmed(false); }, [g.guesses.length, g.hintIds.length, roundOver, g.mode]);
+  // Giving up is the one press that can't be taken back — it reveals the answer and
+  // closes the day at 0 points — so it arms the same way the hint does, even in free
+  // play (where it costs nothing but still ends the round). Arming either button
+  // disarms the other, so the row never offers two confirms at once.
+  const [giveUpArmed, setGiveUpArmed] = useState(false);
+  useEffect(() => { setGiveUpArmed(false); }, [g.guesses.length, g.hintIds.length, roundOver, g.mode]);
 
   // The post-round reveal (see ui/AnswerReveal). It opens on the TRANSITION out of
   // play, never on `roundOver` alone: a daily that was already played mounts
@@ -935,11 +941,24 @@ export default function App() {
           );
         })()}
 
+        {/* The give-up warning, shown only once that button is armed — the same
+            shape as the hint price above, but this one is a warning rather than a
+            number to weigh. Free play says less because there's nothing at stake
+            there beyond the round itself. */}
+        {!roundOver && giveUpArmed && (
+          <div className="giveupwarn" role="alert">
+            {daily
+              ? <>Giving up reveals the answer and ends today’s Lineage: <b>0 points</b>, and no win means no streak.</>
+              : <>Giving up reveals the answer and ends this round.</>}
+          </div>
+        )}
+
         <div className="subactions">
           {!roundOver && (
             <button
               className={`linkbtn${hintArmed ? " is-armed" : ""}`}
               onClick={() => {
+                setGiveUpArmed(false);
                 if (!daily || hintArmed) { g.revealHint(); setHintArmed(false); }
                 else setHintArmed(true);
               }}
@@ -957,7 +976,21 @@ export default function App() {
           {!roundOver && hintArmed && (
             <button className="linkbtn" onClick={() => setHintArmed(false)}>Cancel</button>
           )}
-          {!roundOver && <button className="linkbtn" onClick={g.giveUp}>Give up & reveal</button>}
+          {!roundOver && (
+            <button
+              className={`linkbtn${giveUpArmed ? " is-armed" : ""}`}
+              onClick={() => {
+                setHintArmed(false);
+                if (giveUpArmed) { g.giveUp(); setGiveUpArmed(false); }
+                else setGiveUpArmed(true);
+              }}
+            >
+              {giveUpArmed ? "Confirm give up" : "Give up & reveal"}
+            </button>
+          )}
+          {!roundOver && giveUpArmed && (
+            <button className="linkbtn" onClick={() => setGiveUpArmed(false)}>Cancel</button>
+          )}
           {!daily && <button className="linkbtn" onClick={g.newRandom}>New random specimen</button>}
         </div>
       </div>
