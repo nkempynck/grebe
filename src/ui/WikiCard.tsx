@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import type { TaxonNode, Tree } from "../core";
 import { isFullyRedacted, leavesUnder, redactSpoilers, type Spoiler } from "../core";
-import { fetchWikiImage, fetchWikiSummary, wikiUrlFor, type WikiImage, type WikiSummary } from "../data/wikipedia";
-import { PhotoCredit, usePhotoCredit } from "./PhotoZoom";
+import { fetchImageAlternates, fetchWikiImage, fetchWikiSummary, wikiUrlFor, type WikiImage, type WikiSummary } from "../data/wikipedia";
+import { PhotoCredit, usePhotoCredit, usePhotoPager } from "./PhotoZoom";
 import { useDev } from "../data/devMode";
 
 /** A small Wikipedia reader, opened by tapping a species or a clade. Shared by
@@ -29,8 +29,29 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
   // image, the same gesture the Kinship tiles and the Branches tray already use.
   const [zoomed, setZoomed] = useState(false);
   const { photoSource } = useDev();
+  // Every photograph we hold of this species, so the card's picture pages like the Kinship
+  // tiles and the Branches tray already do. The card was the one enlarged view in the game
+  // that couldn't, and it is the ONLY route to a second picture for a species drawn on the
+  // Branches tree: a prefill or a placed tile carries no thumbnail of its own, and one
+  // cropped photo is a thin basis for telling two seals apart.
+  //
+  // Loaded when the picture is OPENED, not with the card: most cards are read and shut
+  // without the photo ever being enlarged, and a clade has no photo to page at all.
+  const [alts, setAlts] = useState<WikiImage[]>([]);
+  useEffect(() => {
+    if (!zoomed || hideImage) { setAlts([]); return; }
+    let live = true;
+    fetchImageAlternates(node).then((a) => { if (live) setAlts(a); });
+    return () => { live = false; };
+  }, [zoomed, hideImage, node.id, photoSource]);
+  // Choosing one writes it back to the card's own thumbnail, so the small picture and the
+  // enlarged one agree. Component state, so it lasts as long as the card and no longer.
+  const pager = usePhotoPager(alts, node.id, { current: img?.full ?? null, onPick: setImg });
+  // One image drives the picture and its credit, so the two can never describe different
+  // photographs. Falls back to the card's own until the alternates land.
+  const shot = pager.image ?? img;
   // Only fetched once the picture is opened; see usePhotoCredit.
-  const credit = usePhotoCredit(zoomed ? img : null);
+  const credit = usePhotoCredit(zoomed ? shot : null);
   useEffect(() => {
     let live = true;
     setLoading(true);
@@ -102,9 +123,10 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
           aria-label={`${shownName} picture`}
           onClick={() => setZoomed(false)}
         >
-          <img src={img.full ?? img.thumb} alt={shownName} />
+          <img src={shot?.full ?? img.full ?? img.thumb} alt={shownName} />
           <span className="clado-zoom-cap">
             {shownName} · tap to close
+            {pager.controls}
             <PhotoCredit credit={credit} />
           </span>
         </div>
