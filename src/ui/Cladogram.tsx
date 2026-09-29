@@ -3,6 +3,7 @@ import type { DisplayTreeNode, GuessResult, TaxonNode, Tree } from "../core";
 import { ancestryChain, inducedSubtree, isAncestor } from "../core";
 import { WikiCard } from "./WikiCard";
 import { warmthColor } from "./temperature";
+import { pinchCamera, spreadOf, type Camera, type Spread } from "./cladoCamera";
 import { treeLayout, radialLayout, naturalLayout, ribbonPath, CLADO_TREE, CLADO_RADIAL, CLADO_NATURAL, type Ribbon } from "./cladoLayout";
 
 type CladoView = "tree" | "radial" | "natural";
@@ -264,26 +265,69 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
 
   // Drag the background to pan. Only from the background: a pointerdown that landed on a
   // node is that node's click to handle, so panning can never steal it.
+  //
+  // Two fingers pinch. The stage is `touch-action: none` so a drag pans the tree instead of
+  // the page, which also switches off the browser's own pinch, so it is done here: the zoom
+  // follows the change in finger spread, anchored on the point between the fingers, and
+  // moving both fingers pans, the way a map does. A pinch may start with a finger on a label,
+  // so every touch is tracked, not only the ones that land on the background.
   const [panning, setPanning] = useState(false);
   const pan = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+  const touches = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ from: Spread; v: Camera } | null>(null);
+  const spread = () => {
+    const [a, b] = [...touches.current.values()];
+    return spreadOf(a, b);
+  };
   const onPointerDown = (e: React.PointerEvent) => {
     if (!natural || e.button !== 0) return;
-    if ((e.target as HTMLElement).closest(".clado-pt")) return;
     const stage = stageRef.current;
     if (!stage) return;
+    if (e.pointerType === "touch") {
+      touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touches.current.size === 2) {
+        stopGlide();
+        stage.setPointerCapture(e.pointerId);
+        pan.current = null;
+        pinch.current = { from: spread(), v: viewRef.current };
+        setPanning(true);
+        return;
+      }
+    }
+    if ((e.target as HTMLElement).closest(".clado-pt")) return;
     stopGlide();
-    pan.current ={ x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
+    pan.current = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
     stage.setPointerCapture(e.pointerId);
     setPanning(true);
   };
   const onPointerMove = (e: React.PointerEvent) => {
+    if (touches.current.has(e.pointerId)) touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pz = pinch.current;
+    const stage = stageRef.current;
+    if (pz && stage && touches.current.size >= 2) {
+      const rect = stage.getBoundingClientRect();
+      setView(pinchCamera(pz.v, pz.from, spread(), rect.left, rect.top, clampZoom));
+      return;
+    }
     const p = pan.current;
     if (!p) return;
     setView((v) => ({ ...v, tx: p.tx + (e.clientX - p.x), ty: p.ty + (e.clientY - p.y) }));
   };
   const onPointerUp = (e: React.PointerEvent) => {
     const stage = stageRef.current;
-    if (pan.current && stage?.hasPointerCapture(e.pointerId)) stage.releasePointerCapture(e.pointerId);
+    if (stage?.hasPointerCapture(e.pointerId)) stage.releasePointerCapture(e.pointerId);
+    touches.current.delete(e.pointerId);
+    if (pinch.current) {
+      pinch.current = null;
+      // One finger still down carries on as a pan from where it is, so lifting the other
+      // doesn't make the drawing jump.
+      const rest = [...touches.current.values()][0];
+      if (rest) {
+        const v = viewRef.current;
+        pan.current = { x: rest.x, y: rest.y, tx: v.tx, ty: v.ty };
+        return;
+      }
+    }
     pan.current = null;
     setPanning(false);
   };
