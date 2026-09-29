@@ -545,6 +545,10 @@ body {
   width: 100%;
   padding: 4px 0;
   border-left: 2px solid var(--line-soft);
+  /* Every guess re-lays the tree and moves every node. Without this the browser's scroll
+     anchoring can pick one of those nodes as the thing to hold still, and scroll the whole
+     page to follow it. */
+  overflow-anchor: none;
 }
 .clado-canvas { position: relative; }
 /* Natural view: a fixed window onto a drawing positioned entirely by transform. No
@@ -621,17 +625,27 @@ body {
 .clado-pt.is-selected .pt-name { color: var(--brass-bright); }
 
 .clado-pt.is-clade .pt-name { font-style: italic; font-weight: 500; color: var(--ink-soft); }
-/* Radial fan, left half: mirror the label so it extends LEFT of the dot (dot on the
-   right, text right-aligned), so labels radiate outward instead of all pointing right. */
-.clado-pt.is-flip {
+/* Mirror the label so it extends LEFT of the dot (dot on the right, text right-aligned).
+   Branches' radial fan asks for it with `is-flip`; Lineage's natural view is placed by its
+   label pass instead (`data-side`, `--ly`), not by React. */
+.clado-pt.is-flip,
+.clado-pt[data-side="l"] {
   grid-template-columns: 1fr 12px;
   transform: translate(calc(-100% + 6px), -50%) scale(var(--cz, 1));
   transform-origin: calc(100% - 6px) 50%;
   text-align: right;
 }
+.clado-pt.is-target[data-side="l"] {
+  grid-template-columns: 1fr 14px;
+  transform: translate(calc(-100% + 7px), -50%) scale(var(--cz, 1));
+  transform-origin: calc(100% - 7px) 50%;
+}
+/* Above or below the dot: only the text moves, so the dot stays on its branch. */
+.clado-pt .pt-name,
+.clado-pt .pt-rank { transform: translateY(var(--ly, 0px)); }
 /* Lost a label collision at this zoom: the dot stays on the branch, the name goes. Zoom in
    and it comes back. Width collapses to the dot so a hidden label can't swallow clicks. */
-.clado-pt.is-nolabel { width: auto; grid-template-columns: 12px; }
+.clado-pt[data-hide] { width: auto; grid-template-columns: 12px; }
 
 /* Natural view only. A node is a 150px-wide box, and in a coiled tree those boxes lie all
    over the drawing, so most of the canvas was answering to a label's empty half rather
@@ -642,6 +656,19 @@ body {
 .is-natural .clado-pt .pt-mark,
 .is-natural .clado-pt .pt-name,
 .is-natural .clado-pt .pt-rank { pointer-events: auto; }
+/* And the box shrinks to its ink, still wrapping at 150px. The label cull measures these
+   boxes, so a short name padded out to 150px was hiding its neighbours over empty space. */
+.is-natural .clado-pt { width: fit-content; max-width: 150px; min-width: min-content; }
+/* min-width wins over max-width: a single word longer than 150px (Dipnotetrapodomorpha)
+   can't wrap, and in a box held to 150px it overflowed its column and pushed a left-side
+   label's dot 35px off its node. */
+/* A species is a tip, not a branch point: half a clade's dot, sitting inside the rounded
+   end of its stem rather than capping it. */
+.is-natural .clado-pt.is-guess .pt-dot,
+.is-natural .clado-pt.is-answer .pt-dot { width: 5px; height: 5px; border-width: 1px; }
+/* The visible dots are the SVG's (`.clado-dot`); these stay for clicks, hover and the label
+   pass. Split markers keep theirs, since it belongs to the marker's text. */
+.is-natural .clado-pt:not(.is-collapsed) .pt-dot { opacity: 0; }
 /* Bare junctions stay unclickable, as in the other views, unless expanded. */
 .is-natural .clado-pt.is-junction .pt-dot { pointer-events: none; }
 .is-natural .clado-pt.is-junction.is-expanded .pt-dot { pointer-events: auto; }
@@ -650,11 +677,15 @@ body {
 .clado-stage.is-pannable { cursor: grab; }
 .clado-stage.is-panning { cursor: grabbing; }
 .clado-stage.is-panning .clado-pt { pointer-events: none; }
-.clado-pt.is-nolabel .pt-name,
-.clado-pt.is-nolabel .pt-rank { display: none; }
-.clado-pt.is-flip .pt-dot { grid-column: 2; }
+.clado-pt[data-hide] .pt-name,
+.clado-pt[data-hide] .pt-rank { display: none; }
+.clado-pt.is-flip .pt-dot,
+.clado-pt[data-side="l"] .pt-dot,
+.clado-pt[data-side="l"] .pt-mark { grid-column: 2; }
 .clado-pt.is-flip .pt-name,
-.clado-pt.is-flip .pt-rank { grid-column: 1; }
+.clado-pt.is-flip .pt-rank,
+.clado-pt[data-side="l"] .pt-name,
+.clado-pt[data-side="l"] .pt-rank { grid-column: 1; }
 .clado-pt.is-guess .pt-dot { background: var(--bg-3); }
 .clado-pt.is-answer .pt-dot { border-width: 2px; }
 /* Grafted out-of-set node: dashed dot + faded label, so it reads as "shown for
@@ -708,6 +739,8 @@ body {
   font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink-faint); font-weight: 400;
 }
+.clado-pt.is-target[data-side="l"] .pt-mark { grid-column: 2; }
+.clado-pt.is-target[data-side="l"] .pt-name { grid-column: 1; }
 
 /* the Wikipedia reader that opens on tap — a soft inset, not a box */
 .clado-hint {

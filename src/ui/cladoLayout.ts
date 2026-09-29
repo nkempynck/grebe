@@ -41,6 +41,41 @@ export interface GraphLink {
    *  A stroke has one width for its whole length, and a tree whose branches don't thin as
    *  they divide doesn't read as a tree. */
   filled?: boolean;
+  /** Natural only: the stem's sampled centreline, so a caller can redraw `d` at another
+   *  width with `ribbonPath` without re-running the layout. */
+  ribbon?: Ribbon;
+}
+
+/** A stem's centreline, sampled, with the unit normal and half-width at each sample. */
+export interface Ribbon {
+  pts: Pt[];
+  nrm: Pt[];
+  hw: number[];
+}
+
+/** The closed, filled outline of a ribbon, every half-width multiplied by `scale`.
+ *
+ *  Round caps at both ends, the filled equivalent of a round linecap. A flat cut left every
+ *  tip as a square stub the dot sat on rather than capped, and at a fork the flat ends of
+ *  several stems met at angles, so the joint's visual centre drifted off the node's dot. A
+ *  cap is a half-disc centred on the node itself, so both line up with the dot. Sweep 0
+ *  turns the way that goes round the outside of each end. */
+export function ribbonPath(r: Ribbon, scale = 1): string {
+  // Two decimals: the natural view zooms to 10×, where one decimal is a visible pixel.
+  const f = (n: number) => n.toFixed(2);
+  const n = r.pts.length - 1;
+  const side = (i: number, s: number) => {
+    const h = r.hw[i] * scale * s;
+    return `${f(r.pts[i].x + r.nrm[i].x * h)} ${f(r.pts[i].y + r.nrm[i].y * h)}`;
+  };
+  const ra = r.hw[0] * scale;
+  const rb = r.hw[n] * scale;
+  let d = `M ${side(0, 1)}`;
+  for (let i = 1; i <= n; i++) d += ` L ${side(i, 1)}`;
+  d += ` A ${f(rb)} ${f(rb)} 0 0 0 ${side(n, -1)}`;
+  for (let i = n - 1; i >= 0; i--) d += ` L ${side(i, -1)}`;
+  d += ` A ${f(ra)} ${f(ra)} 0 0 0 ${side(0, 1)} Z`;
+  return d;
 }
 
 export interface GraphLayout {
@@ -76,6 +111,7 @@ export const CLADO_NATURAL: NaturalOpts = {
   // so the trunk stays heavy, the limbs are clearly lighter, and the twigs are hairs.
   taper: 1.5,
   minGirth: 0.9,
+  tipThin: 0.4,
   flare: 1.45,
   tipBox: { halfW: 92, halfH: 26 },
   pad: 48,
@@ -306,6 +342,9 @@ export interface NaturalOpts {
   taper: number;
   /** Twigs never thinner than this, or they vanish under a hairline. */
   minGirth: number;
+  /** Width factor for a stem ending in a species. A species is a tip, drawn with a smaller
+   *  dot than a branch point, and at full girth its stem was a thick stub the dot sat on. */
+  tipThin: number;
   /** How much wider than itself a branch is where it joins its parent. Just a fillet: a
    *  stem that left at its parent's full width would swallow its siblings at the fork and
    *  the whole join would read as one lump, which is what it did before this existed. */
@@ -475,7 +514,9 @@ export function naturalLayout(root: TreeLike, o: NaturalOpts): GraphLayout {
         const outward = dead > 0 ? Math.sign(o.spin) : -Math.sign(o.spin);
         turn = outward * (kDead > 0 ? o.spread : turnOf(k.id)) * fan;
       }
-      walk(k, tip, angle + turn, lenOf(k.id, depth + 1, kDead), girthOf(k.id, depth + 1, kDead), depth + 1, n.id, width, angle, kDead, i === 0);
+      const g = girthOf(k.id, depth + 1, kDead);
+      const kWidth = k.children.length === 0 ? Math.max(o.minGirth, g * o.tipThin) : g;
+      walk(k, tip, angle + turn, lenOf(k.id, depth + 1, kDead), kWidth, depth + 1, n.id, width, angle, kDead, i === 0);
     });
   })(root, { x: 0, y: 0 }, 0, lenOf(root.id, 0, 0), girthOf(root.id, 0, 0), 0, null, girthOf(root.id, 0, 0), 0, 0, true);
 
@@ -512,7 +553,6 @@ export function naturalLayout(root: TreeLike, o: NaturalOpts): GraphLayout {
     });
   });
 
-  const f = (n: number) => n.toFixed(1);
   /** How many points a stem's centreline is sampled at before it's offset into a ribbon.
    *  Offsetting a curve exactly is awkward; sampling it is not, and at this density the
    *  joins are invisible. */
@@ -540,10 +580,9 @@ export function naturalLayout(root: TreeLike, o: NaturalOpts): GraphLayout {
       };
     };
 
-    // Walk the centreline, offsetting half a width to each side; the width eases from the
-    // parent's to this branch's so a thick limb narrows smoothly into a thin one.
-    const left: Pt[] = [];
-    const right: Pt[] = [];
+    // Walk the centreline, recording the half-width to offset each side by; the width eases
+    // from the parent's to this branch's so a thick limb narrows smoothly into a thin one.
+    const ribbon: Ribbon = { pts: [], nrm: [], hw: [] };
     for (let i = 0; i <= SAMPLES; i++) {
       const t = i / SAMPLES;
       const p = at(t);
@@ -555,16 +594,11 @@ export function naturalLayout(root: TreeLike, o: NaturalOpts): GraphLayout {
       // Concave, not linear: the fillet falls away fast and the rest of the branch runs at
       // its own width, which is the shape a real join has. A straight interpolation makes
       // every branch a long triangle, which is where the stumpiness came from.
-      const hw = (s.wb + (s.wa - s.wb) * (1 - t) * (1 - t)) / 2;
-      left.push({ x: p.x + nx * hw, y: p.y + ny * hw });
-      right.push({ x: p.x - nx * hw, y: p.y - ny * hw });
+      ribbon.pts.push(p);
+      ribbon.nrm.push({ x: nx, y: ny });
+      ribbon.hw.push((s.wb + (s.wa - s.wb) * (1 - t) * (1 - t)) / 2);
     }
-    const d =
-      `M ${f(left[0].x)} ${f(left[0].y)}` +
-      left.slice(1).map((p) => ` L ${f(p.x)} ${f(p.y)}`).join("") +
-      right.reverse().map((p) => ` L ${f(p.x)} ${f(p.y)}`).join("") +
-      " Z";
-    return { parentId: s.parentId, childId: s.childId, filled: true, d };
+    return { parentId: s.parentId, childId: s.childId, filled: true, d: ribbonPath(ribbon), ribbon };
   });
 
   return { nodes, links, width: maxX - minX + o.pad * 2, height: maxY - minY + o.pad * 2 };

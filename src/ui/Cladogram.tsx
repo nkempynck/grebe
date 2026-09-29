@@ -3,7 +3,7 @@ import type { DisplayTreeNode, GuessResult, TaxonNode, Tree } from "../core";
 import { ancestryChain, inducedSubtree, isAncestor } from "../core";
 import { WikiCard } from "./WikiCard";
 import { warmthColor } from "./temperature";
-import { treeLayout, radialLayout, naturalLayout, CLADO_TREE, CLADO_RADIAL, CLADO_NATURAL } from "./cladoLayout";
+import { treeLayout, radialLayout, naturalLayout, ribbonPath, CLADO_TREE, CLADO_RADIAL, CLADO_NATURAL, type Ribbon } from "./cladoLayout";
 
 type CladoView = "tree" | "radial" | "natural";
 
@@ -27,6 +27,25 @@ const FIT_MARGIN = 1.45;
 const FOCAL_Y = 0.4;
 /** Ceiling on the AUTOMATIC fit. The manual controls still reach ZOOM_MAX. */
 const FIT_ZOOM_MAX = 1.25;
+/** Zoom beyond which natural-view stems hold their on-screen width. */
+const STEM_ZOOM_CAP = 2;
+/** The principal ranks, whose labels win a collision over every other clade's. */
+const MAJOR_RANKS = ["kingdom", "phylum", "class", "order", "family", "genus"];
+/** Ceiling on framing a guess with the hidden species. Far above FIT_ZOOM_MAX on purpose: a
+ *  guess landing right beside the hidden species is a few pixels from it at the fit zoom,
+ *  and only flying in spreads the pair far enough apart for the guess to keep its label. */
+const GUESS_ZOOM_MAX = 6;
+/** How far apart, on screen, a framed guess and the hidden species should be: enough for
+ *  both to keep a label. The framing zooms in only to reach this, never to fill the view,
+ *  so the rest of the spiral stays in shot. */
+const GUESS_SEP_PX = 120;
+/** Room kept around a framed guess and hidden species, in screen pixels: wide enough for
+ *  a label beside either point, tall enough for its two lines. */
+const FRAME_PAD_X = 120;
+const FRAME_PAD_Y = 60;
+/** How long an automatic camera move glides for. Manual pan and zoom are always instant. */
+const GLIDE_MS = 380;
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 interface Props {
   tree: Tree;
@@ -74,7 +93,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
       return next;
     });
 
-  const [mode, setMode] = useState<CladoView>("tree");
+  const [mode, setMode] = useState<CladoView>("natural");
   const model = useMemo(
     () => buildModel(tree, scopeRootId, results, answerId, hintIds, revealed, expanded, mode),
     [tree, scopeRootId, results, answerId, hintIds, revealed, expanded, mode]
@@ -97,6 +116,95 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
   const [view, setView] = useState({ k: 1, tx: 0, ty: 0 });
   const natural = mode === "natural";
   const zoomed = natural ? view.k : 1;
+  const viewRef = useRef(view);
+  viewRef.current = view;
+
+  /** An automatic camera move, eased over GLIDE_MS by stepping the camera itself rather than
+   *  a CSS transition. A transition would animate the transform while `--cz` (the labels'
+   *  counter-scale) jumped straight to its final value, so every label would swell or shrink
+   *  for the length of the move. Each step is a real camera position, so the label pass runs
+   *  on every frame of it and labels never overlap in flight. */
+  const glide = useRef<number | null>(null);
+  const stopGlide = useCallback(() => {
+    if (glide.current != null) cancelAnimationFrame(glide.current);
+    glide.current = null;
+  }, []);
+  // No unmount cleanup cancelling the glide: StrictMode's rehearsal unmount would run it
+  // straight after the first guess's framing started, and the guess would never pan. A step
+  // checks the stage is still there instead.
+  /** Glide to `to`, keeping the move about the screen point (ax, ay) straight: the canvas
+   *  point under it travels in a line while the zoom changes geometrically, so a zoom-out
+   *  doesn't swing the drawing sideways on the way. */
+  const glideTo = useCallback((to: { k: number; tx: number; ty: number }, ax: number, ay: number) => {
+    if (glide.current != null) cancelAnimationFrame(glide.current);
+    const from = viewRef.current;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      glide.current = null;
+      setView(to);
+      return;
+    }
+    const c0 = { x: (ax - from.tx) / from.k, y: (ay - from.ty) / from.k };
+    const c1 = { x: (ax - to.tx) / to.k, y: (ay - to.ty) / to.k };
+    const t0 = performance.now();
+    const step = (now: number) => {
+      if (!stageRef.current) {
+        glide.current = null;
+        return;
+      }
+      const t = Math.min(1, (now - t0) / GLIDE_MS);
+      const e = easeInOut(t);
+      if (t >= 1) {
+        glide.current = null;
+        setView(to);
+        return;
+      }
+      const k = from.k * (to.k / from.k) ** e;
+      const cx = c0.x + (c1.x - c0.x) * e;
+      const cy = c0.y + (c1.y - c0.y) * e;
+      setView({ k, tx: ax - cx * k, ty: ay - cy * k });
+      glide.current = requestAnimationFrame(step);
+    };
+    glide.current = requestAnimationFrame(step);
+  }, []);
+
+  /** The part of the stage actually on screen, in stage pixels. The guess bar is sticky to
+   *  the bottom of the viewport and covers the lower part of the stage whenever the tree runs
+   *  past the fold, so framing against the stage's full height puts the live end under it. */
+  const visibleBand = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return { top: 0, h: 0 };
+    const rect = stage.getBoundingClientRect();
+    let bottom = Math.min(window.innerHeight, rect.bottom);
+    const bar = document.querySelector(".playbar")?.getBoundingClientRect();
+    if (bar && bar.top < bottom && bar.bottom > rect.top) bottom = Math.min(bottom, bar.top);
+    const top = Math.max(0, -rect.top);
+    const h = bottom - rect.top - top;
+    // Almost nothing showing means the stage is scrolled away; frame the whole of it then.
+    return h < 160 ? { top: 0, h: stage.clientHeight } : { top, h };
+  }, []);
+
+  /** Scroll the page, if it needs it, so the whole stage sits on screen above the sticky
+   *  guess bar. Moves the least it can; a stage taller than the room there keeps its top edge
+   *  on screen.
+   *
+   *  Instant, and called before paint. A smooth scroll started after the new tree painted
+   *  could be cut short by anything else moving the page in the meantime, and on the first
+   *  guess (when the tree mounts) it was. Before paint there is no motion to see anyway: the
+   *  page simply appears with the tree in place. */
+  const revealStage = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    const bar = document.querySelector(".playbar")?.getBoundingClientRect();
+    const GAP = 12;
+    const floor = Math.min(window.innerHeight, bar ? bar.top : window.innerHeight) - GAP;
+    let d = 0;
+    if (rect.bottom > floor) d = rect.bottom - floor;
+    if (rect.top - d < GAP) d = rect.top - GAP;
+    if (Math.abs(d) < 2) return;
+    window.scrollBy({ top: d, behavior: "instant" });
+  }, []);
 
   // Put a canvas point in the middle of the viewport.
   const centerOn = useCallback((x: number, y: number, behavior: ScrollBehavior = "smooth") => {
@@ -116,6 +224,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
   const zoomAt = useCallback((factor: number, clientX?: number, clientY?: number) => {
     const stage = stageRef.current;
     if (!stage) return;
+    stopGlide();
     const rect = stage.getBoundingClientRect();
     setView((v) => {
       const k = clampZoom(v.k * factor);
@@ -128,7 +237,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
       const cy = (py - v.ty) / v.k;
       return { k, tx: px - cx * k, ty: py - cy * k };
     });
-  }, []);
+  }, [stopGlide]);
 
   /** Hold the hidden species still across a re-layout.
    *
@@ -149,18 +258,9 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
     // No previous position means this is the first paint in this view, which the fit
     // effect frames deliberately; it clears `lastFocal`, so a fit is never corrected away.
     if (!prev || (prev.x === f.x && prev.y === f.y)) return;
-    setView((v) => ({ ...v, tx: v.tx - (f.x - prev.x) * v.k, ty: v.ty - (f.y - prev.y) * v.k }));
-  }, [model, natural]);
-
-  // Holding the camera steady isn't enough on its own, because the PAGE moves too: a guess
-  // adds a caption line, a hint row and another result, all above the tree, and the focused
-  // input keeps itself in view, so the stage slides and its lower half — where the live end
-  // of the spiral is — ends up below the fold. `nearest` does nothing when the stage is
-  // already fully visible and makes the smallest correction when it isn't.
-  useEffect(() => {
-    if (!natural || results.length === 0) return;
-    stageRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [natural, results.length]);
+    stopGlide();
+    setView((v) =>({ ...v, tx: v.tx - (f.x - prev.x) * v.k, ty: v.ty - (f.y - prev.y) * v.k }));
+  }, [model, natural, stopGlide]);
 
   // Drag the background to pan. Only from the background: a pointerdown that landed on a
   // node is that node's click to handle, so panning can never steal it.
@@ -171,7 +271,8 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
     if ((e.target as HTMLElement).closest(".clado-pt")) return;
     const stage = stageRef.current;
     if (!stage) return;
-    pan.current = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
+    stopGlide();
+    pan.current ={ x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
     stage.setPointerCapture(e.pointerId);
     setPanning(true);
   };
@@ -209,8 +310,10 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
   // Leaving natural mode resets the camera, so coming back starts from a framed whole tree
   // rather than wherever you happened to stop flying.
   useEffect(() => {
-    if (!natural) setView({ k: 1, tx: 0, ty: 0 });
-  }, [natural]);
+    if (natural) return;
+    stopGlide();
+    setView({ k: 1, tx: 0, ty: 0 });
+  }, [natural, stopGlide]);
 
   /** Which nodes get to show their name in the natural view, or null when every label is
    *  drawn (tree and radial are laid out so labels fit by construction).
@@ -223,7 +326,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
    *  species, the closest shared branch, then guesses (warmest first), then clade labels. */
   /** Label priority: lower wins the space. Read by the measured cull below, via `data-pri`.
    *  The hidden species and the answer come first, then the closest shared branch, then
-   *  guesses — warmest first, and among equals the most recent — then clade labels. */
+   *  guesses — warmest first, and among equals the most recent — then clade labels, by rank. */
   const labelPriority = useCallback(
     (p: PNode) => {
       if (p.kind === "answer") return 0;
@@ -233,9 +336,15 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
         const i = results.findIndex((r) => r.guess.id === p.id);
         return 10 + (1 - (p.warmth ?? 0)) * 100 + (i < 0 ? 99 : i) / 1000;
       }
+      // Clades by rank: the principal ranks first, broadest first, then any other named rank
+      // (superfamily, subclass, …), then plain clades.
+      const rank = tree.byId.get(p.id)?.rank ?? "";
+      const major = MAJOR_RANKS.indexOf(rank);
+      if (major >= 0) return 1e4 + major;
+      if (rank && rank !== "clade" && rank !== "no rank") return 1e5;
       return 1e6;
     },
-    [model?.closestId, results]
+    [model?.closestId, results, tree]
   );
 
 
@@ -246,27 +355,94 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
    *  wraps inside 150px, and labels that visibly overlapped kept passing a test run on boxes
    *  that didn't. The browser already knows every one of those rectangles exactly, so ask it.
    *
-   *  Everything renders labelled; this pass then reads the real rectangles in priority order,
-   *  keeps the ones that don't collide with a survivor, and hides the rest. Zoomed out only a
-   *  few names survive; flying in shrinks the drawing's crowding around labels that hold
-   *  their size on screen, so more of them come back. */
+   *  Everything renders labelled, on its preferred side; this pass then reads the real text
+   *  rectangles in priority order and gives each label the first spot that is free: its own
+   *  side, the other side, then above and below the dot on each. A spot is free when it
+   *  misses every label already placed, and ideally every other node's dot too, so the
+   *  hidden species (placed first) moves off a guess rather than sitting on it. Only when no
+   *  spot misses the placed labels is the name hidden. Zoomed out only a few names survive;
+   *  flying in shrinks the drawing's crowding around labels that hold their size on screen,
+   *  so more of them come back.
+   *
+   *  The other spots aren't rendered and measured: each is the measured box mirrored about
+   *  the dot, or shifted clear of it, which is exact because only the text moves. Placement
+   *  is written to data attributes and `--ly`, which React doesn't manage, so a re-render
+   *  can't undo it. */
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
     const els = [...stage.querySelectorAll<HTMLElement>(".clado-pt[data-pri]")];
-    // Start from a clean slate so the measurement sees full-width labels, not collapsed ones.
-    for (const el of els) el.classList.remove("is-nolabel");
+    // Start from a clean slate: every label shown, on its preferred side.
+    for (const el of els) {
+      delete el.dataset.hide;
+      el.style.removeProperty("--ly");
+      if (natural && el.dataset.pref === "l") el.dataset.side = "l";
+      else delete el.dataset.side;
+    }
     if (!natural) return;
+
+    type Box = { left: number; right: number; top: number; bottom: number };
+    const overlaps = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    // The text itself, not its grid cell, which stretches to the column.
+    const textBox = (el: HTMLElement): Box | null => {
+      let box: Box | null = null;
+      for (const s of el.querySelectorAll<HTMLElement>(":scope > .pt-name, :scope > .pt-rank")) {
+        const range = document.createRange();
+        range.selectNodeContents(s);
+        const r = range.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) continue;
+        box = box
+          ? { left: Math.min(box.left, r.left), right: Math.max(box.right, r.right), top: Math.min(box.top, r.top), bottom: Math.max(box.bottom, r.bottom) }
+          : { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+      }
+      return box;
+    };
+    const dots = [...stage.querySelectorAll<HTMLElement>(".clado-pt > .pt-dot, .clado-pt > .pt-mark")].map((d) => ({
+      owner: d.parentElement,
+      r: d.getBoundingClientRect(),
+    }));
+
     const measured = els
-      .map((el) => ({ el, pri: Number(el.dataset.pri ?? 1e6), r: el.getBoundingClientRect() }))
+      .map((el) => {
+        const dot = dots.find((d) => d.owner === el)?.r ?? null;
+        return { el, pri: Number(el.dataset.pri ?? 1e6), box: textBox(el), dot };
+      })
       .sort((a, b) => a.pri - b.pri);
-    const kept: DOMRect[] = [];
+    // Collapsed "⋯ n splits" markers are always drawn, so they are in place before any label.
+    const kept: Box[] = [...stage.querySelectorAll<HTMLElement>(".clado-pt.is-collapsed")].map((el) => el.getBoundingClientRect());
     for (const m of measured) {
-      const hit = kept.some(
-        (k) => m.r.left < k.right && k.left < m.r.right && m.r.top < k.bottom && k.top < m.r.bottom
-      );
-      if (hit) m.el.classList.add("is-nolabel");
-      else kept.push(m.r);
+      const { el, box, dot } = m;
+      if (!box || !dot) continue;
+      const cx = (dot.left + dot.right) / 2;
+      const cy = (dot.top + dot.bottom) / 2;
+      const clear = (dot.bottom - dot.top) / 2 + 1;
+      const here = el.dataset.side === "l" ? "l" : "r";
+      const there = here === "l" ? "r" : "l";
+      const at = (side: "l" | "r", dy: number): Box => {
+        const b = side === here ? box : { left: 2 * cx - box.right, right: 2 * cx - box.left, top: box.top, bottom: box.bottom };
+        return { left: b.left, right: b.right, top: b.top + dy, bottom: b.bottom + dy };
+      };
+      const up = cy - clear - box.bottom;
+      const down = cy + clear - box.top;
+      const spots: [("l" | "r"), number][] = [[here, 0], [there, 0], [here, up], [here, down], [there, up], [there, down]];
+      const others = dots.filter((d) => d.owner !== el).map((d) => d.r);
+      const labelFree = (b: Box) => !kept.some((k) => overlaps(b, k));
+      // A label lying across other nodes' dots is what makes a crowded coil unreadable, so
+      // a spot must miss them too. Only the answer and the hidden species (priority 0 and 1)
+      // may settle for covering a dot, since hiding those names would hide the point.
+      const pick =
+        spots.find(([s, dy]) => { const b = at(s, dy); return labelFree(b) && !others.some((o) => overlaps(b, o)); }) ??
+        (m.pri < 2 ? spots.find(([s, dy]) => labelFree(at(s, dy))) : undefined);
+      if (!pick) {
+        el.dataset.hide = "";
+        continue;
+      }
+      const [side, dy] = pick;
+      if (side === "l") el.dataset.side = "l";
+      else delete el.dataset.side;
+      // Screen pixels are the label's own: its counter-scale cancels the drawing's zoom.
+      if (dy !== 0) el.style.setProperty("--ly", `${dy}px`);
+      kept.push(at(side, dy));
     }
   }, [model, natural, view]);
 
@@ -281,7 +457,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
    *  you are actually playing in the tight middle, so showing the whole canvas shows mostly
    *  Metazoa and Bilateria at full size and the hidden species as a speck. Fitting to the
    *  focus neighbourhood inverts that. */
-  const fitToFocus = useCallback(() => {
+  const fitToFocus = useCallback((animate = false) => {
     const stage = stageRef.current;
     if (!stage || !model) return false;
     const wanted = new Set(model.focusIds);
@@ -294,28 +470,133 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
     // Capped well below ZOOM_MAX. Deep generations are small by construction, so a focus
     // box a few branches wide would otherwise fit at maximum magnification and drop you
     // into a wall of trunk with no context around it. Flying closer is the player's call.
-    const k = Math.min(FIT_ZOOM_MAX, clampZoom(Math.min(stage.clientWidth / bw, stage.clientHeight / bh)));
+    const band = visibleBand();
+    const k = Math.min(FIT_ZOOM_MAX, clampZoom(Math.min(stage.clientWidth / bw, band.h / bh)));
     const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
     const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const ay = band.top + band.h * FOCAL_Y;
+    const to = { k, tx: stage.clientWidth / 2 - cx * k, ty: ay - cy * k };
     // One atomic camera change: scale and position land together, so there is no frame in
     // which the drawing is scaled but not yet placed.
-    setView({ k, tx: stage.clientWidth / 2 - cx * k, ty: stage.clientHeight * FOCAL_Y - cy * k });
+    if (animate) glideTo(to, stage.clientWidth / 2, ay);
+    else {
+      stopGlide();
+      setView(to);
+    }
     // A deliberate framing; don't let the landmark correction undo it on the same commit.
     lastFocal.current = null;
     return true;
-  }, [model]);
+  }, [model, visibleBand, glideTo, stopGlide]);
+
+  /** Frame a guess that just landed together with the hidden species, so you see where it
+   *  slotted in without losing sight of what you are hunting. Keeps the zoom you are at,
+   *  unless the pair would sit closer than GUESS_SEP_PX (zoom in just far enough, up to
+   *  GUESS_ZOOM_MAX) or wouldn't both fit (zoom out just far enough). */
+  const frameGuess = useCallback((guessId: string) => {
+    const stage = stageRef.current;
+    if (!stage || !model) return false;
+    const g = model.nodes.find((n) => n.id === guessId);
+    const f = model.nodes.find((n) => n.kind === "target" || n.kind === "answer");
+    if (!g || !f) return false;
+    const band = visibleBand();
+    const w = stage.clientWidth;
+    const bw = Math.abs(g.x - f.x);
+    const bh = Math.abs(g.y - f.y);
+    const fit = Math.min(
+      bw > 0 ? (w - 2 * FRAME_PAD_X) / bw : Infinity,
+      bh > 0 ? (band.h - 2 * FRAME_PAD_Y) / bh : Infinity
+    );
+    const cur = viewRef.current.k;
+    const dist = Math.hypot(bw, bh);
+    const legible = dist > 0 ? Math.min(GUESS_ZOOM_MAX, GUESS_SEP_PX / dist) : cur;
+    const k = clampZoom(Math.min(Math.max(cur, legible), fit > 0 ? fit : ZOOM_MIN));
+    // Centre the pair, then slide only to trade empty background for tree: when one side of
+    // the view is bare while the drawing runs off the other, move toward the drawing by the
+    // smaller of the two. The pair stays in the middle half and fully on screen, so the view
+    // still reads as "here is your guess".
+    const place = (a: number, b: number, lo: number, hi: number, pad: number, cMin: number, cMax: number) => {
+      const pair = (lo + hi) / 2 - ((a + b) / 2) * k;
+      const cLo = cMin * k + pair;
+      const cHi = cMax * k + pair;
+      let shift = 0;
+      if (cHi < hi - pad && cLo < lo) shift = Math.min(hi - pad - cHi, lo - cLo);
+      else if (cLo > lo + pad && cHi > hi) shift = -Math.min(cLo - lo - pad, cHi - hi);
+      const reach = (hi - lo) / 4;
+      shift = Math.max(-reach, Math.min(reach, shift));
+      const min = lo + pad - Math.min(a, b) * k;
+      const max = hi - pad - Math.max(a, b) * k;
+      return min > max ? pair : Math.max(min, Math.min(max, pair + shift));
+    };
+    const xs = model.nodes.map((p) => p.x);
+    const ys = model.nodes.map((p) => p.y);
+    const tx = place(g.x, f.x, 0, w, FRAME_PAD_X, Math.min(...xs), Math.max(...xs));
+    const ty = place(g.y, f.y, band.top, band.top + band.h, FRAME_PAD_Y, Math.min(...ys), Math.max(...ys));
+    const ay = band.top + band.h / 2;
+    glideTo({ k, tx, ty }, w / 2, ay);
+    // The guess re-laid the tree, and this frame is chosen against that new layout; start
+    // the landmark from here so the next relayout is held relative to it.
+    lastFocal.current = { x: f.x, y: f.y };
+    return true;
+  }, [model, visibleBand, glideTo]);
+
+  /** Zoom out to the whole drawing, with room for labels round the edge. No automatic
+   *  ceiling here: a small tree may frame closer than FIT_ZOOM_MAX would allow. */
+  const fitAll = useCallback((animate = false) => {
+    const stage = stageRef.current;
+    if (!stage || !model || model.nodes.length === 0) return false;
+    const xs = model.nodes.map((p) => p.x);
+    const ys = model.nodes.map((p) => p.y);
+    // The whole stage, not the part on screen: this runs as the round ends, while the result
+    // card arrives and the guess bar goes, so what is on screen then is a passing strip.
+    const band = { top: 0, h: stage.clientHeight };
+    const w = stage.clientWidth;
+    const bw = Math.max(1, Math.max(...xs) - Math.min(...xs));
+    const bh = Math.max(1, Math.max(...ys) - Math.min(...ys));
+    const k = clampZoom(Math.min((w - 2 * FRAME_PAD_X) / bw, (band.h - 2 * FRAME_PAD_Y) / bh));
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const ay = band.top + band.h / 2;
+    const to = { k, tx: w / 2 - cx * k, ty: ay - cy * k };
+    if (animate) glideTo(to, w / 2, ay);
+    else {
+      stopGlide();
+      setView(to);
+    }
+    lastFocal.current = null;
+    return true;
+  }, [model, glideTo, stopGlide]);
 
   const centerOnHidden = useCallback(() => {
-    if (mode === "natural" && fitToFocus()) return;
+    if (mode === "natural" && fitToFocus(true)) return;
     if (focalX != null && focalY != null) centerOn(focalX, focalY);
   }, [mode, fitToFocus, focalX, focalY, centerOn]);
 
   // Re-frame on a view switch and on the reveal, and then leave the view alone. Re-fitting
   // on every guess throws the whole drawing about and overrides wherever the player has
   // flown to, which is worse than the crowding it was meant to relieve. A landing guess
-  // gets a nudge instead, below, and only if it landed off screen.
-  useEffect(() => {
-    if (mode === "natural") { fitToFocus(); return; }
+  // is framed with the hidden species instead, below.
+  // Once the round is over the natural view steps back to the whole tree instead: the game
+  // is done, and what is left to look at is the shape your guesses grew. Glides when the
+  // round has just ended; a view switch afterwards lands straight on it.
+  const wasRevealed = useRef(revealed);
+  // A layout effect, like the two below, and declared first so it runs first: on the first
+  // guess all three fire in the same commit, and the initial framing must not land after the
+  // guess framing and overwrite it.
+  // Keyed on what it framed for, because StrictMode re-runs every effect on its rehearsal
+  // remount: a second initial fit would land on top of the first guess's framing, which
+  // doesn't re-run (its count is already taken), and the first guess would never pan.
+  const framedFor = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const key = `${mode}:${revealed}`;
+    if (framedFor.current === key) return;
+    framedFor.current = key;
+    const justEnded = revealed && !wasRevealed.current;
+    wasRevealed.current = revealed;
+    if (mode === "natural") {
+      if (revealed) fitAll(justEnded);
+      else fitToFocus();
+      return;
+    }
     if (focalX != null && focalY != null) centerOn(focalX, focalY);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, revealed]);
@@ -323,20 +604,61 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
   // When a NEW guess lands, pan to where it slotted in, so you see the result of
   // the guess rather than being yanked back to the hidden species. The "Center on
   // hidden" button brings you back.
-  const prevCount = useRef(results.length);
+  // The tree only mounts once there is something on it, so the first guess or hint arrives
+  // already counted and would never be treated as landing. Focus tells the two apart: after
+  // a guess or a hint it is still in the play bar, while on a page load with a round in
+  // progress it is nowhere, and that case shouldn't scroll anything.
+  const [mountedByPlay] = useState(() => !!document.activeElement?.closest(".playbar"));
+  const prevCount = useRef(mountedByPlay && results.length > 0 ? results.length - 1 : results.length);
   const latestGuessId = results[0]?.guess.id ?? null;
-  useEffect(() => {
-    if (results.length > prevCount.current && latestGuessId && model) {
-      // Natural mode holds the hidden species still instead (see the layout effect above),
-      // so a new guess appears in place and the view never jumps. "Center on hidden" is
-      // there for getting back if you have flown somewhere else.
-      const g = mode === "natural" ? null : model.nodes.find((n) => n.id === latestGuessId);
-      if (g) centerOn(g.x, g.y);
+  // Before paint, so the page scroll below lands in the same frame as the new tree and there
+  // is never a painted frame of the tree under the guess bar.
+  useLayoutEffect(() => {
+    // The winning guess ends the round in the same render, and the reveal's whole-tree
+    // overview (above) is what should show then, so don't frame over it.
+    if (results.length > prevCount.current && latestGuessId && model && !revealed) {
+      // First bring the whole tree back on screen above the guess bar, in every view.
+      revealStage();
+      // Natural mode frames the guess and the hidden species together, which also needs a
+      // zoom; the other two only scroll.
+      if (mode === "natural") frameGuess(latestGuessId);
+      else {
+        const g = model.nodes.find((n) => n.id === latestGuessId);
+        if (g) centerOn(g.x, g.y);
+      }
     }
     prevCount.current = results.length;
     // model read via closure; we only want to react to a guess landing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results.length, latestGuessId, centerOn]);
+  }, [results.length, latestGuessId, centerOn, frameGuess, revealStage]);
+
+  // A hint re-lays the tree just as a guess does, so it gets the same treatment, framed on
+  // the clade it revealed. Hints are appended, so the newest is last.
+  const prevHints = useRef(mountedByPlay && hintIds.length > 0 && results.length === 0 ? hintIds.length - 1 : hintIds.length);
+  const latestHintId = hintIds[hintIds.length - 1] ?? null;
+  useLayoutEffect(() => {
+    if (hintIds.length > prevHints.current && latestHintId && model && !revealed) {
+      revealStage();
+      if (mode === "natural") {
+        if (!frameGuess(latestHintId)) fitToFocus(true);
+      } else {
+        const h = model.nodes.find((n) => n.id === latestHintId);
+        if (h) centerOn(h.x, h.y);
+      }
+    }
+    prevHints.current = hintIds.length;
+    // model read via closure; we only want to react to a hint landing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hintIds.length, latestHintId, centerOn, frameGuess, fitToFocus, revealStage]);
+
+  // Past STEM_ZOOM_CAP the natural view's stems stop widening on screen: flying in spreads the
+  // tree out, the way a map does, instead of fattening every branch until a fork is a blob
+  // with its dot at the back edge. Lengths still scale; only the width is held.
+  const stemScale = natural ? Math.min(1, STEM_ZOOM_CAP / view.k) : 1;
+  const linkPaths = useMemo(
+    () => model?.links.map((l) => (l.ribbon ? ribbonPath(l.ribbon, stemScale) : l.d)) ?? [],
+    [model, stemScale]
+  );
 
   if (!model) return null;
   const { nodes, links, width, height, closestName } = model;
@@ -422,11 +744,47 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
               // two views send a centreline to stroke.
               <path
                 key={i}
-                d={l.d}
+                d={linkPaths[i] ?? l.d}
                 className={`clado-link${l.strong ? " is-strong" : ""}${l.filled ? " is-stem" : ""}`}
                 style={l.filled ? { fill: l.color } : { stroke: l.color }}
               />
             ))}
+            {/* Natural view: the dots are drawn here, in the stems' own coordinates, rather than
+                by the HTML labels. Each label is its own composited layer inside a canvas
+                scaled up to 10×, and Safari snaps a layer to whole pixels BEFORE that scale,
+                so a dot half a pixel off its node became five pixels off its branch end. The
+                HTML dots stay, invisible, for clicks, hover and the label pass's obstacles.
+                Radii are divided by the zoom so a dot holds its size on screen. */}
+            {natural &&
+              nodes.map((p) => {
+                if (p.kind === "target" || p.kind === "collapsed") return null;
+                const t = tree.byId.get(p.id);
+                const species = p.kind === "guess" || p.kind === "answer";
+                const junction = p.kind === "clade" && !t?.sciName;
+                const closest = p.id === model.closestId;
+                const px = species ? 2.5 : junction && !closest ? 3 : 5;
+                const fill = species
+                  ? p.kind === "answer" ? "var(--vermilion)" : warmthColor(p.warmth ?? 0, !!p.isWin)
+                  : closest ? "var(--brass)" : junction ? "var(--clado-line)" : "var(--bg)";
+                const stroke = species || junction || closest ? fill : selectedId === p.id ? "var(--brass)" : "var(--ink-faint)";
+                // Out-of-set grafts read as hollow and dashed, as their HTML dots did.
+                const oos = !!t?.virtual;
+                return (
+                  <circle
+                    key={`dot-${p.id}`}
+                    className="clado-dot"
+                    cx={p.x}
+                    cy={p.y}
+                    r={px / zoomed}
+                    style={{
+                      fill: oos ? "var(--bg)" : fill,
+                      stroke,
+                      strokeWidth: (oos ? 1 : species || junction ? 0 : 1.5) / zoomed,
+                      strokeDasharray: oos ? `${2 / zoomed} ${1.5 / zoomed}` : undefined,
+                    }}
+                  />
+                );
+              })}
           </svg>
 
           {nodes.map((p) => {
@@ -491,10 +849,6 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
               oos ? "is-oos" : "",
               p.id === model.closestId ? "is-closest" : "",
               selectedId === p.id ? "is-selected" : "",
-              // Natural view: branches leave in every direction, so a label that always ran
-              // rightward would lie back across its own tree. Mirror the ones on branches
-              // heading left — and any the collision pass moved to its other side.
-              flipLabel ? "is-flip" : "",
             ].join(" ");
             // Species show common name over scientific name; clades show name over rank.
             const isSpecies = p.kind === "guess" || p.kind === "answer";
@@ -506,6 +860,10 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
                 type="button"
                 className={cls}
                 data-pri={labelPriority(p)}
+                // Natural view: branches leave in every direction, so a label that always ran
+                // rightward would lie back across its own tree. Branches heading left prefer
+                // a mirrored label; the label pass has the final say (data-side).
+                data-pref={flipLabel ? "l" : "r"}
                 style={{ left: p.x, top: p.y }}
                 onClick={() => setSelectedId((cur) => (cur === p.id ? null : p.id))}
               >
@@ -557,7 +915,7 @@ interface Model {
   /** The live end of the spiral plus its immediate surroundings: what the natural view
    *  zooms itself to. Everything nearer the root is settled history. */
   focusIds: string[];
-  links: { d: string; color: string; strong: boolean; filled?: boolean }[];
+  links: { d: string; color: string; strong: boolean; filled?: boolean; ribbon?: Ribbon }[];
   width: number;
   height: number;
   closestId: string | null;
@@ -775,6 +1133,7 @@ function buildModel(
     return {
       d: l.d,
       filled: l.filled,
+      ribbon: l.ribbon,
       color: linkColor(c.kind, byGuess.get(c.id)),
       strong: c.kind === "guess" || c.kind === "answer",
     };
