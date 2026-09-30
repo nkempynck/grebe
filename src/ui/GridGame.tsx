@@ -884,7 +884,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
             <span className="grid-zoom-cap">
               {zoomNameShown ? `${zoomName} · tap to close` : "tap to close"}
               {zoomPager.controls}
-              <PhotoCredit credit={zoomCredit} />
+              <PhotoCredit credit={zoomCredit} noLink={!over} />
             </span>
           </div>
         );

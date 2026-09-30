@@ -687,6 +687,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
             // Only intercepted while it would cost: otherwise it stays a plain link.
             onFollowLink={readCosts(wikiNode.id) ? (url) => setPendingRead({ id: wikiNode.id, url }) : undefined}
             linkNote={readCosts(wikiNode.id) ? `(up to ${lookupCost} pts)` : undefined}
+            noSourceLink={!over}
           />
         </div>
       )}
@@ -781,7 +782,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
           <span className="branches-zoom-cap">
             {nameOf(tree, zoomId)} · tap to close
             {zoomPager.controls}
-            <PhotoCredit credit={zoomCredit} />
+            <PhotoCredit credit={zoomCredit} noLink={!over} />
           </span>
         </div>
       )}

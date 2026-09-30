@@ -20,7 +20,7 @@ import { useDev } from "../data/devMode";
  *  passes `onFollowLink`: the link becomes a button and the host decides what to do
  *  with the url (confirm, charge, then open). Left off — Lineage, Kinship, a
  *  finished board — it stays an ordinary link. */
-export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, onFollowLink, linkNote }: { node: TaxonNode; tree: Tree; onClose: () => void; hideImage?: boolean; redact?: Spoiler[]; latinTitle?: boolean; onFollowLink?: (url: string) => void; linkNote?: string }) {
+export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, onFollowLink, linkNote, noSourceLink }: { node: TaxonNode; tree: Tree; onClose: () => void; hideImage?: boolean; redact?: Spoiler[]; latinTitle?: boolean; onFollowLink?: (url: string) => void; linkNote?: string; noSourceLink?: boolean }) {
   const [wiki, setWiki] = useState<WikiSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [img, setImg] = useState<WikiImage | null>(null);
@@ -127,7 +127,7 @@ export function WikiCard({ node, tree, onClose, hideImage, redact, latinTitle, o
           <span className="clado-zoom-cap">
             {shownName} · tap to close
             {pager.controls}
-            <PhotoCredit credit={credit} />
+            <PhotoCredit credit={credit} noLink={noSourceLink} />
           </span>
         </div>
       )}

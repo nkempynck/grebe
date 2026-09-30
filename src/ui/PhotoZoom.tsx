@@ -10,17 +10,36 @@ import { fetchImageCredit, type WikiCredit, type WikiImage } from "../data/wikip
  *  "in any reasonable manner" allowance exists for.
  *
  *  Renders nothing when there is no credit to show — a picture whose attribution has not
- *  arrived yet, or could not be read at all, gets no line rather than a wrong one. */
-export function PhotoCredit({ credit, className }: { credit?: WikiCredit | null; className?: string }) {
+ *  arrived yet, or could not be read at all, gets no line rather than a wrong one.
+ *
+ *  `noLink` drops the "source" link while a board is being played. The file page carries the
+ *  Latin name and the family in its title and categories, which answers Kinship and Branches
+ *  in one tap. Name and licence stay; the link comes back once the game is over, as Mosaic's
+ *  whole credit line already does. */
+export function PhotoCredit({ credit, className, noLink }: { credit?: WikiCredit | null; className?: string; noLink?: boolean }) {
   if (!credit?.licence) return null;
+  const site = siteOf(credit.filePage);
   return (
     <span className={`photo-credit${className ? ` ${className}` : ""}`}>
       Photo: {credit.artist ?? "unknown"} · {credit.licence}
-      {credit.filePage && (
-        <> · <a href={credit.filePage} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>source</a></>
+      {credit.filePage && (noLink
+        ? site && <> · {site}</>
+        : <> · <a href={credit.filePage} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{site ?? "source"}</a></>
       )}
     </span>
   );
+}
+
+/** Where a photo lives, named from its file page's host, so the credit still says where it
+ *  came from while the link itself is held back. */
+function siteOf(filePage: string | null): string | null {
+  if (!filePage) return null;
+  try {
+    const host = new URL(filePage).hostname;
+    if (host.endsWith("inaturalist.org")) return "iNaturalist";
+    if (host.endsWith("wikimedia.org") || host.endsWith("wikipedia.org")) return "Wikimedia Commons";
+  } catch { /* not a URL: fall through */ }
+  return null;
 }
 
 /** The credit for whatever picture is currently enlarged.
