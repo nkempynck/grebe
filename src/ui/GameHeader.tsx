@@ -42,7 +42,7 @@ export function GameHeader({ game, tier, dayName, difficulty, meta, blurb, onHow
           <button className="linkbtn gamehead-how" onClick={onHowItWorks}>ⓘ How {LABEL[game]} works</button>
         )}
       </div>
-      {blurb && <p className="gamehead-blurb">{blurb}</p>}
+      {blurb && <div className="gamehead-blurb">{blurb}</div>}
       {children}
     </header>
   );

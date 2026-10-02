@@ -600,9 +600,14 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
           <>
             Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess.
             Four wrong guesses allowed. {revealHint} Solve a group to earn another free peek.
-            <span className="gamehead-blurb-note is-rule">
-              Play without looking anything up outside the game. Work out the groups from what you know and the features the species share.
-            </span>
+            {/* Open on every load, so everyone reads it once; collapsing it is not remembered. */}
+            <details className="gamehead-blurb-note is-rule" open>
+              <summary>Please play without looking anything up outside the game.</summary>
+              <span className="gamehead-blurb-sub">
+                Work out the groups from what you know and the features the species share. It is more
+                fun for everyone, and fairer on the stats, if we all play by the same rules.
+              </span>
+            </details>
           </>
         }
       />

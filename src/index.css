@@ -2181,6 +2181,15 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
   font-weight: 600; font-size: 15.5px; color: var(--ink); margin-top: .6rem;
   border-left: 3px solid var(--game, var(--brass)); padding-left: .6rem;
 }
+.gamehead-blurb-note.is-rule > summary { cursor: pointer; list-style: none; }
+.gamehead-blurb-note.is-rule > summary::-webkit-details-marker { display: none; }
+.gamehead-blurb-note.is-rule > summary::after {
+  content: "▸"; display: inline-block; margin-left: .4em; font-style: normal; font-size: .8em;
+  color: var(--game, var(--brass)); transition: transform .15s;
+}
+.gamehead-blurb-note.is-rule[open] > summary::after { transform: rotate(90deg); }
+/* The why under it: same block, back to the blurb's size and weight. */
+.gamehead-blurb-sub { display: block; font-weight: 400; font-size: 14px; color: var(--ink-soft); margin-top: 2px; }
 /* The beta line is a standing caveat, not the day's rule, so it reads quieter than the note
    above it rather than competing with it. */
 .gamehead-blurb-note.is-beta {
