@@ -27,6 +27,9 @@ export interface TaxonNode {
   parentId: string | null;
   /** Wikipedia article title to link to. Falls back to common/sciName. */
   wikiTitle?: string;
+  /** Species only: extinct, so no photograph of a living one exists. Mosaic never draws it as
+   *  the answer; nothing else reads it. Set by scripts/patch-extinct.mjs. */
+  extinct?: boolean;
   /** Species only: ~60-day English Wikipedia pageviews — a fame/familiarity proxy
    *  (replaces the old GBIF `occ`; pageviews track recognition, not survey effort).
    *  Lineage weights the daily answer by a within-ORDER percentile of this (scaled by

@@ -22,7 +22,8 @@ import { buildTree, DAILY_EPOCH, type TaxonNode, type Tree } from "../src/core";
 import { mrca, separationTierOf } from "../src/core/tree";
 import { CLADE_COMMON } from "../src/data/cladeNames";
 import { SPECIES_COMMON } from "../src/data/speciesCommon";
-import { decodePuzzle } from "../src/data/pinnedPuzzles";
+import { avoidMapFrom, decodePuzzle, puzzleVersion } from "../src/data/pinnedPuzzles";
+import { MOSAIC_ANTI_REPEAT_WINDOW, mosaicMinViews } from "../src/core/mosaic";
 
 // Windows the generators promise (grid.ts / branches.ts). A violation here is a real defect,
 // not a preference: these are the gates the board selection is supposed to enforce.
@@ -81,7 +82,7 @@ const rows: { game: string; puzzle_date: string; payload: unknown; version: numb
 for (let offset = 0; ; offset += 1000) {
   const { data, error } = await client
     .from("daily_puzzles").select("game, puzzle_date, payload, version")
-    .in("game", ["kinship", "branches"]).gte("puzzle_date", from).lte("puzzle_date", until)
+    .in("game", ["kinship", "branches", "mosaic"]).gte("puzzle_date", from).lte("puzzle_date", until)
     .order("puzzle_date").range(offset, offset + 999);
   if (error) { console.error(error.message); process.exit(1); }
   rows.push(...(data as typeof rows));
@@ -130,6 +131,8 @@ for (const game of ["kinship", "branches"] as const) {
   const vers = new Map<number, number>();
   for (const d of future) vers.set(d.version, (vers.get(d.version) ?? 0) + 1);
   console.log(`versions (future): ${[...vers].map(([v, n]) => `v${v}×${n}`).join(", ")}`);
+  const oldRows = future.filter((d) => d.version < puzzleVersion(game)).map((d) => d.date);
+  if (oldRows.length) console.log(`  older than v${puzzleVersion(game)}: ${oldRows.length} → ${oldRows[0]} … ${oldRows[oldRows.length - 1]}`);
   // FUTURE rows were written from this tree, so a missing id there means the auditor is older
   // than the pins and every lookup below would silently lie. PAST rows are different: a served
   // board is frozen against whatever tree shipped that day, and the augment has legitimately
@@ -142,7 +145,16 @@ for (const game of ["kinship", "branches"] as const) {
     return s;
   };
   const goneFuture = missing(future);
-  if (goneFuture.size) {
+  // Unless every broken row is on an OLDER generator version: then the pins are stale, not the
+  // auditor, and the answer is to re-pin those dates rather than to refuse.
+  const brokenRows = future.filter((d) => d.groups.some((g) => goneFuture.has(g)));
+  if (goneFuture.size && brokenRows.every((d) => d.version < puzzleVersion(game))) {
+    const byVer = new Map<number, string[]>();
+    for (const d of brokenRows) byVer.set(d.version, [...(byVer.get(d.version) ?? []), d.date]);
+    console.log(`\n✗ ${game}: ${brokenRows.length} FUTURE rows on an old version reference clades the tree has dropped.`);
+    for (const [v, ds] of byVer) console.log(`  v${v}: ${ds.join(", ")}`);
+    console.log(`  RE-PIN these dates (current v${puzzleVersion(game)}).`);
+  } else if (goneFuture.size) {
     console.error(`\n✗ ${game}: ${goneFuture.size} clade ids in FUTURE pins are absent from this build's tree.`);
     console.error(`  e.g. ${[...goneFuture].slice(0, 3).join(", ")}`);
     console.error(`  This auditor is older than the pins. Rebundle it and re-run:`);
@@ -316,5 +328,50 @@ for (const game of ["kinship", "branches"] as const) {
     `${seam.length}, closest ${seam.length ? `${seam[0].gap}d` : "n/a"}`);
   console.log(`  inside the 8-day floor: ${tight.length}  ${tight.length ? "✗" : "✓"}`);
   for (const h of seam.slice(0, 8)) console.log(`    ${h.date}: "${label(h.g)}" ${h.gap}d after it was last served`);
+}
+// MOSAIC. One answer per day, so the questions are simpler: is it drawable, is it alive, is it
+// fresh, and is it off the other two boards. Reports DATES and counts, never the animal: this
+// is run by the person the game is for, and a printed schedule is a spoiler.
+{
+  const mine = rows.filter((r) => r.game === "mosaic");
+  const days = mine.map((r) => {
+    const p: any = decodePuzzle("mosaic", r.payload as any);
+    return { date: r.puzzle_date, version: r.version, answerId: p?.answerId as string, tier: p?.tier as number, future: r.puzzle_date > today };
+  });
+  const future = days.filter((d) => d.future);
+  console.log(`\n${"=".repeat(70)}\nMOSAIC  ${days.length} rows (${future.length} future), ${from} →\n${"=".repeat(70)}`);
+  const vers = new Map<number, number>();
+  for (const d of future) vers.set(d.version, (vers.get(d.version) ?? 0) + 1);
+  console.log(`versions (future): ${[...vers].map(([v, n]) => `v${v}×${n}`).join(", ")}`);
+  const report = (what: string, bad: string[], mark = "✗") =>
+    console.log(`${what}: ${bad.length}  ${bad.length ? `${mark} ${bad.slice(0, 12).join(", ")}${bad.length > 12 ? ` …and ${bad.length - 12} more` : ""}` : "✓"}`);
+
+  // A gap in the run is a day with no pin, which falls back to the client's own draw.
+  const missingDates: string[] = [];
+  for (let i = 1; i < future.length; i++) {
+    const t = new Date(`${future[i - 1].date}T00:00:00Z`);
+    t.setUTCDate(t.getUTCDate() + 1);
+    const want = t.toISOString().slice(0, 10);
+    if (future[i].date !== want) missingDates.push(want);
+  }
+  report("gaps in the future run", missingDates);
+
+  const node = (d: (typeof days)[number]) => tree.byId.get(d.answerId);
+  report("future answers absent from the tree", future.filter((d) => !node(d) || node(d)!.rank !== "species").map((d) => d.date));
+  report("future answers that are EXTINCT", future.filter((d) => node(d)?.extinct).map((d) => d.date));
+  // Below the floor means outside the pool the drill and candidate list are built from.
+  report("future answers below their day's fame floor (unreachable)",
+    future.filter((d) => (node(d)?.views ?? 0) < mosaicMinViews(d.tier)).map((d) => d.date));
+
+  // Across the seam: the served past and the new pins as one timeline.
+  const hits = gaps(days.map((d) => ({ date: d.date, keys: [d.answerId] })));
+  report(`answer repeats inside ${MOSAIC_ANTI_REPEAT_WINDOW}d (future dates)`,
+    hits.filter((h) => h.date > today && h.gap < MOSAIC_ANTI_REPEAT_WINDOW).map((h) => `${h.date} (${h.gap}d)`));
+  const fGaps = hits.filter((h) => h.date > today).map((h) => h.gap);
+  console.log(`closest answer repeat anywhere in the future: ${fGaps.length ? `${Math.min(...fGaps)}d` : "none"}`);
+
+  const onOtherBoards = avoidMapFrom(rows);
+  report("future answers also on that day's Kinship/Branches board",
+    future.filter((d) => onOtherBoards.get(d.date)?.has(d.answerId)).map((d) => d.date));
 }
 console.log("\ndone.");

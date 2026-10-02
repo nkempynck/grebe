@@ -12,7 +12,8 @@ import { CHARACTERS, characterRow, characterValue, missingCladeNames, NA } from 
 import {
   mosaicAnswerFor, mosaicPool, mosaicBrowseSet, scoreMosaicGuess, mosaicRung, mosaicAids, mosaicAidsFor,
   mosaicTierForDate, mosaicDegrees, mosaicScopeId, mosaicLineagePath, mosaicDrillOptions,
-  mosaicSampleAnswer, mosaicTileOrder, mosaicMinViews, mosaicLadder,
+  mosaicSampleAnswer, mosaicTileOrder, mosaicMinViews, mosaicLadder, setServedMosaicHistory,
+  MOSAIC_ANTI_REPEAT_WINDOW,
   MOSAIC_MIN_VIEWS, MOSAIC_MIN_VIEWS_FAMOUS, MOSAIC_GROUP_PENALTY, MOSAIC_GROUP_WINDOW,
   MOSAIC_BLUR_LADDER, MOSAIC_SHUFFLE_LADDER, MOSAIC_MAX_GUESSES, MOSAIC_DEFAULT_MECHANIC,
 } from "./mosaic";
@@ -391,6 +392,40 @@ describe("mosaic does not answer Kinship", () => {
     for (const d of ["2026-09-01", "2026-09-15", "2026-10-02"]) {
       expect(mosaicAnswerFor(tree, d, undefined, empty)).toBe(mosaicAnswerFor(tree, d));
     }
+  });
+
+  it("never draws an extinct animal, but keeps it in the pool and the guess list", () => {
+    const scope = mosaicScopeId(tree);
+    const haast = idOf("Harpagornis moorei");
+    expect(tree.byId.get(haast)!.extinct).toBe(true);
+    for (let i = 0; i < 365; i++) {
+      const t = new Date("2026-10-03T00:00:00Z");
+      t.setUTCDate(t.getUTCDate() + i);
+      const id = mosaicAnswerFor(tree, t.toISOString().slice(0, 10))!;
+      expect(tree.byId.get(id)!.extinct).toBeFalsy();
+    }
+    // A board pinned before the filter must still restore, and the animal stays guessable.
+    expect(mosaicPool(tree, scope)).toContain(haast);
+    expect(mosaicBrowseSet(tree, scope)).toContain(haast);
+  });
+
+  it("replays served answers instead of regenerating them", () => {
+    const d = "2026-09-20";
+    const natural = mosaicAnswerFor(tree, d)!;
+    const served = [...pool].find((id) => id !== natural)!;
+    try {
+      setServedMosaicHistory(new Map([[d, served]]));
+      expect(mosaicAnswerFor(tree, d)).toBe(served);
+      // ...and the window counts it, so it cannot come straight back.
+      for (let i = 1; i <= MOSAIC_ANTI_REPEAT_WINDOW; i++) {
+        const t = new Date(`${d}T00:00:00Z`);
+        t.setUTCDate(t.getUTCDate() + i);
+        expect(mosaicAnswerFor(tree, t.toISOString().slice(0, 10))).not.toBe(served);
+      }
+    } finally {
+      setServedMosaicHistory(null);
+    }
+    expect(mosaicAnswerFor(tree, d)).toBe(natural);
   });
 
   it("leaves the lookup something to scope by", () => {

@@ -421,7 +421,7 @@ const shiftDay = (d: string, n: number) => {
 };
 
 /** date -> answer, per (tree, scope). The walk is forward-only and each day is O(pool). */
-const answerCache = new WeakMap<Tree, Map<string, Map<string, string>>>();
+let answerCache = new WeakMap<Tree, Map<string, Map<string, string>>>();
 
 /** One weighted draw's worth of pool, built once per (tree, scope, floor).
  *
@@ -441,7 +441,10 @@ function mosaicDraw(tree: Tree, scope: string, minViews: number): MosaicDraw {
   const key = `${scope}\u0000${minViews}`;
   let d = byKey.get(key);
   if (!d) {
-    const pool = mosaicPool(tree, scope, minViews);
+    // Extinct animals are never DRAWN: the picture is a skull, a mounted skin or a painting
+    // (Haast's eagle was a museum skull). Filtered here rather than in mosaicPool, so the pool
+    // the client checks a saved board against still holds every answer ever pinned.
+    const pool = mosaicPool(tree, scope, minViews).filter((id) => !tree.byId.get(id)?.extinct);
     // Flatter than a square root. sqrt still drew the same handful of headliners over and over,
     // which is a second way of making the game easy; this keeps a lean toward the known without
     // letting the top of the pool dominate.
@@ -459,12 +462,22 @@ function mosaicDraw(tree: Tree, scope: string, minViews: number): MosaicDraw {
 const drawOn = (tree: Tree, scope: string, dateKey: string): MosaicDraw =>
   mosaicDraw(tree, scope, mosaicMinViews(mosaicTierForDate(dateKey)));
 
-/** The day's answer, avoiding anything served in the previous MOSAIC_ANTI_REPEAT_WINDOW days.
+/** What was really served, date -> answer id, replayed by the walk instead of regenerated.
  *
- *  This REGENERATES the history rather than reading what was really served, which is exactly
- *  the trap the other two games were fixed for. It is correct here only because Mosaic has never
- *  been served: there is no history to read yet. The moment it is pinned it needs the same
- *  treatment (see setServedGridHistory in ./grid). */
+ *  Without it the walk REGENERATES the past with the current generator, so after any rule change
+ *  (a pool change, a floor change) the anti-repeat window protects answers nobody saw while the
+ *  ones players just had count as unseen. Same fix as setServedGridHistory in ./grid, and the
+ *  same consequence: with a seed installed, a repin is reproducible only against the database. */
+let servedMosaic: Map<string, string> | null = null;
+/** Install (or clear, with null) the served answers. Drops the walk's memo, which holds picks
+ *  made under the previous seed. */
+export function setServedMosaicHistory(served: Map<string, string> | null): void {
+  servedMosaic = served && served.size ? served : null;
+  answerCache = new WeakMap();
+}
+
+/** The day's answer, avoiding anything served in the previous MOSAIC_ANTI_REPEAT_WINDOW days.
+ *  Served days come from setServedMosaicHistory when it is installed; the rest regenerate. */
 export function mosaicAnswerFor(
   tree: Tree,
   dateKey: string,
@@ -502,7 +515,7 @@ export function mosaicAnswerFor(
 
   const recent: string[] = [];
   for (let d = MOSAIC_ANCHOR; ; d = shiftDay(d, 1)) {
-    let pick = days.get(d);
+    let pick = days.get(d) ?? servedMosaic?.get(d);
     if (pick === undefined) {
       // Re-roll until the draw is neither a recent answer nor on another game's board today.
       // Bounded: a pool of hundreds against a window of tens always has something left.

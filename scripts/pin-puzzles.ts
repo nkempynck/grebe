@@ -32,6 +32,7 @@ import {
 } from "../src/data/pinnedPuzzles";
 import { setServedGridHistory, type ServedGridDay } from "../src/core/grid";
 import { setServedBranchesHistory } from "../src/core/branches";
+import { setServedMosaicHistory } from "../src/core/mosaic";
 
 // Mosaic LAST. Its answer dodges whatever Kinship and Branches hold that day, and it reads
 // that from their pinned rows, so a run that writes all four wants theirs on disk first.
@@ -171,6 +172,30 @@ async function main() {
     if (!grid.size && !branch.size) {
       console.log("  (none found — every day will be generated, as on a first run)");
     }
+  }
+
+  // Mosaic's served answers, for the same reason: its anti-repeat window must see what players
+  // really had, not what the current pool would have drawn on those days.
+  if (games.includes("mosaic")) {
+    const { data, error } = await client
+      .from("daily_puzzles")
+      .select("puzzle_date, payload")
+      .eq("game", "mosaic")
+      .lt("puzzle_date", seedBefore)
+      .order("puzzle_date");
+    if (error) {
+      console.error(`Could not read Mosaic's served history (${error.message}). Refusing to pin ` +
+        `blind: a repin without it will happily repeat answers served days ago.`);
+      process.exit(1);
+    }
+    const served = new Map<string, string>();
+    for (const r of data ?? []) {
+      const p = decodePuzzle("mosaic", r.payload);
+      if (p?.answerId) served.set(r.puzzle_date as string, p.answerId);
+    }
+    setServedMosaicHistory(served);
+    seeded.mosaic = served.size;
+    console.log(`Seeded Mosaic anti-repeat history from rows before ${seedBefore}: ${served.size} real answers.`);
   }
 
   // MOSAIC'S SAME-DAY OVERLAP GUARD.

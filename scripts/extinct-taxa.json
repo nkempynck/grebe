@@ -1,0 +1,30 @@
+{
+  "built": "2026-10-02",
+  "note": "Written by scripts/pull-extinct.mjs, applied by scripts/patch-extinct.mjs. Hand additions are fine.",
+  "species": {
+    "Bos primigenius": "IUCN EX, extinct taxon",
+    "Caloprymnus campestris": "IUCN EX, extinct taxon",
+    "Caracara lutosa": "extinct taxon, IUCN EX",
+    "Crocidura trichura": "IUCN EX",
+    "Ectopistes migratorius": "extinct taxon, IUCN EX",
+    "Harpagornis moorei": "extinct taxon",
+    "Heteralocha acutirostris": "extinct taxon, IUCN EX",
+    "Incilius periglenes": "extinct taxon, IUCN EX",
+    "Labidura herculeana": "IUCN EX, extinct taxon",
+    "Macrotis leucura": "IUCN EX, extinct taxon",
+    "Melomys rubicola": "IUCN EX, extinct taxon",
+    "Moho braccatus": "extinct taxon, IUCN EX",
+    "Moho nobilis": "extinct taxon, IUCN EX",
+    "Monachus tropicalis": "extinct taxon",
+    "Numenius tenuirostris": "IUCN EX",
+    "Pezophaps solitaria": "extinct taxon, IUCN EX",
+    "Pinguinus impennis": "extinct taxon, IUCN EX",
+    "Potorous platyops": "IUCN EX",
+    "Prolagus sardus": "IUCN EX, extinct taxon",
+    "Psephotellus pulcherrimus": "extinct taxon, IUCN EX",
+    "Psephurus gladius": "IUCN EX, extinct taxon",
+    "Raphus cucullatus": "extinct taxon, IUCN EX",
+    "Thylacinus cynocephalus": "IUCN EX, extinct taxon",
+    "Zalophus japonicus": "IUCN EX, extinct taxon"
+  }
+}

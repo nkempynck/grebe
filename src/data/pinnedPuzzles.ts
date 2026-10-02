@@ -375,7 +375,11 @@ const mosaicResolver: Resolver<"mosaic"> = {
   //   gets. Every date moves, and 109 of the 365 days pinned at v2 held an answer now below the
   //   floor — an answer outside the pool is UNREACHABLE, not merely obscure, because the drill
   //   counts and the candidate list are both built from the pool. Re-pin with --force.
-  version: 3,
+  // v4 (2026-10-02): extinct animals are no longer drawn (TaxonNode.extinct), after Haast's
+  //   eagle was served as a museum skull. The draw changed, so every future date moves; the
+  //   repin seeds the anti-repeat window from the served rows (setServedMosaicHistory) so the
+  //   new schedule does not repeat what players just had. Re-pin with --force.
+  version: 4,
   compute(tree, date, opts) {
     const scopeRootId = mosaicScopeId(tree);
     const answerId = mosaicAnswerFor(tree, date, scopeRootId, opts?.avoidOn);
