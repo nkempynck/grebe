@@ -476,8 +476,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
           <>
             Drag each species onto the clade it belongs to. Correct slots lock in. A wrong board costs a
             mistake and sends the misplaced tiles back.
-            <span className="gamehead-blurb-note">
-              No outside lookups. The fun is working out the tree from what you already know.
+            <span className="gamehead-blurb-note is-rule">
+              Play without looking anything up outside the game. Work out the tree from what you know and the features the species share.
             </span>
           </>
         }

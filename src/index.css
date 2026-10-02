@@ -2175,6 +2175,12 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
 }
 /* The "no lookups" nudge: its own line under the blurb, a touch heavier. */
 .gamehead-blurb-note { display: block; font-weight: 600; margin-top: 4px; }
+/* Kinship and Branches: the play-fair line. Same italic as the blurb, a touch larger, set off by
+   the game-coloured bar rather than by weight, so it is noticed without reading as a warning. */
+.gamehead-blurb-note.is-rule {
+  font-weight: 600; font-size: 15.5px; color: var(--ink); margin-top: .6rem;
+  border-left: 3px solid var(--game, var(--brass)); padding-left: .6rem;
+}
 /* The beta line is a standing caveat, not the day's rule, so it reads quieter than the note
    above it rather than competing with it. */
 .gamehead-blurb-note.is-beta {
