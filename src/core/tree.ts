@@ -196,6 +196,31 @@ export function leavesUnder(tree: Tree, rootId: string): string[] {
   return res;
 }
 
+/** Whether a clade carries the common name of a species beneath it, like "King cobra" on
+ *  Ophiophagus or "Sage" on Salvia (Wikipedia names a genus after its best-known species).
+ *  Showing that name in Lineage before the answer is found can name the answer.
+ *  "only" when that species is the clade's only one, so the clade's article IS the species'. */
+export type SpeciesEcho = "none" | "shares" | "only";
+const echoCache = new WeakMap<Tree, Map<string, SpeciesEcho>>();
+const echoKey = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
+export function speciesEcho(tree: Tree, id: string): SpeciesEcho {
+  let byTree = echoCache.get(tree);
+  if (!byTree) echoCache.set(tree, (byTree = new Map()));
+  const hit = byTree.get(id);
+  if (hit) return hit;
+  const n = tree.byId.get(id);
+  let res: SpeciesEcho = "none";
+  if (n?.common && n.rank !== "species") {
+    const key = echoKey(n.common);
+    const species = leavesUnder(tree, id).filter((l) => tree.byId.get(l)?.rank === "species");
+    if (species.some((l) => echoKey(tree.byId.get(l)?.common ?? "") === key)) {
+      res = species.length === 1 ? "only" : "shares";
+    }
+  }
+  byTree.set(id, res);
+  return res;
+}
+
 /** Number of edges between two nodes where one is an ancestor of the other. */
 export function edgeDistance(tree: Tree, a: string, b: string): number {
   const da = tree.depthOf.get(a);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DisplayTreeNode, GuessResult, TaxonNode, Tree } from "../core";
-import { ancestryChain, inducedSubtree, isAncestor } from "../core";
+import { ancestryChain, inducedSubtree, isAncestor, speciesEcho } from "../core";
 import { WikiCard } from "./WikiCard";
 import { warmthColor } from "./temperature";
 import { pinchCamera, spreadOf, type Camera, type Spread } from "./cladoCamera";
@@ -933,12 +933,12 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
         </div>
       </div>
 
-      <WikiPanel node={selected} tree={tree} onClose={() => setSelectedId(null)} />
+      <WikiPanel node={selected} tree={tree} revealed={revealed} onClose={() => setSelectedId(null)} />
     </figure>
   );
 }
 
-function WikiPanel({ node, tree, onClose }: { node: TaxonNode | null; tree: Tree; onClose: () => void }) {
+function WikiPanel({ node, tree, revealed, onClose }: { node: TaxonNode | null; tree: Tree; revealed: boolean; onClose: () => void }) {
   // Already sits directly under the tree, but a tall cladogram can push it off the bottom,
   // so bring it into view like Kinship and Branches do. `nearest` means no movement at all
   // when it is already on screen, so moving from one clade to the next stays still.
@@ -949,11 +949,16 @@ function WikiPanel({ node, tree, onClose }: { node: TaxonNode | null; tree: Tree
   if (!node) {
     return <p className="clado-hint">Tap any clade or guess above to read about it.</p>;
   }
+  // A clade named after its only species opens that species' article, i.e. the answer.
+  const echo = revealed ? "none" : speciesEcho(tree, node.id);
+  if (echo === "only") {
+    return <p className="clado-hint">You can read about this clade once the game is over.</p>;
+  }
   // Shares the games' reader, so Lineage species get the same photo-preferring
   // image (a real photo instead of a range map / drawing where possible).
   return (
     <div ref={ref}>
-      <WikiCard node={node} tree={tree} onClose={onClose} />
+      <WikiCard node={node} tree={tree} onClose={onClose} latinTitle={echo === "shares"} />
     </div>
   );
 }
@@ -1057,7 +1062,11 @@ function buildModel(
   let closestName: string | null = null;
   for (let id: string | null | undefined = closestId; id; id = tree.byId.get(id)?.parentId) {
     const n = tree.byId.get(id);
-    if (named(n)) { closestName = n!.common ?? n!.sciName; break; }
+    // Latin while playing when the common name is a species' own ("King cobra" on Ophiophagus).
+    if (named(n)) {
+      closestName = !revealed && speciesEcho(tree, n!.id) !== "none" ? n!.sciName : n!.common ?? n!.sciName;
+      break;
+    }
   }
 
   // ---- assemble the display tree from the induced skeleton ----

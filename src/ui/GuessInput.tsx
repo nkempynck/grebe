@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { GameConfig, GraftTaxon, GuessResult, TaxonNode, Tree } from "../core";
-import { isAncestor, isInScope, normalizeName } from "../core";
+import { isAncestor, isInScope, normalizeName, speciesEcho } from "../core";
 import { searchOutOfSet, type OutOfSetHit } from "../data/guessIndex";
 import { wikiUrlFor } from "../data/wikipedia";
 import { warmthColor } from "./temperature";
@@ -218,7 +218,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
   const focusNode = focusCladeId ? tree.byId.get(focusCladeId) : null;
   const speciesCount = candidates.reduce((n, c) => (c.kind === "species" ? n + 1 : n), 0);
   const placeholder = focusNode
-    ? `Name a species in ${focusNode.common ?? focusNode.sciName}… (${speciesCount} options)`
+    ? `Name a species in ${speciesEcho(tree, focusNode.id) !== "none" ? focusNode.sciName : focusNode.common ?? focusNode.sciName}… (${speciesCount} options)`
     : speciesOnly
       ? "Name the species…"
       : "Name a species, or a group like 'snakes' to scout…";
