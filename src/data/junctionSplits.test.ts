@@ -14,7 +14,7 @@ import taxonomy from "./taxonomy.json";
 import augment from "./taxonomyAugment.json";
 import manifest from "./junctionSplits.json";
 
-interface Node { id: string; sciName?: string; common?: string; rank?: string; parentId?: string | null }
+interface Node { id: string; sciName?: string; common?: string; rank?: string; parentId?: string | null; ottTaxon?: string }
 const nodes = [...(taxonomy as { nodes: Node[] }).nodes, ...(augment as { nodes: Node[] }).nodes];
 const byId = new Map(nodes.map((n) => [n.id, n]));
 const genusOf = (sci: string) => sci.split(/\s+/)[0];
@@ -42,7 +42,8 @@ describe("junction splits", () => {
       const node = byId.get(s.nodeId);
       expect(node, `${s.label} (${s.nodeId}) missing from the tree`).toBeDefined();
       expect(node!.parentId, `${s.label} hangs on the wrong junction`).toBe(s.junction);
-      expect(node!.common).toBe(s.label);
+      // Unless patch-ott-names replaced the label with the node's exact Open Tree name.
+      if (!node!.ottTaxon) expect(node!.common).toBe(s.label);
     }
   });
 

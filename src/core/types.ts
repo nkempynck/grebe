@@ -35,6 +35,9 @@ export interface TaxonNode {
    *  Only Kinship reads it as a name. Every other game treats the node as unnamed, which is how
    *  they saw it before the label existed. Set by patch-merged-clades and patch-junction-splits. */
   synthetic?: boolean;
+  /** Set when `sciName` was given by scripts/patch-ott-names.mjs: the Open Tree Taxonomy taxon
+   *  ("ott<N>") whose members in our trees are exactly the species under this node. */
+  ottTaxon?: string;
   /** Species only: ~60-day English Wikipedia pageviews — a fame/familiarity proxy
    *  (replaces the old GBIF `occ`; pageviews track recognition, not survey effort).
    *  Lineage weights the daily answer by a within-ORDER percentile of this (scaled by

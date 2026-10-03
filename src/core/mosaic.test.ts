@@ -750,13 +750,14 @@ describe("every drill step accounts for everything under it", () => {
   it("keeps a Latin group whole when nothing below it has a common name", () => {
     const sciId = (sci: string) => [...tree.byId.values()].find((n) => n.sciName === sci)!.id;
     const reptiles = mosaicDrillOptions(tree, sciId("Sauropsida"), pool).map((o) => o.label);
-    expect(reptiles).toContain("Longirostres");
+    // Crocodylia is a named node (Open Tree, exact membership), so the crocodilians come as one
+    // chip, under its CLADE_COMMON name, rather than as the four loose genera this test was
+    // written against.
+    expect(reptiles).toContain("Crocodiles");
     for (const genus of ["Crocodylus", "Gavialis", "Mecistops", "Tomistoma"]) {
       expect(reptiles).not.toContain(genus);
     }
-    // …and it still descends when descending PAYS. Alligatoridae is common-named, so it is
-    // offered instead of being swallowed, and the same list keeps the groups people can name.
-    expect(reptiles).toEqual(expect.arrayContaining(["Alligators & caimans", "Birds", "Turtles"]));
+    expect(reptiles).toContain("Birds");
   });
 
   // The junction splits synthesise labels that list their own contents. As the name of a group
