@@ -74,7 +74,18 @@ function graftLineage(startNid) {
     if (v.name && v.ott) out.push({ id: v.ott, sciName: v.name, rank: rankOf(v.ott) });
     if (v.ott && shipped.has(v.ott)) {
       if (out.length && out[out.length - 1].id === v.ott) return out;    // last collected IS the shipped node
-      return [...out, { id: v.ott, sciName: v.name ?? "", rank: rankOf(v.ott) }]; // connect to an unnamed shipped node
+      // Connect to an unnamed shipped node, but keep walking to the first NAMED shipped one
+      // and record it too. An anonymous junction's id ("mrcaott…") is derived from the
+      // species it spans, so any change to the species set renames it; the client attaches
+      // to the first lineage entry the tree still has, so a stale junction falls back one
+      // level up instead of making the entry unplaceable.
+      out.push({ id: v.ott, sciName: "", rank: rankOf(v.ott) });
+      for (let up = parentOf.get(cur); up != null && hops++ < 300; up = parentOf.get(up)) {
+        const u = info.get(up);
+        if (u.name && u.ott) out.push({ id: u.ott, sciName: u.name, rank: rankOf(u.ott) });
+        if (u.name && u.ott && shipped.has(u.ott)) break;
+      }
+      return out;
     }
   }
   return null; // no shipped ancestor -> orphan
