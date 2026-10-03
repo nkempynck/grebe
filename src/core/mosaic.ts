@@ -779,7 +779,7 @@ export function mosaicLineagePath(
   let next = 0; // count of the last level kept, i.e. the one below this
   for (let i = chain.length - 1; i >= 0; i--) {
     const n = tree.byId.get(chain[i]);
-    if (!n || !(n.common || n.sciName)) continue;
+    if (!n || !(n.common || n.sciName) || n.synthetic) continue;
     // In play in another game today: skip it exactly as an unnamed junction is skipped, so the
     // chain closes over it rather than showing a gap where a group used to be.
     if (hidden.has(chain[i])) continue;
@@ -900,7 +900,9 @@ export function mosaicDrillOptions(
       // whatever it holds. Its species stay reachable, only the name is withheld — so the name
       // fallbacks below are skipped for it, but the species one is NOT, or veiling a genus whose
       // children are all species would delete them from the panel.
-      const veiled = hidden.has(c);
+      // A Kinship-only label (TaxonNode.synthetic) gets the same treatment: it lists its own
+      // contents, so it says less than the chips it would stand in for.
+      const veiled = hidden.has(c) || n.synthetic === true;
       if (n.common && !veiled) { out.push({ id: c, label: n.common, count, rank: rankOf(n), common: true }); return count; }
 
       const mark = out.length;
@@ -915,11 +917,7 @@ export function mosaicDrillOptions(
       // chips in place of one that means "the crocodiles and gharials" — because a Latin
       // name was treated as a LAST RESORT rather than as a choice. So a Latin level is kept
       // whole whenever nothing below it can be said in English.
-      //
-      // Not for a synthesised name, though. The junction splits leave labels like
-      // "Melloria & Gymnorhina & Cracticus", which say strictly less than the three chips
-      // they would replace, so those keep descending as before.
-      const nameable = Boolean(n.sciName) && !veiled && !SYNTHESISED_LABEL.test(n.sciName);
+      const nameable = Boolean(n.sciName) && !veiled;
       if (covered >= count) {
         if (!nameable || out.slice(mark).some((o) => o.common)) return covered;
         out.length = mark;
@@ -928,7 +926,7 @@ export function mosaicDrillOptions(
       }
 
       // The children left something out. Prefer this level whole, under its own scientific
-      // name — a synthesised one included, since the alternative here is losing the level.
+      // name.
       if (n.sciName && !veiled) {
         out.length = mark;
         out.push({ id: c, label: n.sciName, count, rank: rankOf(n), common: false });
@@ -994,12 +992,6 @@ export function mosaicDrillOptions(
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
     .map(({ id, label, count, rank }) => ({ id, label, count, rank }));
 }
-
-/** The labels the junction splits synthesise for an unnamed node, "Melloria & Gymnorhina &
- *  Cracticus" and the like. They are fine as the name of a group you have already chosen and
- *  poor as a choice: the chip lists its own contents, so it says less than the chips it would
- *  stand in for. See junctionSplits.json. */
-const SYNTHESISED_LABEL = / & /;
 
 /** The answer's own row, for the solved/failed state. */
 export function mosaicAnswerRow(tree: Tree, answerId: string): MosaicCell[] {

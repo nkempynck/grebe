@@ -110,9 +110,10 @@ function shuffle<T>(arr: T[], rng: () => number): T[] {
 }
 
 const isLeaf = (tree: Tree, id: string) => (tree.childrenOf.get(id) ?? []).length === 0;
+// A Kinship-only label (TaxonNode.synthetic) is no name here: the node stays an unnamed split.
 const hasName = (tree: Tree, id: string) => {
   const n = tree.byId.get(id);
-  return Boolean(n && (n.common || n.sciName));
+  return Boolean(n && !n.synthetic && (n.common || n.sciName));
 };
 
 /** The significant words of a species' COMMON name (lowercased, ≥3 letters), e.g.

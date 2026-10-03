@@ -140,11 +140,14 @@ const fresh = accepted.filter((a) => !byId.has(a.nodeId));
 // the clade is a real taxon with a real article, and is what the group is mostly made of.
 tax.nodes.push(...fresh.map((a) => ({
   id: a.nodeId, sciName: "", common: a.label, wikiTitle: a.genera[0], rank: "clade", parentId: a.junction,
+  // Kinship-only label: the other games treat this node as unnamed. See TaxonNode.synthetic.
+  synthetic: true,
 })));
 // Heal nodes an earlier run wrote without one.
 for (const a of accepted) {
   const n = byId.get(a.nodeId);
   if (n && !n.wikiTitle) n.wikiTitle = a.genera[0];
+  if (n) n.synthetic = true;
 }
 tax.junctionSplitsPatchedAt = new Date().toISOString();
 writeFileSync(TAX, JSON.stringify(tax));

@@ -221,3 +221,15 @@ function findByCommon(sub: string): string | null {
   for (const [id, n] of tree.byId) if (n.common?.toLowerCase().includes(sub)) return id;
   return null;
 }
+
+// Kinship's made-up labels ("Phodopus & Mesocricetus") are no names in Branches: the node stays
+// an unnamed split, so it can never be an answer or a context clade.
+describe("synthetic labels", () => {
+  it("never labels a Branches clade", () => {
+    for (let i = 0; i < 120; i++) {
+      const b = branchesBoardForSeed(tree, `synthetic-${i}`, (i % 7) + 1);
+      if (!b) continue;
+      for (const id of b.groupIds) expect(tree.byId.get(id)?.synthetic, id).toBeFalsy();
+    }
+  });
+});

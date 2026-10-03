@@ -346,7 +346,10 @@ const branchesResolver: Resolver<"branches"> = {
   //   references an id the tree no longer has. None of the served rows used it, but the
   //   future ones were written against the old tree and can't be read back with the anon
   //   key. → re-pin un-played future dates.
-  version: 14,
+  // v15 (2026-10-03): Kinship's made-up labels ("Phodopus & Mesocricetus", TaxonNode.synthetic)
+  //   are no longer names here, so they stop being answer or context clades and real genera
+  //   come back in their place. → re-pin un-played future dates.
+  version: 15,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;

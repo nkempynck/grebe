@@ -111,7 +111,7 @@ export function GuessInput({ tree, config, disabled, onSubmit, onOutOfSetGuess, 
       if (blocked?.(node.id)) continue;
       const isLeaf = (tree.childrenOf.get(node.id) ?? []).length === 0;
       if (isLeaf) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "species" });
-      else if (node.sciName && !speciesOnly) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "group" });
+      else if (node.sciName && !node.synthetic && !speciesOnly) out.push({ id: node.id, common: node.common, sci: node.sciName, kind: "group" });
     }
     return out;
   }, [tree, config, focusCladeId, speciesOnly, blocked]);

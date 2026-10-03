@@ -30,6 +30,11 @@ export interface TaxonNode {
   /** Species only: extinct, so no photograph of a living one exists. Mosaic never draws it as
    *  the answer; nothing else reads it. Set by scripts/patch-extinct.mjs. */
   extinct?: boolean;
+  /** A label the build MADE UP for Kinship ("Phodopus & Mesocricetus", "Capra & Hemitragus"):
+   *  an anonymous clade named by joining what is inside it, so Kinship has more groups of four.
+   *  Only Kinship reads it as a name. Every other game treats the node as unnamed, which is how
+   *  they saw it before the label existed. Set by patch-merged-clades and patch-junction-splits. */
+  synthetic?: boolean;
   /** Species only: ~60-day English Wikipedia pageviews — a fame/familiarity proxy
    *  (replaces the old GBIF `occ`; pageviews track recognition, not survey effort).
    *  Lineage weights the daily answer by a within-ORDER percentile of this (scaled by

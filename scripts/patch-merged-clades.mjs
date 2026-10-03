@@ -83,6 +83,12 @@ const isTheme = (id) => {
 };
 const hasThemeBelow = (id) => (kids.get(id) ?? []).some((c) => isTheme(c) || hasThemeBelow(c));
 
+// Every label this script ever wrote is marked `synthetic`, so the games other than Kinship can
+// treat the node as the anonymous clade it really is. A rerun skips nodes it already named (they
+// are no longer anonymous), so the mark is backfilled here rather than only set on apply. A
+// scientific name never contains " & ", so that test cannot catch a real taxon.
+for (const n of all) if (n.sciName?.includes(" & ")) n.synthetic = true;
+
 let anon = 0, tooDim = 0, unsafe = 0, unlabelable = 0, nested = 0;
 const candidates = [];
 for (const n of all) {
@@ -117,6 +123,7 @@ for (const c of [...candidates].sort((a, b) => depth(b.id) - depth(a.id))) {
   if (ls.some((l) => claimed.has(l))) { nested++; continue; }
   for (const l of ls) claimed.add(l);
   byId.get(c.id).sciName = c.label;
+  byId.get(c.id).synthetic = true;
   applied.push(c);
 }
 
@@ -129,11 +136,11 @@ console.log(`  NAMED:                              ${applied.length}`);
 console.log(`\n${applied.slice(0, 20).map((c) => `  ${c.label} (${c.k} spp)`).join("\n")}`);
 
 const inBase = new Set(doc.nodes.map((n) => n.id));
-const touchedAug = applied.filter((c) => !inBase.has(c.id)).length;
+const touchedAug = all.some((n) => n.synthetic && !inBase.has(n.id));
 fs.writeFileSync(TAXONOMY, JSON.stringify(doc));
 console.log(`\npatched ${TAXONOMY}`);
 if (touchedAug) {
   fs.writeFileSync(AUGMENT, JSON.stringify(augDoc));
-  console.log(`patched ${AUGMENT} (${touchedAug} nodes)`);
+  console.log(`patched ${AUGMENT}`);
 }
 fs.writeFileSync("node_modules/.cache/merged-clade-labels.json", JSON.stringify(Object.fromEntries(applied.map((c) => [c.id, c.label]))));

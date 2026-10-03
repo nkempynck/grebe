@@ -268,7 +268,7 @@ export function useGame(
     const scopeDepth = tree.depthOf.get(config.scopeRootId) ?? 0;
     return ancestryChain(tree, answerId)
       .reverse()
-      .filter((id) => id !== answerId && (tree.depthOf.get(id) ?? 0) > scopeDepth && !!tree.byId.get(id)?.sciName);
+      .filter((id) => id !== answerId && (tree.depthOf.get(id) ?? 0) > scopeDepth && !!tree.byId.get(id)?.sciName && !tree.byId.get(id)?.synthetic);
   }, [tree, answerId, config.scopeRootId]);
 
   // Deepest branch known so far (from guesses + hints), as a depth.

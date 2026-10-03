@@ -32,6 +32,10 @@ const FIT_ZOOM_MAX = 1.25;
 const STEM_ZOOM_CAP = 2;
 /** The principal ranks, whose labels win a collision over every other clade's. */
 const MAJOR_RANKS = ["kingdom", "phylum", "class", "order", "family", "genus"];
+
+/** A clade Lineage may label. A Kinship-only label (TaxonNode.synthetic) is drawn as the
+ *  unnamed junction it really is, so it collapses into "⋯ N splits" and has no dead wiki card. */
+const named = (n: TaxonNode | undefined): boolean => Boolean(n?.sciName) && !n?.synthetic;
 /** Ceiling on framing a guess with the hidden species. Far above FIT_ZOOM_MAX on purpose: a
  *  guess landing right beside the hidden species is a few pixels from it at the fit zoom,
  *  and only flying in spreads the pair far enough apart for the guess to keep its label. */
@@ -804,7 +808,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
                 if (p.kind === "target" || p.kind === "collapsed") return null;
                 const t = tree.byId.get(p.id);
                 const species = p.kind === "guess" || p.kind === "answer";
-                const junction = p.kind === "clade" && !t?.sciName;
+                const junction = p.kind === "clade" && !named(t);
                 const closest = p.id === model.closestId;
                 const px = species ? 2.5 : junction && !closest ? 3 : 5;
                 const fill = species
@@ -860,7 +864,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
             const t = tree.byId.get(p.id)!;
             // Unnamed phylogenetic junction — draw a bare dot, no label, no wiki.
             // If it belongs to an expanded run, clicking re-collapses that run.
-            if (p.kind === "clade" && !t.sciName) {
+            if (p.kind === "clade" && !named(t)) {
               const cls = `clado-pt is-junction${p.id === model.closestId ? " is-closest" : ""}${p.runId ? " is-expanded" : ""}`;
               if (p.runId) {
                 return (
@@ -1013,12 +1017,12 @@ function buildModel(
   // Guess-count of the nearest off-spine named ancestor (Infinity if none).
   const outerGroupCount = (id: string) => {
     for (let cur = tree.byId.get(id)?.parentId; cur; cur = tree.byId.get(cur)?.parentId ?? null) {
-      if (tree.byId.get(cur)?.sciName && !onSpine(cur)) return guessCount.get(cur) ?? 0;
+      if (named(tree.byId.get(cur)) && !onSpine(cur)) return guessCount.get(cur) ?? 0;
     }
     return Infinity;
   };
   const keepClade = (id: string) => {
-    if (!tree.byId.get(id)?.sciName) return false;
+    if (!named(tree.byId.get(id))) return false;
     if (onSpine(id)) return true;
     const c = guessCount.get(id) ?? 0;
     // keep only if it groups ≥2 guesses and isn't redundant with a same-set outer clade
@@ -1053,7 +1057,7 @@ function buildModel(
   let closestName: string | null = null;
   for (let id: string | null | undefined = closestId; id; id = tree.byId.get(id)?.parentId) {
     const n = tree.byId.get(id);
-    if (n?.sciName) { closestName = n.common ?? n.sciName; break; }
+    if (named(n)) { closestName = n!.common ?? n!.sciName; break; }
   }
 
   // ---- assemble the display tree from the induced skeleton ----
@@ -1081,7 +1085,7 @@ function buildModel(
   // The closest shared branch (where the hidden species hangs) stays visible even
   // if it's nameless — never fold it into a run.
   const isJunction = (n: DNode) =>
-    n.kind === "clade" && n.id !== closestId && !tree.byId.get(n.id)?.sciName;
+    n.kind === "clade" && n.id !== closestId && !named(tree.byId.get(n.id));
   const collapse = (node: DNode): DNode => {
     const out: DNode[] = [];
     for (const child of node.children) {

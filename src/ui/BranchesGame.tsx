@@ -274,7 +274,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
       // A name is a name whichever field holds it. Junction splits carry only `common`
       // (sciName is "" by the tree's convention), so testing sciName alone walked past them.
       const n = tree.byId.get(cur);
-      if (n?.sciName || n?.common) return cur;
+      // A Kinship-only label (TaxonNode.synthetic) is walked past like any bare junction.
+      if ((n?.sciName || n?.common) && !n.synthetic) return cur;
     }
     return null;
   };
