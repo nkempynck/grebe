@@ -213,6 +213,12 @@ export interface RadialOpts {
   labelW?: number;
   /** Half-height of an internal node's label (for vertical bounds). */
   labelHalfH?: number;
+  /** How many rings the branch INTO a node spans (default 1). A caller whose unlabelled
+   *  junctions carry no information can give them a short step, so they mark the branching
+   *  order without pushing every labelled node a full ring further out. */
+  stepOf?: (id: string, isLeaf: boolean) => number;
+  /** Outermost ring radius. Deeper trees compress their rings to fit rather than grow. */
+  maxRadius?: number;
 }
 
 /** Circular fan: depth grows the radius outward from a centre above the tips,
@@ -221,24 +227,33 @@ export interface RadialOpts {
  *  Branches are the classic radial-dendrogram elbow — an arc along the parent's
  *  ring to the child's angle, then a radial spoke out to the child. */
 export function radialLayout(root: TreeLike, o: RadialOpts): GraphLayout {
-  const { depthById, colById, leafIds, leaves, maxDepth } = measure(root);
+  const { depthById, colById, leafIds, leaves } = measure(root);
   const denom = Math.max(1, leaves - 1);
   const uOf = (id: string) => (leaves <= 1 ? 0.5 : colById.get(id)! / denom);
 
-  const span = leaves <= 1 ? 0 : Math.min(o.spanMax, (leaves * o.gapx) / (o.innerRadius + maxDepth * o.ring));
-  const rOf = (d: number) => o.innerRadius + d * o.ring;
+  // Radial position in rings: the sum of the steps from the root (each 1 by default).
+  const stepsById = new Map<string, number>();
+  let maxSteps = 0;
+  (function walk(n: TreeLike, at: number) {
+    stepsById.set(n.id, at);
+    maxSteps = Math.max(maxSteps, at);
+    for (const c of n.children) walk(c, at + (o.stepOf ? o.stepOf(c.id, c.children.length === 0) : 1));
+  })(root, 0);
+  const ring = o.maxRadius && maxSteps > 0 ? Math.min(o.ring, (o.maxRadius - o.innerRadius) / maxSteps) : o.ring;
+  const span = leaves <= 1 ? 0 : Math.min(o.spanMax, (leaves * o.gapx) / (o.innerRadius + maxSteps * ring));
+  const rById = (id: string) => o.innerRadius + stepsById.get(id)! * ring;
   const focusU = o.focusId != null && colById.has(o.focusId) ? uOf(o.focusId) : 0.5;
   const rot = (focusU - 0.5) * span;
   const angleOf = (u: number) => (u - 0.5) * span - rot;
-  const proj = (u: number, d: number): Pt => {
-    const th = angleOf(u), r = rOf(d);
+  const proj = (u: number, r: number): Pt => {
+    const th = angleOf(u);
     return { x: r * Math.sin(th), y: r * Math.cos(th) };
   };
 
   interface Raw extends Pt { depth: number; isLeaf: boolean; theta: number; }
   const raw = new Map<string, Raw>();
   depthById.forEach((d, id) => {
-    const p = proj(uOf(id), d);
+    const p = proj(uOf(id), rById(id));
     raw.set(id, { x: p.x, y: p.y, depth: d, isLeaf: leafIds.has(id), theta: angleOf(uOf(id)) });
   });
 
@@ -279,11 +294,10 @@ export function radialLayout(root: TreeLike, o: RadialOpts): GraphLayout {
   const f = (n: number) => n.toFixed(1);
   const links: GraphLink[] = [];
   (function link(n: TreeLike) {
-    const uP = uOf(n.id), dP = depthById.get(n.id)!;
+    const uP = uOf(n.id), rP = rById(n.id);
     for (const c of n.children) {
-      const uC = uOf(c.id), dC = depthById.get(c.id)!;
-      const p = tx(proj(uP, dP)), elbow = tx(proj(uC, dP)), cc = tx(proj(uC, dC));
-      const rP = rOf(dP);
+      const uC = uOf(c.id);
+      const p = tx(proj(uP, rP)), elbow = tx(proj(uC, rP)), cc = tx(proj(uC, rById(c.id)));
       const sweep = angleOf(uC) > angleOf(uP) ? 0 : 1;
       links.push({
         parentId: n.id,

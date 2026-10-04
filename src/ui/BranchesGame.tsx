@@ -47,6 +47,8 @@ export type BranchesView = "tree" | "radial";
 
 // How far a tip's interactive tile floats out past its branch end in radial mode.
 const TIP_OUT = 22;
+// The share of a ring an unlabelled junction takes in radial mode (see branchesLayout).
+const JUNCTION_STEP = 0.25;
 
 /** Lay the skeleton out with the SAME engine + spacing Lineage uses, so the two
  *  games look identical; Branches then renders its own interactive leaf tiles.
@@ -57,7 +59,7 @@ const TIP_OUT = 22;
 const countLeaves = (n: DisplayTreeNode): number =>
   n.children.length ? n.children.reduce((sum, c) => sum + countLeaves(c), 0) : 1;
 
-function branchesLayout(root: DisplayTreeNode, radial: boolean): GraphLayout {
+function branchesLayout(root: DisplayTreeNode, radial: boolean, groups: Set<string>): GraphLayout {
   // Radial: labels radiate outward (see the render's `flip`), and the canvas is sized to
   // the real footprints — a leaf tile (up to ~148px wide) around its tip, and a clade label
   // (150px) extending outward — so nothing clips at the rim. Branches carries wider boxes
@@ -72,11 +74,19 @@ function branchesLayout(root: DisplayTreeNode, radial: boolean): GraphLayout {
   // RADIUS with the leaf count restores the spacing that the fixed wedge can't. Small
   // boards are unaffected (k stays 1 up to nine leaves) and so is Lineage, which calls the
   // shared layout with its own options.
+  //
+  // Compact: a bare junction dot carries no label, so the branch into it spans a quarter ring
+  // (stepOf) while groups and tiles keep a full one, and the fan opens to nearly a full circle
+  // so tiles spread around the root instead of pushing the radius out. A chain of junctions
+  // used to cost a full ring each and spread a snake board well past the screen. Chosen by
+  // measuring canvas size and box overlaps over a quarter of generated boards: smaller canvas,
+  // fewer tiles on tiles.
   const k = Math.min(1.6, Math.max(1, countLeaves(root) / 9));
   if (radial) return radialLayout(root, {
-    ...CLADO_RADIAL, ring: 88 * k, innerRadius: 100 * k, spanMax: 2.6, gapx: 160,
+    ...CLADO_RADIAL, ring: 66 * k, innerRadius: 75 * k, spanMax: 5, gapx: 160,
     pad: 44, rim: 74, focusId: null,
     tipOut: TIP_OUT, leafBox: { halfW: 78, halfH: 28 }, labelW: 150, labelHalfH: 14,
+    stepOf: (id, isLeaf) => (isLeaf || groups.has(id) ? 1 : JUNCTION_STEP),
   });
   const L = treeLayout(root, { ...CLADO_TREE, padx: 92 });
   return { ...L, height: L.height + 56 };
@@ -145,8 +155,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   }, [tree, g.board]);
   const radial = mode === "radial";
   const layout = useMemo(
-    () => (skeleton ? branchesLayout(skeleton, radial) : null),
-    [skeleton, radial]
+    () => (skeleton && g.board ? branchesLayout(skeleton, radial, new Set(g.board.groupIds)) : null),
+    [skeleton, radial, g.board]
   );
   const { imgs: trayImgs, pick: pickTrayImg } = useSpeciesImages(tree, g.board?.tray ?? []);
   const [zoomId, setZoomId] = useState<string | null>(null);
