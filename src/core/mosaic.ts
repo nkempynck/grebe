@@ -835,10 +835,31 @@ export function byFame(a: TaxonNode, b: TaxonNode): number {
     || (a.common ?? a.sciName).localeCompare(b.common ?? b.sciName);
 }
 
+/** How well known a menu row is: the most pageviews of any Mosaic species under it. Rows are
+ *  sorted by this so the groups a player recognises come first; a big family nobody has heard of
+ *  used to head the list because size was the order. The best-known MEMBER rather than a total,
+ *  so a group is not promoted for being large. */
+export function mosaicPopularity(tree: Tree, cladeIds: string[], pool: Set<string>): number {
+  let best = 0;
+  const stack = [...cladeIds];
+  while (stack.length) {
+    const c = stack.pop()!;
+    if (pool.has(c)) best = Math.max(best, tree.byId.get(c)?.views ?? 0);
+    for (const k of tree.childrenOf.get(c) ?? []) stack.push(k);
+  }
+  return best;
+}
+
+/** The order every Mosaic menu uses: best known first, then by name. */
+export function byPopularity(a: { pop: number; label: string }, b: { pop: number; label: string }): number {
+  return b.pop - a.pop || a.label.localeCompare(b.label);
+}
+
 /** One step of the drill-down filter: the named clades directly below `cladeId`, with how many
  *  candidate ANSWERS sit under each.
  *
- *  The count ORDERS the rows and is no longer shown on them. It used to be, on the argument
+ *  The count is no longer shown on the rows, and no longer orders them either (mosaicPopularity
+ *  does). It used to be, on the argument
  *  that watching "Animals 487 -> Mammals 180 -> Carnivorans 44 -> Cats 12" is what gives a
  *  drill its sense of progress. It does, but a per-clade count is also a published census of
  *  the species set, and a list ranked by it tells the player which branch of the taxonomy is
@@ -989,7 +1010,8 @@ export function mosaicDrillOptions(
     options = below;
   }
   return [...options, ...carried]
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .map((o) => ({ ...o, pop: mosaicPopularity(tree, [o.id], pool) }))
+    .sort(byPopularity)
     .map(({ id, label, count, rank }) => ({ id, label, count, rank }));
 }
 

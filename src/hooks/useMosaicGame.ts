@@ -22,7 +22,7 @@ import { fetchBoardGuard, boardGuardCached, GUARD_UNKNOWN, type BoardGuard } fro
 import { todayKey } from "../core/daily";
 import {
   mosaicSampleAnswer, mosaicAnswerFor, scoreMosaicGuess, mosaicRung, mosaicPool, mosaicScopeId,
-  mosaicBrowseSet, mosaicDrillOptions,
+  mosaicBrowseSet, mosaicDrillOptions, mosaicPopularity, byPopularity,
   mosaicCandidates, byFame, mosaicLineagePath, mosaicAids, mosaicTierForDate, mosaicMinViews,
   mosaicLadder, mosaicIsLive,
   MOSAIC_GROUP_WINDOW,
@@ -487,6 +487,7 @@ export function useMosaicGame(
               label: g.label,
               count: countIn([clades[0].id]),
               rank: n?.sepRank ?? n?.rank ?? "",
+              pop: mosaicPopularity(tree, [clades[0].id], browse),
             };
           }
           return {
@@ -494,10 +495,12 @@ export function useMosaicGame(
             label: g.label,
             count: countIn(clades.map((c) => c.id)),
             rank: "group",
+            pop: mosaicPopularity(tree, clades.map((c) => c.id), browse),
           };
         })
         .filter((o) => o.count > 0)
-        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+        .sort(byPopularity)
+        .map(({ pop: _pop, ...o }) => o);
     }
     // INSIDE A GROUP: its clades, and from here down it is the ordinary walk again.
     const group = topGroupById(hereId);
@@ -505,10 +508,11 @@ export function useMosaicGame(
       return groupClades(tree, group)
         .map((c) => {
           const n = tree.byId.get(c.id);
-          return { id: c.id, label: c.label, count: countIn([c.id]), rank: n?.sepRank ?? n?.rank ?? "" };
+          return { id: c.id, label: c.label, count: countIn([c.id]), rank: n?.sepRank ?? n?.rank ?? "", pop: mosaicPopularity(tree, [c.id], browse) };
         })
         .filter((o) => o.count > 0)
-        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+        .sort(byPopularity)
+        .map(({ pop: _pop, ...o }) => o);
     }
     return mosaicDrillOptions(tree, hereId, browse, hidden);
   }, [tree, hereId, browse, pathIds.length, aids.subset, guardReady, hidden, countIn]);
