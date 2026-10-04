@@ -16,11 +16,12 @@ describe("synthetic labels are flagged", () => {
     for (const n of merged) expect(n.synthetic, n.sciName).toBe(true);
   });
   it("flags every junction split that has no real name", () => {
-    // patch-ott-names gives some of them their exact Open Tree name, which replaces the label.
+    // The naming steps (Open Tree, MDD, Catalogue of Life) give some of them their exact sourced
+    // name, which replaces the label.
     const byId = new Map(nodes.map((n) => [n.id, n]));
     for (const s of junctionSplits.splits) {
       const n = byId.get(s.nodeId);
-      expect(n?.synthetic || Boolean(n?.ottTaxon), s.label).toBe(true);
+      expect(n?.synthetic || Boolean(n?.ottTaxon || n?.mddTaxon || n?.colTaxon), s.label).toBe(true);
     }
   });
   it("flags nothing else", () => {

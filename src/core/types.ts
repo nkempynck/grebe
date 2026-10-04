@@ -38,6 +38,13 @@ export interface TaxonNode {
   /** Set when `sciName` was given by scripts/patch-ott-names.mjs: the Open Tree Taxonomy taxon
    *  ("ott<N>") whose members in our trees are exactly the species under this node. */
   ottTaxon?: string;
+  /** Set when `sciName` was given by scripts/patch-mdd-names.mjs: the Mammal Diversity Database
+   *  taxon ("subfamily Globicephalinae") whose members in our trees are exactly the species
+   *  under this node. */
+  mddTaxon?: string;
+  /** Set when `sciName` was given by scripts/patch-col-names.mjs: the Catalogue of Life taxon
+   *  and the specialist database COL took it from ("subfamily Falconinae (ITIS 2026-08-26)"). */
+  colTaxon?: string;
   /** Species only: its picture in speciesPhotos.json is a real photograph (not missing, not an
    *  old plate). Kinship deals only these. Set by scripts/patch-photo-flags.mjs. */
   photo?: boolean;
