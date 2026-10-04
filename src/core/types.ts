@@ -12,6 +12,9 @@ export interface TaxonNode {
   sciName: string;
   /** Common name, if the node has a recognisable one, e.g. "Bottlenose dolphin". */
   common?: string;
+  /** Clades only: where `common` came from when scripts/patch-clade-common.mjs gave it ("Wikipedia
+   *  title" or "Wikidata"). Absent for names from the base build or hand-written ones. */
+  commonSource?: string;
   /** Taxonomic rank label for display only (the math uses depth, not rank). */
   rank: string;
   /** Rank used to read group separation (separationTierOf), and shown as the rank label in

@@ -10,26 +10,13 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { COMMON_NAME_OVERRIDES } from "./common-name-overrides.mjs";
 import { latinBinomialTest } from "./latin-name.mjs";
-import { cleanCommon } from "./clean-common.mjs";
+import { cleanCommon, cleanCladeName } from "./clean-common.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const C = resolve(ROOT, "node_modules/.cache");
 const WDQS = "https://query.wikidata.org/sparql";
 const UA = "GrebeGames/1.0 (names)";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function sparql(q, tries = 4) { for (let i = 0; i < tries; i++) { try { const r = await fetch(`${WDQS}?format=json&query=${encodeURIComponent(q)}`, { headers: { "user-agent": UA, accept: "application/sparql-results+json" } }); if (r.ok) return (await r.json()).results.bindings; if (r.status === 429 || r.status >= 500) { await sleep(1500 * (i + 1)); continue; } return null; } catch { await sleep(1500 * (i + 1)); } } return null; }
-
-const GENERIC_CLADE_NAMES = new Set(["life","organism","organisms","animal","animals","plant","plants","fungus","fungi","mould","moulds","mold","molds","microbe","microbes","bacteria","creature","creatures","insect","insects","species","wildlife","vertebrate","vertebrates","invertebrate","invertebrates"]);
-const FOREIGN_MARKERS = new Set(["de","la","el","del","los","las","da","do","dos","das","roja","rojo","negra","negro","verde","comun","gato","perro","cavalo","ular","kura","ikan","burung","pokok","ardilla","berleher"]);
-function cleanCladeName(name) {
-  let cc = cleanCommon((name ?? "").replace(/,?\s+and allies$/i, "").trim());
-  if (!cc) return null;
-  if (/\bindet\b/i.test(cc) || /\bspecies$/i.test(cc) || /\bsect\.?\b/i.test(cc)) return null;
-  const words = cc.toLowerCase().split(/[\s-]+/).filter(Boolean);
-  if (words.every((w) => GENERIC_CLADE_NAMES.has(w))) return null;
-  if (words.some((w) => FOREIGN_MARKERS.has(w))) return null;
-  if (/\b([a-z]{3,})-\1\b/i.test(cc)) return null;
-  return cc.replace(/\b(And|Or|Of|The|In)\b/g, (m) => m.toLowerCase());
-}
 
 const nodes = JSON.parse(readFileSync(resolve(C, "sel-nodes.json"), "utf8"));
 const inset = JSON.parse(readFileSync(resolve(C, "sel-inset.json"), "utf8"));

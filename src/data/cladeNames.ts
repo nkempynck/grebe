@@ -3,7 +3,8 @@
  *  species. Keyed by the clade's scientific name as it appears in taxonomy.json.
  *  Applied at load (see loadTaxonomy). Clades not listed here are still guessable
  *  by their scientific name; these just get a nicer label + autocomplete entry.
- *  Unknown keys are harmless no-ops. */
+ *  Every key must name a clade in the tree (cladeNames.test.ts), so a group whose clade is
+ *  renamed by a rebuild cannot silently lose its English name. */
 export const CLADE_COMMON: Record<string, string> = {
   // broad groups
   Metazoa: "Animals",
@@ -20,7 +21,6 @@ export const CLADE_COMMON: Record<string, string> = {
   Mammalia: "Mammals",
   Aves: "Birds",
   Sauropsida: "Reptiles",
-  Reptilia: "Reptiles",
   Squamata: "Lizards & snakes",
   Serpentes: "Snakes",
   Testudines: "Turtles",
@@ -52,7 +52,6 @@ export const CLADE_COMMON: Record<string, string> = {
   Perissodactyla: "Odd-toed hoofed mammals",
   Proboscidea: "Elephants",
   Metatheria: "Marsupials",
-  Marsupialia: "Marsupials",
 
   // birds
   Passeriformes: "Perching birds",
@@ -79,15 +78,12 @@ export const CLADE_COMMON: Record<string, string> = {
 
   // plants & fungi
   Magnoliopsida: "Flowering plants (dicots)",
-  Liliopsida: "Flowering plants (monocots)",
-  Pinopsida: "Conifers",
   Polypodiopsida: "Ferns",
   Poaceae: "Grasses",
   Fabaceae: "Legumes",
   Asteraceae: "Daisies & sunflowers",
   Rosaceae: "Roses & allies",
   Orchidaceae: "Orchids",
-  Agaricomycetes: "Mushrooms",
 
   // ---- finer clades, mainly for the grid game's group labels ----
   // (family/order level; the grid generator prefers a named clade, so naming the
@@ -169,7 +165,6 @@ export const CLADE_COMMON: Record<string, string> = {
   Sciaenidae: "Drums & croakers",
   Centrarchiformes: "Sunfishes",
   Labriformes: "Wrasses & parrotfish",
-  Embiotocidae: "Surfperches",
   Muraenidae: "Moray eels",
   Characiformes: "Tetras & allies",
 
@@ -188,7 +183,6 @@ export const CLADE_COMMON: Record<string, string> = {
   Scarabaeoidea: "Scarab & stag beetles",
   Adephaga: "Ground & tiger beetles",
   Pieridae: "Whites & sulphurs",
-  Trichoptera: "Caddisflies",
   Euphausiacea: "Krill",
   Isopoda: "Woodlice & isopods",
   Amphipoda: "Amphipods",
@@ -201,7 +195,6 @@ export const CLADE_COMMON: Record<string, string> = {
   Loliginidae: "Inshore squid",
   Ommastrephidae: "Flying squid",
   Nudibranchia: "Sea slugs",
-  Haliotidae: "Abalones",
   Helicidae: "Land snails",
   Neogastropoda: "Whelks",
   Pteriomorphia: "Scallops, oysters & mussels",
@@ -226,7 +219,6 @@ export const CLADE_COMMON: Record<string, string> = {
   Saliceae: "Willows & poplars",
 
   // fungi & corals
-  Cantharellales: "Chanterelles",
   Actiniaria: "Sea anemones",
   Scleractinia: "Stony corals",
   Octocorallia: "Soft corals",
@@ -238,17 +230,14 @@ export const CLADE_COMMON: Record<string, string> = {
   Lutjanidae: "Snappers", // GBIF said "Fusiliers"
   Setophaga: "Wood warblers", // GBIF said "Redstarts" (misleads — these are warblers)
   Anatidae: "Ducks, geese & swans", // GBIF said "Dabbling Ducks" (too narrow)
-  Amanita: "Amanitas", // GBIF said "Amanita Sect. Lepidella"
   Equus: "Horses", // GBIF said "Cavalo" (Portuguese)
   Craniata: "Craniates", // GBIF said "Craniate Brachiopods"
   Gryllidae: "Crickets", // GBIF said "Blast" (garbage)
   Gavia: "Loons", // GBIF said "Indet. Diver" (placeholder)
-  Planorbidae: "Ramshorn snails", // GBIF said "Indet. Ramshorn"
   Rhinolophus: "Horseshoe bats", // GBIF said "Horseshoe Bat species"
   Nyctalus: "Noctule bats", // GBIF said "Nyctalus Bat species"
   Equidae: "Horses, zebras & asses", // GBIF said "Asses" (too narrow)
   Varanus: "Monitor lizards", // GBIF said "Leguaans" (regional)
-  Gammarus: "Scuds", // GBIF said "Malacostracans" (whole-class name on a genus)
 
   // Genus-board labels (injected genus nodes) — clean up the group names players
   // see on the new within-clade boards (cats / ducks / whales).
@@ -266,16 +255,11 @@ export const CLADE_COMMON: Record<string, string> = {
   // species a board picks). Genuinely obscure fish/moth ranks stay scientific.
   Dactyloidae: "Anoles",
   Iguaninae: "Iguanas",
-  Colubroidea: "Colubroid snakes",
   Campanulaceae: "Bellflowers",
   Nymphalinae: "Brush-footed butterflies",
-  Papilionoidea: "Butterflies",
   Pyraloidea: "Snout moths",
   Ascomycota: "Sac fungi",
-  Agaricales: "Gilled mushrooms",
-  Meruliaceae: "Crust fungi",
   Amygdaleae: "Cherries & almonds",
   Fragariinae: "Strawberries & relatives",
-  "BOP clade": "Grasses",
   Noctuini: "Cutworm moths",
 };

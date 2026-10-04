@@ -735,7 +735,7 @@ describe("every drill step accounts for everything under it", () => {
     const sciId = (sci: string) => [...tree.byId.values()].find((n) => n.sciName === sci)!.id;
     // Baleen whales offers GROUPS, not a mix of two genera and three loose whales.
     const baleen = mosaicDrillOptions(tree, sciId("Mysticeti"), pool);
-    expect(baleen.map((o) => o.label)).toContain("Balaenopteridae");
+    expect(baleen.map((o) => o.id)).toContain(sciId("Balaenopteridae")); // by id: its label is English now
     expect(baleen.every((o) => o.rank !== "species")).toBe(true);
     // …and the family is where the fin whale finally appears, as a species, so the panel can
     // offer it as a guess rather than as another level to descend into.
@@ -765,8 +765,9 @@ describe("every drill step accounts for everything under it", () => {
   // replace, so the rule above deliberately does not use them.
   it("does not offer a synthesised A & B label in place of its parts", () => {
     const sciId = (sci: string) => [...tree.byId.values()].find((n) => n.sciName === sci)!.id;
-    const artamids = mosaicDrillOptions(tree, sciId("Artamidae"), pool).map((o) => o.label);
-    expect(artamids.some((l) => / & /.test(l))).toBe(false);
-    expect(artamids).toEqual(expect.arrayContaining(["Cracticus", "Gymnorhina", "Melloria", "Strepera"]));
+    const options = mosaicDrillOptions(tree, sciId("Artamidae"), pool);
+    expect(options.some((o) => / & /.test(o.label))).toBe(false);
+    // By id: some of these genera carry an English name now (Strepera reads "Currawongs").
+    expect(options.map((o) => o.id)).toEqual(expect.arrayContaining(["Cracticus", "Gymnorhina", "Melloria", "Strepera"].map(sciId)));
   });
 });
