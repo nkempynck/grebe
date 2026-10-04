@@ -219,6 +219,9 @@ export interface RadialOpts {
   stepOf?: (id: string, isLeaf: boolean) => number;
   /** Outermost ring radius. Deeper trees compress their rings to fit rather than grow. */
   maxRadius?: number;
+  /** Put the root at the very centre of the fan, its branches radiating out from it, instead
+   *  of on the innermost ring. */
+  rootAtCentre?: boolean;
 }
 
 /** Circular fan: depth grows the radius outward from a centre above the tips,
@@ -241,7 +244,7 @@ export function radialLayout(root: TreeLike, o: RadialOpts): GraphLayout {
   })(root, 0);
   const ring = o.maxRadius && maxSteps > 0 ? Math.min(o.ring, (o.maxRadius - o.innerRadius) / maxSteps) : o.ring;
   const span = leaves <= 1 ? 0 : Math.min(o.spanMax, (leaves * o.gapx) / (o.innerRadius + maxSteps * ring));
-  const rById = (id: string) => o.innerRadius + stepsById.get(id)! * ring;
+  const rById = (id: string) => (o.rootAtCentre && id === root.id ? 0 : o.innerRadius + stepsById.get(id)! * ring);
   const focusU = o.focusId != null && colById.has(o.focusId) ? uOf(o.focusId) : 0.5;
   const rot = (focusU - 0.5) * span;
   const angleOf = (u: number) => (u - 0.5) * span - rot;
