@@ -362,8 +362,10 @@ const branchesResolver: Resolver<"branches"> = {
   //   come back in their place. → re-pin un-played future dates.
   // v16 (2026-10-04): tray tiles need a real photograph, difficulty reads pairs through the
   //   look-alike table Kinship uses, and a prefill is barred when its Latin name carries a word
-  //   distinctive to one answer (it is shown when the English name would tell). The shared rich
-  //   tree grew and gained sourced clade names. → re-pin un-played future dates.
+  //   distinctive to one answer (it is shown when the English name would tell). The day's class
+  //   is drawn weighted by how many boards it can field, so thin classes (amphibians, molluscs)
+  //   stop recycling their few boards. The shared rich tree grew and gained sourced clade names
+  //   and English group names. → re-pin un-played future dates.
   version: 16,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);

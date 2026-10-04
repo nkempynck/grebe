@@ -389,15 +389,25 @@ function groupContainers(tree: Tree, tier: number): Map<string, Container[]> {
   return m;
 }
 
-/** The day's broad CLASS, chosen uniformly among those eligible this tier. Locked ONCE per
- *  day (not per container attempt) so the class distribution stays balanced: the augment is
- *  mammal-dense and only some classes can field a colliding board at a given grain, so if
- *  the class were re-drawn each attempt the shared-word floor would quietly re-bias every
- *  easy day toward mammals. Locking the class first makes the floor a best-effort WITHIN the
- *  day's class instead of a lever that picks the class. Null if none eligible. */
+/** The day's broad CLASS, drawn among those eligible this tier with weight √(containers it
+ *  fields). Locked ONCE per day (not per container attempt) so the class distribution stays
+ *  steady: the augment is mammal-dense and only some classes can field a colliding board at a
+ *  given grain, so if the class were re-drawn each attempt the shared-word floor would quietly
+ *  re-bias every easy day toward mammals. Locking the class first makes the floor a best-effort
+ *  WITHIN the day's class instead of a lever that picks the class.
+ *
+ *  Weighted, not uniform: a uniform draw gave every class the same share of days whatever it
+ *  could field, so the thin ones (amphibians, molluscs: a few dozen containers against 100+
+ *  for birds or fish) came round as often as the rich ones and repeated their few boards. The
+ *  square root keeps them regular, just less frequent. Null if none eligible. */
 function pickGroup(tree: Tree, tier: number, rng: () => number): string | null {
-  const groups = [...groupContainers(tree, tier).keys()].sort();
-  return groups.length ? groups[Math.floor(rng() * groups.length)] : null;
+  const m = groupContainers(tree, tier);
+  const groups = [...m.keys()].sort();
+  if (!groups.length) return null;
+  const w = groups.map((g) => Math.sqrt(m.get(g)!.length));
+  let r = rng() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < groups.length; i++) if ((r -= w[i]) < 0) return groups[i];
+  return groups[groups.length - 1];
 }
 
 // How many classes a day may fall through before it settles for a repeat. Each one costs a
@@ -409,8 +419,7 @@ const BRANCHES_CLASS_ATTEMPTS = 3;
 
 /** The day's class first, then the others in a stable per-day order.
  *
- *  Element 0 is EXACTLY the old locked draw (uniform over the classes eligible at this
- *  tier), so a day that can field a fresh board behaves as it always did. The rest are the
+ *  Element 0 is the locked draw (pickGroup), so a day that can field a fresh board takes it. The rest are the
  *  remaining classes shuffled with a different seed, so the fallback varies by day instead
  *  of always landing on whichever class sorts first. */
 function eligibleClasses(tree: Tree, tier: number, dateKey: string): string[] {
@@ -888,7 +897,7 @@ function boardForDay(
   avoid: (s: string) => boolean,
   repeatCost: (groupIds: string[]) => number = () => 0
 ): BranchesBoard | null {
-  // The day's broad class, drawn uniformly over the eligible ones, then the classes it would
+  // The day's broad class, drawn over the eligible ones (pickGroup), then the classes it would
   // fall back to IN ORDER. The first entry is exactly the old locked draw, so the class
   // distribution is unchanged on every day that can field a fresh board — and with no
   // history at all (the seed path, where repeatCost is always 0) the survey below returns
