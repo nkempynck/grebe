@@ -280,7 +280,9 @@ function allThemes(tree: Tree): Map<string, Theme> {
     // A theme must have a name to reveal on solve. The flattened tree keeps some
     // bare junction nodes (no scientific name) — those can't label a group.
     if (!node.sciName && !node.common) continue;
-    const all = leavesUnder(tree, node.id);
+    // Only photographed species can be tiles (TaxonNode.photo): a tile with no picture, or an
+    // old plate, leaves a peek with nothing to show on any day.
+    const all = leavesUnder(tree, node.id).filter((id) => tree.byId.get(id)?.photo);
     const named = all.filter((id) => tree.byId.get(id)?.common);
     const latin = all.filter((id) => !tree.byId.get(id)?.common).sort((a, b) => viewsOf(tree, b) - viewsOf(tree, a));
     // Four named members, or three plus a Latin one to fill the fourth seat.
@@ -358,17 +360,13 @@ function containers(tree: Tree, themes: Map<string, Theme>): Container[] {
     const below: Theme[] = [];
     for (const c of tree.childrenOf.get(id) ?? []) below.push(...compute(c));
     belowOf.set(id, below);
+    // A group is offered upward as itself, whatever language its name is in: players see
+    // the label only once the group is solved, so an English one buys nothing here. (A
+    // Latin-only group used to step aside for English-named groups beneath it, which is how
+    // naming a subfamily could strand the genera under it.) A node that is not a group
+    // passes up whatever is beneath it.
     const self = themes.get(id);
-    let res: Theme[];
-    if (self && self.named) {
-      res = [self]; // offered upward as one clean, recognisable group
-    } else if (self) {
-      // An unnamed theme: prefer named groups found below (nicer reveal labels);
-      // fall back to this shallowest clade only if the whole branch is unnamed.
-      res = below.some((t) => t.named) ? below : [self];
-    } else {
-      res = below;
-    }
+    const res: Theme[] = self ? [self] : below;
     offered.set(id, res);
     return res;
   };
@@ -403,6 +401,21 @@ function containers(tree: Tree, themes: Map<string, Theme>): Container[] {
     // On a tree the leaf-most themes are a maximum antichain, so counting them is exact.
     const disjoint = list.filter((t) => !list.some((o) => o.cladeId !== t.cladeId && contains(e, t.cladeId, o.cladeId))).length;
     if (disjoint >= GRID_GROUPS) out.push({ id, depth: tree.depthOf.get(id) ?? 0, themes: list });
+  }
+
+  // Every group must be a candidate somewhere. A group nested under another named group, two
+  // or more levels below every container (Muridae > Murinae > Rattus), is in no list above,
+  // and no container small enough to reach it can field four groups. Hand each such group to
+  // the nearest container above it. buildBoard already refuses nested pairs, so this only
+  // adds options; it never puts a group on a board beside its own parent.
+  const byId = new Map(out.map((c) => [c.id, c]));
+  const reachable = new Set(out.flatMap((c) => c.themes.map((t) => t.cladeId)));
+  for (const t of themes.values()) {
+    if (reachable.has(t.cladeId)) continue;
+    for (let p = tree.byId.get(t.cladeId)?.parentId; p; p = tree.byId.get(p)?.parentId) {
+      const c = byId.get(p);
+      if (c) { c.themes.push(t); break; }
+    }
   }
   return out;
 }
@@ -473,6 +486,85 @@ function orderedThemes(
   return shuffled.sort((a, b) => rank(a) - rank(b) || recency(a) - recency(b) || stock(a) - stock(b));
 }
 
+/** Reorders a container's preferred themes so the greedy pick in buildBoard lands on four
+ *  groups at the SAME level, spread evenly over the container's branches.
+ *
+ *  Level is counted in named steps below the container (a group's own step plus every group
+ *  above it inside the container), not in tree depth or species, which anonymous junctions and
+ *  lopsided branches distort. Top-down: the shallowest step at which the branches together
+ *  offer four groups wins. A branch with nothing that deep offers its closest shallower group
+ *  instead, so "three cat families and all of Caniformia" becomes "two of each, one level down".
+ *
+ *  Branches are then taken in turn (A, B, A, B), which gives 2 + 2 over 3 + 1 where the
+ *  container allows it. Every other theme follows in the original order, so any board the
+ *  plain order could build is still reachable. */
+/** Each theme's named step below the container and the container branch it sits in. Fixed for a
+ *  (tree, container), and asked for on every board attempt of the replay, so cached. */
+const levelInfoCache = new WeakMap<Tree, Map<string, Map<string, { step: number; branch: string }>>>();
+/** How many named steps a board's groups may sit from the board's drawn level. */
+const LEVEL_SLACK = 2;
+
+function levelInfo(tree: Tree, container: Container): Map<string, { step: number; branch: string }> {
+  let byContainer = levelInfoCache.get(tree);
+  if (!byContainer) levelInfoCache.set(tree, (byContainer = new Map()));
+  const hit = byContainer.get(container.id);
+  if (hit) return hit;
+  const themes = allThemes(tree);
+  const info = new Map<string, { step: number; branch: string }>();
+  for (const t of container.themes) {
+    let step = 0;
+    let branch = t.cladeId;
+    for (let id: string | null | undefined = t.cladeId; id && id !== container.id; id = tree.byId.get(id)?.parentId) {
+      if (themes.has(id)) step++;
+      branch = id;
+    }
+    info.set(t.cladeId, { step, branch });
+  }
+  byContainer.set(container.id, info);
+  return info;
+}
+
+function levelOrder(tree: Tree, container: Container, all: Theme[], rng: () => number): Theme[] {
+  // Above-floor themes only: buildBoard's companion check relies on every one of them coming
+  // before any relaxed-band theme, as orderedThemes guarantees, so those keep their place at the end.
+  const ordered = all.filter((t) => t.recognisability >= MIN_BOARD_FAME);
+  const relaxedTail = all.filter((t) => t.recognisability < MIN_BOARD_FAME);
+  const info = levelInfo(tree, container);
+  const byBranch = new Map<string, Theme[]>();
+  for (const t of ordered) {
+    const b = info.get(t.cladeId)!.branch;
+    (byBranch.get(b) ?? byBranch.set(b, []).get(b)!).push(t);
+  }
+  const stepOf = (t: Theme) => info.get(t.cladeId)!.step;
+  const maxStep = Math.max(0, ...ordered.map(stepOf));
+  // A branch's offer for a target level: its groups within LEVEL_SLACK of it, nearest first.
+  // A branch with nothing that close offers its nearest group instead, so it is not dropped.
+  const offerAt = (list: Theme[], L: number) => {
+    const near = list.filter((t) => Math.abs(stepOf(t) - L) <= LEVEL_SLACK);
+    const pool = near.length ? near : list;
+    const gap = (t: Theme) => Math.abs(stepOf(t) - L);
+    const best = near.length ? Infinity : Math.min(...pool.map(gap));
+    return pool.filter((t) => near.length || gap(t) === best).sort((a, b) => gap(a) - gap(b));
+  };
+  // The level is DRAWN among those that can field four groups, not fixed at the shallowest:
+  // a fixed level deals the same few groups from a container every time, and measured over
+  // two years that tripled near-repeat boards.
+  const feasible: number[] = [];
+  for (let L = 1; L <= maxStep; L++) {
+    let n = 0;
+    for (const list of byBranch.values()) n += offerAt(list, L).length;
+    if (n >= GRID_GROUPS) feasible.push(L);
+  }
+  const target = feasible.length ? feasible[Math.floor(rng() * feasible.length)] : maxStep;
+  const queues = shuffle([...byBranch.values()], rng).map((list) => offerAt(list, target));
+  const out: Theme[] = [];
+  for (let r = 0; queues.some((q) => r < q.length); r++)
+    for (const q of queues) if (r < q.length && !out.includes(q[r])) out.push(q[r]);
+  const taken = new Set(out.map((t) => t.cladeId));
+  for (const t of ordered) if (!taken.has(t.cladeId)) out.push(t);
+  return [...out, ...relaxedTail];
+}
+
 const label = (tree: Tree, id: string) => {
   const n = tree.byId.get(id);
   return n?.common ?? n?.sciName ?? id;
@@ -514,7 +606,10 @@ const BROAD_GROUPS: Array<{ group: string; tiers: number[]; markers: string[]; m
   { group: "Reptiles", tiers: ALL_TIERS, markers: ["Squamata", "Testudines", "Crocodylia"] },
   { group: "Amphibians", tiers: ALL_TIERS, markers: ["Amphibia"] },
   { group: "Insects", tiers: ALL_TIERS, markers: ["Insecta"] },
-  { group: "Plants", tiers: [3, 6, 7], minGap: 21, markers: ["Magnoliopsida", "Liliopsida", "Pinopsida", "Polypodiopsida"] },
+  // Plants only on the easy Mon/Tue days and only inside the easy band (STRICT_BAND_CLASSES),
+  // at most once every three weeks (2026-10-03): the group players know least should be the
+  // gentlest board of its week, not one of the hardest.
+  { group: "Plants", tiers: [1, 2], minGap: 21, markers: ["Magnoliopsida", "Liliopsida", "Pinopsida", "Polypodiopsida"] },
   { group: "Molluscs", tiers: [3, 6, 7], minGap: 21, markers: ["Gastropoda", "Bivalvia", "Cephalopoda"] },
   { group: "Spiders", tiers: [6, 7], minGap: 28, markers: ["Arachnida"] },
 ];
@@ -629,7 +724,7 @@ function boardBranchSpread(
 // enough). So each weekday sits in one of three loose BANDS matching the reveal split,
 // and each band draws from a WIDE, overlapping fame window: pools stay large, boards
 // stay varied, and difficulty is a tendency rather than a knife-edge. Band by weekday
-// tier (1=Mon … 7=Sun): Mon–Wed easy, Thu–Fri medium, Sat–Sun hard.
+// tier (1=Mon … 7=Sun): Mon–Tue easy, Wed–Fri medium, Sat–Sun hard.
 // Wednesday sits in the MEDIUM band even though it keeps both aids. Difficulty is reveal
 // mode plus separation, so a day that shows the name AND the picture can carry a tighter
 // MRCA for the same total: Mon/Tue and Wed were previously identical on both axes (measured
@@ -643,8 +738,8 @@ const WEEKDAY_BAND = [0, 0, 0, 1, 1, 1, 2, 2]; // index by weekday tier 1…7 (i
 // hold the trivial end out. Easy days lean to super-collections a rank or two apart, hard
 // days to sub-collections sharing a family or genus.
 const BAND_TIER_WINDOW: Array<[number, number]> = [
-  [3, 3.5], // easy  (Mon–Wed, name + picture)
-  [3.5, 4.5], // medium (Thu–Fri, name only)
+  [3, 3.5], // easy  (Mon–Tue)
+  [3.5, 4.5], // medium (Wed–Fri)
   [4.5, 7], // hard  (Sat–Sun, picture only)
 ];
 // Closeness is one currency but it does not buy the same difficulty in every class.
@@ -660,6 +755,12 @@ const BAND_TIER_WINDOW: Array<[number, number]> = [
 const CLASS_BAND_SHIFT: Record<string, number> = { Mammals: 0.5 };
 /** Separation is a rank tier, so the window can never be pushed past the top of it. */
 const MAX_SEPARATION = 7;
+/** The separation window a board of this class should land in on this weekday tier. */
+export function kinshipBand(tier: number, group?: string): [number, number] {
+  const [lo, hi] = BAND_TIER_WINDOW[WEEKDAY_BAND[tier] ?? 0];
+  const shift = (group && CLASS_BAND_SHIFT[group]) || 0;
+  return [Math.min(lo + shift, MAX_SEPARATION), Math.min(hi + shift, MAX_SEPARATION)];
+}
 
 // TWO structural gates, applied to every candidate board on EVERY day. Unlike the band
 // these are hard: `offBand` is only a +1 tiebreak, so a fresh-but-trivial board still won
@@ -1028,7 +1129,7 @@ function buildBoard(
   const groups: GridGroup[] = [];
   let subFloor = 0; // groups taken from the relaxed fame band — at most MAX_SUB_FLOOR_GROUPS
   const accepted: number[] = []; // recognisability of each group already on the board
-  for (const t of orderedThemes(container.themes, rng, ageOf, speciesAgeOf)) {
+  for (const t of levelOrder(tree, container, orderedThemes(container.themes, rng, ageOf, speciesAgeOf), rng)) {
     if (groups.length >= GRID_GROUPS) break;
     const relaxed = t.recognisability < MIN_BOARD_FAME;
     if (relaxed && subFloor >= MAX_SUB_FLOOR_GROUPS) continue;
@@ -1090,6 +1191,13 @@ function buildBoard(
   const tiles = shuffle(groups.flatMap((g) => g.memberIds), rng);
   return { date: dateKey, tier, groups, tiles };
 }
+
+/** No board may share NEAR_REPEAT_SHARED of its groups with a board from the last
+ *  NEAR_REPEAT_WINDOW days. A hard gate, like the set and group windows. */
+const NEAR_REPEAT_WINDOW = 30;
+/** Classes whose boards must land inside the day's difficulty band, never off it. */
+const STRICT_BAND_CLASSES = new Set(["Plants"]);
+const NEAR_REPEAT_SHARED = 3;
 
 /** A board's four categories, order-independent — the anti-repeat key. */
 const groupSig = (b: GridBoard) => b.groups.map((g) => g.cladeId).sort().join(",");
@@ -1227,7 +1335,6 @@ function boardForDay(
   hist: History
 ): GridBoard | null {
   const { seenAt, groupSeenAt, classSeenAt, idx: dayIdx } = hist;
-  const [bandLo, bandHi] = BAND_TIER_WINDOW[WEEKDAY_BAND[tier] ?? 0];
   // Stable per-date survey order, so the pick varies day to day.
   const order = shuffle([...pool], mulberry32(xmur3(`grebe:grid:${dateKey}:${tier}:order`)));
   let best: GridBoard | null = null;
@@ -1281,9 +1388,7 @@ function boardForDay(
     // the easiest day) while that Saturday drew the loosest board of its week. Capped at 3
     // so it stays below one recent group (4): freshness still wins, but only just.
     // The band this CLASS has to hit, which may sit above the day's own (CLASS_BAND_SHIFT).
-    const shift = CLASS_BAND_SHIFT[c.group!] ?? 0;
-    const lo = Math.min(bandLo + shift, MAX_SEPARATION);
-    const hi = Math.min(bandHi + shift, MAX_SEPARATION);
+    const [lo, hi] = kinshipBand(tier, c.group);
     const offBy = Math.max(0, lo - sep.med, sep.med - hi);
     // Ordering matters more than the exact weights, and it used to be wrong: at 2, a board
     // whose ENTIRE four-group set was a repeat scored better than one reusing a single group
@@ -1333,7 +1438,17 @@ function boardForDay(
         : (TRAP_SIZE[tier] ?? 3) >= 3
         ? pairTrap && riderOk && (tripleTrap || uniform)
         : pairTrap && riderOk);
-    if (classTooSoon || recentGroups > 0 || ancestryClashes > 0 || setTooSoon || tooObscure || !shapeOk) {
+    // Three of today's four groups on one board from the last few weeks reads as a replay,
+    // even with a fresh fourth. The decaying group cost alone let 40-odd a year through.
+    const ids = board.groups.map((g) => g.cladeId);
+    let nearRepeat = false;
+    for (const [at, prev] of hist.boardsAt)
+      if (dayIdx - at < NEAR_REPEAT_WINDOW && ids.filter((id) => prev.includes(id)).length >= NEAR_REPEAT_SHARED) { nearRepeat = true; break; }
+    // A class played only on easy terms: its boards must sit inside the day's band, not just
+    // pay for missing it. Plant groups are mostly close relatives, so without this the easy
+    // days drew plant boards that were among the hardest of the week.
+    const strictMiss = STRICT_BAND_CLASSES.has(c.group!) && offBy > 0;
+    if (classTooSoon || recentGroups > 0 || ancestryClashes > 0 || setTooSoon || tooObscure || !shapeOk || nearRepeat || strictMiss) {
       if (score < floorFallbackScore) { floorFallback = board; floorFallbackScore = score; }
       continue; // giveaway group, or nothing on the board to confuse — see the gates
     }
@@ -1378,6 +1493,7 @@ interface History {
   lineageSeenAt: Map<string, number>; // ANCESTOR of a shown group → day index (see GRID_ANCESTRY_WINDOW)
   classSeenAt: Map<string, number>;   // broad group → day index last shown (see GROUP_MIN_GAP)
   speciesSeenAt: Map<string, number>; // species leaf id → day index last shown
+  boardsAt: Map<number, string[]>;     // day index → that board's group ids, last NEAR_REPEAT_WINDOW days
 }
 interface ReplayCursor extends History {
   dk: string;
@@ -1385,7 +1501,7 @@ interface ReplayCursor extends History {
 /** A board generated with no history to avoid — pre-anchor days and arbitrary seeds. */
 const emptyHistory = (): History => ({
   idx: 0, seenAt: new Map(), groupSeenAt: new Map(), lineageSeenAt: new Map(),
-  classSeenAt: new Map(), speciesSeenAt: new Map(),
+  classSeenAt: new Map(), speciesSeenAt: new Map(), boardsAt: new Map(),
 });
 const cloneHistory = (h: History): History => ({
   idx: h.idx,
@@ -1394,6 +1510,7 @@ const cloneHistory = (h: History): History => ({
   lineageSeenAt: new Map(h.lineageSeenAt),
   classSeenAt: new Map(h.classSeenAt),
   speciesSeenAt: new Map(h.speciesSeenAt),
+  boardsAt: new Map(h.boardsAt),
 });
 let replayCache = new WeakMap<Tree, ReplayCursor>();
 // Periodic snapshots so going BACKWARD is cheap too. A cursor only moves forward, and
@@ -1440,6 +1557,8 @@ export function setServedGridHistory(served: Map<string, ServedGridDay> | null):
 function commitDay(tree: Tree, cur: History, groups: { cladeId: string; memberIds: string[] }[]): void {
   if (!groups.length) return;
   cur.seenAt.set(groups.map((g) => g.cladeId).sort().join(","), cur.idx);
+  cur.boardsAt.set(cur.idx, groups.map((g) => g.cladeId));
+  cur.boardsAt.delete(cur.idx - NEAR_REPEAT_WINDOW);
   for (const g of groups) {
     cur.groupSeenAt.set(g.cladeId, cur.idx);
     // Every ancestor too, so a LATER candidate that CONTAINS this group can recognise the

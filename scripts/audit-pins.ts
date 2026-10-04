@@ -20,6 +20,7 @@ import taxonomy from "../src/data/taxonomy.json";
 import augment from "../src/data/taxonomyAugment.json";
 import { buildTree, DAILY_EPOCH, type TaxonNode, type Tree } from "../src/core";
 import { mrca, separationTierOf } from "../src/core/tree";
+import { kinshipBand } from "../src/core/grid";
 import { CLADE_COMMON } from "../src/data/cladeNames";
 import { SPECIES_COMMON } from "../src/data/speciesCommon";
 import { avoidMapFrom, decodePuzzle, puzzleVersion } from "../src/data/pinnedPuzzles";
@@ -56,10 +57,8 @@ const isAncestor = (a: string, b: string): boolean => {
 
 // Difficulty is group CLOSENESS, never obscurity: a board is easy when its four groups sit
 // far apart, so the median pairwise separation is the measure and the weekday decides the
-// band it should land in. Mirrors WEEKDAY_BAND / BAND_TIER_WINDOW in grid.ts and the
-// off-band test in analyze-kinship.ts. Below the band is a walkover; above it is a slog.
-const WEEKDAY_BAND = [0, 0, 0, 0, 1, 1, 2, 2];
-const BAND_WINDOW: [number, number][] = [[1, 4], [3, 6], [4, 7]];
+// band it should land in (kinshipBand, the generator's own, so the two cannot drift apart).
+// Below the band is a walkover; above it is a slog.
 const weekdayTier = (d: string) => ((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
 const CLASS_MARKERS = new Map<string, string>();
 for (const [g, ms] of Object.entries({
@@ -269,9 +268,9 @@ for (const game of ["kinship", "branches"] as const) {
         for (let y = x + 1; y < d.groups.length; y++)
           pairs.push(separationTierOf(tree, mrca(tree, d.groups[x], d.groups[y])));
       pairs.sort((a, b) => a - b);
-      const [lo, hi] = BAND_WINDOW[WEEKDAY_BAND[weekdayTier(d.date)] ?? 0];
       const classes = new Set(d.groups.map(broadOf));
-      return { date: d.date, diff: Math.round((pairs[2] + pairs[3]) / 2), lo, hi, wd: weekdayTier(d.date), classes };
+      const [lo, hi] = kinshipBand(weekdayTier(d.date), classes.size === 1 ? [...classes][0] : undefined);
+      return { date: d.date, diff: (pairs[2] + pairs[3]) / 2, lo, hi, wd: weekdayTier(d.date), classes };
     });
     const easy = diffs.filter((r) => r.diff < r.lo);
     const hard = diffs.filter((r) => r.diff > r.hi);

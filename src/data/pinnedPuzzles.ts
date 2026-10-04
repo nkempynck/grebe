@@ -223,7 +223,14 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   cost (distinct sets 345·341 → 334·343, all inside the noise band). And the tree lost
   //   De Loys's ape, so any board that used it as a tile is now invalid. → re-pin un-played
   //   future dates.
-  version: 12,
+  // v13 (2026-10-04): groups on a board sit at matching depth (levelOrder: the same number of
+  //   named steps below the container, within LEVEL_SLACK), and every named group, Latin or
+  //   English, is offered as itself, so genera no longer get stranded under a newly named
+  //   clade. A board may not share three groups with one from the last 30 days. Plants come
+  //   only on easy days and inside the band. Every tile has a real photograph. The rich tree
+  //   grew (augment add-only: Wikidata English names, a pageview floor) and gained Open Tree
+  //   clade names. → re-pin un-played future dates.
+  version: 13,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -349,7 +356,9 @@ const branchesResolver: Resolver<"branches"> = {
   // v15 (2026-10-03): Kinship's made-up labels ("Phodopus & Mesocricetus", TaxonNode.synthetic)
   //   are no longer names here, so they stop being answer or context clades and real genera
   //   come back in their place. → re-pin un-played future dates.
-  version: 15,
+  // v16 (2026-10-04): no Branches code change. The rich tree it shares with Kinship grew (new
+  //   augment species, Open Tree clade names), so boards move. → re-pin un-played future dates.
+  version: 16,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
