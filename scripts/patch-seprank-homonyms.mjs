@@ -1,4 +1,4 @@
-// Correct two injected `sepRank` values that came from the wrong organism, in place.
+// Correct separation ranks that came from the wrong organism, in place.
 //
 // WHY A PATCH AND NOT A REBUILD. Same reason as patch-order-sepranks: re-running
 // `npm run build:taxonomy` currently loses common names, because build-names refetches
@@ -20,6 +20,27 @@
 //   Ascaridida    Open Tree matched it to Ascaridomorpha, which in our tree is one of this
 //                 node's own two children (the other is Oxyuridomorpha). A node cannot be the
 //                 same rank as the infraorder inside it. Wikidata Q17160: order.
+//
+// Two more, found by the 2026-10-03 taxonomy evaluation, carry the wrong value in `rank` itself
+// (assemble-taxonomy step 2 labels ranks by name through Open Tree's TNRS), so here `from` is
+// "no sepRank yet" and the fix overrides `rank` for separation only:
+//
+//   Dictyoptera   The superorder of cockroaches (Blattodea) and mantises (Mantodea), both
+//                 orders beneath it. Stamped `genus`: Wikidata also has a Dictyoptera genus of
+//                 insects (Q4037324). Every cockroach-mantis pair read as genus-close.
+//                 Wikidata Q2087279: superorder.
+//
+//   Sauria        The clade of all lizards, snakes, turtles, crocodiles and birds. Stamped
+//                 `order`; Wikidata also has a Sauria genus of plants (Q17487639). It has no
+//                 formal rank (Q2254408: clade), so it becomes "clade" and the ruler reads the
+//                 next ranked ancestor, as for any unranked node.
+//
+// NOT FIXED, on purpose: Acanthomorphata, stamped `order` although it holds dozens of fish
+// orders. Most perch-like pairs meet at Percomorphaceae, which is unranked, so the ruler climbs
+// to Acanthomorphata and reads "same order". The rank is wrong but the closeness it gives is
+// about right for how fish play (fish boards play harder than their separation says), and
+// correcting it alone would read every perch-like board as trivially loose. Fix it together
+// with a Percomorphaceae entry in src/core/lookalike.ts, against play data.
 //
 // NOT FIXED HERE, deliberately: Ornithorhynchoidea, where Wikidata says superfamily and the
 // shipped value is `order`. The shipped value is right and Wikidata is right — about
@@ -51,6 +72,8 @@ const dry = process.argv.includes("--dry");
 const FIXES = [
   { sciName: "Delphinoidea", from: "genus", to: "superfamily", wikidata: "Q1139670" },
   { sciName: "Ascaridida", from: "infraorder", to: "order", wikidata: "Q17160" },
+  { sciName: "Dictyoptera", from: null, to: "superorder", wikidata: "Q2087279" },
+  { sciName: "Sauria", from: null, to: "clade", wikidata: "Q2254408" },
 ];
 
 const doc = JSON.parse(readFileSync(TAX, "utf8"));

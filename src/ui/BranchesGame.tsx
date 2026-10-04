@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DisplayTreeNode, Tree } from "../core";
-import { inducedSubtree, dailyNumber, boardSpoilers, namesTell, safeName, tellingWords, widespreadWords } from "../core";
+import { inducedSubtree, dailyNumber, boardSpoilers, namesTell, safeName, tellingWords, widespreadWords, displayRank } from "../core";
 import { resolveDailyRules } from "../data/dailySchedule";
 import { GameHeader } from "./GameHeader";
 import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame";
@@ -594,7 +594,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
                   <button key={n.id} type="button" className={`clado-pt is-clade is-ancestor${flip ? " is-flip" : ""}`} style={{ left: n.x, top: n.y }} onClick={() => setWikiId(rootAnnoId)}>
                     <span className="pt-dot" />
                     <span className="pt-name">{cladeLabel(rootAnnoId)}</span>
-                    {!hideRank && <span className="pt-rank">{anc?.rank}</span>}
+                    {!hideRank && <span className="pt-rank">{displayRank(anc)}</span>}
                   </button>
                 );
               }
@@ -609,7 +609,7 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
               <button key={n.id} type="button" className={`clado-pt is-clade${flip ? " is-flip" : ""}`} style={{ left: n.x, top: n.y }} onClick={() => setWikiId(n.id)}>
                 <span className="pt-dot" />
                 <span className="pt-name">{cladeLabel(n.id)}</span>
-                {!hideRank && <span className="pt-rank">{node?.rank}</span>}
+                {!hideRank && <span className="pt-rank">{displayRank(node)}</span>}
               </button>
             );
           })}

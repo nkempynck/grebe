@@ -14,8 +14,8 @@ export interface TaxonNode {
   common?: string;
   /** Taxonomic rank label for display only (the math uses depth, not rank). */
   rank: string;
-  /** Rank used ONLY to read group separation (separationTierOf), never for display, and
-   *  never by Lineage. Set by the name-injection steps on clades OTL left anonymous, whose
+  /** Rank used to read group separation (separationTierOf), and shown as the rank label in
+   *  every game's tree and Mosaic (displayRank). Never read by Lineage's win logic. Set by the name-injection steps on clades OTL left anonymous, whose
    *  `rank` must stay "clade": nearestAncestorOfRank stops at the first ancestor ranked
    *  above the one it wants, so promoting these to real ranks would break the family win
    *  target on lineages whose family crown is itself an injected clade — on days already

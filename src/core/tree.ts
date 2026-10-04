@@ -90,6 +90,13 @@ export const MRCA_TIER: Record<string, number> = {
   subclass: 1, class: 1, subphylum: 1, phylum: 1, superclass: 1, subterclass: 1,
 };
 
+/** The rank to SHOW under a clade's name: the corrected one in `sepRank` when there is one (a
+ *  sourced name's rank, or a homonym fix), else `rank`. Display only; Lineage's win targets
+ *  keep reading `rank` (see TaxonNode.sepRank). */
+export function displayRank(n: TaxonNode | undefined): string {
+  return n?.sepRank ?? n?.rank ?? "";
+}
+
 /** Separation tier of a node: its rank via MRCA_TIER, or — for the unranked junction
  *  nodes a flattened tree keeps — the nearest RANKED ancestor (a shallower node → an
  *  easier, conservative read; nothing is called hard just for lacking a rank label). */

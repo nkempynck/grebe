@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DisplayTreeNode, GuessResult, TaxonNode, Tree } from "../core";
-import { ancestryChain, inducedSubtree, isAncestor, speciesEcho } from "../core";
+import { ancestryChain, displayRank, inducedSubtree, isAncestor, speciesEcho } from "../core";
 import { WikiCard } from "./WikiCard";
 import { warmthColor } from "./temperature";
 import { pinchCamera, spreadOf, type Camera, type Spread } from "./cladoCamera";
@@ -386,7 +386,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
       }
       // Clades by rank: the principal ranks first, broadest first, then any other named rank
       // (superfamily, subclass, …), then plain clades.
-      const rank = tree.byId.get(p.id)?.rank ?? "";
+      const rank = displayRank(tree.byId.get(p.id));
       const major = MAJOR_RANKS.indexOf(rank);
       if (major >= 0) return 1e4 + major;
       if (rank && rank !== "clade" && rank !== "no rank") return 1e5;
@@ -901,7 +901,7 @@ export function Cladogram({ tree, scopeRootId, results, answerId, hintIds, revea
             // Species show common name over scientific name; clades show name over rank.
             const isSpecies = p.kind === "guess" || p.kind === "answer";
             const line1 = isSpecies ? t.common ?? t.sciName : t.sciName;
-            const line2 = isSpecies ? (t.common ? t.sciName : t.rank) : t.rank;
+            const line2 = isSpecies ? (t.common ? t.sciName : t.rank) : displayRank(t);
             return (
               <button
                 key={p.id}

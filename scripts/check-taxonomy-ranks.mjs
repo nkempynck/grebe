@@ -95,7 +95,10 @@ const byId = new Map(nodes.map((n) => [n.id, n]));
 const childrenOf = new Map();
 for (const n of nodes) if (n.parentId) (childrenOf.get(n.parentId) ?? childrenOf.set(n.parentId, []).get(n.parentId)).push(n.id);
 
-const injected = nodes.filter((n) => n.sepRank);
+// sepRank "clade" marks a node as deliberately UNRANKED for separation: its own `rank` came from
+// a homonym and there is no real rank to put in its place (Sauria, see patch-seprank-homonyms).
+// It has nothing to check against its neighbours.
+const injected = nodes.filter((n) => n.sepRank && n.sepRank !== "clade");
 console.log(`checking ${injected.length} injected ranks in ${nodes.length} nodes`);
 
 // ---- STRUCTURE ------------------------------------------------------------------------

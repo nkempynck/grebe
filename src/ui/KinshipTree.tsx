@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { DisplayTreeNode, GridBoard, Tree } from "../core";
-import { inducedSubtree } from "../core";
+import { inducedSubtree, displayRank } from "../core";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } from "./cladoLayout";
 
 interface Props {
@@ -95,7 +95,7 @@ export function KinshipTree({ tree, board, levelOf, onPick }: Props) {
                   <button key={n.id} type="button" className="clado-pt is-clade is-ancestor" style={{ left: n.x, top: n.y }} onClick={() => onPick(rootAnnoId)}>
                     <span className="pt-dot" />
                     <span className="pt-name">{nameOf(tree, rootAnnoId)}</span>
-                    <span className="pt-rank">{anc?.rank}</span>
+                    <span className="pt-rank">{displayRank(anc)}</span>
                   </button>
                 );
               }
@@ -109,7 +109,7 @@ export function KinshipTree({ tree, board, levelOf, onPick }: Props) {
               <button key={n.id} type="button" className="clado-pt is-clade" style={{ left: n.x, top: n.y }} onClick={() => onPick(n.id)}>
                 <span className="pt-dot" />
                 <span className="pt-name">{nameOf(tree, n.id)}</span>
-                <span className="pt-rank">{node.rank}</span>
+                <span className="pt-rank">{displayRank(node)}</span>
               </button>
             );
           })}

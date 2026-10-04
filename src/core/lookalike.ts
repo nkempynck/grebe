@@ -16,6 +16,10 @@ import { mrca, separationTierOf } from "./tree";
 // data per class (normalised daily scores after allowing for weekday and separation): at the
 // first check, 2026-10-04, fish and insects played harder than the ruler predicted and mammals
 // easier, in both Kinship and Branches. Revisit it as data accumulates.
+//
+// KNOWN GAP: perch-like fish. Their pairs meet at Percomorphaceae (unranked) and read their
+// closeness from Acanthomorphata, which the tree wrongly ranks as an order. The value is about
+// right by accident; see patch-seprank-homonyms.mjs before correcting either.
 export const LOOKALIKE: Record<string, { adj: number; why: string }> = {
   // Mammals
   Bovidae: { adj: -1, why: "cattle, sheep and goats, antelopes, gazelles: different builds" },
