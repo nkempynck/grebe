@@ -1175,6 +1175,15 @@ function buildBoard(
   const pick = (t: Theme, cap: number, exempt?: Set<string>) =>
     pickMembers(tree, themePool(tree, t.leaves), GRID_GROUP_SIZE, rng, cap, t.latinPool, latinAllowance, speciesAgeOf, exempt);
   const candidates = levelOrder(tree, container, orderedThemes(container.themes, rng, ageOf, speciesAgeOf), rng);
+  // No two tiles on one board may read the same. pickMembers already keeps names unique within a
+  // group, but a few species share an English name across genera ("Crab spider" is both Thomisus
+  // onustus and Misumena vatia, the alpaca sits in the tree twice), and two such tiles in
+  // different groups are indistinguishable by name.
+  const tileName = (id: string) => (tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id).trim().toLowerCase();
+  const sharesTileName = (ids: string[], others: GridGroup[]) => {
+    const taken = new Set(others.flatMap((o) => o.memberIds.map(tileName)));
+    return ids.some((id) => taken.has(tileName(id)));
+  };
   let next = 0;
   const fill = () => {
     for (; next < candidates.length && groups.length < GRID_GROUPS; next++) {
@@ -1194,6 +1203,7 @@ function buildBoard(
       // offering "Cebidae" twice is unsolvable by inspection.
       const lbl = label(tree, t.cladeId);
       if (groups.some((g) => g.label === lbl)) continue;
+      if (sharesTileName(memberIds, groups)) continue;
       // A container's themes may now overlap (see containers), so disjointness is enforced
       // here rather than guaranteed by the list: a group that CONTAINS another group on the
       // same board leaves the puzzle with no correct answer.
@@ -1222,7 +1232,10 @@ function buildBoard(
   for (let round = 0; ; round++) {
     fill();
     if (groups.length < GRID_GROUPS) return null;
-    const failed = enforceDistinctiveWords(tree, groups, wordCap, (g, exempt) => pick(themeOf.get(g)!, wordCap, exempt));
+    const failed = enforceDistinctiveWords(tree, groups, wordCap, (g, exempt) => {
+      const ids = pick(themeOf.get(g)!, wordCap, exempt);
+      return sharesTileName(ids, groups.filter((o) => o !== g)) ? [] : ids;
+    });
     if (!failed.size) break;
     if (round >= GRID_GROUPS * 2) return null;
     for (const g of failed) {

@@ -73,4 +73,19 @@ export const COMMON_NAME_OVERRIDES = {
   "Tradescantia pallida": "Purple heart",
   "Tradescantia zebrina": "Inch plant",
   "Callisia repens": "Turtle vine",
+
+  // 2026-10-04: base species named from the FIRST English name Wikidata returned, which can
+  // belong to another species. Each replacement is from the species' own Wikidata names
+  // (P1843), except Pterois miles, where Wikidata lists P. volitans's name.
+  "Pieris brassicae": "Large white", // was "Cabbage moth", which is Mamestra brassicae
+  "Silene latifolia": "White campion", // was "Bladder campion"; Silene vulgaris keeps it
+  "Portulaca oleracea": "Common purslane", // was "Pigweed"
+  "Dysphania ambrosioides": "Mexican tea", // was "Pigweed"
+  "Viola tricolor": "Wild pansy", // was "Pansy"; the garden hybrid keeps it
+  "Dictamnus albus": "Gas plant", // was "Burning bush"; Euonymus alatus keeps it
+  "Linum lewisii": "Lewis flax", // was "Blue flax"; Linum perenne keeps it
+  "Buxus sempervirens": "Common box", // was "Boxwood"
+  "Buxus microphylla": "Littleleaf box", // was "Boxwood"
+  "Tachypleus tridentatus": "Tri-spine horseshoe crab", // was "Horseshoe crab"; T. gigas keeps it
+  "Pterois miles": "Devil firefish", // was "Red lionfish", which is P. volitans (FishBase name)
 };

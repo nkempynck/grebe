@@ -234,7 +234,10 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   moths tighter. The rich tree grew (augment add-only: Wikidata English names, a pageview
   //   floor) and gained clade names from Open Tree, the Mammal Diversity Database and the
   //   Catalogue of Life. → re-pin un-played future dates.
-  version: 13,
+  // v14 (2026-10-04): no two tiles on one board may read the same. A few species share an
+  //   English name across genera, and eleven of those names were wrong outright (the large
+  //   white butterfly was "Cabbage moth"), now corrected. → re-pin un-played future dates.
+  version: 14,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -366,7 +369,9 @@ const branchesResolver: Resolver<"branches"> = {
   //   is drawn weighted by how many boards it can field, so thin classes (amphibians, molluscs)
   //   stop recycling their few boards. The shared rich tree grew and gained sourced clade names
   //   and English group names. → re-pin un-played future dates.
-  version: 16,
+  // v17 (2026-10-04): no Branches code change; eleven species took corrected English names,
+  //   which Branches' name checks read. → re-pin un-played future dates.
+  version: 17,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
