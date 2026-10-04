@@ -32,6 +32,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { latinBinomialTest } from "./latin-name.mjs";
 import { EXCLUDE_SCI } from "./exclude-taxa.mjs";
+import { cleanCommon } from "./clean-common.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const C = resolve(ROOT, "node_modules/.cache");
 
@@ -48,7 +49,23 @@ const MAX_THEME_LEAVES = 25;
 // Junk taxa to keep out — now shared with build-pool.mjs, which builds the BASE set and
 // used not to consult this list at all (see exclude-taxa.mjs for why that mattered).
 
-const tax = JSON.parse(readFileSync(resolve(ROOT, "src/data/taxonomy.json"), "utf8"));
+// --add-only keeps every node of the current augment exactly as it is and only ADDS species.
+// Pinned Kinship/Branches boards reference augment ids, so a full rebuild that moved or dropped
+// one would break a frozen board; adding is always safe. New species must clear
+// ADD_MIN_VIEWS so the additions are not obscure; the per-genus cap counts what is there.
+const ADD_ONLY = process.argv.includes("--add-only");
+const ADD_MIN_VIEWS = 1000;
+const AUG_PATH = resolve(ROOT, "src/data/taxonomyAugment.json");
+const existing = ADD_ONLY ? JSON.parse(readFileSync(AUG_PATH, "utf8")).nodes : [];
+const baseTax = JSON.parse(readFileSync(resolve(ROOT, "src/data/taxonomy.json"), "utf8"));
+// Everything already in the tree, base plus (in add-only mode) the current augment, is the
+// structure new species are placed against.
+const tax = { nodes: [...baseTax.nodes, ...existing] };
+// English names from Wikidata (P1843), for species whose article sits under a Latin title.
+// Optional: without the cache (scripts/pull-pool-names.mjs) only article titles name a species.
+const splitGenera = new Set(JSON.parse(readFileSync(resolve(ROOT, "src/data/junctionSplits.json"), "utf8")).splits.flatMap((x) => x.genera));
+const P1843_PATH = resolve(C, "sel-pool-p1843.json");
+const p1843 = existsSync(P1843_PATH) ? JSON.parse(readFileSync(P1843_PATH, "utf8")) : {};
 const pool = JSON.parse(readFileSync(resolve(C, "sel-pool.json"), "utf8"));
 const classify = JSON.parse(readFileSync(resolve(C, "sel-classify-otl.json"), "utf8")).byName;
 const familyAnchor = JSON.parse(readFileSync(resolve(C, "sel-family-anchors.json"), "utf8")).byFamily;
@@ -145,6 +162,38 @@ function newGenusParent(genusSci, family) {
   for (let c = anchor; c; c = nodeById.get(c)?.parentId) if (c === famId) return anchor;
   return famId;
 }
+// A genus name can also cross kingdoms, and then there may be only ONE node to match: Linaria
+// is the linnets and the toadflaxes, but the base tree has a genus node only for the birds, so
+// the one-candidate path above grafted three toadflaxes under "Linnets". Families can't catch
+// this (they differ between classifications too, Centropidae vs Cuculidae for the coucals);
+// the kingdom can. A species whose graft lands in the other kingdom goes to its own family.
+const KINGDOM_CLADE = { Metazoa: "Animalia", Chloroplastida: "Plantae" };
+function kingdomOf(id) {
+  for (let c = id; c; c = nodeById.get(c)?.parentId) {
+    const k = KINGDOM_CLADE[nodeById.get(c)?.sciName];
+    if (k) return k;
+  }
+  return null;
+}
+const sameKingdom = (id, kingdom) => !kingdom || !kingdomOf(id) || kingdomOf(id) === kingdom;
+/** Where a species goes when its genus name resolved into the other kingdom: its family (or
+ *  the genus anchor inside it), never a new genus node, since the name is taken. Null: skip. */
+const familyHome = (s) => {
+  const home = s.family && famNodeBySci.has(s.family) ? newGenusParent(s.genus, s.family) : null;
+  return home && sameKingdom(home, s.kingdom) ? home : null;
+};
+// Add-only keeps existing nodes, but one grafted into the wrong kingdom is moved (same id, so
+// a board that dealt it still resolves).
+const poolBySci = new Map(pool.map((s) => [s.sci, s]));
+let moved = 0;
+for (const n of existing) {
+  const s = n.rank === "species" && poolBySci.get(n.sciName);
+  if (!s || sameKingdom(n.parentId, s.kingdom)) continue;
+  const home = familyHome(s);
+  if (!home) { console.warn(`! ${n.sciName} sits in the wrong kingdom and its family is not in the tree`); continue; }
+  n.parentId = home;
+  moved++;
+}
 // Names already spoken for anywhere in the base tree — never mint a second node for one.
 const inSetCladeNames = new Set();
 for (const n of tax.nodes) if (n.rank !== "species" && n.sciName) inSetCladeNames.add(n.sciName);
@@ -162,11 +211,27 @@ for (const n of tax.nodes) {
 // with our own binomial was never enough: Wikipedia files plenty of species under a
 // SYNONYM, and that title is a different binomial that used to pass straight through.
 const isLatinName = latinBinomialTest(pool);
-const named = (s) =>
+const titleNamed = (s) =>
   s.article &&
   s.article.toLowerCase() !== s.sci.toLowerCase() &&
   !isLatinName(s.article) &&
   s.sci.split(/\s+/).length === 2;
+// A species' English name: its article title when that is a vernacular, else the first Wikidata
+// English common name that passes the same filter as base-tree names (build-names.mjs) and is
+// neither its own binomial, nor Latin, nor just its genus, nor a name another species already has.
+const takenNames = new Set(tax.nodes.filter((n) => n.rank === "species" && n.common).map((n) => n.common.toLowerCase()));
+const englishName = (s) => {
+  if (titleNamed(s)) return s.article;
+  if (s.sci.split(/\s+/).length !== 2) return null;
+  for (const raw of p1843[s.qid] ?? []) {
+    const c = cleanCommon(raw);
+    if (!c || isLatinName(c)) continue;
+    const lc = c.toLowerCase();
+    if (lc === s.sci.toLowerCase() || lc === s.genus?.toLowerCase() || takenNames.has(lc)) continue;
+    return c;
+  }
+  return null;
+};
 const augId = (s) => `aug${s.gbif ?? s.qid ?? s.sci.replace(/\s+/g, "_")}`;
 const genusNodeId = (genus) => `auggen_${genus.replace(/[^A-Za-z0-9]+/g, "_")}`;
 
@@ -180,26 +245,39 @@ const bucket = (genus, parentId, isNew) => {
   if (!b) genusBuckets.set(k, (b = { genus, isNew, parentId, species: [] }));
   return b;
 };
-let homonymSkipped = 0;
+let homonymSkipped = 0, crossKingdom = 0;
 for (const s of pool) {
   if (inSetSci.has(s.sci)) continue;
   if (EXCLUDE_SCI.has(s.sci)) continue; // cryptid / disputed non-species
-  if (!named(s)) continue;
+  if (ADD_ONLY && (s.v ?? 0) < ADD_MIN_VIEWS) continue;
+  // A junction split's label is only honest while every displayed species of its genera sits
+  // where Open Tree puts them, so a new species of one of those genera can falsify a shipped
+  // split (patch-junction-splits refuses the build). Leave those genera as they are.
+  if (ADD_ONLY && splitGenera.has(s.genus)) continue;
+  const common = englishName(s);
+  if (!common) continue;
   const gNode = genusNodeFor(s.genus, s.family);
   const baseParent = gNode ? null : baseParentFor(s.genus, s.family);
+  const target = gNode ?? baseParent;
+  if (target && !sameKingdom(target, s.kingdom)) {
+    const home = familyHome(s);
+    if (home) { bucket(s.genus, home, false).species.push({ ...s, common }); crossKingdom++; }
+    else homonymSkipped++;
+    continue;
+  }
   if (gNode) {
-    bucket(s.genus, gNode, false).species.push({ ...s, common: s.article });
+    bucket(s.genus, gNode, false).species.push({ ...s, common });
   } else if (genusNodesBySci.has(s.genus) || baseParentByGenus.has(s.genus)) {
     // The name exists in the base tree but resolves to more than one place and the family
     // did not separate them. Skipping is the whole point of the check.
-    if (baseParent) bucket(s.genus, baseParent, false).species.push({ ...s, common: s.article });
+    if (baseParent) bucket(s.genus, baseParent, false).species.push({ ...s, common });
     else homonymSkipped++;
   } else if (s.family && famNodeBySci.has(s.family)) {
-    bucket(s.genus, newGenusParent(s.genus, s.family), true).species.push({ ...s, common: s.article });
+    bucket(s.genus, newGenusParent(s.genus, s.family), true).species.push({ ...s, common });
   } else if (s.family && classify[s.family]?.ott) {
     let f = famBuckets.get(s.family);
     if (!f) famBuckets.set(s.family, (f = { ott: classify[s.family].ott, genera: new Map() }));
-    (f.genera.get(s.genus) ?? f.genera.set(s.genus, []).get(s.genus)).push({ ...s, common: s.article });
+    (f.genera.get(s.genus) ?? f.genera.set(s.genus, []).get(s.genus)).push({ ...s, common });
   }
 }
 
@@ -215,8 +293,8 @@ function takeSpecies(list, room, parentId) {
   for (const s of [...list].sort((a, b) => (b.v ?? 0) - (a.v ?? 0))) {
     if (out.length >= room) break;
     const id = augId(s);
-    if (usedId.has(id) || usedSci.has(s.sci)) continue;
-    usedId.add(id); usedSci.add(s.sci);
+    if (usedId.has(id) || usedSci.has(s.sci) || takenNames.has(s.common.toLowerCase())) continue;
+    usedId.add(id); usedSci.add(s.sci); takenNames.add(s.common.toLowerCase());
     out.push({ id, sciName: s.sci, common: s.common, rank: "species", parentId, views: s.v });
   }
   return out;
@@ -273,7 +351,11 @@ for (const [family, f] of famBuckets) {
 }
 
 nodes.sort((a, b) => (b.views ?? 0) - (a.views ?? 0) || (a.sciName < b.sciName ? -1 : 1));
-const OUT = resolve(ROOT, "src/data/taxonomyAugment.json");
+const added = nodes.length;
+// Add-only: the existing nodes first and untouched, the new ones after.
+if (ADD_ONLY) nodes.unshift(...existing);
+const OUT = AUG_PATH;
+if (process.argv.includes("--dry")) { console.log(`(dry run: ${added} nodes would be added)`); process.exit(0); }
 writeFileSync(OUT, JSON.stringify({ nodes }));
 const species = nodes.filter((n) => n.rank === "species").length;
 console.log(`✓ augment: ${species} species, ${breadthGenera + newFamGenera} new genera, ${newFamilies} new families`);
@@ -281,4 +363,6 @@ console.log(`  1. depth  (top-up in-set genera):            ${depthGenera} gener
 console.log(`  2. breadth (new genera / in-set families):   ${breadthGenera} genera`);
 console.log(`  3. breadth (new families via OTL topology):  ${newFamilies} families, ${newFamGenera} genera`);
 console.log(`  skipped, genus name ambiguous in the base tree: ${homonymSkipped} species`);
+console.log(`  genus name taken by the other kingdom, placed in its family: ${crossKingdom} species`);
+if (moved) console.log(`  existing species moved out of the wrong kingdom: ${moved}`);
 console.log(`  wrote ${OUT} (${(Buffer.byteLength(JSON.stringify({ nodes })) / 1024).toFixed(0)} KB)`);

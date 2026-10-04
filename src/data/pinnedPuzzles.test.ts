@@ -139,7 +139,11 @@ describe("avoidMapFrom", () => {
     // Clades are hidden from the LOOKUP, not from the draw: an answer is a species, so a group
     // id in this set could only ever block something that was never a candidate.
     expect(got.has(kin.groups[0].cladeId)).toBe(false);
-    expect(got.has(computePuzzle("lineage", tree, d)!.answerId)).toBe(false);
+    // A species on neither board is absent. (Not "today's Lineage answer": games may share
+    // species, so that one can legitimately be on a board.)
+    const onBoard = new Set([...kin.tiles, ...bra.leafIds, ...bra.tray]);
+    const offBoard = [...tree.byId.values()].find((n) => n.rank === "species" && !onBoard.has(n.id))!;
+    expect(got.has(offBoard.id)).toBe(false);
   });
 
   it("reports nothing for a day it has no rows for", () => {

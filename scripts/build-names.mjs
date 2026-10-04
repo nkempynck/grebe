@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { COMMON_NAME_OVERRIDES } from "./common-name-overrides.mjs";
 import { latinBinomialTest } from "./latin-name.mjs";
+import { cleanCommon } from "./clean-common.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const C = resolve(ROOT, "node_modules/.cache");
 const WDQS = "https://query.wikidata.org/sparql";
@@ -19,16 +20,6 @@ async function sparql(q, tries = 4) { for (let i = 0; i < tries; i++) { try { co
 
 const GENERIC_CLADE_NAMES = new Set(["life","organism","organisms","animal","animals","plant","plants","fungus","fungi","mould","moulds","mold","molds","microbe","microbes","bacteria","creature","creatures","insect","insects","species","wildlife","vertebrate","vertebrates","invertebrate","invertebrates"]);
 const FOREIGN_MARKERS = new Set(["de","la","el","del","los","las","da","do","dos","das","roja","rojo","negra","negro","verde","comun","gato","perro","cavalo","ular","kura","ikan","burung","pokok","ardilla","berleher"]);
-function cleanCommon(name) {
-  if (!name) return null; const n = name.trim();
-  if (n.length < 2 || n.length > 30) return null;
-  if (/[0-9(){}\[\]\/]/.test(n)) return null;
-  if (/[^\x00-\x7F]/.test(n)) return null;
-  if (n === n.toUpperCase() && n.length <= 5) return null;
-  if (n.split(/\s+/).length > 4) return null;
-  const norm = n === n.toUpperCase() ? n.toLowerCase() : n;
-  return norm.charAt(0).toUpperCase() + norm.slice(1);
-}
 function cleanCladeName(name) {
   let cc = cleanCommon((name ?? "").replace(/,?\s+and allies$/i, "").trim());
   if (!cc) return null;

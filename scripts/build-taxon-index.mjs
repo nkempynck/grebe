@@ -34,6 +34,8 @@ const tax = JSON.parse(readFileSync(resolve(ROOT, "src/data/taxonomy.json"), "ut
 const shipped = new Set(tax.nodes.map((n) => n.id)); // in-set node ids (graft targets)
 const shippedSci = new Set(tax.nodes.filter((n) => n.rank === "species").map((n) => n.sciName)); // in-set species are GBIF-keyed, so `shipped` (ott) doesn't catch them — exclude by name
 const bySci = new Map(pool.map((s) => [s.sci, s]));
+const augCommon = new Map(JSON.parse(readFileSync(resolve(ROOT, "src/data/taxonomyAugment.json"), "utf8")).nodes
+  .filter((n) => n.rank === "species" && n.common).map((n) => [n.sciName, n.common]));
 
 // build parent map + node info from the pool newick. Key nodes by a UNIQUE traversal
 // id (an ott id can appear on more than one tree node — keying by it corrupts the
@@ -101,8 +103,11 @@ for (const s of pool) {
   if (shipped.has(id) || shippedSci.has(s.sci)) continue; // already in the in-set
   const leaf = leafByOtt.get(id); if (leaf == null) continue;
   const lineage = graftLineage(leaf); if (!lineage) { orphan++; continue; }
-  const common = s.article && s.article.toLowerCase() !== s.sci.toLowerCase() ? s.article : null;
-  const keys = [...new Set([normalizeName(common), normalizeName(s.sci)].filter(Boolean))];
+  const title = s.article && s.article.toLowerCase() !== s.sci.toLowerCase() ? s.article : null;
+  // The name Kinship shows wins, so a species is found by what players saw it called. For a
+  // species filed under a Latin title that name came from Wikidata (build-augment.mjs).
+  const common = augCommon.get(s.sci) ?? title;
+  const keys = [...new Set([normalizeName(common), normalizeName(title), normalizeName(s.sci)].filter(Boolean))];
   entries.push({ keys, graft: { id, sciName: s.sci, common, rank: "species", views: s.v, lineage } });
 }
 // named-clade entries (guessable groups not already shipped). Skip any ott already

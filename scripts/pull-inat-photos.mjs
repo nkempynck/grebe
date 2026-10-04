@@ -27,6 +27,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { looksIllustrated } from "./photo-quality.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CACHE_DIR = resolve(ROOT, "node_modules/.cache");
@@ -212,6 +213,44 @@ for (const part of chunk(wanted, 30)) {
 }
 process.stderr.write("\n");
 
+// ---- phase 2b: field photographs where the curated set has none, or only a plate ----
+//
+// A taxon's curated photos are chosen by iNaturalist editors and, for rare species, are often
+// a 19th-century plate (the Nabarlek's is John Gould's). A research-grade OBSERVATION photo is
+// always a photograph of the animal. Asking for one per taxon costs a request each, so only
+// the taxa that need it are asked: no usable curated photo, or a first photo that looks like
+// an illustration (public domain, or credited with a year before 1950).
+
+cache.obs ??= {};
+const needObs = [...new Set(inatIdBySpecies.values())]
+  .filter((t) => cache.obs[t] === undefined)
+  .filter((t) => { const l = cache.taxa[t] ?? []; return !l.length || looksIllustrated(l[0]); });
+console.error(`field photos: ${needObs.length} taxa to ask (${Object.keys(cache.obs).length} cached)`);
+const LICENCES = "cc-by,cc-by-nc,cc-by-sa,cc-by-nc-sa,cc0";
+let asked = 0;
+for (const t of needObs) {
+  await sleep(1100);
+  const j = await jget(`${INAT}/observations?taxon_id=${t}&quality_grade=research&photos=true&photo_license=${LICENCES}&order_by=votes&per_page=5`);
+  const out = [];
+  for (const o of j?.results ?? []) {
+    out.push(...keepPhotos({ taxon_photos: (o.photos ?? []).map((photo) => ({ photo })) }).filter((x) => !out.some((y) => y.p === x.p)));
+    if (out.length >= KEEP) break;
+  }
+  cache.obs[t] = out.slice(0, KEEP);
+  if (++asked % 25 === 0) { process.stderr.write(`  ${asked}/${needObs.length}\r`); flush(); }
+}
+flush();
+process.stderr.write("\n");
+/** Photos for a taxon, best first: field photos ahead of any curated plate. */
+const photosFor = (t) => {
+  const curated = cache.taxa[t] ?? [];
+  const field = cache.obs[t] ?? [];
+  const real = curated.filter((p) => !looksIllustrated(p));
+  const plates = curated.filter((p) => looksIllustrated(p));
+  const seen = new Set();
+  return [...real, ...field, ...plates].filter((p) => !seen.has(p.p) && seen.add(p.p)).slice(0, KEEP);
+};
+
 // ---- phase 3: write the maps ----
 //
 // SPLIT BY HOW THEY ARE USED, not by species. A board reads ONE photo per species and the
@@ -224,7 +263,7 @@ const alts = {};     // species id -> the rest, same order
 let withPhoto = 0, altCount = 0, licences = {};
 for (const s of species) {
   const t = inatIdBySpecies.get(s.id);
-  const list = t ? cache.taxa[t] ?? [] : [];
+  const list = t ? photosFor(t) : [];
   if (!list.length) continue;
   photos[s.id] = list[0];
   if (list.length > 1) { alts[s.id] = list.slice(1); altCount += list.length - 1; }

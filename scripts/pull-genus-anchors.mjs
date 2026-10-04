@@ -52,9 +52,13 @@ const named = (s) =>
   !isLatinName(s.article) &&
   s.sci.split(/\s+/).length === 2;
 
+// Species build-augment can name from Wikidata (pull-pool-names.mjs) count too, or genera it
+// mints from those names would graft at family level and fall outside their real subfamily.
+const p1843Path = resolve(C, "sel-pool-p1843.json");
+const p1843 = existsSync(p1843Path) ? JSON.parse(readFileSync(p1843Path, "utf8")) : {};
 const cand = new Map(); // "genus|family" -> { genus, family, famOtt }
 for (const s of pool) {
-  if (!named(s) || !s.genus || !s.family) continue;
+  if (!(named(s) || (p1843[s.qid] ?? []).length) || !s.genus || !s.family) continue;
   if (genusInsetSci.has(s.genus) || insetSpeciesGenus.has(s.genus)) continue; // depth graft, not a new genus
   const famOtt = famOttBySci.get(s.family);
   if (!famOtt) continue; // no in-set family node → phase 3 (a whole new family), not our job
