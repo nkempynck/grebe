@@ -19,8 +19,7 @@ import { createClient } from "@supabase/supabase-js";
 import taxonomy from "../src/data/taxonomy.json";
 import augment from "../src/data/taxonomyAugment.json";
 import { buildTree, DAILY_EPOCH, type TaxonNode, type Tree } from "../src/core";
-import { mrca, separationTierOf } from "../src/core/tree";
-import { kinshipBand } from "../src/core/grid";
+import { kinshipBand, kinshipPairSeparation } from "../src/core/grid";
 import { CLADE_COMMON } from "../src/data/cladeNames";
 import { SPECIES_COMMON } from "../src/data/speciesCommon";
 import { avoidMapFrom, decodePuzzle, puzzleVersion } from "../src/data/pinnedPuzzles";
@@ -266,7 +265,7 @@ for (const game of ["kinship", "branches"] as const) {
       const pairs: number[] = [];
       for (let x = 0; x < d.groups.length; x++)
         for (let y = x + 1; y < d.groups.length; y++)
-          pairs.push(separationTierOf(tree, mrca(tree, d.groups[x], d.groups[y])));
+          pairs.push(kinshipPairSeparation(tree, d.groups[x], d.groups[y]));
       pairs.sort((a, b) => a - b);
       const classes = new Set(d.groups.map(broadOf));
       const [lo, hi] = kinshipBand(weekdayTier(d.date), classes.size === 1 ? [...classes][0] : undefined);

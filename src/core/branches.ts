@@ -26,7 +26,8 @@
 // Pure: imports only the tree engine — no React, no DOM, no data layer.
 
 import type { Tree } from "./types";
-import { leavesUnder, mrca, medianSeparationTier } from "./tree";
+import { leavesUnder, mrca } from "./tree";
+import { medianLookalikeSeparation } from "./lookalike";
 import { DAILY_EPOCH } from "./daily";
 
 /** A frozen Branches board, stored by IDENTITY (ids only). Display labels and the
@@ -273,17 +274,24 @@ function containers(tree: Tree, groups: Map<string, Group>, maxLeaves: number): 
     // Separation over a bounded, deterministic sample of the groups (median-pairwise is
     // O(g²); a big container's tier is well-estimated by a stable slice of its groups).
     const sample = [...list].sort((a, b) => a.cladeId.localeCompare(b.cladeId)).slice(0, 12);
-    out.push({ id, group, grain: maxLeaves, sepTier: medianSeparationTier(tree, sample.map((g) => g.cladeId)), groups: list });
+    out.push({ id, group, grain: maxLeaves, sepTier: medianLookalikeSeparation(tree, sample.map((g) => g.cladeId)), groups: list });
   }
   return { list: out, shallow: top };
 }
+
+/** A species that can be a tray tile: an English name (never a bare binomial) and a real
+ *  photograph, since the tray shows its picture (TaxonNode.photo, as Kinship's tiles). */
+const tileable = (tree: Tree, id: string) => {
+  const n = tree.byId.get(id);
+  return Boolean(n?.common && n.photo);
+};
 
 /** A container's groups that can actually host a slot: they hold at least one common-named
  *  species (a slot species is never a bare binomial), and no two carry the same LABEL. */
 function eligibleGroups(tree: Tree, container: Container): Group[] {
   const byLabel = new Map<string, Group>();
   for (const g of container.groups) {
-    if (!g.leaves.some((id) => tree.byId.get(id)?.common)) continue;
+    if (!g.leaves.some((id) => tileable(tree, id))) continue;
     const n = tree.byId.get(g.cladeId);
     const label = n?.common ?? n?.sciName ?? g.cladeId;
     const held = byLabel.get(label);
@@ -502,7 +510,7 @@ function pickGroupSlots(
   // guard anyway).
   const cand = new Map<Group, string[]>();
   for (const g of groups) {
-    const named = g.leaves.filter((id) => tree.byId.get(id)?.common);
+    const named = g.leaves.filter((id) => tileable(tree, id));
     if (named.length) cand.set(g, byViews(tree, named, rng));
   }
   groups = groups.filter((g) => cand.has(g));
@@ -640,7 +648,10 @@ function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, a
       if (wordOwner.get(w) === cladeId && labelled.has(singular(w))) continue; // already on the label
       return true;
     }
-    return false;
+    // A prefill whose English name tells is shown by its Latin one (safeName), and a Latin
+    // name can carry the same word: "Stercorarius skua" over a South polar skua in the tray.
+    const sci = (tree.byId.get(id)?.sciName ?? "").toLowerCase().split(/[^a-z]+/);
+    return sci.some((w) => distinctive(w));
   };
 
   // Pre-filled leaves (never draggable). TWO SEPARATE BUDGETS, because the two kinds of
@@ -798,7 +809,7 @@ const answerGroupIds = (b: BranchesBoard) => b.groupIds.slice(0, b.slotIds.lengt
  *  board off Monday). */
 function inSepBand(tree: Tree, b: BranchesBoard): boolean {
   const [lo, hi] = SEP_BAND[b.tier] ?? SEP_BAND[1];
-  const sep = medianSeparationTier(tree, answerGroupIds(b));
+  const sep = medianLookalikeSeparation(tree, answerGroupIds(b));
   return sep >= lo && sep <= hi;
 }
 

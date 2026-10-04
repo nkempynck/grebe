@@ -227,9 +227,13 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   named steps below the container, within LEVEL_SLACK), and every named group, Latin or
   //   English, is offered as itself, so genera no longer get stranded under a newly named
   //   clade. A board may not share three groups with one from the last 30 days. Plants come
-  //   only on easy days and inside the band. Every tile has a real photograph. The rich tree
-  //   grew (augment add-only: Wikidata English names, a pageview floor) and gained Open Tree
-  //   clade names. → re-pin un-played future dates.
+  //   only on easy days and inside the band. Every tile has a real photograph. A shared name
+  //   word only counts against a group when no other group on the board shows it, so look-alike
+  //   groups ("… whale", "… warbler") can appear. Difficulty reads each pair through the
+  //   look-alike table (src/core/lookalike.ts): Bovidae counts looser, snakes, fish, frogs and
+  //   moths tighter. The rich tree grew (augment add-only: Wikidata English names, a pageview
+  //   floor) and gained clade names from Open Tree, the Mammal Diversity Database and the
+  //   Catalogue of Life. → re-pin un-played future dates.
   version: 13,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
@@ -356,8 +360,10 @@ const branchesResolver: Resolver<"branches"> = {
   // v15 (2026-10-03): Kinship's made-up labels ("Phodopus & Mesocricetus", TaxonNode.synthetic)
   //   are no longer names here, so they stop being answer or context clades and real genera
   //   come back in their place. → re-pin un-played future dates.
-  // v16 (2026-10-04): no Branches code change. The rich tree it shares with Kinship grew (new
-  //   augment species, Open Tree clade names), so boards move. → re-pin un-played future dates.
+  // v16 (2026-10-04): tray tiles need a real photograph, difficulty reads pairs through the
+  //   look-alike table Kinship uses, and a prefill is barred when its Latin name carries a word
+  //   distinctive to one answer (it is shown when the English name would tell). The shared rich
+  //   tree grew and gained sourced clade names. → re-pin un-played future dates.
   version: 16,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);

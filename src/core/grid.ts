@@ -12,7 +12,8 @@
 // Pure: imports only the tree engine — no React, no DOM, no data layer.
 
 import type { Tree } from "./types";
-import { branchDistance, leavesUnder, mrca, separationTierOf } from "./tree";
+import { branchDistance, leavesUnder, mrca } from "./tree";
+import { lookalikeSeparation } from "./lookalike";
 
 export const GRID_GROUPS = 4;
 export const GRID_GROUP_SIZE = 4;
@@ -124,7 +125,8 @@ function nameWords(tree: Tree, id: string): string[] {
 
 /** Pick `n` distinct members, biased to the theme's most RECOGNISABLE species while
  *  STRICTLY respecting the word cap. `wordCap` limits how many members may share a
- *  distinctive word (e.g. "bear", "junglefowl"): 3 early-week, 2 from Thursday.
+ *  word (e.g. "bear", "junglefowl"): 2 early-week, 3 from Thursday. Words in `exempt` are
+ *  ones another group on the board also shows, so sharing them gives nothing away.
  *
  *  Selection is WEIGHTED-RANDOM by pageviews rather than a fixed top-N: each species gets
  *  a key u^(1/views) (Efraimidis–Spirakis), and we walk the pool in descending key order.
@@ -146,7 +148,8 @@ function pickMembers(
   wordCap: number,
   latinPool: string[] = [],
   latinAllowance = 0,
-  ageOf?: (speciesId: string) => number
+  ageOf?: (speciesId: string) => number,
+  exempt?: Set<string>
 ): string[] {
   const views = (id: string) => tree.byId.get(id)?.views ?? 0;
   // Species shown recently sort last, so a group that comes back brings different tiles.
@@ -170,7 +173,7 @@ function pickMembers(
     const common = tree.byId.get(id)?.common?.trim().toLowerCase();
     if (common && usedNames.has(common)) continue; // no two tiles with the identical label
     const words = nameWords(tree, id);
-    if (words.some((w) => (wordCount.get(w) ?? 0) >= wordCap)) continue;
+    if (words.some((w) => !exempt?.has(w) && (wordCount.get(w) ?? 0) >= wordCap)) continue;
     chosen.push(id);
     if (common) usedNames.add(common);
     for (const w of words) wordCount.set(w, (wordCount.get(w) ?? 0) + 1);
@@ -182,7 +185,7 @@ function pickMembers(
   for (const id of latinPool) {
     if (chosen.length >= n || latinUsed >= latinAllowance) break;
     const words = nameWords(tree, id);
-    if (words.some((w) => (wordCount.get(w) ?? 0) >= wordCap)) continue;
+    if (words.some((w) => !exempt?.has(w) && (wordCount.get(w) ?? 0) >= wordCap)) continue;
     chosen.push(id);
     latinUsed++;
     for (const w of words) wordCount.set(w, (wordCount.get(w) ?? 0) + 1);
@@ -263,11 +266,13 @@ function pairSeparation(tree: Tree, a: string, b: string): number {
   const k = sepKey(a, b);
   let v = memo.get(k);
   if (v === undefined) {
-    v = separationTierOf(tree, mrca(tree, a, b));
+    v = lookalikeSeparation(tree, a, b);
     memo.set(k, v);
   }
   return v;
 }
+export { pairSeparation as kinshipPairSeparation };
+
 
 /** Every clade that could serve as one group: an internal node with a coherent
  *  number of NAMED member species (Latin-only leaves are unusable as tiles, so a
@@ -1093,6 +1098,43 @@ function nestsWithAny(tree: Tree, cladeId: string, memberIds: string[], groups: 
  *  themes in preference order and takes the first four that each fill four members
  *  WITHOUT exceeding the word cap; a theme that can't (a whole genus sharing one word) is
  *  skipped. If fewer than four survive, the container is unusable today → null. */
+/** The groups on a finished board whose tiles share a word, more than `cap` times, that no
+ *  other group on the board shows. Each offender is re-drawn once per pass with that cap on
+ *  its distinctive words only (`repick`, given the words the other groups show); what still
+ *  cannot be filled, or still breaks the cap once the passes run out, is returned. */
+function enforceDistinctiveWords<G extends GridGroup>(
+  tree: Tree,
+  groups: G[],
+  cap: number,
+  repick: (g: G, exempt: Set<string>) => string[]
+): Set<G> {
+  const failed = new Set<G>();
+  const othersOf = (g: G) => {
+    const out = new Set<string>();
+    for (const o of groups) if (o !== g && !failed.has(o)) for (const m of o.memberIds) for (const w of nameWords(tree, m)) out.add(w);
+    return out;
+  };
+  const breaks = (g: G, others: Set<string>) => {
+    const counts = new Map<string, number>();
+    for (const m of g.memberIds) for (const w of new Set(nameWords(tree, m))) counts.set(w, (counts.get(w) ?? 0) + 1);
+    return [...counts].some(([w, c]) => c > cap && !others.has(w));
+  };
+  for (let pass = 0; pass < 3; pass++) {
+    let changed = false;
+    for (const g of groups) {
+      if (failed.has(g)) continue;
+      const others = othersOf(g);
+      if (!breaks(g, others)) continue;
+      const ids = repick(g, others);
+      if (ids.length < GRID_GROUP_SIZE) failed.add(g);
+      else { g.memberIds = ids; changed = true; }
+    }
+    if (!changed) return failed;
+  }
+  for (const g of groups) if (!failed.has(g) && breaks(g, othersOf(g))) failed.add(g);
+  return failed;
+}
+
 function buildBoard(
   tree: Tree,
   container: Container,
@@ -1117,7 +1159,7 @@ function buildBoard(
         return seen === undefined ? Infinity : hist.idx - seen;
       }
     : undefined;
-  // Shared-word cap: at most 2 members share a distinctive word on the easy early-week
+  // Shared-word cap: at most 2 members share a word distinctive to their group on the easy early-week
   // days (their species are famous and recognisable, so a shared name would only hand the
   // group away), loosening to 3 on the harder days (tier ≥ 4) where the species are
   // obscurer and a little name overlap is fair help — and on the picture-only weekend the
@@ -1127,43 +1169,69 @@ function buildBoard(
   // binomial is a dud you cannot reason about. Everywhere else a picture is showing.
   const latinAllowance = tier <= 3 || tier >= 6 ? 1 : 0;
   const groups: GridGroup[] = [];
+  const themeOf = new Map<GridGroup, Theme>();
   let subFloor = 0; // groups taken from the relaxed fame band — at most MAX_SUB_FLOOR_GROUPS
   const accepted: number[] = []; // recognisability of each group already on the board
-  for (const t of levelOrder(tree, container, orderedThemes(container.themes, rng, ageOf, speciesAgeOf), rng)) {
-    if (groups.length >= GRID_GROUPS) break;
-    const relaxed = t.recognisability < MIN_BOARD_FAME;
-    if (relaxed && subFloor >= MAX_SUB_FLOOR_GROUPS) continue;
-    // An odd group only works if its companions are ones a player can actually name — that
-    // is what makes the leftovers identifiable. Tested against the groups accepted SO FAR,
-    // which is sound because orderedThemes puts every above-floor theme first.
-    if (relaxed && accepted.some((f) => f < RELAXED_COMPANION_MIN)) continue;
-    const memberIds = pickMembers(tree, themePool(tree, t.leaves), GRID_GROUP_SIZE, rng, wordCap, t.latinPool, latinAllowance, speciesAgeOf);
-    if (memberIds.length < GRID_GROUP_SIZE) continue; // theme would self-label — skip it
-    // Two groups may not carry the SAME label. The tree still holds ~49 duplicate scientific
-    // names as base-vs-augment pairs (the base "Colobus" and the augment's auggen_Colobus),
-    // which no taxonomy rebuild fixes because the augment is not rebuilt, and a board
-    // offering "Cebidae" twice is unsolvable by inspection.
-    const lbl = label(tree, t.cladeId);
-    if (groups.some((g) => g.label === lbl)) continue;
-    // A container's themes may now overlap (see containers), so disjointness is enforced
-    // here rather than guaranteed by the list: a group that CONTAINS another group on the
-    // same board leaves the puzzle with no correct answer.
-    if (groups.some((g) => overlaps(eb, t.cladeId, g.cladeId))) continue;
-    if (nestsWithAny(tree, t.cladeId, memberIds, groups)) continue; // reads as a group inside a group
-    // Count the allowance only once the theme is actually ACCEPTED: pickMembers can still
-    // reject it on the word cap, and spending the allowance on a theme that never made the
-    // board would leave the board a slot short for no reason.
-    if (relaxed) subFloor++;
-    accepted.push(t.recognisability);
-    groups.push({
-      cladeId: t.cladeId,
-      label: lbl,
-      sciLabel: tree.byId.get(t.cladeId)?.sciName ?? "",
-      memberIds,
-      level: 0, // assigned below
-    });
+  const pick = (t: Theme, cap: number, exempt?: Set<string>) =>
+    pickMembers(tree, themePool(tree, t.leaves), GRID_GROUP_SIZE, rng, cap, t.latinPool, latinAllowance, speciesAgeOf, exempt);
+  const candidates = levelOrder(tree, container, orderedThemes(container.themes, rng, ageOf, speciesAgeOf), rng);
+  let next = 0;
+  const fill = () => {
+    for (; next < candidates.length && groups.length < GRID_GROUPS; next++) {
+      const t = candidates[next];
+      const relaxed = t.recognisability < MIN_BOARD_FAME;
+      if (relaxed && subFloor >= MAX_SUB_FLOOR_GROUPS) continue;
+      // An odd group only works if its companions are ones a player can actually name — that
+      // is what makes the leftovers identifiable. Tested against the groups accepted SO FAR,
+      // which is sound because orderedThemes puts every above-floor theme first.
+      if (relaxed && accepted.some((f) => f < RELAXED_COMPANION_MIN)) continue;
+      // No word cap yet: which shared words give a group away depends on the whole board.
+      const memberIds = pick(t, Infinity);
+      if (memberIds.length < GRID_GROUP_SIZE) continue; // not four distinct names
+      // Two groups may not carry the SAME label. The tree still holds ~49 duplicate scientific
+      // names as base-vs-augment pairs (the base "Colobus" and the augment's auggen_Colobus),
+      // which no taxonomy rebuild fixes because the augment is not rebuilt, and a board
+      // offering "Cebidae" twice is unsolvable by inspection.
+      const lbl = label(tree, t.cladeId);
+      if (groups.some((g) => g.label === lbl)) continue;
+      // A container's themes may now overlap (see containers), so disjointness is enforced
+      // here rather than guaranteed by the list: a group that CONTAINS another group on the
+      // same board leaves the puzzle with no correct answer.
+      if (groups.some((g) => overlaps(eb, t.cladeId, g.cladeId))) continue;
+      if (nestsWithAny(tree, t.cladeId, memberIds, groups)) continue; // reads as a group inside a group
+      if (relaxed) subFloor++;
+      accepted.push(t.recognisability);
+      const g: GridGroup = {
+        cladeId: t.cladeId,
+        label: lbl,
+        sciLabel: tree.byId.get(t.cladeId)?.sciName ?? "",
+        memberIds,
+        level: 0, // assigned below
+      };
+      groups.push(g);
+      themeOf.set(g, t);
+    }
+  };
+  // A shared name word only gives a group away when it is DISTINCTIVE to that group on this
+  // board: "whale" across baleen and beaked whales tells you nothing, "beaked" on three tiles
+  // of one group does. Which words are distinctive depends on the other three groups, so the
+  // board is filled first, then checked; an offender is re-drawn with the cap on its
+  // distinctive words only, or swapped for the next candidate. Capping every shared word
+  // made whole clades unplayable: every cetacean group is "… whale", "… dolphin" or
+  // "… porpoise", so no cetacean board was ever possible.
+  for (let round = 0; ; round++) {
+    fill();
+    if (groups.length < GRID_GROUPS) return null;
+    const failed = enforceDistinctiveWords(tree, groups, wordCap, (g, exempt) => pick(themeOf.get(g)!, wordCap, exempt));
+    if (!failed.size) break;
+    if (round >= GRID_GROUPS * 2) return null;
+    for (const g of failed) {
+      const t = themeOf.get(g)!;
+      if (t.recognisability < MIN_BOARD_FAME) subFloor--;
+      accepted.splice(accepted.indexOf(t.recognisability), 1);
+      groups.splice(groups.indexOf(g), 1);
+    }
   }
-  if (groups.length < GRID_GROUPS) return null;
 
   // Within-puzzle difficulty (the yellow→purple colour rank): a group is harder
   // the closer it sits to its nearest neighbour group on the board — those are
