@@ -251,6 +251,24 @@ for (const { g, family, kids } of misplaced) {
   g.parentId = home;
   reordered++;
 }
+// FAMILY BAGS. Phase 3 below adds a family the base tree has no NAMED node for under its nearest
+// named ancestor. Where the base tree already held that family's other members in an unnamed
+// clade, the family appeared twice: a flat bag of new genera beside the real clade (parrots
+// in a "Psittacidae" bag beside Psittacoidea, so a lovebird and an amazon read as one family and
+// an amazon and a macaw as merely one order). scripts/pull-augment-anchors.mjs resolves, from
+// Open Tree's synthetic tree, where each bagged genus belongs and where a genuinely new family
+// fits more precisely; applied here by id. The emptied bags stay as empty nodes, so boards that
+// were served with one as a group keep their label; with no species under them no game uses them.
+const ANCHORS_PATH = resolve(ROOT, "scripts/augment-anchors.json");
+const anchors = existsSync(ANCHORS_PATH) ? JSON.parse(readFileSync(ANCHORS_PATH, "utf8")) : { byGenus: {}, byFamily: {} };
+let unbagged = 0, refamilied = 0;
+for (const n of existing) {
+  // byGenus also holds the odd species sitting directly in a bag, keyed by its own id.
+  const to = n.rank === "family" ? anchors.byFamily?.[n.id] : anchors.byGenus[n.id];
+  if (!to || to === n.parentId || !nodeById.has(to)) continue;
+  n.parentId = to;
+  if (n.rank === "family") refamilied++; else unbagged++;
+}
 // Names already spoken for anywhere in the base tree — never mint a second node for one.
 const inSetCladeNames = new Set();
 for (const n of tax.nodes) if (n.rank !== "species" && n.sciName) inSetCladeNames.add(n.sciName);
@@ -382,7 +400,14 @@ for (const b of genusBuckets.values()) {
 
 // 3) BREADTH-family: new families under their nearest in-set ancestor (resolved offline
 //    by pull-family-anchors.mjs — the induced-subtree topology doesn't contain them).
+// A family whose Open Tree taxon already holds base species is in the tree, merely unnamed: adding
+// it here would make a bag beside it (see FAMILY BAGS above). Skip it; a wrong graft is worse
+// than a missing species.
+const baseOttTaxa = new Set();
+for (const n of baseTax.nodes) if (n.rank === "species") for (const t of ottLine(n.sciName)) baseOttTaxa.add(String(t));
+let bagSkipped = 0;
 for (const [family, f] of famBuckets) {
+  if (baseOttTaxa.has(String(f.ott))) { bagSkipped++; continue; }
   const anchor = familyAnchor[family];
   if (!anchor || !insetOtt.has(anchor)) continue; // unplaceable → skip (no class wiring guessed)
   const famId = `ott${f.ott}`;
@@ -427,4 +452,6 @@ console.log(`  skipped, genus name ambiguous in the base tree: ${homonymSkipped}
 console.log(`  genus name taken by the other kingdom, placed in its family: ${crossKingdom} species`);
 if (moved) console.log(`  existing species moved out of the wrong kingdom: ${moved}`);
 if (reordered) console.log(`  existing genera moved out of the wrong order: ${reordered}`);
+if (bagSkipped) console.log(`  new families skipped, already in the tree unnamed: ${bagSkipped}`);
+if (unbagged || refamilied) console.log(`  moved by Open Tree's synthetic tree: ${unbagged} genera (and lone species) out of family bags, ${refamilied} families deeper`);
 console.log(`  wrote ${OUT} (${(Buffer.byteLength(JSON.stringify({ nodes })) / 1024).toFixed(0)} KB)`);

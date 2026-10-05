@@ -247,7 +247,15 @@ const kinshipResolver: Resolver<"kinship"> = {
   // v17 (2026-10-05): a board may not share three groups with one from the last 60 days
   //   (was 30), so the same three groups no longer return after six weeks. → re-pin un-played
   //   future dates.
-  version: 17,
+  // v18 (2026-10-05): a step easier every day (Mon 2-3, Tue 2.5-3.5, Wed-Fri 3-4.5, Sat 4-6, Sun 4.5-6);
+  //   a fourth group may come from anywhere in the class, so easy days can carry an outgroup;
+  //   mammals shift +0.5 only from Wednesday; no class two weeks running on one weekday; a
+  //   species stays away 75 days, not 45; turtles, songbirds, gamebirds, beetles, orthopterans
+  //   and mantises count as look-alikes; Mon-Tue allow one confusable pair, not of a look-alike
+  //   family's genera, and no trio; on name days no name word runs through three groups; spider
+  //   and amphibian boards sit a step further apart, insect boards half a step. Family bags in
+  //   the rich tree resolved. → re-pin un-played future dates.
+  version: 18,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -388,7 +396,9 @@ const branchesResolver: Resolver<"branches"> = {
   //   day's class; the next class is tried first (no more easy boards on hard days). A board
   //   sharing most of its answer groups with one from the last 60 days counts as a repeat, and
   //   a group stays away for 30 days instead of 14. → re-pin un-played future dates.
-  version: 19,
+  // v20 (2026-10-05): a returning group shows species not seen in the last 75 days; family bags in
+  //   the rich tree resolved. → re-pin un-played future dates.
+  version: 20,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;

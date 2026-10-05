@@ -7,6 +7,7 @@ import { useBranchesGame, type BranchesComplete } from "../hooks/useBranchesGame
 import { BRANCHES_MAX_HINTS, branchesPoints, tierWeight } from "../data/score";
 import { fetchImageAlternates, fetchWikiImage, type WikiImage } from "../data/wikipedia";
 import { treeLayout, radialLayout, CLADO_TREE, CLADO_RADIAL, type GraphLayout } from "./cladoLayout";
+import { placeCladeLabels, nudgeLeafBoxes, resetCladeLabels } from "./cladoLabels";
 import { WikiCard } from "./WikiCard";
 import { PhotoCredit, usePhotoCredit, usePhotoPager } from "./PhotoZoom";
 import { Leaderboard } from "./Leaderboard";
@@ -236,75 +237,10 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !layout) return;
-    for (const el of tileEls.current.values()) el.style.transform = ""; // clear prior nudges (also on leaving radial)
-    const labels = [...canvas.querySelectorAll<HTMLElement>(".clado-pt.is-clade")];
-    for (const el of labels) { el.style.removeProperty("--ly"); el.removeAttribute("data-side"); }
+    resetCladeLabels(canvas, tileEls.current.values()); // clear prior nudges (also on leaving radial)
     if (!radial) return; // tree mode stacks cleanly; nothing to nudge
-    const c = canvas.getBoundingClientRect();
-    const GAP = 5; // min clear space between boxes
-    const rect = (el: Element) => {
-      const r = el.getBoundingClientRect();
-      return { x: r.left - c.left - GAP, y: r.top - c.top - GAP, w: r.width + 2 * GAP, h: r.height + 2 * GAP };
-    };
-    type R = { x: number; y: number; w: number; h: number };
-    const hit = (a: R, b: R) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-
-    // LABELS FIRST. Neighbouring clades on the same ring put their names on top of each other
-    // ("Cephalophus" over "Tragelaphus" at the foot of the fan). Each label, in reading order,
-    // takes the nearest free spot: its own side, a small shift, the other side of the dot, then
-    // larger shifts on either side. The text moves, never the dot, so it stays on its branch
-    // (the same pass Lineage's natural view runs). Trying every shift on one side before the
-    // other side sent a label 40px down when the other side of its dot was free.
-    const textRect = (el: HTMLElement): R => {
-      const parts = [...el.querySelectorAll(".pt-name, .pt-rank")].map((p) => p.getBoundingClientRect());
-      const l = Math.min(...parts.map((p) => p.left)), t = Math.min(...parts.map((p) => p.top));
-      const r = Math.max(...parts.map((p) => p.right)), b = Math.max(...parts.map((p) => p.bottom));
-      return { x: l - c.left - GAP, y: t - c.top - GAP, w: r - l + 2 * GAP, h: b - t + 2 * GAP };
-    };
-    const dots = [...canvas.querySelectorAll(".clado-pt .pt-dot")].map((d) => ({ d, r: rect(d) }));
-    const placed: R[] = [];
-    // Nearest first: [other side?, vertical shift].
-    const SPOTS: Array<[boolean, number]> = [
-      [false, 0], [false, -14], [false, 14], [true, 0], [true, -14], [true, 14],
-      [false, -28], [false, 28], [true, -28], [true, 28], [false, -42], [false, 42], [true, -42], [true, 42],
-    ];
-    const ordered = labels
-      .map((el) => ({ el, r: el.getBoundingClientRect() }))
-      .sort((a, b) => a.r.top - b.r.top || a.r.left - b.r.left)
-      .map(({ el }) => el);
-    for (const el of ordered) {
-      const own = el.querySelector(".pt-dot");
-      const others = dots.filter(({ d }) => d !== own).map(({ r }) => r);
-      const clear = () => { const r = textRect(el); return !placed.some((p) => hit(r, p)) && !others.some((d) => hit(r, d)); };
-      const other = el.classList.contains("is-flip") ? "r" : "l";
-      let done = false;
-      for (const [flip, dy] of SPOTS) {
-        if (flip) el.setAttribute("data-side", other); else el.removeAttribute("data-side");
-        el.style.setProperty("--ly", `${dy}px`);
-        if (clear()) { done = true; break; }
-      }
-      if (!done) { el.removeAttribute("data-side"); el.style.removeProperty("--ly"); }
-      placed.push(textRect(el));
-    }
-    const obstacles: R[] = [...canvas.querySelectorAll(".clado-pt")].map(rect);
-    // MAX is the furthest a tile may slide out of a collision. It was 40, which was enough
-    // when a board carried eight species and left a crowded tile stuck under its neighbour
-    // once boards grew: raising it to 120 clears three quarters of the collisions that
-    // survived the pass, and a tile that needs no room still never moves.
-    const STEP = 8, MAX = 120;
-    for (const id of [...tileEls.current.keys()].sort()) {
-      const el = tileEls.current.get(id)!;
-      const node = nodeById.get(id);
-      if (!node) continue;
-      const ox = node.ox ?? 0, oy = node.oy ?? 0;
-      let r = rect(el), delta = 0;
-      while (delta < MAX && obstacles.some((o) => hit(r, o))) {
-        delta += STEP;
-        r = { x: r.x + ox * STEP, y: r.y + oy * STEP, w: r.w, h: r.h };
-      }
-      if (delta > 0) el.style.transform = `translate(calc(-50% + ${(ox * delta).toFixed(1)}px), calc(-50% + ${(oy * delta).toFixed(1)}px))`;
-      obstacles.push(r); // this tile is now an obstacle for the ones after it
-    }
+    placeCladeLabels(canvas);
+    nudgeLeafBoxes(canvas, tileEls.current, nodeById);
   }, [layout, radial, nodeById, g.status, g.tier, placementSig]);
 
   // The board now arrives from the pin, so there is a moment with no board and no problem.

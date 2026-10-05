@@ -15,7 +15,8 @@ import { mrca, separationTierOf } from "./tree";
 // This is a JUDGEMENT table, kept deliberately coarse (-1, 0, +1). It is checked against play
 // data per class (normalised daily scores after allowing for weekday and separation): at the
 // first check, 2026-10-04, fish and insects played harder than the ruler predicted and mammals
-// easier, in both Kinship and Branches. Revisit it as data accumulates.
+// easier, in both Kinship and Branches. Revisit it as data accumulates. Turtles, songbirds,
+// gamebirds, beetles, orthopterans and mantises were added on 2026-10-05 from boards the user judged on the test bench.
 //
 // KNOWN GAP: perch-like fish. Their pairs meet at Percomorphaceae (unranked) and read their
 // closeness from Acanthomorphata, which the tree wrongly ranks as an order. The value is about
@@ -31,17 +32,23 @@ export const LOOKALIKE: Record<string, { adj: number; why: string }> = {
   // Birds
   Strigiformes: { adj: 1, why: "owls all look like owls" },
   Columbiformes: { adj: 1, why: "pigeons and doves share one shape" },
+  Passeriformes: { adj: 1, why: "songbird families look alike to most players" },
+  Galliformes: { adj: 1, why: "gamebirds (grouse, quail, curassows, megapodes) share one build" },
   // Fish
   Actinopterygii: { adj: 1, why: "to most players a fish is a fish" },
   Selachii: { adj: 1, why: "sharks look alike" },
   // Reptiles
   Serpentes: { adj: 1, why: "snakes are one body plan" },
+  Testudines: { adj: 1, why: "to most players a turtle is a turtle" },
   // Amphibians
   Anura: { adj: 1, why: "frogs look alike" },
   // Insects
   Lepidoptera: { adj: 1, why: "moth families look alike" },
   Apoidea: { adj: 1, why: "bees and wasps look alike" },
   Blattodea: { adj: 1, why: "cockroaches and termites look alike" },
+  Coleoptera: { adj: 1, why: "beetle families look alike to most players" },
+  Orthoptera: { adj: 1, why: "grasshoppers, katydids and crickets look alike" },
+  Mantodea: { adj: 1, why: "mantis families look alike" },
   // Spiders
   Araneae: { adj: 1, why: "spiders look alike" },
 };

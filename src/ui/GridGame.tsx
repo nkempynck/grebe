@@ -50,7 +50,7 @@ const LEVEL_SQUARE = ["🟨", "🟩", "🟦", "🟪"];
 const PICTURE_MODE_MIN_TIER = 6;
 
 /** Thu-Fri are MIXED: this many of the sixteen tiles arrive with BOTH halves showing,
- *  picture and name, and the other fourteen as names with the picture hidden. Those two days
+ *  picture and name, and the rest as names with the picture hidden. Those two days
  *  used to be the only ones with no free pictures at all, which is the cliff in the week: it
  *  is where obscure boards bite hardest, and it is why plant boards were unplayable there
  *  before they were moved off it.
@@ -58,8 +58,9 @@ const PICTURE_MODE_MIN_TIER = 6;
  *  These tiles were once four pictures with the NAME hidden, which was a second puzzle
  *  rather than a help: you had to identify four species by sight before the board even
  *  started. Two fully-known tiles is a foothold instead — it costs less of the board's
- *  information than four unnamed photos did, and it gives every player somewhere to begin. */
-const MIXED_PICTURE_COUNT = 2;
+ *  information than four unnamed photos did, and it gives every player somewhere to begin.
+ *  Three since 2026-10-05, as part of making the week a step easier. */
+const MIXED_PICTURE_COUNT = 3;
 
 /** The Arrange note's window, inclusive. MOVE THESE to the real deploy date: this ships
  *  behind a Kinship repin, so the day it reaches players isn't the day it was written. A
@@ -406,9 +407,9 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
     };
     // NOTE: there used to be a guard here rejecting a pick that landed entirely in one row
     // or column, because four such tiles look deliberate and read as the first-column bug
-    // this replaced. At MIXED_PICTURE_COUNT = 2 it is meaningless — two tiles share a row
-    // one time in five by chance, and refusing that would stop the pair sitting anywhere
-    // near each other. Reinstate it at selection time below if the count ever goes back up.
+    // this replaced. At MIXED_PICTURE_COUNT = 3 it is still not worth it: three tiles land in one
+    // row or column about one time in twenty by chance, and refusing that would stop them
+    // sitting near each other. Reinstate it at selection time below if the count reaches four.
     return [...all].sort((a, b) => hash(seed + a) - hash(seed + b) || (a < b ? -1 : 1));
   }, [mixedMode, g.board]);
 

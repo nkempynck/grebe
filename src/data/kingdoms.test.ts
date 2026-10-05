@@ -40,6 +40,33 @@ describe("kingdoms", () => {
     expect(wrong).toEqual([]);
   });
 
+  // The augment once added families a second time: a flat bag of new genera beside the
+  // unnamed clade that already held the family's other members (parrots in a "Psittacidae"
+  // bag beside Psittacoidea). No augment family that holds species may share its Open Tree
+  // taxon with species outside it.
+  it("no family appears twice in the tree", () => {
+    const kids = new Map<string, TaxonNode[]>();
+    for (const n of nodes) if (n.parentId) (kids.get(n.parentId) ?? kids.set(n.parentId, []).get(n.parentId)!).push(n);
+    const under = (id: string): TaxonNode[] => (kids.get(id) ?? []).flatMap((k) => (k.rank === "species" ? [k] : under(k.id)));
+    const lineage = (sci: string) => {
+      const out = new Set<string>();
+      for (let t: number | null | undefined = L.species[sci]; t != null; t = L.taxa[t]?.[2]) out.add(String(t));
+      return out;
+    };
+    const species = nodes.filter((n) => n.rank === "species");
+    const lin = new Map(species.map((s) => [s.id, lineage(s.sciName)]));
+    const twice: string[] = [];
+    for (const f of (augment as { nodes: TaxonNode[] }).nodes) {
+      if (f.rank !== "family") continue;
+      const mine = new Set(under(f.id).map((s) => s.id));
+      if (!mine.size) continue; // an emptied bag, kept only so served boards keep their label
+      const ott = f.id.replace(/^ott/, "");
+      const outside = species.filter((s) => !mine.has(s.id) && lin.get(s.id)!.has(ott)).length;
+      if (outside) twice.push(`${f.sciName}: ${mine.size} species inside, ${outside} more elsewhere`);
+    }
+    expect(twice).toEqual([]);
+  });
+
   // The pool once filed Nolinoideae under Solanaceae, and lilies sat among the nightshades.
   // Families are lumped and split differently between classifications, so compare ORDERS: the
   // family a species sits in must belong to the order Open Tree puts the species in.

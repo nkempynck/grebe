@@ -737,42 +737,52 @@ function boardBranchSpread(
 // MRCA for the same total: Mon/Tue and Wed were previously identical on both axes (measured
 // mean separation 3.54 / 3.56 / 3.40), which made the "seven-tier ramp" really a three-step
 // one with three days stacked on each of the first two steps.
-const WEEKDAY_BAND = [0, 0, 0, 1, 1, 1, 2, 2]; // index by weekday tier 1…7 (index 0 unused)
-// Each band's window over a board's separation (boardSeparation.med, fractional because it
-// is a median of six). Wide and overlapping on purpose: the band is a lean, not a gate;
-// the reveal mode does the real work. Every board now clears the gates below, so the whole
-// scale starts at 3 — the bands lean within "already worth playing", they no longer have to
-// hold the trivial end out. Easy days lean to super-collections a rank or two apart, hard
-// days to sub-collections sharing a family or genus.
-const BAND_TIER_WINDOW: Array<[number, number]> = [
-  [3, 3.5], // easy  (Mon–Tue)
-  [3.5, 4.5], // medium (Wed–Fri)
-  [4.5, 7], // hard  (Sat–Sun, picture only)
+// Each weekday's window over a board's separation (boardSeparation.med, fractional because it
+// is a median of six). Wide and overlapping on purpose: the band is a lean, not a gate.
+//
+// Set by the user on 2026-10-05, a step easier everywhere. The reveal mode already carries
+// difficulty: Thu-Fri show names only and Sat-Sun pictures only, so Thu-Fri share Wednesday's
+// window and the weekend sits where Thu-Fri used to. The easy days reach their low window with an
+// OUTGROUP (a group from another order of the same class), which the rider floor now allows on
+// every day; nothing forces one.
+const TIER_WINDOW: Array<[number, number]> = [
+  [2, 3], // (index 0 unused)
+  [2, 3], // Mon
+  [2.5, 3.5], // Tue
+  [3, 4.5], // Wed
+  [3, 4.5], // Thu (names only)
+  [3, 4.5], // Fri (names only)
+  [4, 6], // Sat (picture only)
+  [4.5, 6], // Sun (picture only): half a step above Saturday, the week's hardest day
 ];
-// Closeness is one currency but it does not buy the same difficulty in every class.
-// Measured over 730 boards, closeness is flat across classes (mammals 3.87, birds 3.92)
-// while fame is not: a mammal tile carries 7383 median pageviews against a bird's 4120,
-// and a mammal GROUP 13532 against 7595. Difficulty is deliberately blind to fame (see
-// the block above boardSeparation), so mammals ride easy inside whatever tier they land
-// in — four mammal families at separation 3 separate themselves on sight, where four
-// snake families at separation 3 genuinely do not. Shift the band for the classes players
-// can eyeball, so those boards must sit closer to earn the same weekday. Applied per
-// CONTAINER, not per day, since class varies candidate to candidate. Soft, like the band
-// itself: a class that cannot go tighter is not banned, it just loses ties.
+// Closeness is one currency but it does not buy the same difficulty in every class. Applied
+// per CONTAINER, not per day, since class varies candidate to candidate.
+//
+// Mammals shift +0.5 from Wednesday on (MAMMAL_LATE_SHIFT): players eyeball them, so a mammal
+// board must sit closer to earn a harder weekday (a Sunday of chevrotains, giraffes, kudus and
+// deer played as a walkover). Not on Mon/Tue: there it kept the best-known class off the easy
+// days (birds took most Mondays, mammals almost none), the opposite of what easy days want.
 //
 // Plants shift the other way, and far, because their ruler is coarse rather than their groups
 // easy: the plant tree has no rank between order and class, so two plant groups read either
 // "same order" (3) or class-far (1), nothing between. At the shared 3-3.5 window that meant all
 // four groups in one order, every board: four Ericales or four Caryophyllales families, which
-// played as the hardest board of the week (2026-10-05). At 1-1.5 a plant board holds at most
-// two groups per order, i.e. one confusable pair plus groups players can tell apart.
-const CLASS_BAND_SHIFT: Record<string, number> = { Mammals: 0.5, Plants: -2 };
+// played as the hardest board of the week (2026-10-05). Two steps lower (Tuesday's window becomes
+// 0.5-1.5) a plant board holds at most two groups per order, i.e. one confusable pair plus groups
+// players can tell apart.
+// Spiders and amphibians shift -1, insects -0.5 (2026-10-05): a Sunday spider board, a Saturday
+// of four butterfly groups and a Wednesday of two frog and two toad genera all played as
+// near-impossible at the shared window, and play data already had amphibians and insects playing
+// harder than the ruler says. Insects at -1 overshot into walkovers (beetles, butterflies, bees
+// and wasps on a Monday), so they take half a step.
+const CLASS_BAND_SHIFT: Record<string, number> = { Plants: -2, Spiders: -1, Insects: -0.5, Amphibians: -1 };
+const MAMMAL_LATE_SHIFT = 0.5;
 /** Separation is a rank tier, so the window can never be pushed past the top of it. */
 const MAX_SEPARATION = 7;
 /** The separation window a board of this class should land in on this weekday tier. */
 export function kinshipBand(tier: number, group?: string): [number, number] {
-  const [lo, hi] = BAND_TIER_WINDOW[WEEKDAY_BAND[tier] ?? 0];
-  const shift = (group && CLASS_BAND_SHIFT[group]) || 0;
+  const [lo, hi] = TIER_WINDOW[tier] ?? TIER_WINDOW[1];
+  const shift = ((group && CLASS_BAND_SHIFT[group]) || 0) + (group === "Mammals" && tier >= 3 ? MAMMAL_LATE_SHIFT : 0);
   return [Math.min(lo + shift, MAX_SEPARATION), Math.min(hi + shift, MAX_SEPARATION)];
 }
 
@@ -795,11 +805,11 @@ const MIN_PAIR_SEPARATION = 3;
 // organism. The loosest board this admits is [2,2,2,4,4,4], median exactly 3, so the 3+1
 // shape lands on easy days and four-tight boards still land on hard ones: the bands need no
 // change. A board whose four groups are all mutually close still passes, trivially.
-const FOURTH_GROUP_MIN = 2;
-/** …except for plants, whose groups from different orders read class-far (see CLASS_BAND_SHIFT):
- *  for them "same superorder or closer" can only mean "same order", so the free groups may come
- *  from anywhere in the plants. */
-const CLASS_FOURTH_GROUP_MIN: Record<string, number> = { Plants: 1 };
+// 1, not 2 (2026-10-05): any group of the same class. "Same superorder" was unreachable for
+// birds and fish, whose orders read class-far for want of superorders in the tree, so their boards
+// were always four groups of one order and the easy days could not get easy. The band now decides
+// how far a fourth group may sit; an outgroup is allowed, never required.
+const FOURTH_GROUP_MIN = 1;
 /** How many groups must form the board's trap, by weekday tier (index 0 unused). Two
  *  confusable groups are enough on Mon/Tue; from Wednesday the board should hold a real
  *  three-way trap. `sep.max` is the tightest PAIR, `sep.core` the tightest TRIPLE. */
@@ -941,6 +951,26 @@ const GROUP_NAMEABLE = 4000;
  *  Petrogale / Osphranter, i.e. separate rock-wallabies from tree-kangaroos from bettongs
  *  by sight, with four Latin labels as the reward. */
 const MAX_OBSCURE_GROUPS = 2;
+/** Mon-Tue (tiers up to this) allow one confusable pair but no confusable trio. */
+const EASY_MAX_TIER = 2;
+/** The tightest TRIPLE's loosest pair (boardSeparation.core) an easy day allows: same order. */
+const EASY_MAX_CORE = 3;
+/** …and its tightest PAIR (boardSeparation.max): a family, or a family's genera outside the
+ *  look-alike classes. */
+const EASY_MAX_TRAP = 6;
+/** Groups a single name word may run through on a name day (see crowdedNameWord). */
+const MAX_GROUPS_PER_WORD = 2;
+/** True when some name word is carried by at least two tiles in each of more than
+ *  MAX_GROUPS_PER_WORD groups. */
+function crowdedNameWord(tree: Tree, groups: { memberIds: string[] }[]): boolean {
+  const groupsWith = new Map<string, number>();
+  for (const g of groups) {
+    const tiles = new Map<string, number>();
+    for (const m of g.memberIds) for (const w of new Set(nameWords(tree, m))) tiles.set(w, (tiles.get(w) ?? 0) + 1);
+    for (const [w, n] of tiles) if (n >= 2) groupsWith.set(w, (groupsWith.get(w) ?? 0) + 1);
+  }
+  return [...groupsWith.values()].some((n) => n > MAX_GROUPS_PER_WORD);
+}
 
 // …except that ONE group per board may sit below that, down to this harder floor, and only
 // when the rest of the board is comfortably recognisable (RELAXED_COMPANION_MIN).
@@ -1314,7 +1344,10 @@ const GRID_SET_SPACING = 180;
 /** Days an individual SPECIES should stay off the board before it is a preferred tile
  *  again (pickMembers). A preference, never a gate: a group with exactly four named
  *  members has no choice, and forbidding a repeat there would just delete the group. */
-const SPECIES_REPEAT_WINDOW = 45;
+// 75, not 45 (2026-10-05): at 45 a group's species came back together six or seven weeks later,
+// and many boards were mostly tiles seen in the last three months. 90 measured fresher still but
+// pushed boards off their band; 75 keeps the band.
+const SPECIES_REPEAT_WINDOW = 75;
 /** What one recently-shown TILE costs a candidate board, in the same currency as group
  *  spacing and the band penalty. Until this existed the score was blind to species: a board
  *  of sixteen fresh species and one of sixteen seen last month scored the same, and every
@@ -1495,7 +1528,10 @@ function boardForDay(
       + ancestryClashes * GRID_GROUP_SPACING;
     const gap = GROUP_MIN_GAP.get(c.group!);
     const classSeen = classSeenAt.get(c.group!);
-    const classTooSoon = gap !== undefined && classSeen !== undefined && dayIdx - classSeen < gap;
+    // …and no class two weeks running on the same weekday: each weekday's window suits some
+    // classes better than others, and one class could hold a weekday for weeks on end.
+    const classTooSoon = (gap !== undefined && classSeen !== undefined && dayIdx - classSeen < gap)
+      || hist.classDaySeenAt.get(`${c.group}|${dayIdx % 7}`) === dayIdx - 7;
     const obscureGroups = board.groups.filter((g) => (c.recog?.get(g.cladeId) ?? Infinity) < GROUP_NAMEABLE).length;
     const tooObscure = obscureGroups > MAX_OBSCURE_GROUPS;
     // Two shapes are worth playing, and a weekday accepts EITHER — a union, so both are more
@@ -1513,7 +1549,7 @@ function boardForDay(
     const pairTrap = sep.max >= coreFloor;              // two groups you can genuinely confuse
     const tripleTrap = sep.core >= coreFloor;           // three of them
     const uniform = sep.min >= MIN_PAIR_SEPARATION;     // nothing is a giveaway
-    const riderOk = sep.min >= (CLASS_FOURTH_GROUP_MIN[c.group!] ?? FOURTH_GROUP_MIN);       // free groups are still relatives
+    const riderOk = sep.min >= FOURTH_GROUP_MIN;       // free groups are still relatives
     // A pair trap is required EVERY day and is never traded away — offering it as one arm of
     // a union let 69 boards through with nothing confusable on them at all. Above that floor
     // the demand grows through the week: Mon/Tue are content with the pair, Wed-Fri want
@@ -1529,7 +1565,7 @@ function boardForDay(
     const shapeOk =
       hasTrap &&
       (tier >= PICTURE_ONLY_MIN_TIER
-        ? tripleTrap && uniform && notTooWide
+        ? tripleTrap && notTooWide // no `uniform` since 2026-10-05: an outgroup may balance a hard trio
         : (TRAP_SIZE[tier] ?? 3) >= 3
         ? pairTrap && riderOk && (tripleTrap || uniform)
         : pairTrap && riderOk);
@@ -1543,7 +1579,18 @@ function boardForDay(
     // pay for missing it. Plant groups are mostly close relatives, so without this the easy
     // days drew plant boards that were among the hardest of the week.
     const strictMiss = STRICT_BAND_CLASSES.has(c.group!) && offBy > 0;
-    if (classTooSoon || recentGroups > 0 || ancestryClashes > 0 || setTooSoon || tooObscure || !shapeOk || nearRepeat || strictMiss) {
+    // The easy days hold at most ONE confusable pair: three mutually close groups (closer than
+    // "same order" after the look-alike table) made a Monday of three gamebird families or four
+    // songbird families, which an outgroup beside them does not rescue (2026-10-05).
+    // …and that pair may not be the sharpest kind: two genera of one family in a look-alike
+    // class (Salmo against Oncorhynchus, trout in both) is too fine for an easy day, while big cats
+    // against small cats stays.
+    const easyTrio = tier <= EASY_MAX_TIER && (sep.core > EASY_MAX_CORE || sep.max > EASY_MAX_TRAP);
+    // On the name days no name word may run through three groups: eleven tiles reading
+    // "… catfish" across three catfish families leave the names no help at all. A word counts for
+    // a group when at least two of its four tiles carry it. The picture-only weekend hides names.
+    const crowdedWord = tier < PICTURE_ONLY_MIN_TIER && crowdedNameWord(tree, board.groups);
+    if (classTooSoon || recentGroups > 0 || ancestryClashes > 0 || setTooSoon || tooObscure || !shapeOk || nearRepeat || strictMiss || easyTrio || crowdedWord) {
       if (score < floorFallbackScore) { floorFallback = board; floorFallbackScore = score; }
       continue; // giveaway group, or nothing on the board to confuse — see the gates
     }
@@ -1587,6 +1634,7 @@ interface History {
   groupSeenAt: Map<string, number>;   // clade id → day index last shown
   lineageSeenAt: Map<string, number>; // ANCESTOR of a shown group → day index (see GRID_ANCESTRY_WINDOW)
   classSeenAt: Map<string, number>;   // broad group → day index last shown (see GROUP_MIN_GAP)
+  classDaySeenAt: Map<string, number>; // `${broad group}|${idx % 7}` → day index last shown on that weekday
   speciesSeenAt: Map<string, number>; // species leaf id → day index last shown
   boardsAt: Map<number, string[]>;     // day index → that board's group ids, last NEAR_REPEAT_WINDOW days
 }
@@ -1596,7 +1644,7 @@ interface ReplayCursor extends History {
 /** A board generated with no history to avoid — pre-anchor days and arbitrary seeds. */
 const emptyHistory = (): History => ({
   idx: 0, seenAt: new Map(), groupSeenAt: new Map(), lineageSeenAt: new Map(),
-  classSeenAt: new Map(), speciesSeenAt: new Map(), boardsAt: new Map(),
+  classSeenAt: new Map(), classDaySeenAt: new Map(), speciesSeenAt: new Map(), boardsAt: new Map(),
 });
 const cloneHistory = (h: History): History => ({
   idx: h.idx,
@@ -1604,6 +1652,7 @@ const cloneHistory = (h: History): History => ({
   groupSeenAt: new Map(h.groupSeenAt),
   lineageSeenAt: new Map(h.lineageSeenAt),
   classSeenAt: new Map(h.classSeenAt),
+  classDaySeenAt: new Map(h.classDaySeenAt),
   speciesSeenAt: new Map(h.speciesSeenAt),
   boardsAt: new Map(h.boardsAt),
 });
@@ -1665,6 +1714,34 @@ function commitDay(tree: Tree, cur: History, groups: { cladeId: string; memberId
   }
   // Recomputed rather than stored on the board: GridBoard is the pinned payload shape.
   cur.classSeenAt.set(broadGroupOf(tree, groups[0].cladeId), cur.idx);
+  cur.classDaySeenAt.set(`${broadGroupOf(tree, groups[0].cladeId)}|${cur.idx % 7}`, cur.idx);
+}
+
+// TEST BENCH. A random board per press, under the daily rules, against a history of what THIS
+// bench session has dealt, never the real sequence: walking real dates showed the admin the
+// coming dailies. Each press counts as a week later, so weekly rhythms (the weekday class rule,
+// the plant gap) behave as they would week to week, and everything already dealt in the session
+// is kept "just seen" so nothing returns while testing.
+interface BenchSession { hist: History; groups: Set<string>; species: Set<string>; boards: Map<string, GridBoard | null> }
+const benchSessions = new WeakMap<Tree, BenchSession>();
+/** A bench board for `key` (one per press; asking again for the same key returns the same board). */
+export function gridBenchBoard(tree: Tree, tier: number, key: string): GridBoard | null {
+  const d = getDiscovered(tree);
+  if (!d) return null;
+  let s = benchSessions.get(tree);
+  if (!s) { s = { hist: emptyHistory(), groups: new Set(), species: new Set(), boards: new Map() }; benchSessions.set(tree, s); }
+  const hit = s.boards.get(key);
+  if (hit !== undefined) return hit;
+  s.hist.idx += 7;
+  for (const id of s.groups) s.hist.groupSeenAt.set(id, s.hist.idx - 1);
+  for (const id of s.species) s.hist.speciesSeenAt.set(id, s.hist.idx - 1);
+  const board = boardForDay(tree, tierPoolOf(d, tier), `bench:${key}:${Math.random()}`, tier, s.hist);
+  if (board) {
+    commitDay(tree, s.hist, board.groups);
+    for (const g of board.groups) { s.groups.add(g.cladeId); for (const m of g.memberIds) s.species.add(m); }
+  }
+  s.boards.set(key, board);
+  return board;
 }
 
 export function generateGridBoard(tree: Tree, dateKey: string, tier: number): GridBoard | null {

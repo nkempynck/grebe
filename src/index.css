@@ -1997,9 +1997,16 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
 .kinship-tree-head .branches-viewtoggle { margin: 0; }
 .kinship-tree-stage { overflow-x: auto; padding: 4px 0 2px; }
 .kinship-tree .clado-link { stroke: var(--clado-line); }
+.kinship-tree .clado-link.is-stem { stroke: none; } /* natural view: filled tapered stems */
 .kin-node { position: absolute; }
 .kin-node.is-leaf { transform: translateX(-50%); }
-.kin-node.is-radial { transform: translate(-50%, -50%); }
+.kin-node.is-radial { transform: translate(-50%, -50%) scale(var(--cz, 1)); }
+/* Natural view: smaller chips and clade names, since the coiled tree packs them closer. */
+.kinship-tree-stage.is-natural-k .kin-leaf { font-size: 10.5px; max-width: 96px; padding: 2px 6px; border-radius: 6px; }
+.kinship-tree-stage.is-natural-k .clado-pt .pt-name { font-size: 12px; }
+.kinship-tree-stage.is-natural-k .clado-pt .pt-rank { font-size: 8px; }
+.kinship-tree-stage.is-natural-k .clado-pt { width: 120px; }
+.kinship-tree-head .clado-zoombar { margin-left: auto; }
 .kin-leaf {
   display: inline-block; max-width: 118px; padding: 3px 8px; cursor: pointer;
   border: 1px solid rgba(0, 0, 0, 0.14); border-radius: 8px;

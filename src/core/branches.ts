@@ -509,7 +509,8 @@ function pickGroupSlots(
   groups: Group[],
   k: number,
   floor: number,
-  rng: () => number
+  rng: () => number,
+  staleOf?: (id: string) => boolean
 ): { grp: Group; slot: string }[] {
   // Candidate members per group: COMMON-NAMED ONLY — a slot species must never be a bare
   // Latin binomial (an unplaceable, un-collidable tray tile). Ordered weighted-random by
@@ -520,7 +521,12 @@ function pickGroupSlots(
   const cand = new Map<Group, string[]>();
   for (const g of groups) {
     const named = g.leaves.filter((id) => tileable(tree, id));
-    if (named.length) cand.set(g, byViews(tree, named, rng));
+    // Species shown recently go last (BRANCHES_SPECIES_WINDOW): a group may come back, but with
+    // species the player has not just seen. Fame still orders within each half.
+    if (named.length) {
+      const order = byViews(tree, named, rng);
+      cand.set(g, staleOf ? [...order.filter((id) => !staleOf(id)), ...order.filter((id) => staleOf(id))] : order);
+    }
   }
   groups = groups.filter((g) => cand.has(g));
 
@@ -568,7 +574,7 @@ function pickGroupSlots(
 /** The cheap per-day board selection over the day's LOCKED class. Returns null when the
  *  picked container can't field MIN_GROUPS groups that each have a common-named species to
  *  place (every slot species must be common-named — never a bare Latin binomial). */
-function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, attempt: number): BranchesBoard | null {
+function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, attempt: number, staleOf?: (id: string) => boolean): BranchesBoard | null {
   const seedKey = attempt === 0 ? `grebe:branches:${dateKey}:${tier}` : `grebe:branches:${dateKey}:${tier}:${attempt}`;
   const rng = mulberry32(xmur3(seedKey));
   const container = pickContainer(tree, group, tier, rng);
@@ -592,7 +598,7 @@ function selectBoard(tree: Tree, group: string, dateKey: string, tier: number, a
   // at least `floor` look-alike names (rising with the tier) so a bare word-match can't
   // solve the board. Floor can't exceed the slot count.
   const floor = Math.min(k, sharedWordFloor(tier));
-  const picks = pickGroupSlots(tree, eligible, k, floor, rng);
+  const picks = pickGroupSlots(tree, eligible, k, floor, rng, staleOf);
   if (picks.length < MIN_GROUPS) return null;
 
   const slotIds: string[] = [];
@@ -839,7 +845,7 @@ const BRANCHES_ATTEMPTS = 24;
 // The pinned rows are the record of what was really served and carry the ids boardSig is
 // built from, so injecting them lets the replay count the real boards and generate only the
 // days that were never served.
-let servedBranches: Map<string, { sig: string; groupIds: string[] }> | null = null;
+let servedBranches: Map<string, { sig: string; groupIds: string[]; shown: string[] }> | null = null;
 /** Install (or clear, with null) the boards really served, keyed by date. Takes the pinned
  *  payload's ids; the signature is derived here so callers need not know its shape. groupIds
  *  matter as much as the signature — they feed the per-group window below, and a served day
@@ -858,7 +864,7 @@ export function setServedBranchesHistory(
         // context clades must stay out of it. The signature is those same clades, matching
         // boardSig, so a served day and a generated one are compared like for like.
         const groupIds = p.groupIds.slice(0, p.slotIds.length);
-        return [dk, { sig: [...groupIds].sort().join(","), groupIds }];
+        return [dk, { sig: [...groupIds].sort().join(","), groupIds, shown: [...p.slotIds, ...p.anchorIds] }];
       }))
     : null;
 }
@@ -887,8 +893,12 @@ export function setServedBranchesHistory(
 //
 // 30 days, not 14 (2026-10-05): at 14, together with no near-copy rule, a board sharing five of
 // its six groups with one from three weeks before counted as fresh, and the same tray species
-// came back within the month 187 times a year.
+// came back within the month again and again.
 const BRANCHES_GROUP_ANTI_REPEAT_WINDOW = 30;
+/** Days a shown species (tray or anchor) goes to the back of its group's queue. Groups keep their
+ *  own limits; this only changes WHICH species a returning group shows. Tray species back within
+ *  60 days became rare, with the band and class mix unchanged (2026-10-05). */
+const BRANCHES_SPECIES_WINDOW = 75;
 /** A candidate board plus how badly it repeats, so the fallback can take the mildest. */
 type Scored = { board: BranchesBoard; cost: number } | null;
 
@@ -907,7 +917,8 @@ function boardForDay(
   dateKey: string,
   tier: number,
   avoid: (s: string, groupIds: string[]) => boolean,
-  repeatCost: (groupIds: string[]) => number = () => 0
+  repeatCost: (groupIds: string[]) => number = () => 0,
+  staleOf?: (id: string) => boolean
 ): BranchesBoard | null {
   // The day's broad class, drawn over the eligible ones (pickGroup), then the classes it would
   // fall back to IN ORDER. The first entry is exactly the old locked draw, so the class
@@ -952,7 +963,7 @@ function boardForDay(
     let nNear: BranchesBoard | null = null;
     let nFloor: BranchesBoard | null = null, nInBand: BranchesBoard | null = null, nFirst: BranchesBoard | null = null;
     for (let attempt = 0; attempt < BRANCHES_ATTEMPTS; attempt++) {
-      const board = selectBoard(tree, group, dateKey, tier, attempt);
+      const board = selectBoard(tree, group, dateKey, tier, attempt, staleOf);
       if (!board) continue;                            // Latin-only container — unusable
       if (!anyValid) anyValid = board;                 // last-resort (may repeat)
       if (avoid(boardSig(board), answerGroupIds(board))) continue; // a recent repeat or near copy — skip
@@ -1000,6 +1011,9 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
   // (at least three, and at least half) those of a board from the window counts as a repeat
   // too. The exact signature alone let five of six groups come back within weeks.
   const recentAnswers: string[][] = [];
+  // Day index each species was last shown (tray or anchor), for BRANCHES_SPECIES_WINDOW.
+  const speciesSeen = new Map<string, number>();
+  const staleOf = (id: string) => idx - (speciesSeen.get(id) ?? -Infinity) < BRANCHES_SPECIES_WINDOW;
   const nearCopy = (g: string[]) =>
     recentAnswers.some((r) => g.filter((id) => r.includes(id)).length >= Math.max(3, Math.ceil(g.length / 2)));
   const avoid = (s: string, g: string[]) => (counts.get(s) ?? 0) > 0 || nearCopy(g);
@@ -1020,7 +1034,7 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
     }, 0);
 
   for (let dk = DAILY_EPOCH; ; dk = shiftDate(dk, 1), idx++) {
-    if (dk === dateKey) return boardForDay(tree, dk, tier, avoid, repeatCost);
+    if (dk === dateKey) return boardForDay(tree, dk, tier, avoid, repeatCost, staleOf);
 
     // A day that was really served contributes the board that was really served; only days
     // with no pin are generated.
@@ -1030,11 +1044,13 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
     if (served !== undefined) {
       sig = served.sig;
       groupIds = served.groupIds;
+      for (const id of served.shown) speciesSeen.set(id, idx);
     } else {
-      const board = boardForDay(tree, dk, tierForDate(dk), avoid, repeatCost);
+      const board = boardForDay(tree, dk, tierForDate(dk), avoid, repeatCost, staleOf);
       if (!board) continue; // a day with no valid board contributes nothing to anti-repeat
       sig = boardSig(board);
       groupIds = answerGroupIds(board); // answers only, as the window's comment explains
+      for (const id of [...board.slotIds, ...board.anchorIds]) speciesSeen.set(id, idx);
     }
     queue.push(sig);
     recentAnswers.push(groupIds);
@@ -1057,6 +1073,35 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
 export function branchesBoardForSeed(tree: Tree, seed: string, tier: number): BranchesBoard | null {
   if (getContainers(tree, MAX_GROUP_LEAVES).length === 0) return null;
   return boardForDay(tree, seed, tier, () => false);
+}
+
+// TEST BENCH, as gridBenchBoard in ./grid: a random board per press, under the daily rules,
+// against what this bench session has dealt (never the real sequence, which showed the admin
+// the coming dailies). Any answer group already dealt costs a repeat, near copies are refused
+// outright, and species already shown go to the back of their group's queue.
+interface BranchesBench { sigs: Set<string>; answers: string[][]; groups: Set<string>; species: Set<string>; boards: Map<string, BranchesBoard | null> }
+const branchesBench = new WeakMap<Tree, BranchesBench>();
+/** A bench board for `key` (one per press; asking again for the same key returns the same board). */
+export function branchesBenchBoard(tree: Tree, tier: number, key: string): BranchesBoard | null {
+  if (getContainers(tree, MAX_GROUP_LEAVES).length === 0) return null;
+  let s = branchesBench.get(tree);
+  if (!s) { s = { sigs: new Set(), answers: [], groups: new Set(), species: new Set(), boards: new Map() }; branchesBench.set(tree, s); }
+  const hit = s.boards.get(key);
+  if (hit !== undefined) return hit;
+  const bench = s;
+  const avoid = (sig: string, g: string[]) =>
+    bench.sigs.has(sig) || bench.answers.some((r) => g.filter((id) => r.includes(id)).length >= Math.max(3, Math.ceil(g.length / 2)));
+  const repeatCost = (g: string[]) => g.filter((id) => bench.groups.has(id)).length;
+  const board = boardForDay(tree, `bench:${key}:${Math.random()}`, tier, avoid, repeatCost, (id) => bench.species.has(id));
+  if (board) {
+    const ans = answerGroupIds(board);
+    s.sigs.add(boardSig(board));
+    s.answers.push(ans);
+    for (const id of ans) s.groups.add(id);
+    for (const id of [...board.slotIds, ...board.anchorIds]) s.species.add(id);
+  }
+  s.boards.set(key, board);
+  return board;
 }
 
 /** Score a set of placements (slotId → the species id the player dropped there).

@@ -1,5 +1,5 @@
 import type { Tree } from "../core";
-import { generateBranchesBoard, branchesBoardForSeed, type BranchesBoard } from "../core";
+import { generateBranchesBoard, branchesBenchBoard, type BranchesBoard } from "../core";
 import { todayKey } from "../core/daily";
 import { resolveDailyRules } from "./dailySchedule";
 
@@ -12,12 +12,11 @@ export function branchesBoardFor(
   dateKey: string = todayKey(),
   opts?: { tier?: number; seed?: string }
 ): BranchesBoard | null {
-  // `opts` is an admin playtest override: force a tier and/or reshuffle by
-  // salting the seed. Left undefined for real dailies, so today's board is fixed.
+  // `opts` is the admin test bench: a forced tier (0 = today's) and a press counter in `seed`.
+  // Left undefined for real dailies, so today's board is fixed.
   const tier = opts?.tier && opts.tier > 0 ? opts.tier : resolveDailyRules(dateKey).tier;
-  // A reshuffle seed is NOT a real date, so it must skip the date-based replay in
-  // generateBranchesBoard (which would loop forever on a non-date). Use the
-  // seed-only single-board path. Real dailies keep the anti-repeat generator.
-  if (opts?.seed) return branchesBoardForSeed(tree, `${dateKey}#${opts.seed}`, tier);
+  // The bench deals a random board per press against its own session history, never the real
+  // daily sequence, so it neither repeats itself nor shows the coming dailies.
+  if (opts) return branchesBenchBoard(tree, tier, `${tier}:${opts.seed || "0"}`);
   return generateBranchesBoard(tree, dateKey, tier);
 }

@@ -620,3 +620,71 @@ export function naturalLayout(root: TreeLike, o: NaturalOpts): GraphLayout {
 
   return { nodes, links, width: maxX - minX + o.pad * 2, height: maxY - minY + o.pad * 2 };
 }
+
+export interface OrganicOpts {
+  /** Twist in radians given to every stem as it leaves its parent: the curvature. */
+  curl: number;
+  /** Width in px of the root stem. */
+  girth: number;
+  /** Exponent on the width-from-species-count rule (see NaturalOpts.taper). */
+  taper: number;
+  /** Narrowest a stem may get, in px. */
+  minGirth: number;
+}
+
+/** A NATURAL-LOOKING drawing on top of the radial fan: the fan is turned to grow upward from
+ *  the root, and every link becomes a curved, tapered stem instead of an elbow. Unlike
+ *  naturalLayout, positions come from the fan, where every subtree owns its own wedge, so
+ *  branches cannot cross however crowded the board; the look comes from the stems alone.
+ *  Built for Kinship's post-game tree, where every species is a tip carrying a chip. */
+export function organicLayout(root: TreeLike, radial: RadialOpts, o: OrganicOpts): GraphLayout {
+  const base = radialLayout(root, radial);
+  // θ=0 points down in the fan; mirror it so the tree grows upward from its root.
+  const nodes: GraphNode[] = base.nodes.map((n) => ({ ...n, y: base.height - n.y, oy: -(n.oy ?? 0) }));
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const below = new Map<string, number>();
+  (function count(n: TreeLike): number {
+    const c = n.children.length === 0 ? 1 : n.children.reduce((s, k) => s + count(k), 0);
+    below.set(n.id, c);
+    return c;
+  })(root);
+  const total = below.get(root.id) ?? 1;
+  const halfWidth = (id: string) => Math.max(o.minGirth, o.girth * Math.pow((below.get(id) ?? 1) / total, 1 / o.taper)) / 2;
+  const unit = (x: number, y: number) => { const l = Math.hypot(x, y) || 1; return { x: x / l, y: y / l }; };
+  const turn = (v: Pt, a: number) => ({ x: v.x * Math.cos(a) - v.y * Math.sin(a), y: v.x * Math.sin(a) + v.y * Math.cos(a) });
+  const links: GraphLink[] = [];
+  (function walk(n: TreeLike) {
+    const P = byId.get(n.id)!;
+    for (const c of n.children) {
+      const C = byId.get(c.id)!;
+      const len = Math.hypot(C.x - P.x, C.y - P.y);
+      // Leave along the parent's own heading (the root along the chord), twisted by `curl` to
+      // the side the child lies on, and arrive along the child's outward heading.
+      const chord = unit(C.x - P.x, C.y - P.y);
+      const out = n.id === root.id ? chord : unit(P.ox ?? chord.x, P.oy ?? chord.y);
+      const side = Math.sign(out.x * chord.y - out.y * chord.x) || 1;
+      const d0 = turn(out, side * o.curl);
+      const d1 = unit(C.ox ?? chord.x, C.oy ?? chord.y);
+      const c1 = { x: P.x + d0.x * len * 0.5, y: P.y + d0.y * len * 0.5 };
+      const c2 = { x: C.x - d1.x * len * 0.4, y: C.y - d1.y * len * 0.4 };
+      const pts: Pt[] = [], nrm: Pt[] = [], hw: number[] = [];
+      const w0 = halfWidth(n.id), w1 = halfWidth(c.id), N = 20;
+      for (let i = 0; i <= N; i++) {
+        const t = i / N, u = 1 - t;
+        pts.push({
+          x: u * u * u * P.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * C.x,
+          y: u * u * u * P.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * C.y,
+        });
+        const dx = 3 * u * u * (c1.x - P.x) + 6 * u * t * (c2.x - c1.x) + 3 * t * t * (C.x - c2.x);
+        const dy = 3 * u * u * (c1.y - P.y) + 6 * u * t * (c2.y - c1.y) + 3 * t * t * (C.y - c2.y);
+        const tg = unit(dx, dy);
+        nrm.push({ x: -tg.y, y: tg.x });
+        hw.push(w0 + (w1 - w0) * t);
+      }
+      const ribbon: Ribbon = { pts, nrm, hw };
+      links.push({ parentId: n.id, childId: c.id, d: ribbonPath(ribbon), filled: true, ribbon });
+      walk(c);
+    }
+  })(root);
+  return { nodes, links, width: base.width, height: base.height };
+}
