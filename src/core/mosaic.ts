@@ -442,9 +442,14 @@ function mosaicDraw(tree: Tree, scope: string, minViews: number): MosaicDraw {
   let d = byKey.get(key);
   if (!d) {
     // Extinct animals are never DRAWN: the picture is a skull, a mounted skin or a painting
-    // (Haast's eagle was a museum skull). Filtered here rather than in mosaicPool, so the pool
-    // the client checks a saved board against still holds every answer ever pinned.
-    const pool = mosaicPool(tree, scope, minViews).filter((id) => !tree.byId.get(id)?.extinct);
+    // (Haast's eagle was a museum skull). Nor is a species with no real photograph (TaxonNode
+    // .photo): the whole game is one picture, and 2026-10-05 drew an answer whose only image was
+    // a small non-Commons scan. Filtered here rather than in mosaicPool, so the pool the client
+    // checks a saved board against still holds every answer ever pinned.
+    const pool = mosaicPool(tree, scope, minViews).filter((id) => {
+      const n = tree.byId.get(id);
+      return !n?.extinct && n?.photo;
+    });
     // Flatter than a square root. sqrt still drew the same handful of headliners over and over,
     // which is a second way of making the game easy; this keeps a lean toward the known without
     // letting the top of the pool dominate.

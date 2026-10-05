@@ -88,13 +88,16 @@ describe("mosaic board", () => {
   });
 
   it("does not repeat an answer inside the anti-repeat window", () => {
-    const seen: string[] = [];
-    for (let i = 0; i < 60; i++) {
+    const lastSeen = new Map<string, number>();
+    const tooSoon: string[] = [];
+    for (let i = 0; i < 120; i++) {
       const d = new Date(Date.UTC(2026, 8, 1) + i * 86400000).toISOString().slice(0, 10);
-      seen.push(mosaicAnswerFor(tree, d)!);
+      const a = mosaicAnswerFor(tree, d)!;
+      const prev = lastSeen.get(a);
+      if (prev !== undefined && i - prev < MOSAIC_ANTI_REPEAT_WINDOW) tooSoon.push(`${d} after ${i - prev} days`);
+      lastSeen.set(a, i);
     }
-    // no repeat anywhere in a 60-day run (the window is 45)
-    expect(new Set(seen).size).toBe(seen.length);
+    expect(tooSoon).toEqual([]);
   });
 
   // The dated draw used to hold ONE pool at the base floor, so raising Monday's floor moved

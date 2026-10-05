@@ -237,7 +237,9 @@ const kinshipResolver: Resolver<"kinship"> = {
   // v14 (2026-10-04): no two tiles on one board may read the same. A few species share an
   //   English name across genera, and eleven of those names were wrong outright (the large
   //   white butterfly was "Cabbage moth"), now corrected. → re-pin un-played future dates.
-  version: 14,
+  // v15 (2026-10-05): plants on Tuesdays only, no longer Mondays. → re-pin un-played future
+  //   dates.
+  version: 15,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -404,7 +406,9 @@ const mosaicResolver: Resolver<"mosaic"> = {
   //   eagle was served as a museum skull. The draw changed, so every future date moves; the
   //   repin seeds the anti-repeat window from the served rows (setServedMosaicHistory) so the
   //   new schedule does not repeat what players just had. Re-pin with --force.
-  version: 4,
+  // v5 (2026-10-05): the answer must have a real photograph (TaxonNode.photo), as Kinship and
+  //   Branches tiles must. → re-pin un-played future dates.
+  version: 5,
   compute(tree, date, opts) {
     const scopeRootId = mosaicScopeId(tree);
     const answerId = mosaicAnswerFor(tree, date, scopeRootId, opts?.avoidOn);

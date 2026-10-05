@@ -611,10 +611,11 @@ const BROAD_GROUPS: Array<{ group: string; tiers: number[]; markers: string[]; m
   { group: "Reptiles", tiers: ALL_TIERS, markers: ["Squamata", "Testudines", "Crocodylia"] },
   { group: "Amphibians", tiers: ALL_TIERS, markers: ["Amphibia"] },
   { group: "Insects", tiers: ALL_TIERS, markers: ["Insecta"] },
-  // Plants only on the easy Mon/Tue days and only inside the easy band (STRICT_BAND_CLASSES),
+  // Plants only on Tuesday, an easy day, and only inside the easy band (STRICT_BAND_CLASSES),
   // at most once every three weeks (2026-10-03): the group players know least should be the
-  // gentlest board of its week, not one of the hardest.
-  { group: "Plants", tiers: [1, 2], minGap: 21, markers: ["Magnoliopsida", "Liliopsida", "Pinopsida", "Polypodiopsida"] },
+  // gentlest board of its week, not one of the hardest. Not Monday (2026-10-05): the week
+  // should not open on the class players know least.
+  { group: "Plants", tiers: [2], minGap: 21, markers: ["Magnoliopsida", "Liliopsida", "Pinopsida", "Polypodiopsida"] },
   { group: "Molluscs", tiers: [3, 6, 7], minGap: 21, markers: ["Gastropoda", "Bivalvia", "Cephalopoda"] },
   { group: "Spiders", tiers: [6, 7], minGap: 28, markers: ["Arachnida"] },
 ];
