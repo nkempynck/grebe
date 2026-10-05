@@ -23,8 +23,9 @@ const SECTIONS = [
 export function AboutPanel({ focus }: { focus?: string | null }) {
   const species = taxonomy.counts?.species ?? 0;
   const nodes = taxonomy.counts?.nodes ?? 0;
+  const richSpecies = taxonomy.richCounts?.species ?? 0;
   const scopes = taxonomy.scopes?.length ?? 0;
-  const built = (taxonomy.generatedAt ?? "").slice(0, 10);
+  const updated = (taxonomy.updatedAt ?? taxonomy.generatedAt ?? "").slice(0, 10);
 
   useEffect(() => {
     if (!focus) return;
@@ -229,7 +230,8 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         <span><b>{species.toLocaleString()}</b> species</span>
         <span><b>{nodes.toLocaleString()}</b> tree nodes</span>
         <span><b>{scopes}</b> scopes</span>
-        <span>snapshot built <b>{built || "—"}</b></span>
+        {richSpecies > 0 && <span><b>{richSpecies.toLocaleString()}</b> species in Kinship &amp; Branches</span>}
+        <span>data updated <b>{updated || "—"}</b></span>
       </div>
       <div className="about-srcs">
         <div className="about-src is-teal">
@@ -240,7 +242,8 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
             so the game leans toward the ones you're likely to recognise rather than the
             best-sampled ones. Each species' common name is its article title, with{" "}
             <a href="https://www.wikidata.org" target="_blank" rel="noreferrer">Wikidata</a> filling
-            in the names Wikipedia titles don't cover and naming the clades. Grebe leans on these
+            in the names Wikipedia titles don't cover. Groups get their English names the same
+            way: Penguins and Bumblebees are the titles of their articles. Grebe leans on these
             for free, so if you enjoy it, please{" "}
             <a href="https://donate.wikimedia.org" target="_blank" rel="noreferrer">donate to Wikipedia</a>.
           </p>
@@ -255,16 +258,33 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
           </p>
         </div>
       </div>
+      <div className="about-src is-brass about-src-full">
+        <div className="about-src-tag">Classifications · group names</div>
+        <p>
+          Many branches of the tree have no name of their own. Where a classification has a group
+          whose members are exactly the species on that branch, the branch takes its name: from
+          the{" "}
+          <a href="https://tree.opentreeoflife.org/about/taxonomy-version" target="_blank" rel="noreferrer">Open
+          Tree Taxonomy</a>, from the{" "}
+          <a href="https://www.mammaldiversity.org" target="_blank" rel="noreferrer">Mammal Diversity
+          Database</a> for mammals, and from the{" "}
+          <a href="https://www.catalogueoflife.org" target="_blank" rel="noreferrer">Catalogue of
+          Life</a> for everything else, which gathers specialist databases such as the Reptile
+          Database, FishBase and ITIS. A branch whose species match no group exactly stays unnamed.
+        </p>
+      </div>
       <div className="about-src is-teal about-src-full">
         <div className="about-src-tag">Images · Wikimedia &amp; iNaturalist</div>
         <p>
-          Species pictures come from two places. Most are photographs taken by naturalists and
-          shared through{" "}
+          Species pictures come from two places. Most are the lead images of Wikipedia articles,
+          served from{" "}
+          <a href="https://commons.wikimedia.org" target="_blank" rel="noreferrer">Wikimedia
+          Commons</a>. Where an article has no photograph of the living species, only a range map
+          or an old illustration, the picture is a photograph taken by a naturalist and shared
+          through{" "}
           <a href="https://www.inaturalist.org" target="_blank" rel="noreferrer">iNaturalist</a>,
           and Grebe uses only the ones their photographers released under a Creative Commons
-          licence. The rest are the lead images of Wikipedia articles, served from{" "}
-          <a href="https://commons.wikimedia.org" target="_blank" rel="noreferrer">Wikimedia
-          Commons</a>.
+          licence. Kinship and Branches only use species with a real photograph.
         </p>
         <p>
           Every picture stays the property of its photographer, author and licensor. Grebe stores
@@ -298,12 +318,15 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         </li>
         <li>
           <b>Name everything.</b> Give each species its everyday name from its Wikipedia title,
-          falling back to Wikidata, and name the clades the same way.
+          falling back to Wikidata, and the groups their English names the same way. Name the
+          unnamed branches from the Open Tree Taxonomy, the Mammal Diversity Database and the
+          Catalogue of Life, but only where a group's members are exactly the species on that
+          branch.
         </li>
         <li>
           <b>Find a picture.</b> Match each species to its iNaturalist page and keep the Creative
           Commons photographs of it, so a species whose Wikipedia article leads with a range map
-          still gets a photo of the living animal.
+          still gets a photo of the living organism.
         </li>
         <li>
           <b>Save a snapshot.</b> The result is baked into a single file bundled with the app, so
@@ -313,7 +336,7 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       <p className="about-p">
         The full source, with all the technical detail, is on{" "}
         <a href="https://github.com/nkempynck/grebe" target="_blank" rel="noreferrer">GitHub</a>.
-        Coding was done by Claude Opus 4.8. Software engineering and page design were done by me and Claude. Game design and
+        Coding was done by Claude Opus. Software engineering and page design were done by me and Claude. Game design and
         feature design were done by me (and inspiration from the existing games mentioned before obviously),
         with help from Maria and valuable feedback from Eren.
       </p>
@@ -365,11 +388,14 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
       </ul>
 
       <p className="about-foot">
-        Snapshot built {built || "—"} · species selected by Wikipedia readership, names from
-        Wikipedia &amp; Wikidata, topology &amp; ranks from Open Tree of Life.
+        Data updated {updated || "—"} · species selected by Wikipedia readership, names from
+        Wikipedia &amp; Wikidata, topology &amp; ranks from Open Tree of Life, group names also from
+        the Mammal Diversity Database and the Catalogue of Life.
         Sources: <a href="https://www.wikipedia.org" target="_blank" rel="noreferrer">wikipedia.org</a> ·{" "}
         <a href="https://www.wikidata.org" target="_blank" rel="noreferrer">wikidata.org</a> ·{" "}
-        <a href="https://tree.opentreeoflife.org" target="_blank" rel="noreferrer">tree.opentreeoflife.org</a>
+        <a href="https://tree.opentreeoflife.org" target="_blank" rel="noreferrer">tree.opentreeoflife.org</a> ·{" "}
+        <a href="https://www.mammaldiversity.org" target="_blank" rel="noreferrer">mammaldiversity.org</a> ·{" "}
+        <a href="https://www.catalogueoflife.org" target="_blank" rel="noreferrer">catalogueoflife.org</a>
       </p>
       <p className="about-foot">
         Made by Niklas. © 2026 Niklas Kempynck. Free to play, share, and build on for
