@@ -1,5 +1,6 @@
 import { dailyLabel, todayKey } from "../core/daily";
 import { MOSAIC_LAUNCH, mosaicIsLive } from "../core/mosaic";
+import { INSTAGRAM_HANDLE, INSTAGRAM_URL, InstagramIcon } from "./social";
 
 interface Props {
   onPlay: (view: "lineage" | "kinship" | "branches" | "mosaic") => void;
@@ -96,6 +97,13 @@ export function HomePanel({ onPlay }: Props) {
           <p className="home-card-tag">Further tree-of-life games are in the works.</p>
         </div>
       </div>
+
+      <p className="home-social">
+        Follow{" "}
+        <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer"><InstagramIcon /> {INSTAGRAM_HANDLE} on Instagram</a>{" "}
+        for news and updates, easy discussions (feel free to send me a DM with feature requests and
+        ideas), and potentially some laughs.
+      </p>
     </div>
   );
 }

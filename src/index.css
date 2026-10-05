@@ -2049,6 +2049,9 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
   font-size: 18px; color: var(--ink-soft); line-height: 1.6; max-width: 60ch; margin: 0 0 22px;
 }
 .home-intro b { color: var(--ink); font-weight: 600; }
+/* The permanent Instagram mention under the game cards: quiet, one line on desktop. */
+.home-social { margin: 18px 0 0; font-size: .84rem; line-height: 1.5; color: var(--ink-soft); text-align: center; }
+.home-social a { color: var(--brass-bright, var(--brass)); font-weight: 600; }
 .home-games {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;
 }
@@ -2131,6 +2134,8 @@ button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
   padding: .25rem .7rem; font: inherit; font-size: .8rem; font-weight: 600;
 }
 .announce-go:hover { background: var(--game, var(--brass)); color: var(--bg, #fff); }
+/* The Instagram banner's button is a link, not a button. */
+a.announce-go { text-decoration: none; }
 .announce-x {
   flex: none; background: none; border: 0; cursor: pointer; color: inherit;
   opacity: .5; font-size: 1.1rem; line-height: 1; padding: 0 .1rem;

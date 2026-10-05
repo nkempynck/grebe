@@ -24,6 +24,7 @@ import { primePinnedPuzzles, pinnedPuzzleCached, fetchPinnedPuzzle, branchesBoar
 import { SettingsPanel } from "./ui/SettingsPanel";
 import { GuessInput } from "./ui/GuessInput";
 import { MosaicAnnounce } from "./ui/MosaicAnnounce";
+import { InstagramAnnounce } from "./ui/InstagramAnnounce";
 import { useBoardGuard } from "./hooks/useBoardGuard";
 import { ResultCard } from "./ui/ResultCard";
 import { AnswerReveal } from "./ui/AnswerReveal";
@@ -1108,6 +1109,7 @@ export default function App() {
       {view !== "mosaic" && (
         <MosaicAnnounce onPlay={() => setView("mosaic")} onClose={() => setAnnounceGone((n) => n + 1)} />
       )}
+      <InstagramAnnounce onClose={() => setAnnounceGone((n) => n + 1)} />
 
       {isGameView(view) && (
         <nav className="gamenav" role="tablist" aria-label="Games">

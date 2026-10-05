@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import taxonomy from "../data/taxonomy.json";
+import { INSTAGRAM_HANDLE, INSTAGRAM_URL, InstagramIcon } from "./social";
 
 /** Smoothly scroll a section into view without touching the URL hash (the app
  *  uses the hash for #admin routing, so we avoid polluting it). */
@@ -54,6 +55,12 @@ export function AboutPanel({ focus }: { focus?: string | null }) {
         Grebe was made purely as a personal project, coming from my interest in evolutionary biology
         and love for daily puzzle games. It is intended for fun and educational purposes, and I hope it
         helps people learn more about the diversity of life on Earth.
+      </p>
+      <p className="about-p">
+        Grebe is on Instagram as{" "}
+        <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer"><InstagramIcon /> {INSTAGRAM_HANDLE}</a>: follow
+        the page for news and updates, easy discussions (feel free to send me a DM with feature
+        requests and ideas), and potentially some laughs.
       </p>
 
       {/* ---------- The name ---------- */}
