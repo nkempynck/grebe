@@ -816,6 +816,13 @@ const answerGroupIds = (b: BranchesBoard) => b.groupIds.slice(0, b.slotIds.lengt
 /** True when the board's actual answer-group separation sits in the day's SEP_BAND — the
  *  difficulty gate that keeps a spread cross-class board off a hard day (and a tight genus
  *  board off Monday). */
+/** inSepBand with one step of slack either side: the most a fresh board may miss its band by
+ *  before the day tries another class instead (see boardForDay). */
+function nearSepBand(tree: Tree, b: BranchesBoard): boolean {
+  const [lo, hi] = SEP_BAND[b.tier] ?? SEP_BAND[1];
+  const sep = medianLookalikeSeparation(tree, answerGroupIds(b));
+  return sep >= lo - 1 && sep <= hi + 1;
+}
 function inSepBand(tree: Tree, b: BranchesBoard): boolean {
   const [lo, hi] = SEP_BAND[b.tier] ?? SEP_BAND[1];
   const sep = medianLookalikeSeparation(tree, answerGroupIds(b));
@@ -877,7 +884,11 @@ export function setServedBranchesHistory(
 // empty and every day settled for the mildest repeat it could find. Answer-clade repeats
 // inside a fortnight went 53 → 72 over a year. The context clades are scenery; only the
 // clades that ARE the puzzle should keep it away from a container.
-const BRANCHES_GROUP_ANTI_REPEAT_WINDOW = 14;
+//
+// 30 days, not 14 (2026-10-05): at 14, together with no near-copy rule, a board sharing five of
+// its six groups with one from three weeks before counted as fresh, and the same tray species
+// came back within the month 187 times a year.
+const BRANCHES_GROUP_ANTI_REPEAT_WINDOW = 30;
 /** A candidate board plus how badly it repeats, so the fallback can take the mildest. */
 type Scored = { board: BranchesBoard; cost: number } | null;
 
@@ -887,14 +898,15 @@ type Scored = { board: BranchesBoard; cost: number } | null;
  *  collisions, which naturally track how tight the groups are). The separation band is only
  *  a SOFT preference: a hard per-tier band would admit only the classes whose natural
  *  separation happens to match it (mammals on easy, amphibians midweek) and undo the class
- *  balance, so it merely breaks ties. Falls back: fresh+floor → fresh+in-band → fresh →
- *  any valid board (attempts are null when a container is too Latin-only to field a board).
+ *  balance, so it merely breaks ties. Falls back: fresh+floor within a step of the band →
+ *  fresh+in-band → (next class) → fresh+floor → fresh → any valid board (attempts are null
+ *  when a container is too Latin-only to field a board).
  *  Returns null only if NO attempt yields a valid board. */
 function boardForDay(
   tree: Tree,
   dateKey: string,
   tier: number,
-  avoid: (s: string) => boolean,
+  avoid: (s: string, groupIds: string[]) => boolean,
   repeatCost: (groupIds: string[]) => number = () => 0
 ): BranchesBoard | null {
   // The day's broad class, drawn over the eligible ones (pickGroup), then the classes it would
@@ -929,22 +941,28 @@ function boardForDay(
   // than the single-class version, which could only offer the mildest repeat within one.
   let rIdeal: Scored = null, rFloor: Scored = null, rInBand: Scored = null, rFirst: Scored = null;
   let anyValid: BranchesBoard | null = null;
+  // A fresh board FAR off the band (more than a step) used to win outright inside the drawn
+  // class, and thin classes produced walkovers: an easy mollusc board on a Sunday, a separation
+  // 1 board on a Friday. Now such a board only wins if no class offers anything closer.
+  let farFloor: BranchesBoard | null = null, farFirst: BranchesBoard | null = null;
   const better = (cur: Scored, board: BranchesBoard, cost: number): Scored =>
     !cur || cost < cur.cost ? { board, cost } : cur;
 
   for (const group of classes.slice(0, BRANCHES_CLASS_ATTEMPTS)) {
+    let nNear: BranchesBoard | null = null;
     let nFloor: BranchesBoard | null = null, nInBand: BranchesBoard | null = null, nFirst: BranchesBoard | null = null;
     for (let attempt = 0; attempt < BRANCHES_ATTEMPTS; attempt++) {
       const board = selectBoard(tree, group, dateKey, tier, attempt);
       if (!board) continue;                            // Latin-only container — unusable
       if (!anyValid) anyValid = board;                 // last-resort (may repeat)
-      if (avoid(boardSig(board))) continue;            // a recent repeat — skip
+      if (avoid(boardSig(board), answerGroupIds(board))) continue; // a recent repeat or near copy — skip
       const floor = meetsFloor(tree, board);
       const band = inSepBand(tree, board);
       const cost = repeatCost(answerGroupIds(board));
       if (cost === 0) {
         if (floor && band) return board;               // fresh, look-alikes, on-band → ideal
-        if (floor && !nFloor) nFloor = board;          // look-alikes (firm) → primary fallback
+        if (floor && !nNear && nearSepBand(tree, board)) nNear = board; // look-alikes, near band → primary fallback
+        if (floor && !nFloor) nFloor = board;          // look-alikes, far off band → only if no class does better
         if (band && !nInBand) nInBand = board;         // on-band → secondary
         if (!nFirst) nFirst = board;                   // any fresh → last fresh option
       } else {
@@ -956,9 +974,12 @@ function boardForDay(
     }
     // This class had something fresh. Take it and stop — trying further classes would only
     // trade a fresh board for another fresh board and skew the class balance for nothing.
-    const fresh = nFloor ?? nInBand ?? nFirst;
+    const fresh = nNear ?? nInBand;
     if (fresh) return fresh;
+    farFloor ??= nFloor; farFirst ??= nFirst;
   }
+  const far = farFloor ?? farFirst;
+  if (far) return far;
   return rIdeal?.board ?? rFloor?.board ?? rInBand?.board ?? rFirst?.board ?? anyValid;
 }
 
@@ -975,7 +996,13 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
 
   const queue: string[] = [];
   const counts = new Map<string, number>();
-  const avoid = (s: string) => (counts.get(s) ?? 0) > 0;
+  // NEAR COPIES, over the same window as the signature: a board whose answer groups are mostly
+  // (at least three, and at least half) those of a board from the window counts as a repeat
+  // too. The exact signature alone let five of six groups come back within weeks.
+  const recentAnswers: string[][] = [];
+  const nearCopy = (g: string[]) =>
+    recentAnswers.some((r) => g.filter((id) => r.includes(id)).length >= Math.max(3, Math.ceil(g.length / 2)));
+  const avoid = (s: string, g: string[]) => (counts.get(s) ?? 0) > 0 || nearCopy(g);
   // Day index each group last appeared on, for the per-group window.
   const groupSeenAt = new Map<string, number>();
   let idx = 0;
@@ -1010,9 +1037,11 @@ export function generateBranchesBoard(tree: Tree, dateKey: string, tier: number)
       groupIds = answerGroupIds(board); // answers only, as the window's comment explains
     }
     queue.push(sig);
+    recentAnswers.push(groupIds);
     counts.set(sig, (counts.get(sig) ?? 0) + 1);
     if (queue.length > BRANCHES_ANTI_REPEAT_WINDOW) {
       const old = queue.shift()!;
+      recentAnswers.shift();
       const c = (counts.get(old) ?? 0) - 1;
       if (c <= 0) counts.delete(old);
       else counts.set(old, c);

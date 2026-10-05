@@ -1287,8 +1287,9 @@ function buildBoard(
 }
 
 /** No board may share NEAR_REPEAT_SHARED of its groups with a board from the last
- *  NEAR_REPEAT_WINDOW days. A hard gate, like the set and group windows. */
-const NEAR_REPEAT_WINDOW = 30;
+ *  NEAR_REPEAT_WINDOW days. A hard gate, like the set and group windows. 30 days let the same
+ *  three groups come back after six or seven weeks, which reads as a rerun (2026-10-05). */
+const NEAR_REPEAT_WINDOW = 60;
 /** Classes whose boards must land inside the day's difficulty band, never off it. */
 const STRICT_BAND_CLASSES = new Set(["Plants"]);
 const NEAR_REPEAT_SHARED = 3;

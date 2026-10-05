@@ -244,7 +244,10 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   Sansevieria moved out of the nightshades; shorebirds, pelicans and herons, crocodiles
   //   and some cockroach and mantis groups get back the ranks a mis-ranked ancestor had
   //   stripped. → re-pin un-played future dates.
-  version: 16,
+  // v17 (2026-10-05): a board may not share three groups with one from the last 60 days
+  //   (was 30), so the same three groups no longer return after six weeks. → re-pin un-played
+  //   future dates.
+  version: 17,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -381,7 +384,11 @@ const branchesResolver: Resolver<"branches"> = {
   // v18 (2026-10-05): no Branches code change; Maianthemum and Sansevieria left the nightshades
   //   and a few orders (shorebirds, pelicans and herons, crocodiles) regained their ranks,
   //   which Branches' difficulty reads. → re-pin un-played future dates.
-  version: 18,
+  // v19 (2026-10-05): a fresh board more than a step off its band no longer wins inside the
+  //   day's class; the next class is tried first (no more easy boards on hard days). A board
+  //   sharing most of its answer groups with one from the last 60 days counts as a repeat, and
+  //   a group stays away for 30 days instead of 14. → re-pin un-played future dates.
+  version: 19,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;
