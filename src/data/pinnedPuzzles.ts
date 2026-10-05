@@ -239,7 +239,12 @@ const kinshipResolver: Resolver<"kinship"> = {
   //   white butterfly was "Cabbage moth"), now corrected. → re-pin un-played future dates.
   // v15 (2026-10-05): plants on Tuesdays only, no longer Mondays. → re-pin un-played future
   //   dates.
-  version: 15,
+  // v16 (2026-10-05): plant boards span orders (one confusable pair, the other groups from
+  //   elsewhere in the plants) instead of four groups from one order. Maianthemum and
+  //   Sansevieria moved out of the nightshades; shorebirds, pelicans and herons, crocodiles
+  //   and some cockroach and mantis groups get back the ranks a mis-ranked ancestor had
+  //   stripped. → re-pin un-played future dates.
+  version: 16,
   compute(tree, date) {
     const board = gridBoardFor(tree, date);
     if (!board) return null;
@@ -373,7 +378,10 @@ const branchesResolver: Resolver<"branches"> = {
   //   and English group names. → re-pin un-played future dates.
   // v17 (2026-10-04): no Branches code change; eleven species took corrected English names,
   //   which Branches' name checks read. → re-pin un-played future dates.
-  version: 17,
+  // v18 (2026-10-05): no Branches code change; Maianthemum and Sansevieria left the nightshades
+  //   and a few orders (shorebirds, pelicans and herons, crocodiles) regained their ranks,
+  //   which Branches' difficulty reads. → re-pin un-played future dates.
+  version: 18,
   compute(tree, date) {
     const board = branchesBoardFor(tree, date);
     if (!board) return null;

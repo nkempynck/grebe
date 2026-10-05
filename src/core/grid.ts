@@ -614,7 +614,8 @@ const BROAD_GROUPS: Array<{ group: string; tiers: number[]; markers: string[]; m
   // Plants only on Tuesday, an easy day, and only inside the easy band (STRICT_BAND_CLASSES),
   // at most once every three weeks (2026-10-03): the group players know least should be the
   // gentlest board of its week, not one of the hardest. Not Monday (2026-10-05): the week
-  // should not open on the class players know least.
+  // should not open on the class players know least. Their band sits lower than the other
+  // classes' (CLASS_BAND_SHIFT), so the board spans orders instead of staying inside one.
   { group: "Plants", tiers: [2], minGap: 21, markers: ["Magnoliopsida", "Liliopsida", "Pinopsida", "Polypodiopsida"] },
   { group: "Molluscs", tiers: [3, 6, 7], minGap: 21, markers: ["Gastropoda", "Bivalvia", "Cephalopoda"] },
   { group: "Spiders", tiers: [6, 7], minGap: 28, markers: ["Arachnida"] },
@@ -758,7 +759,14 @@ const BAND_TIER_WINDOW: Array<[number, number]> = [
 // can eyeball, so those boards must sit closer to earn the same weekday. Applied per
 // CONTAINER, not per day, since class varies candidate to candidate. Soft, like the band
 // itself: a class that cannot go tighter is not banned, it just loses ties.
-const CLASS_BAND_SHIFT: Record<string, number> = { Mammals: 0.5 };
+//
+// Plants shift the other way, and far, because their ruler is coarse rather than their groups
+// easy: the plant tree has no rank between order and class, so two plant groups read either
+// "same order" (3) or class-far (1), nothing between. At the shared 3-3.5 window that meant all
+// four groups in one order, every board: four Ericales or four Caryophyllales families, which
+// played as the hardest board of the week (2026-10-05). At 1-1.5 a plant board holds at most
+// two groups per order, i.e. one confusable pair plus groups players can tell apart.
+const CLASS_BAND_SHIFT: Record<string, number> = { Mammals: 0.5, Plants: -2 };
 /** Separation is a rank tier, so the window can never be pushed past the top of it. */
 const MAX_SEPARATION = 7;
 /** The separation window a board of this class should land in on this weekday tier. */
@@ -788,6 +796,10 @@ const MIN_PAIR_SEPARATION = 3;
 // shape lands on easy days and four-tight boards still land on hard ones: the bands need no
 // change. A board whose four groups are all mutually close still passes, trivially.
 const FOURTH_GROUP_MIN = 2;
+/** …except for plants, whose groups from different orders read class-far (see CLASS_BAND_SHIFT):
+ *  for them "same superorder or closer" can only mean "same order", so the free groups may come
+ *  from anywhere in the plants. */
+const CLASS_FOURTH_GROUP_MIN: Record<string, number> = { Plants: 1 };
 /** How many groups must form the board's trap, by weekday tier (index 0 unused). Two
  *  confusable groups are enough on Mon/Tue; from Wednesday the board should hold a real
  *  three-way trap. `sep.max` is the tightest PAIR, `sep.core` the tightest TRIPLE. */
@@ -1500,7 +1512,7 @@ function boardForDay(
     const pairTrap = sep.max >= coreFloor;              // two groups you can genuinely confuse
     const tripleTrap = sep.core >= coreFloor;           // three of them
     const uniform = sep.min >= MIN_PAIR_SEPARATION;     // nothing is a giveaway
-    const riderOk = sep.min >= FOURTH_GROUP_MIN;        // free groups are still relatives
+    const riderOk = sep.min >= (CLASS_FOURTH_GROUP_MIN[c.group!] ?? FOURTH_GROUP_MIN);       // free groups are still relatives
     // A pair trap is required EVERY day and is never traded away — offering it as one arm of
     // a union let 69 boards through with nothing confusable on them at all. Above that floor
     // the demand grows through the week: Mon/Tue are content with the pair, Wed-Fri want

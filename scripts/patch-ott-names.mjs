@@ -82,7 +82,9 @@ const usedNames = new Set(all.filter((n) => n.sciName && !n.synthetic && !n.ottT
 let cleared = 0;
 for (const n of all) if (n.ottTaxon) { n.sciName = ""; delete n.sepRank; delete n.ottTaxon; cleared++; }
 
-const isUnnamed = (n) => n.rank !== "species" && (!n.sciName || n.synthetic) && !(n.common && !n.synthetic);
+// An English name from patch-clade-common (`commonSource`) was derived from the Latin name being
+// recomputed here, so it does not count: otherwise every rerun would drop those names.
+const isUnnamed = (n) => n.rank !== "species" && (!n.sciName || n.synthetic) && !(n.common && !n.synthetic && !n.commonSource);
 const candidates = [];
 let noLineage = 0;
 for (const n of all) {

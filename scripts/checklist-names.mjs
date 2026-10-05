@@ -80,7 +80,9 @@ export function applyChecklistNames({ snapshot, field, inScope, provenance, dry 
   const LATIN_WORD = /^[A-Z][a-z]+$/;
   const usedNames = new Set(all.filter((n) => n.sciName && !n.synthetic).map((n) => n.sciName));
   const depth = (id) => { let d = 0; for (let x = id; x; x = byId.get(x)?.parentId) d++; return d; };
-  const isUnnamed = (n) => n.rank !== "species" && (!n.sciName || n.synthetic) && !(n.common && !n.synthetic);
+  // An English name from patch-clade-common (`commonSource`) came from the Latin name being
+  // recomputed, so it does not block it (see patch-ott-names.mjs).
+  const isUnnamed = (n) => n.rank !== "species" && (!n.sciName || n.synthetic) && !(n.common && !n.synthetic && !n.commonSource);
 
   const byTaxon = new Map();
   for (const n of all) {

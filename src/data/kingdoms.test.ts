@@ -39,4 +39,28 @@ describe("kingdoms", () => {
     expect(checked).toBeGreaterThan(nodes.length / 2);
     expect(wrong).toEqual([]);
   });
+
+  // The pool once filed Nolinoideae under Solanaceae, and lilies sat among the nightshades.
+  // Families are lumped and split differently between classifications, so compare ORDERS: the
+  // family a species sits in must belong to the order Open Tree puts the species in.
+  it("every species sits in a family of the order Open Tree gives it", () => {
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const orderUp = (t: number | null | undefined) => {
+      for (; t != null; t = L.taxa[t]?.[2]) if (L.taxa[t]?.[1] === "order") return L.taxa[t][0];
+      return null;
+    };
+    const familyOrders = new Map<string, Set<string | null>>();
+    for (const [t, [name, rank]] of Object.entries(L.taxa))
+      if (rank === "family") (familyOrders.get(name) ?? familyOrders.set(name, new Set()).get(name)!).add(orderUp(Number(t)));
+    const wrong: string[] = [];
+    for (const n of nodes) {
+      if (n.rank !== "species") continue;
+      let family: string | null = null;
+      for (let c: string | null | undefined = n.parentId; c; c = byId.get(c)?.parentId) if (byId.get(c)?.rank === "family") { family = byId.get(c)!.sciName ?? null; break; }
+      const mine = orderUp(L.species[n.sciName]);
+      const theirs = family ? familyOrders.get(family) : undefined;
+      if (mine && theirs?.size && !theirs.has(mine)) wrong.push(`${n.sciName} (${n.common}): in ${family}, Open Tree order ${mine}`);
+    }
+    expect(wrong).toEqual([]);
+  });
 });

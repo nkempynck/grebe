@@ -53,7 +53,9 @@ const MAX_THEME_LEAVES = 25;
 // Pinned Kinship/Branches boards reference augment ids, so a full rebuild that moved or dropped
 // one would break a frozen board; adding is always safe. New species must clear
 // ADD_MIN_VIEWS so the additions are not obscure; the per-genus cap counts what is there.
-const ADD_ONLY = process.argv.includes("--add-only");
+// --fix-only is add-only that adds nothing: it only applies the moves below to the current augment.
+const FIX_ONLY = process.argv.includes("--fix-only");
+const ADD_ONLY = FIX_ONLY || process.argv.includes("--add-only");
 const ADD_MIN_VIEWS = 1000;
 const AUG_PATH = resolve(ROOT, "src/data/taxonomyAugment.json");
 const existing = ADD_ONLY ? JSON.parse(readFileSync(AUG_PATH, "utf8")).nodes : [];
@@ -194,6 +196,61 @@ for (const n of existing) {
   n.parentId = home;
   moved++;
 }
+// The pool's family can also be plain wrong: it filed the whole of Nolinoideae (Dracaena,
+// Sansevieria, Maianthemum…) under Solanaceae, so a minted genus landed among the nightshades.
+// Lumping and splitting disagree about families all the time (lories in or out of Psittacidae),
+// so the test is the ORDER: an augment genus whose family sits in another order than Open Tree's
+// lineage of its species moves (same id) to where Open Tree puts it, the tree MRCA of the other
+// species sharing their nearest Open Tree ancestor. Offline: reads the committed ott-lineages.json.
+const OTT_PATH = resolve(ROOT, "scripts/ott-lineages.json");
+const ott = existsSync(OTT_PATH) ? JSON.parse(readFileSync(OTT_PATH, "utf8")) : { species: {}, taxa: {} };
+const ottLine = (sci) => {
+  const out = [];
+  for (let t = ott.species[sci]; t != null && out.length < 200; t = ott.taxa[t]?.[2]) out.push(t);
+  return out;
+};
+const ottOrderUp = (t) => {
+  for (; t != null; t = ott.taxa[t]?.[2]) if (ott.taxa[t]?.[1] === "order") return ott.taxa[t][0];
+  return null;
+};
+const ottFamilyOrders = new Map(); // family name -> the orders Open Tree puts a family of that name in
+for (const [t, [name, rank]] of Object.entries(ott.taxa))
+  if (rank === "family") (ottFamilyOrders.get(name) ?? ottFamilyOrders.set(name, new Set()).get(name)).add(ottOrderUp(Number(t)));
+const wrongOrder = (sci, family) => {
+  const mine = ottOrderUp(ott.species[sci]);
+  const theirs = ottFamilyOrders.get(family);
+  return !!(mine && theirs?.size && !theirs.has(mine));
+};
+const ancestorsOf = (id) => {
+  const out = [];
+  for (let c = id; c; c = nodeById.get(c)?.parentId) out.push(c);
+  return out;
+};
+const misplaced = [];
+for (const g of existing) {
+  if (g.rank !== "genus" || !g.id.startsWith("auggen_")) continue;
+  const family = familyOf(g.parentId);
+  const kids = existing.filter((n) => n.parentId === g.id && n.rank === "species");
+  if (family && kids.length && kids.every((n) => wrongOrder(n.sciName, family))) misplaced.push({ g, family, kids });
+}
+// None of the misplaced species may count as kin when finding a home, or one wrong graft drags
+// the other's MRCA up to wherever it sits.
+const mine = new Set(misplaced.flatMap((m) => m.kids.map((n) => n.sciName)));
+let reordered = 0;
+for (const { g, family, kids } of misplaced) {
+  let home = null;
+  for (const t of ottLine(kids[0].sciName).slice(1)) {
+    const kin = tax.nodes.filter((n) => n.rank === "species" && !mine.has(n.sciName) && ottLine(n.sciName).includes(t));
+    if (kin.length < 2) continue;
+    const common = new Set(ancestorsOf(kin[0].parentId));
+    for (const k of kin.slice(1)) { const a = new Set(ancestorsOf(k.parentId)); for (const c of common) if (!a.has(c)) common.delete(c); }
+    home = [...common][0];
+    break;
+  }
+  if (!home) { console.warn(`! ${g.sciName} sits in the wrong order (${family}) and Open Tree gives no home`); continue; }
+  g.parentId = home;
+  reordered++;
+}
 // Names already spoken for anywhere in the base tree — never mint a second node for one.
 const inSetCladeNames = new Set();
 for (const n of tax.nodes) if (n.rank !== "species" && n.sciName) inSetCladeNames.add(n.sciName);
@@ -265,6 +322,9 @@ for (const s of pool) {
     else homonymSkipped++;
     continue;
   }
+  // The branches below graft by the pool's FAMILY alone, so a family in the wrong order would
+  // place the species wrongly (see wrongOrder above). The genus-node branch does not need it.
+  if (!gNode && !baseParent && wrongOrder(s.sci, s.family)) { homonymSkipped++; continue; }
   if (gNode) {
     bucket(s.genus, gNode, false).species.push({ ...s, common });
   } else if (genusNodesBySci.has(s.genus) || baseParentByGenus.has(s.genus)) {
@@ -350,6 +410,7 @@ for (const [family, f] of famBuckets) {
   newFamGenera += famNodes.filter((n) => n.rank === "genus").length;
 }
 
+if (FIX_ONLY) nodes.length = 0;
 nodes.sort((a, b) => (b.views ?? 0) - (a.views ?? 0) || (a.sciName < b.sciName ? -1 : 1));
 const added = nodes.length;
 // Add-only: the existing nodes first and untouched, the new ones after.
@@ -365,4 +426,5 @@ console.log(`  3. breadth (new families via OTL topology):  ${newFamilies} famil
 console.log(`  skipped, genus name ambiguous in the base tree: ${homonymSkipped} species`);
 console.log(`  genus name taken by the other kingdom, placed in its family: ${crossKingdom} species`);
 if (moved) console.log(`  existing species moved out of the wrong kingdom: ${moved}`);
+if (reordered) console.log(`  existing genera moved out of the wrong order: ${reordered}`);
 console.log(`  wrote ${OUT} (${(Buffer.byteLength(JSON.stringify({ nodes })) / 1024).toFixed(0)} KB)`);
