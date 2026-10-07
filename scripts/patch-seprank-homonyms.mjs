@@ -19,7 +19,10 @@
 //
 //   Ascaridida    Open Tree matched it to Ascaridomorpha, which in our tree is one of this
 //                 node's own two children (the other is Oxyuridomorpha). A node cannot be the
-//                 same rank as the infraorder inside it. Wikidata Q17160: order.
+//                 same rank as the infraorder inside it. Wikidata Q17160: order. But Open Tree
+//                 puts it under Spirurina, a suborder, and an order cannot sit inside a
+//                 suborder either. No rank fits between the two, so it becomes "clade" and the
+//                 ruler reads Spirurina (2026-10-07, with patch-inverted-ranks).
 //
 // Two more, found by the 2026-10-03 taxonomy evaluation, carry the wrong value in `rank` itself
 // (assemble-taxonomy step 2 labels ranks by name through Open Tree's TNRS), so here `from` is
@@ -35,12 +38,15 @@
 //                 formal rank (Q2254408: clade), so it becomes "clade" and the ruler reads the
 //                 next ranked ancestor, as for any unranked node.
 //
-// NOT FIXED, on purpose: Acanthomorphata, stamped `order` although it holds dozens of fish
-// orders. Most perch-like pairs meet at Percomorphaceae, which is unranked, so the ruler climbs
-// to Acanthomorphata and reads "same order". The rank is wrong but the closeness it gives is
-// about right for how fish play (fish boards play harder than their separation says), and
-// correcting it alone would read every perch-like board as trivially loose. Fix it together
-// with a Percomorphaceae entry in src/core/lookalike.ts, against play data.
+//   Acanthomorphata  The spiny-rayed fish, holding dozens of fish orders. Stamped `order` in
+//                 `rank`. Most perch-like pairs meet at Percomorphaceae, which is unranked, so
+//                 every walk climbed to it: Mosaic told a player guessing a pufferfish for a
+//                 perch "same order". Wikidata Q337777: superorder (as Acanthomorpha). Open
+//                 Tree also ranks Atherinomorphae and Cichlomorphae, inside it, as
+//                 superorders; equal ranks nested read the same, so that is left alone. Fixed
+//                 2026-10-07. Kinship read these pairs one step tighter than it now does, which
+//                 suited how fish play; check perch-like boards on the bench before the next
+//                 repin and decide whether src/core/lookalike.ts needs to make up the step.
 //
 // NOT FIXED HERE, deliberately: Ornithorhynchoidea, where Wikidata says superfamily and the
 // shipped value is `order`. The shipped value is right and Wikidata is right — about
@@ -55,7 +61,7 @@
 //
 // CHANGING THESE MOVES BOARDS. separationTierOf turns the MRCA's rank into Kinship's and
 // Branches' closeness, so Delphinoidea goes from tier 7 (genus-close) to 5 for every pair
-// whose MRCA it is, and Ascaridida from 4 to 3. Re-pin after running this.
+// whose MRCA it is. Re-pin after running this.
 //
 //   node scripts/patch-seprank-homonyms.mjs [--dry]
 
@@ -71,9 +77,10 @@ const dry = process.argv.includes("--dry");
  *  changed it to something else again) reports rather than overwriting blind. */
 const FIXES = [
   { sciName: "Delphinoidea", from: "genus", to: "superfamily", wikidata: "Q1139670" },
-  { sciName: "Ascaridida", from: "infraorder", to: "order", wikidata: "Q17160" },
+  { sciName: "Ascaridida", from: null, to: "clade", wikidata: "Q17160" },
   { sciName: "Dictyoptera", from: null, to: "superorder", wikidata: "Q2087279" },
   { sciName: "Sauria", from: null, to: "clade", wikidata: "Q2254408" },
+  { sciName: "Acanthomorphata", from: null, to: "superorder", wikidata: "Q337777" },
 ];
 
 const doc = JSON.parse(readFileSync(TAX, "utf8"));

@@ -90,4 +90,29 @@ describe("kingdoms", () => {
     }
     expect(wrong).toEqual([]);
   });
+
+  // An `order` stamped on the hummingbird clade inside Trochilidae made Mosaic call two
+  // hummingbirds "same order", and Kinship read them as far apart. A separation rank must be
+  // narrower than every rank above it (patch-inverted-ranks.mjs). Equal ranks nested are fine.
+  it("no clade's separation rank is broader than a rank above it", () => {
+    const ORDER = [
+      "domain", "kingdom", "subkingdom", "superphylum", "phylum", "subphylum", "infraphylum",
+      "superclass", "class", "subclass", "infraclass", "subterclass", "cohort", "subcohort",
+      "magnorder", "superorder", "order", "suborder", "infraorder", "parvorder",
+      "superfamily", "family", "subfamily", "tribe", "subtribe",
+      "genus", "subgenus", "species group", "species subgroup", "species", "subspecies",
+    ];
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const pos = (n?: TaxonNode) => { const i = ORDER.indexOf(n?.sepRank ?? n?.rank ?? ""); return i < 0 ? null : i; };
+    const inverted: string[] = [];
+    for (const n of nodes) {
+      const mine = pos(n);
+      if (n.rank === "species" || mine == null) continue;
+      for (let c: string | null | undefined = n.parentId; c; c = byId.get(c)?.parentId) {
+        const theirs = pos(byId.get(c));
+        if (theirs != null && theirs > mine) { inverted.push(`${n.sciName || n.id} (${n.sepRank ?? n.rank}) inside ${byId.get(c)!.sciName}`); break; }
+      }
+    }
+    expect(inverted).toEqual([]);
+  });
 });

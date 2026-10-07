@@ -150,6 +150,18 @@ describe("mosaic board", () => {
       .toBe("same order");
   });
 
+  it("calls two hummingbirds family mates, not just ordermates", () => {
+    // An `order` stamp once sat on a clade inside Trochilidae, so the walk met it first.
+    expect(scoreMosaicGuess(tree, idOf("Chlorostilbon russatus"), idOf("Mellisuga helenae"))!.proximity)
+      .toBe("same family");
+  });
+
+  it("does not call a perch and a pufferfish ordermates", () => {
+    // Acanthomorphata, which holds dozens of fish orders, carried `order` from Open Tree.
+    expect(scoreMosaicGuess(tree, idOf("Perca fluviatilis"), idOf("Takifugu rubripes"))!.proximity)
+      .toBe("same class");
+  });
+
   it("scores a near miss as mostly matching and a far miss as mostly not", () => {
     const answer = idOf("Panthera leo");
     const near = scoreMosaicGuess(tree, answer, idOf("Panthera tigris"))!;

@@ -18,9 +18,11 @@ import { mrca, separationTierOf } from "./tree";
 // easier, in both Kinship and Branches. Revisit it as data accumulates. Turtles, songbirds,
 // gamebirds, beetles, orthopterans and mantises were added on 2026-10-05 from boards the user judged on the test bench.
 //
-// KNOWN GAP: perch-like fish. Their pairs meet at Percomorphaceae (unranked) and read their
-// closeness from Acanthomorphata, which the tree wrongly ranks as an order. The value is about
-// right by accident; see patch-seprank-homonyms.mjs before correcting either.
+// OPEN: perch-like fish. Their pairs meet at Percomorphaceae (unranked) and read their
+// closeness from the rank above. That was Acanthomorphata, wrongly ranked an order, which read
+// them one step tighter; since 2026-10-07 it is a superorder (patch-seprank-homonyms.mjs).
+// Check perch-like boards on the bench before the next repin and decide whether an entry here
+// should make up the step.
 export const LOOKALIKE: Record<string, { adj: number; why: string }> = {
   // Mammals
   Bovidae: { adj: -1, why: "cattle, sheep and goats, antelopes, gazelles: different builds" },

@@ -285,6 +285,7 @@ if (!process.argv.includes("--rank-orders")) {
   const famBySpecies = new Map();
   for (const s of inset) if (s.gbif && s.family) famBySpecies.set(String(s.gbif), s.family);
   const orderOf = (id) => { const f = famBySpecies.get(id); return (f && orderOfFamily[f]) || null; };
+  const BELOW_ORDER = new Set(["suborder", "infraorder", "parvorder", "superfamily", "family", "subfamily", "tribe", "subtribe", "genus", "subgenus"]);
   const byOrder = new Map();
   for (const n of nodes.values()) { if (n.rank !== "species") continue; const o = orderOf(n.id); if (o) (byOrder.get(o) ?? byOrder.set(o, []).get(o)).push(n.id); }
   let ranked = 0, impure = 0, tooSmall = 0, alreadyRanked = 0;
@@ -299,6 +300,12 @@ if (!process.argv.includes("--rank-orders")) {
     // rank from an earlier step, is better information than this.
     if (node.rank && node.rank !== "clade" && node.rank !== "no rank") { alreadyRanked++; continue; }
     if (node.sepRank) { alreadyRanked++; continue; }
+    // An order with one family has its MRCA INSIDE the family node (hummingbirds under
+    // Trochilidae); an `order` there reads every pair in the family as "same order". Any
+    // other inverted stamp is caught by patch-inverted-ranks later in the build.
+    let a = node.parentId;
+    while (a && !BELOW_ORDER.has(nodes.get(a)?.sepRank ?? nodes.get(a)?.rank)) a = nodes.get(a)?.parentId;
+    if (a) { alreadyRanked++; continue; }
     node.sepRank = "order";
     ranked++;
   }

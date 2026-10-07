@@ -79,6 +79,15 @@ console.log(`${orderOfSpecies.size} of ${inset.length} in-set species matched a 
 const byOrder = new Map();
 for (const [id, order] of orderOfSpecies) (byOrder.get(order) ?? byOrder.set(order, []).get(order)).push(id);
 
+const BELOW_ORDER = new Set(["suborder", "infraorder", "parvorder", "superfamily", "family", "subfamily", "tribe", "subtribe", "genus", "subgenus"]);
+const insideNarrower = (id) => {
+  for (let p = byId.get(id)?.parentId; p; p = byId.get(p)?.parentId) {
+    const n = byId.get(p);
+    if (BELOW_ORDER.has(n.sepRank ?? n.rank)) return true;
+  }
+  return false;
+};
+
 let stamped = 0, impure = 0, tooSmall = 0, alreadyRanked = 0;
 const touched = [];
 for (const [order, ids] of byOrder) {
@@ -93,6 +102,9 @@ for (const [order, ids] of byOrder) {
   // Never overwrite information the tree already carries.
   if (node.rank && node.rank !== "clade" && node.rank !== "no rank") { alreadyRanked++; continue; }
   if (node.sepRank) { alreadyRanked++; continue; }
+  // An order with one family has its MRCA INSIDE the family node; stamping it there made
+  // every pair of hummingbirds read "same order". The family above already says more.
+  if (insideNarrower(m)) { alreadyRanked++; continue; }
   if (!dry) node.sepRank = "order";
   stamped++;
   touched.push(`${order} (${leaves.length} spp)`);

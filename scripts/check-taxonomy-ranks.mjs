@@ -68,6 +68,9 @@ const KNOWN = {
     // one. The name is a node too deep; the tier is the same either way, so nothing scores
     // differently. Keyed by id — the outer node is an unnamed junction.
     "mrcaott13841ott13845": "duplicate `order` on nested eel nodes; the inner one carries the name, both read tier 3",
+    // Wikidata's superorder for the spiny-rayed fish; Open Tree ranks two groups inside it as
+    // superorders too. Equal ranks nested, both read the same.
+    "Acanthomorphata": "superorder (Wikidata) holding Atherinomorphae and Cichlomorphae, also superorders in OTT",
   },
   augment: {},
   source: {
@@ -124,6 +127,17 @@ for (const n of injected) {
       continue;
     }
     for (const c of childrenOf.get(k.id) ?? []) stack.push(c);
+  }
+  // And above: an `order` stamped on the hummingbird clade INSIDE Trochilidae contradicted
+  // nothing below it, so the downward walk passed it, and Mosaic read every pair of
+  // hummingbirds as "same order".
+  for (let c = n.parentId; c; c = byId.get(c)?.parentId) {
+    const p = byId.get(c);
+    const theirs = depth.get(p.sepRank ?? p.rank);
+    if (theirs !== undefined && theirs > mine) {
+      structural.push({ sci: key, why: `stamped ${n.sepRank}, but sits inside ${p.sciName || p.id} (${p.sepRank ?? p.rank})` });
+      break;
+    }
   }
 }
 
