@@ -1882,35 +1882,41 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 .grid-solved-sci { font-weight: 600; font-style: italic; opacity: 0.75; font-size: 13px; }
 .grid-solved-members { font-size: 13px; margin-top: 2px; }
 
-/* END-OF-BOARD GALLERY — the four species as pictures, shown only once the game is over
-   (GroupBar gets `thumbs` only then). Four fixed columns rather than auto-fit: the row is
-   the group, and wrapping it to 2x2 on a narrow phone would read as two groups. They just
-   get smaller, which is fine at this size because the caption carries the identification. */
-/* Thumbnails, not plates. They are a reference strip under the group name, and tapping one
-   opens the same enlarged view the tiles use, so they can stay small. Fixed 56px columns
-   rather than fractions: the bar is full-width on desktop and 1fr each turned the four
-   shots into the loudest thing on the page. Change --shot to resize. */
-.grid-solved-gallery {
-  --shot: 56px;
-  display: grid; grid-template-columns: repeat(4, var(--shot)); gap: 10px;
-  justify-content: center; margin: 8px auto 0;
+/* END-OF-BOARD VIEW — once the game is over (GroupBar gets `thumbs` only then), the board
+   comes back sorted: each group is a coloured band with its name on top and its four
+   species below as the board's own tiles, same size and look. The bands join into one
+   block, and the tiles shrink by exactly what the headings add, so the result is the
+   board's height: a band is padding 6 + heading 20 + gap 6 + tile + padding 6, the board
+   a tile plus an 8px row gap. Four columns always, never 2x2: the row is the group, and
+   wrapping it would read as two groups. */
+.grid-end-board { border-radius: var(--radius); overflow: hidden; margin: 10px 0 16px; }
+.grid-solved.is-end { padding: 6px 8px; margin-bottom: 0; border-radius: 0; }
+.grid-solved.is-end .grid-solved-label {
+  font-size: 17px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.grid-solved-pic { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
-.grid-solved-shot {
-  display: block; width: var(--shot); height: var(--shot); padding: 0; border: none;
-  border-radius: calc(var(--radius) * 0.5); overflow: hidden;
-  background: color-mix(in srgb, #17150f 12%, transparent);
+/* 100% is the band minus its 8px sides; the board's tile is (that + 16 - 24) / 4. */
+.grid-end-tiles {
+  display: grid; grid-template-columns: repeat(4, calc((100% - 8px) / 4 - 32px)); gap: 8px;
+  justify-content: center; margin-top: 6px;
 }
-button.grid-solved-shot { cursor: zoom-in; }
-button.grid-solved-shot:hover, button.grid-solved-shot:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, #17150f 45%, transparent);
+.grid-tile.grid-end-tile { cursor: default; }
+.grid-tile.grid-end-tile:active { transform: none; }
+/* The whole picture is the enlarge target; the corner glyph just says so. */
+.grid-end-shot {
+  position: absolute; inset: 0; z-index: 2; padding: 0; border: 0;
+  background: transparent; cursor: zoom-in;
 }
-.grid-solved-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* Two lines then ellipsis, so one long name can't set the height of every row. */
-.grid-solved-cap {
-  font-size: 10.5px; line-height: 1.2; text-align: center; word-break: break-word;
-  max-width: calc(var(--shot) + 18px);
-  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+.grid-end-tile:hover .grid-tile-zoom, .grid-end-shot:focus-visible .grid-tile-zoom { opacity: 1; }
+/* The name opens the Wikipedia card; it sits above the enlarge target. */
+.grid-end-cap { border: 0; font-family: inherit; font-size: inherit; color: inherit; cursor: pointer; }
+.grid-tile-cap.grid-end-cap { font-size: 12px; text-align: center; }
+span.grid-end-cap, button.grid-end-cap:not(.grid-tile-cap) { background: none; padding: 0; }
+.grid-end-cap:hover, .grid-end-cap:focus-visible { text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 480px) {
+  /* padding 4 + heading 18 + gap 4 + tile + padding 4 */
+  .grid-solved.is-end { padding: 4px 8px; }
+  .grid-solved.is-end .grid-solved-label { font-size: 15px; line-height: 18px; }
+  .grid-end-tiles { grid-template-columns: repeat(4, calc((100% - 8px) / 4 - 24px)); margin-top: 4px; }
 }
 /* the bar opens the moment the tiles have finished arriving — it is withheld until then, so
    no delay here. Only for the group just solved, never for bars restored on a reload or a

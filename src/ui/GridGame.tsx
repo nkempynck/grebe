@@ -108,36 +108,38 @@ function GroupBar({ tree, group, dimmed, fresh, onPick, onZoom, thumbs }: { tree
   // see a picture — the group is solved by then, but the bars sit above a board still
   // being played. Images are already in hand: the board fetches all sixteen up front
   // whatever the reveal mode, so this adds no request.
+  const sci = group.sciLabel && group.sciLabel !== group.label ? group.sciLabel : null;
   return (
-    <div className={`grid-solved lvl-${group.level}${dimmed ? " is-dim" : ""}${fresh ? " is-fresh" : ""}`}>
+    <div className={`grid-solved lvl-${group.level}${thumbs ? " is-end" : ""}${dimmed ? " is-dim" : ""}${fresh ? " is-fresh" : ""}`}>
       <div className="grid-solved-label">
         {group.label}
-        {group.sciLabel && group.sciLabel !== group.label && <span className="grid-solved-sci"> · {group.sciLabel}</span>}
+        {sci && <span className="grid-solved-sci"> · {sci}</span>}
       </div>
       {thumbs ? (
-        <div className="grid-solved-gallery">
+        <div className="grid-end-tiles">
           {group.memberIds.map((id) => {
             const src = thumbs[id];
             const name = nameOf(id);
-            // Two targets, matching what the tiles already do: the PICTURE enlarges, the
-            // NAME opens the Wikipedia card. Keeping them apart is what lets the thumbnails
-            // be this small — you tap to see it properly rather than reading it in place.
+            // The board's own tile, sorted into its group. Two targets, as on the board: the
+            // PICTURE enlarges, the NAME opens the Wikipedia card.
+            const label = onPick ? (
+              <button type="button" className={`${src ? "grid-tile-cap" : "grid-tile-name"} grid-end-cap`} onClick={() => onPick(id)}>{name}</button>
+            ) : (
+              <span className={src ? "grid-tile-cap" : "grid-tile-name"}>{name}</span>
+            );
             return (
-              <div key={id} className="grid-solved-pic">
-                {src ? (
-                  <button type="button" className="grid-solved-shot" onClick={() => onZoom?.(id)} title={`Enlarge ${name}`} aria-label={`Enlarge ${name}`}>
-                    <img src={src} alt="" loading="lazy" />
-                  </button>
-                ) : (
-                  // No photo on Wikipedia (or not loaded yet): the slot keeps its place so
-                  // the row stays a tidy four across, and the name carries it.
-                  <span className="grid-solved-shot is-empty" aria-hidden="true" />
+              <div key={id} className={`grid-tile grid-end-tile${src ? " is-flipped" : ""}`}>
+                {src && (
+                  <>
+                    <img className="grid-tile-bg" src={src} alt="" aria-hidden="true" loading="lazy" />
+                    <img className="grid-tile-img" src={src} alt="" loading="lazy" />
+                    <button type="button" className="grid-end-shot" onClick={() => onZoom?.(id)} title={`Enlarge ${name}`} aria-label={`Enlarge ${name}`}>
+                      <span className="grid-tile-zoom" aria-hidden="true">⤢</span>
+                    </button>
+                  </>
                 )}
-                {onPick ? (
-                  <button type="button" className="grid-solved-cap grid-member-link" onClick={() => onPick(id)}>{name}</button>
-                ) : (
-                  <span className="grid-solved-cap">{name}</span>
-                )}
+                {/* No photo on Wikipedia: the name alone, as on the board. */}
+                {label}
               </div>
             );
           })}
@@ -626,16 +628,20 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       {/* Solved groups — plus, after a loss, the ones never found (dimmed). Always
           ordered by difficulty level so the colours read as a scale, like
           Connections (easiest/yellow at top, trickiest/purple at the bottom). */}
-      {[
-        // The group currently in flight is withheld: showing its bar now would push the
-        // board down by the bar's height while the ghosts are still crossing it.
-        ...g.solvedGroups.filter((grp) => grp.cladeId !== fly?.cladeId).map((grp) => ({ grp, dimmed: false })),
-        ...(g.status === "lost" ? unsolved.map((grp) => ({ grp, dimmed: true })) : []),
-      ]
-        .sort((a, b) => a.grp.level - b.grp.level)
-        .map(({ grp, dimmed }) => (
-          <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === freshBar} onPick={over ? setWikiId : undefined} onZoom={setZoomId} thumbs={over && !fly ? thumbs : undefined} />
-        ))}
+      {/* Once the game is over the bands join into one block, so the whole result fits in
+          one view. */}
+      <div className={over && !fly ? "grid-end-board" : undefined}>
+        {[
+          // The group currently in flight is withheld: showing its bar now would push the
+          // board down by the bar's height while the ghosts are still crossing it.
+          ...g.solvedGroups.filter((grp) => grp.cladeId !== fly?.cladeId).map((grp) => ({ grp, dimmed: false })),
+          ...(g.status === "lost" ? unsolved.map((grp) => ({ grp, dimmed: true })) : []),
+        ]
+          .sort((a, b) => a.grp.level - b.grp.level)
+          .map(({ grp, dimmed }) => (
+            <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === freshBar} onPick={over ? setWikiId : undefined} onZoom={setZoomId} thumbs={over && !fly ? thumbs : undefined} />
+          ))}
+      </div>
       {over && <p className="grid-peek-note">Tap any species to read about it on Wikipedia.</p>}
 
       {/* Directly under the group bars it was opened from. It used to render last in the
