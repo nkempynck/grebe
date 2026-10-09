@@ -775,6 +775,18 @@ describe("every drill step accounts for everything under it", () => {
     expect(reptiles).toContain("Birds");
   });
 
+  // A ranked Latin clade used to be seen through like any junction, so Bees, wasps & ants laid
+  // its families, tribes and genera side by side and Mammals listed marsupial genera beside
+  // Eutherians.
+  it("stops at ranked Latin levels instead of seeing through them", () => {
+    const sciId = (sci: string) => [...tree.byId.values()].find((n) => n.sciName === sci)!.id;
+    const wasps = mosaicDrillOptions(tree, sciId("Hymenoptera"), pool).map((o) => o.id);
+    expect(wasps).toContain(sciId("Apoidea"));
+    expect(wasps).not.toContain(sciId("Apis"));
+    const mammals = mosaicDrillOptions(tree, sciId("Mammalia"), pool);
+    expect(mammals.every((o) => !["genus", "family"].includes(o.rank))).toBe(true);
+  });
+
   // The junction splits synthesise labels that list their own contents. As the name of a group
   // you have already picked they are fine; as a CHOICE they say less than the chips they would
   // replace, so the rule above deliberately does not use them.

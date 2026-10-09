@@ -875,6 +875,12 @@ export function byPopularity(a: { pop: number; label: string }, b: { pop: number
  *  "Directly below" means the SHALLOWEST NAMED descendants: the tree keeps unnamed junction
  *  nodes that a player cannot reason about, so the walk descends through them and stops at the
  *  first thing with a name. */
+/** Ranks the drill stops at even without a common name (see rawBelow). */
+const DRILL_LEVEL_RANKS = new Set([
+  "order", "suborder", "infraorder", "parvorder", "superfamily",
+  "family", "subfamily", "tribe", "subtribe", "genus",
+]);
+
 export function mosaicDrillOptions(
   tree: Tree,
   cladeId: string,
@@ -930,6 +936,15 @@ export function mosaicDrillOptions(
       // contents, so it says less than the chips it would stand in for.
       const veiled = hidden.has(c) || n.synthetic === true;
       if (n.common && !veiled) { out.push({ id: c, label: n.common, count, rank: rankOf(n), common: true }); return count; }
+      // A RANKED Latin clade is a level, not a junction to see through. Descending past
+      // Apoidea and Vespoidea laid thirty-one bee and wasp families, tribes and genera side by
+      // side, and Mammals listed quolls and dunnarts beside Eutherians; the lookup showed those
+      // ranks all along. Only unranked clades (Laurasiatheria) and ranks above order
+      // (Neognathae) are still walked through.
+      if (n.sciName && !veiled && DRILL_LEVEL_RANKS.has(rankOf(n))) {
+        out.push({ id: c, label: n.sciName, count, rank: rankOf(n), common: false });
+        return count;
+      }
 
       const mark = out.length;
       let covered = 0;
