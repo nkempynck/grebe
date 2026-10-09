@@ -1886,17 +1886,20 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
    comes back sorted: each group is a coloured band with its name on top and its four
    species below as the board's own tiles, same size and look. The bands join into one
    block, and the tiles shrink by exactly what the headings add, so the result is the
-   board's height: a band is padding 6 + heading 20 + gap 6 + tile + padding 6, the board
+   board's height: a band is padding 6 + heading 18 + gap 6 + tile + padding 6, the board
    a tile plus an 8px row gap. Four columns always, never 2x2: the row is the group, and
    wrapping it would read as two groups. */
 .grid-end-board { border-radius: var(--radius); overflow: hidden; margin: 10px 0 16px; }
 .grid-solved.is-end { padding: 6px 8px; margin-bottom: 0; border-radius: 0; }
+/* Quieter than the bars during play: the four headings sit over sixteen photos. */
 .grid-solved.is-end .grid-solved-label {
-  font-size: 17px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 14px; font-weight: 700; line-height: 18px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.grid-solved.is-end .grid-solved-sci { font-size: 12px; }
 /* 100% is the band minus its 8px sides; the board's tile is (that + 16 - 24) / 4. */
 .grid-end-tiles {
-  display: grid; grid-template-columns: repeat(4, calc((100% - 8px) / 4 - 32px)); gap: 8px;
+  display: grid; grid-template-columns: repeat(4, calc((100% - 8px) / 4 - 30px)); gap: 8px;
   justify-content: center; margin-top: 6px;
 }
 .grid-tile.grid-end-tile { cursor: default; }
@@ -1913,10 +1916,11 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
 span.grid-end-cap, button.grid-end-cap:not(.grid-tile-cap) { background: none; padding: 0; }
 .grid-end-cap:hover, .grid-end-cap:focus-visible { text-decoration: underline; text-underline-offset: 2px; }
 @media (max-width: 480px) {
-  /* padding 4 + heading 18 + gap 4 + tile + padding 4 */
+  /* padding 4 + heading 16 + gap 4 + tile + padding 4 */
   .grid-solved.is-end { padding: 4px 8px; }
-  .grid-solved.is-end .grid-solved-label { font-size: 15px; line-height: 18px; }
-  .grid-end-tiles { grid-template-columns: repeat(4, calc((100% - 8px) / 4 - 24px)); margin-top: 4px; }
+  .grid-solved.is-end .grid-solved-label { font-size: 13px; line-height: 16px; }
+  .grid-solved.is-end .grid-solved-sci { font-size: 11px; }
+  .grid-end-tiles { grid-template-columns: repeat(4, calc((100% - 8px) / 4 - 22px)); margin-top: 4px; }
 }
 /* the bar opens the moment the tiles have finished arriving — it is withheld until then, so
    no delay here. Only for the group just solved, never for bars restored on a reload or a
