@@ -110,6 +110,28 @@ for (const n of all) {
   named.push(n);
 }
 
+// Then the hand-checked list (scripts/clade-names-checked.json): standard English names for
+// groups no source names cleanly (Apoidea has no English name on Wikidata, Vespoidea's is a
+// list). Only for clades still unnamed, and under the same clash rule.
+const checked = JSON.parse(readFileSync(resolve(scriptsDir, "clade-names-checked.json"), "utf8")).names;
+const hasAncestor = (n, sci) => { for (let c = n.parentId; c; c = byId.get(c)?.parentId) if (byId.get(c)?.sciName === sci) return true; return false; };
+const checkedReport = { named: 0, alreadyNamed: [], clash: [], missing: [], ambiguous: [] };
+for (const { sci, name, under } of checked) {
+  const hits = all.filter((n) => n.sciName === sci && n.rank !== "species" && !n.synthetic && (!under || hasAncestor(n, under)));
+  if (!hits.length) { checkedReport.missing.push(sci); continue; }
+  if (hits.length > 1) { checkedReport.ambiguous.push(sci); continue; }
+  const n = hits[0];
+  if (n.common) { checkedReport.alreadyNamed.push(`${sci} (${n.common})`); continue; }
+  if (clashes(n, name)) { checkedReport.clash.push(`${sci} -> ${name}`); continue; }
+  (holders.get(name.toLowerCase()) ?? holders.set(name.toLowerCase(), []).get(name.toLowerCase())).push(n);
+  n.common = name;
+  n.commonSource = "Checked list";
+  checkedReport.named++;
+  named.push(n);
+}
+console.log(`checked list: ${checkedReport.named} of ${checked.length} applied`);
+for (const k of ["alreadyNamed", "clash", "missing", "ambiguous"]) if (checkedReport[k].length) console.log(`  ${k}: ${checkedReport[k].join(", ")}`);
+
 console.log(`snapshot ${snap.fetched}: ${named.length} Latin-only clades get an English name (${via["Wikipedia title"]} from Wikipedia titles, ${via.Wikidata} from Wikidata)${cleared ? `, ${cleared} earlier recomputed` : ""}; ${skipped} skipped, name already used elsewhere`);
 if (listN) for (const n of [...named].sort((a, b) => (b.cladeViews ?? 0) - (a.cladeViews ?? 0)).slice(0, listN)) console.log(`  ${n.sciName} -> ${n.common}  [${n.commonSource}]`);
 if (process.argv.includes("--plurals")) console.log(named.map((n) => n.common).sort().join(" | "));

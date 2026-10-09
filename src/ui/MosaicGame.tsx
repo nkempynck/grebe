@@ -403,7 +403,7 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                       else { setReject(null); setArmed(null); g.drillInto(o.id); }
                     }}
                   >
-                    <span className="mosaic-opt-name">{o.label}</span>
+                    <span className="mosaic-opt-name"><GroupName tree={tree} id={o.id} label={o.label} /></span>
                     {armed === o.id && <span className="mosaic-arm">tap again to guess</span>}
                     <span className={`mosaic-opt-rank${isRanked(o.rank) ? "" : " is-unranked"}`}>
                       {isRanked(o.rank) ? o.rank : "unranked"}
@@ -491,7 +491,7 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
                           setLooked(null);
                         }}
                       >
-                        <span className="mosaic-path-name">{l.label}</span>
+                        <span className="mosaic-path-name"><GroupName tree={tree} id={l.id} label={l.label} /></span>
                         <span className={`mosaic-path-rank${isRanked(l.rank) ? "" : " is-unranked"}`}>
                           {isRanked(l.rank) ? l.rank : "unranked"}
                         </span>
@@ -559,6 +559,20 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
 
       {sandbox && <PlaytestBar dev={devSettings} onAutosolve={g.solve} />}
     </div>
+  );
+}
+
+/** A group's English name with its Latin one after it, "Hornets & wasps (Vespidae)", so the
+ *  menus teach the names the lookup and the other games use. Groups only: a species row keeps
+ *  its English name alone. */
+function GroupName({ tree, id, label }: { tree: Tree | null; id: string; label: string }) {
+  const n = tree?.byId.get(id);
+  const sci = n && n.rank !== "species" && n.common && n.sciName && n.sciName !== label ? n.sciName : null;
+  return (
+    <>
+      {label}
+      {sci && <span className="mosaic-sci"> (<i>{sci}</i>)</span>}
+    </>
   );
 }
 

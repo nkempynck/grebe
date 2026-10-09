@@ -218,7 +218,8 @@ describe("prefills never give a placement away by name", () => {
 });
 
 function findByCommon(sub: string): string | null {
-  for (const [id, n] of tree.byId) if (n.common?.toLowerCase().includes(sub)) return id;
+  // Species only: a group can carry the word too ("Chinchillas & viscachas").
+  for (const [id, n] of tree.byId) if (n.rank === "species" && n.common?.toLowerCase().includes(sub)) return id;
   return null;
 }
 

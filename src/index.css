@@ -2963,6 +2963,8 @@ a.announce-go { text-decoration: none; }
 /* A lookup step: the name, and under it the rank that says what kind of group it is. */
 .mosaic-path { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.25; }
 .mosaic-path-name { font-size: .82rem; }
+/* The Latin name after an English group name: quieter than the name it follows. */
+.mosaic-sci { opacity: .7; font-size: .92em; }
 .mosaic-path-rank {
   font-size: .6rem; text-transform: uppercase; letter-spacing: .07em; opacity: .65;
   color: var(--game, var(--brass));
