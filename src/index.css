@@ -2069,6 +2069,8 @@ span.grid-end-cap, button.grid-end-cap:not(.grid-tile-cap) { background: none; p
 /* The permanent Instagram mention under the game cards: quiet, one line on desktop. */
 .home-social { margin: 18px 0 0; font-size: .84rem; line-height: 1.5; color: var(--ink-soft); text-align: center; }
 .home-social a { color: var(--brass-bright, var(--brass)); font-weight: 600; }
+.lb-social { margin: 8px 0 4px; font-size: .8rem; color: var(--ink-soft); text-align: center; }
+.lb-social a { color: var(--brass-bright, var(--brass)); font-weight: 600; }
 .home-games {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;
 }
@@ -2223,12 +2225,6 @@ a.announce-go { text-decoration: none; }
 .gamehead-blurb-note.is-rule[open] > summary::after { transform: rotate(90deg); }
 /* The why under it: same block, back to the blurb's size and weight. */
 .gamehead-blurb-sub { display: block; font-weight: 400; font-size: 14px; color: var(--ink-soft); margin-top: 2px; }
-/* The beta line is a standing caveat, not the day's rule, so it reads quieter than the note
-   above it rather than competing with it. */
-.gamehead-blurb-note.is-beta {
-  font-weight: 400; font-size: .86em; opacity: .72; margin-top: .5rem;
-  border-left: 2px solid var(--game, var(--brass)); padding-left: .6rem;
-}
 /* The beta mark on a game tab. Deliberately tiny and lowercase: it is a footnote on the name,
    not a second word in it, and the row is a horizontal scroller on a phone where every pixel of
    tab width costs a tab. */
@@ -2237,17 +2233,12 @@ a.announce-go { text-decoration: none; }
   padding: 2px 4px; margin-left: 1px; border-radius: 3px; align-self: flex-start;
   border: 1px solid currentColor; opacity: .7;
 }
-/* The "New" chip on a home card. Same idea as .gamehead-beta on the game header: a small
-   mark that a game has only just landed, not a warning that it is unfinished. */
+/* The "New" chip on a home card: a small mark that a game has only just landed, not a warning
+   that it is unfinished. */
 .home-card-new {
   margin-left: .4rem; padding: .05rem .35rem; border-radius: 999px;
   font-size: .68rem; letter-spacing: .04em; text-transform: uppercase;
   background: var(--game, var(--brass)); color: #fff; vertical-align: .05em;
-}
-.gamehead-beta {
-  border: 1px solid var(--game, var(--brass)); color: var(--game, var(--brass));
-  border-radius: 999px; padding: 0 .45rem; font-size: .68rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .08em;
 }
 
 /* Lineage's daily setup, shown under the mode switch and briefly explained. */

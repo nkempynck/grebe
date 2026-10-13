@@ -159,7 +159,6 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
         dayName={DAY_NAMES[aids.tier - 1]}
         difficulty={DIFFICULTY[aids.tier - 1]}
         onHowItWorks={onHowItWorks}
-        meta={<span className="gamehead-beta">New</span>}
         blurb={
           <>
             You are an explorer, and you have just met a species you cannot name. Unfortunately
@@ -170,12 +169,6 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
               {g.guardReady || !(aids.lookup || aids.subset)
                 ? aidsNote(aids.lookup, aids.subset)
                 : "Checking today’s other boards…"}
-            </span>
-            {/* One line, and it stays only while Mosaic is genuinely new. It asks for patience
-                and points at where a bug report gets read; everything it used to explain about
-                what was missing is now false, because nothing is. */}
-            <span className="gamehead-blurb-note is-beta">
-              Just launched, so be patient por favor. Lmk if u find bugs.
             </span>
           </>
         }

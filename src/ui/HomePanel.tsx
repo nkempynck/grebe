@@ -41,9 +41,7 @@ const GAMES = [
     tagline:
       "Name the animal in a photograph that has been cut into tiles and shuffled. Every wrong guess puts a little more of the picture back together.",
     inspired: null,
-    // The flag now means "newest", not "unfinished": Mosaic is a scored daily like the other
-    // three. Kept on while it settles, so a rough edge is expected rather than surprising.
-    beta: true,
+    beta: false,
     // Mosaic opened months after the platform, so its card counts from its OWN first board.
     // The shared epoch called its second day №49, which is Grebe's number, not Mosaic's.
     epoch: MOSAIC_LAUNCH,

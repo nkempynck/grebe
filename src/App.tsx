@@ -25,6 +25,7 @@ import { SettingsPanel } from "./ui/SettingsPanel";
 import { GuessInput } from "./ui/GuessInput";
 import { MosaicAnnounce } from "./ui/MosaicAnnounce";
 import { InstagramAnnounce } from "./ui/InstagramAnnounce";
+import { INSTAGRAM_HANDLE, INSTAGRAM_URL, InstagramIcon } from "./ui/social";
 import { useBoardGuard } from "./hooks/useBoardGuard";
 import { ResultCard } from "./ui/ResultCard";
 import { AnswerReveal } from "./ui/AnswerReveal";
@@ -1233,6 +1234,9 @@ export default function App() {
             <button role="tab" aria-selected={lbGame === "branches"} data-game="branches" className={`lb-seg${lbGame === "branches" ? " is-on" : ""}`} onClick={() => setLbGame("branches")}>🌿 Branches</button>
             <button role="tab" aria-selected={lbGame === "mosaic"} data-game="mosaic" className={`lb-seg${lbGame === "mosaic" ? " is-on" : ""}`} onClick={() => setLbGame("mosaic")}>🖼 Mosaic</button>
           </div>
+          <p className="lb-social">
+            Follow <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer"><InstagramIcon /> {INSTAGRAM_HANDLE}</a> on Instagram for updates and educational entertainment, potentially.
+          </p>
           {/* Two boards per game: today's, and the filterable one (past days, weeks,
               months, all time). Both are signed-in only now, so neither is guarded here;
               today's board still obeys the play wall above it.
