@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Tree } from "../core";
 import { dailyNumber } from "../core";
-import { useGridGame, PRESHOW_MAX_TIER, type GridComplete } from "../hooks/useGridGame";
+import { useGridGame, PRESHOW_MAX_TIER, GRID_MAX_MISTAKES, type GridComplete } from "../hooks/useGridGame";
 import { resolveDailyRules } from "../data/dailySchedule";
 import { kinshipPoints, kinshipFreeReveals } from "../data/score";
 import { fetchImageAlternates, fetchWikiImage, type WikiCredit, type WikiImage } from "../data/wikipedia";
@@ -92,6 +92,26 @@ const POP_MS = 420;
 const LIGHT_MS = 420;
 const FLY_MS = 760;
 const FLY_STAGGER_MS = 80;
+/** After a loss the groups never found fly in one at a time, easiest first, as Connections
+ *  does: the same light-and-flight, but SLOWER than a solve. A solve's four are the ones you
+ *  just picked; these are scattered across the board, so they sit lit in place long enough
+ *  to find all four before they move. */
+const REVEAL_PAUSE_MS = 600; // after the losing guess, before the first group lights
+const REVEAL_GAP_MS = 500; // between one group landing and the next lighting
+const REVEAL_END_MS = 700; // the last bar opens before the end view replaces it
+const REVEAL_LIGHT_MS = 1600; // lit in place; the colour itself takes 0.6s of it (index.css)
+const REVEAL_FLY_MS = 1100;
+const REVEAL_STAGGER_MS = 120;
+/** Before a missed group lights, any of its tiles still hiding their picture (or, on a picture
+ *  day, their name) simply show it, so the flight carries what the board showed. */
+const UNCOVER_HOLD_MS = 600; // from the hidden halves appearing to the group lighting
+type Losing = { board: string[]; shown: string[]; uncovered: string[] };
+/** The tiles still standing during a loss reveal: the board as the last guess left it, minus
+ *  the groups that have already flown into their bars. */
+function standingTiles(groups: GridGroup[], losing: Losing) {
+  const gone = new Set(groups.filter((x) => losing.shown.includes(x.cladeId)).flatMap((x) => x.memberIds));
+  return losing.board.filter((id) => !gone.has(id));
+}
 /** Honour the OS "reduce motion" setting: no photograph is taken and no ghost is rendered,
  *  so the board just updates instantly as it did before. */
 const reducedMotion = () =>
@@ -248,7 +268,15 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   // tiles (the flown four as invisible placeholders, holding their cells open) and the new
   // bar is withheld. Everything changes once, at the end, as the ghosts arrive.
   const boardRef = useRef<HTMLDivElement | null>(null);
-  const [fly, setFly] = useState<{ ids: string[]; rects: Record<string, DOMRect>; level: number; cladeId: string; frozen: string[] } | null>(null);
+  // `quick` marks a loss-reveal flight: shorter beats, and ghosts that start as plain tiles
+  // rather than selected ones, since nobody picked them.
+  const [fly, setFly] = useState<{ ids: string[]; rects: Record<string, DOMRect>; level: number; cladeId: string; frozen: string[]; quick?: boolean } | null>(null);
+  /** LOSS REVEAL — the board as the losing guess left it, the missed groups flown so far, and
+   *  the tiles flipped open for them. Non-null while the sequence plays: the board stays up and
+   *  the end view waits. Set only by the losing guess itself, never by a restored result, so a
+   *  reload or a tab switch goes straight to the end view. The flips are display only: they
+   *  are not reveals, so nothing is spent or charged. */
+  const [losing, setLosing] = useState<Losing | null>(null);
   /** The bar that just finished receiving its tiles — the only one that animates in. */
   const [freshBar, setFreshBar] = useState<string | null>(null);
   const [flyTo, setFlyTo] = useState<{ x: number; y: number } | null>(null);
@@ -292,12 +320,18 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       const grp = gRef.current.board?.groups.find((gr) => ids.every((id) => gr.memberIds.includes(id)));
       setPopping(null);
       if (grp) setFly({ ids, rects, level: grp.level, cladeId: grp.cladeId, frozen });
+      // A miss that uses the last mistake: hold the board for the reveal. Decided here for the
+      // same one-commit reason, and because watching status would also fire on a restore.
+      else if (gRef.current.mistakes + 1 >= GRID_MAX_MISTAKES) setLosing({ board: frozen, shown: [], uncovered: [] });
       gRef.current.submit();
     }, POP_MS);
   }
 
   useLayoutEffect(() => {
     if (!fly) return;
+    const light = fly.quick ? REVEAL_LIGHT_MS : LIGHT_MS;
+    const flight = fly.quick ? REVEAL_FLY_MS : FLY_MS;
+    const stagger = fly.quick ? REVEAL_STAGGER_MS : FLY_STAGGER_MS;
     // Frame 1 paints the ghosts uncoloured, exactly over where the popped tiles were; frame 2
     // lights them. Both in one frame and the browser has nothing to interpolate from.
     const raf = requestAnimationFrame(() => setFlyPhase("lit"));
@@ -309,7 +343,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       if (!b) { setFly(null); return; }
       setFlyPhase("go");
       setFlyTo({ x: b.left + b.width / 2, y: b.top });
-    }, LIGHT_MS);
+    }, light);
     const done = setTimeout(
       () => {
         setFly(null); setFlyTo(null); setFlyPhase("start");
@@ -317,7 +351,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         setFreshBar(fly.cladeId);
         setTimeout(() => setFreshBar(null), 900);
       },
-      LIGHT_MS + FLY_MS + FLY_STAGGER_MS * 3 + 80
+      light + flight + stagger * 3 + 80
     );
     return () => { cancelAnimationFrame(raf); clearTimeout(go); clearTimeout(done); };
   }, [fly]);
@@ -516,6 +550,56 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
     }
   }
 
+  // Whether a tile still has a half it could reveal: its picture, or on a picture day its
+  // name. None on easy days, on a given tile, or on a species with no image.
+  const hidesHalf = (id: string) => {
+    const asPicture = pictureMode || pictureTiles.has(id);
+    const given = !pictureMode && pictureTiles.has(id);
+    return (given ? false : asPicture ? !!thumbs[id] : !preshow && !!thumbs[id]) && !g.revealed.includes(id);
+  };
+
+  // Drive the loss reveal: whenever no flight is playing, wait a beat, then take the easiest
+  // missed group still on the board. First its hidden halves are shown; then, a beat later,
+  // it lights and flies. Each flight is an ordinary one, so the board freezes, the bar is withheld and
+  // everything reflows once on landing, exactly as for a solve.
+  useEffect(() => {
+    if (!losing || fly) return;
+    const cur = gRef.current;
+    const groups = cur.board?.groups ?? [];
+    const solved = new Set(cur.solvedGroups.map((x) => x.cladeId));
+    const next = groups
+      .filter((x) => !solved.has(x.cladeId) && !losing.shown.includes(x.cladeId))
+      .sort((a, b) => a.level - b.level)[0];
+    const toFlip = next ? next.memberIds.filter((id) => hidesHalf(id) && !losing.uncovered.includes(id)) : [];
+    const justFlipped = !!next && next.memberIds.some((id) => losing.uncovered.includes(id));
+    const wait = !next ? REVEAL_END_MS
+      : justFlipped ? UNCOVER_HOLD_MS
+      : losing.shown.length === 0 ? REVEAL_PAUSE_MS
+      : REVEAL_GAP_MS;
+    const t = setTimeout(() => {
+      if (!next) { setLosing(null); return; }
+      if (toFlip.length) { setLosing({ ...losing, uncovered: [...losing.uncovered, ...toFlip] }); return; }
+      const rects: Record<string, DOMRect> = {};
+      for (const id of next.memberIds) {
+        const el = boardRef.current?.querySelector(`[data-tile="${CSS.escape(id)}"]`);
+        if (el) rects[id] = el.getBoundingClientRect();
+      }
+      const frozen = standingTiles(groups, losing);
+      setLosing({ ...losing, shown: [...losing.shown, next.cladeId] });
+      setFly({ ids: next.memberIds, rects, level: next.level, cladeId: next.cladeId, frozen, quick: true });
+    }, wait);
+    return () => clearTimeout(t);
+    // hidesHalf reads only state that is fixed once the game is over.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [losing, fly]);
+
+  // Jump to the end view. Dropping the flight cancels its timers (the layout effect's
+  // cleanup), and with `losing` gone the driver above stops too.
+  function skipReveal() {
+    setFly(null); setFlyTo(null); setFlyPhase("start");
+    setLosing(null);
+  }
+
   // A reveal that would cost points warns first; free ones go straight through.
   function flip(id: string) {
     if (g.revealed.includes(id)) return;
@@ -531,6 +615,9 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   if (!g.board) return <p className="empty">No grid puzzle available today.</p>;
 
   const over = g.status !== "playing";
+  // The end view proper: the game is over AND nothing is still flying in. During a loss
+  // reveal the game is already over but the board is still up.
+  const settled = over && !fly && !losing;
   const rules = resolveDailyRules(g.date);
   const wikiNode = wikiId ? tree.byId.get(wikiId) ?? null : null;
   const nameOf = (id: string) => tree.byId.get(id)?.common ?? tree.byId.get(id)?.sciName ?? id;
@@ -630,19 +717,23 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
           Connections (easiest/yellow at top, trickiest/purple at the bottom). */}
       {/* Once the game is over the bands join into one block, so the whole result fits in
           one view. */}
-      <div className={over && !fly ? "grid-end-board" : undefined}>
+      <div className={settled ? "grid-end-board" : undefined}>
         {[
+          ...g.solvedGroups.map((grp) => ({ grp, dimmed: false })),
+          // Missed groups appear as the loss reveal flies them in, all at once on a restore.
+          ...(g.status === "lost"
+            ? unsolved.filter((grp) => !losing || losing.shown.includes(grp.cladeId)).map((grp) => ({ grp, dimmed: true }))
+            : []),
+        ]
           // The group currently in flight is withheld: showing its bar now would push the
           // board down by the bar's height while the ghosts are still crossing it.
-          ...g.solvedGroups.filter((grp) => grp.cladeId !== fly?.cladeId).map((grp) => ({ grp, dimmed: false })),
-          ...(g.status === "lost" ? unsolved.map((grp) => ({ grp, dimmed: true })) : []),
-        ]
+          .filter(({ grp }) => grp.cladeId !== fly?.cladeId)
           .sort((a, b) => a.grp.level - b.grp.level)
           .map(({ grp, dimmed }) => (
-            <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === freshBar} onPick={over ? setWikiId : undefined} onZoom={setZoomId} thumbs={over && !fly ? thumbs : undefined} />
+            <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === freshBar} onPick={over && !losing ? setWikiId : undefined} onZoom={setZoomId} thumbs={settled ? thumbs : undefined} />
           ))}
       </div>
-      {over && <p className="grid-peek-note">Tap any species to read about it on Wikipedia.</p>}
+      {over && !losing && <p className="grid-peek-note">Tap any species to read about it on Wikipedia.</p>}
 
       {/* Directly under the group bars it was opened from. It used to render last in the
           component, which put it below the result, the share block, the leaderboard and the
@@ -653,10 +744,10 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         </div>
       )}
 
-      {/* The live board. */}
-      {!over && (
+      {/* The live board — kept up, inert, while a loss reveal empties it. */}
+      {(!over || losing) && (
         <>
-          {showArrangeNote && (
+          {showArrangeNote && !losing && (
             <aside className="announce" data-game="kinship">
               <span className="announce-tag">New</span>
               <p className="announce-text">
@@ -668,7 +759,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
           )}
 
           <div className="grid-board" role="group" aria-label="Species tiles" ref={boardRef}>
-            {(fly ? fly.frozen : g.remaining).map((id) => {
+            {(fly ? fly.frozen : losing ? standingTiles(g.board.groups, losing) : g.remaining).map((id) => {
               // A tile that has flown: its cell stays, empty and invisible, so the grid keeps
               // its shape until the animation is over and everything reflows at once.
               if (fly?.ids.includes(id)) return <div key={id} className="grid-tile-ghosted" aria-hidden="true" />;
@@ -678,14 +769,16 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
               // the name is the tile, the image is revealed. Easy days show both.
               // On a mixed day each tile has its OWN mode; elsewhere the board has one.
               const asPicture = pictureMode || pictureTiles.has(id);
-              const imgShown = asPicture ? hasImg : (preshow || flipped.has(id)) && hasImg;
+              // Uncovered by the loss reveal: shown as if revealed, without being one.
+              const open = flipped.has(id) || !!losing?.uncovered.includes(id);
+              const imgShown = asPicture ? hasImg : (preshow || open) && hasImg;
               // A mixed day's pictured tiles are a GIFT, not a second puzzle: both halves
               // show from the start. Only the picture-only weekend keeps a name hidden
               // behind a reveal.
               const given = !pictureMode && pictureTiles.has(id);
               // As a picture the name shows only once revealed or once we know
               // the species has no image — never in the gap while images load.
-              const nameShown = asPicture && !given ? flipped.has(id) || noImg.has(id) : true;
+              const nameShown = asPicture && !given ? open || noImg.has(id) : true;
               // A reveal control exists on the harder days: it flips the hidden
               // half (picture normally, name in picture mode). None on easy days,
               // none on a given tile (nothing is hidden), and — in either mode — none
@@ -693,7 +786,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
               // never cost a reveal.
               // …and gone once spent: a reveal is one-way, so the control retires with the
               // thing it revealed rather than turning into an undo that refunds nothing.
-              const canReveal = (given ? false : asPicture ? hasImg : !preshow && hasImg) && !g.revealed.includes(id);
+              const canReveal = hidesHalf(id) && !losing;
               const noun = asPicture ? "name" : "picture";
               const nextCost = revealCostOf(g.revealed.length);
               const flipTitle = nextCost > 0
@@ -707,7 +800,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
                   aria-pressed={arranging ? held === id : on}
                   // Locked while a guess is popping: the selection on screen must be the one
                   // that gets resolved when the beat ends.
-                  onClick={() => { if (popping) return; if (arranging) arrangeTap(id); else g.toggle(id); }}
+                  onClick={() => { if (popping || losing) return; if (arranging) arrangeTap(id); else g.toggle(id); }}
                 >
                   {imgShown && <img className="grid-tile-bg" src={thumbs[id]} alt="" aria-hidden="true" />}
                   {imgShown && <img className="grid-tile-img" src={thumbs[id]} alt="" />}
@@ -778,27 +871,35 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
             </p>
           )}
 
-          <div className="grid-controls">
-            <button className="linkbtn" onClick={g.shuffle} disabled={!!popping || arranging}>Shuffle</button>
-            <button className={`linkbtn${arranging ? " is-on" : ""}`} onClick={toggleArrange} disabled={!!popping} aria-pressed={arranging}>
-              {arranging ? "Done arranging" : "Arrange"}
-            </button>
-            <button className="linkbtn" onClick={g.deselectAll} disabled={g.selected.length === 0 || !!popping || arranging}>
-              Deselect all
-            </button>
-            <button
-              className="grid-submit"
-              onClick={handleSubmit}
-              disabled={g.selected.length !== 4 || !!popping || arranging}
-            >
-              Guess
-            </button>
-          </div>
+          {/* During a loss reveal the controls give way to a single Skip: a button of its own,
+              not "tap anywhere", so a stray tap on the board doesn't cut the reveal short. */}
+          {losing ? (
+            <div className="grid-controls">
+              <button className="linkbtn" onClick={skipReveal}>Skip</button>
+            </div>
+          ) : (
+            <div className="grid-controls">
+              <button className="linkbtn" onClick={g.shuffle} disabled={!!popping || arranging}>Shuffle</button>
+              <button className={`linkbtn${arranging ? " is-on" : ""}`} onClick={toggleArrange} disabled={!!popping} aria-pressed={arranging}>
+                {arranging ? "Done arranging" : "Arrange"}
+              </button>
+              <button className="linkbtn" onClick={g.deselectAll} disabled={g.selected.length === 0 || !!popping || arranging}>
+                Deselect all
+              </button>
+              <button
+                className="grid-submit"
+                onClick={handleSubmit}
+                disabled={g.selected.length !== 4 || !!popping || arranging}
+              >
+                Guess
+              </button>
+            </div>
+          )}
         </>
       )}
 
-      {/* Result + share. */}
-      {over && (
+      {/* Result + share — after a loss, once the reveal has finished. */}
+      {over && !losing && (
         <div className="grid-result">
           <div className="grid-verdict">
             {g.status === "won"
@@ -863,12 +964,12 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         const style =
           flyPhase === "go" && flyTo
             ? { left: flyTo.x - r.width / 2, top: flyTo.y - r.height / 2, width: r.width, height: r.height,
-                opacity: 0, transform: "scale(0.45)", transitionDelay: `${i * FLY_STAGGER_MS}ms` }
+                opacity: 0, transform: "scale(0.45)", transitionDelay: `${i * (fly.quick ? REVEAL_STAGGER_MS : FLY_STAGGER_MS)}ms` }
             : at;
         return (
           <div
             key={id}
-            className={`grid-ghost lvl-${fly.level}${flyPhase === "start" ? "" : " is-lit"}`}
+            className={`grid-ghost lvl-${fly.level}${fly.quick ? " is-reveal" : ""}${flyPhase === "start" ? "" : " is-lit"}`}
             style={style}
             aria-hidden="true"
           >
