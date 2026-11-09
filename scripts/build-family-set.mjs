@@ -1,7 +1,8 @@
-// Assemble the final ~1000-family set for the Wikipedia-first pool:
-//   SEED  = every current animal+plant family (in-set ∪ guessIndex; fungi dropped) — no regression
-//   FILL  = all available families from the neglected/thin phyla (annelids, sponges,
-//           corals, mosses, sea stars, worms…) that the current GBIF data misses
+// Assemble the family set for the Wikipedia-first pool:
+//   SEED  = every animal+plant family already in the tree or guess index when this runs
+//   FILL  = every other animal+plant family classified by classify-families-otl.mjs, which
+//           covers the TOP_N families by sitelinks
+// The seed reads the current taxonomy.json, so a rerun after a rebuild gives a different set.
 // Resolves each family to a Wikidata qid (needed for the species pull); families with
 // no standalone enwiki page (sloths, frigatebirds…) get their qid via P225 lookup.
 // Writes node_modules/.cache/sel-familyset.json. Run: node scripts/build-family-set.mjs

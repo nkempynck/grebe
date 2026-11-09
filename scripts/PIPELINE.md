@@ -109,8 +109,8 @@ species selection.
 | Step | Script | Output |
 |------|--------|--------|
 | Families | None in this repository. The file came from a one-off query of families with English Wikipedia articles, and the release is its only source. | `sel-families.json` |
-| Classification | `classify-families-otl.mjs`, then `classify-names.mjs`. Kingdom and phylum per family, from Open Tree. | `sel-classify-otl.json` |
-| Family set | `build-family-set.mjs`. Animal and plant families. | `sel-familyset.json` |
+| Classification | `classify-families-otl.mjs` classifies the families with the most Wikipedia language editions (2,500 by default, `TOP_N`), and `classify-names.mjs` adds the families already in the tree. Kingdom and phylum come from Open Tree. | `sel-classify-otl.json` |
+| Family set | `build-family-set.mjs`. All animal and plant families among those classified. This favours well-known families and is not a representative sample. Because the script reads the current tree and guess index, rerunning it after a rebuild gives a different set; the release holds the set used. | `sel-familyset.json` |
 | Species | `pull-species.mjs`. Species per family, with Wikipedia title, sitelink count, GBIF key and genus. Removes duplicates and fossils. | `sel-familyspecies.json` |
 | Pageviews | `pull-pageviews.mjs`. Views for species, genera and families. | `sel-pool-pageviews.json` |
 | Repair | `fix-pageviews.mjs`. Refetches titles recorded with zero views. Only needed after a faulty pull. | updates the above |
