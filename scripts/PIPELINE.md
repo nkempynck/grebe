@@ -1,159 +1,226 @@
 # Taxonomy data pipeline
 
-Grebe's tree is built **Wikipedia-first**: species SELECTION by English-Wikipedia
-pageviews, TOPOLOGY from Open Tree of Life, NAMES from Wikipedia titles + Wikidata
-P1843. GBIF supplies only the species node-id (a stable key). Two products:
+This document describes how Grebe's tree is generated from public data. To use the finished tree,
+no build is needed: see "Using the tree" in the [README](../README.md).
 
-- **In-set** → `src/data/taxonomy.json` (baked, browser): ~3,800 recognizable species,
-  capped (3/genus + prominence-scaled per-family) — Lineage's answer pool + the tree.
-- **Out-of-set** → `public.taxon_index` (Supabase DB): ~21k guessable taxa (species +
-  clade groups) with graft lineages + pageviews — guess coverage; Kinship/Branches depth.
+## Overview
 
-All intermediate data caches live in `node_modules/.cache/sel-*.json` (resumable).
+The tree combines four kinds of data:
 
-## A. Selection & pull  (network-heavy; caches resume)
-| step | script | writes |
+- Species selection: English Wikipedia pageviews over a window of about 60 days.
+- Topology and most clade ranks: the Open Tree of Life synthetic tree.
+- Common names: Wikipedia article titles and the Wikidata property "taxon common name" (P1843).
+- Names for clades that Open Tree leaves unnamed: the Open Tree Taxonomy (OTT), the Mammal
+  Diversity Database (MDD) and the Catalogue of Life (COL).
+
+GBIF keys, taken from Wikidata (P846), serve only as species identifiers.
+
+| Output | Contents |
+|--------|----------|
+| `src/data/taxonomy.json` | The base tree, capped at 3 species per genus and a per-family limit that scales with pageviews. Used by all games. |
+| `src/data/taxonomyAugment.json` | Further species and genera attached to the base tree. Used by Kinship and Branches only. |
+| `src/data/guessIndex.generated.json` | Taxa outside the base tree, each with a lineage for attaching it to the tree. Used to place guesses. |
+
+The selection stages (A and B below) write their results to `sel-*.json` files in
+`node_modules/.cache/`, which git does not track.
+
+## Rebuilding from frozen inputs
+
+A snapshot of those files is available as a release. It fixes the species set and the topology:
+
+```bash
+npm ci
+mkdir -p node_modules/.cache
+curl -L https://github.com/nkempynck/grebe/releases/download/pipeline-inputs-2026-11-09/grebe-pipeline-inputs.tar.gz \
+  | tar -xz -C node_modules/.cache
+npm run build:taxonomy
+git diff --stat src/data
+```
+
+The build takes a few minutes, requires access to the Open Tree and Wikidata APIs, and overwrites
+`taxonomy.json`, `taxonomyAugment.json` and `junctionSplits.json`.
+
+Run this way, `npm run build:taxonomy` exits with status 1. The final step,
+`check-taxonomy-ranks`, reports rank errors that are corrected by a patch outside the default
+chain. The output files have been written by that point.
+
+### Including the rank corrections
+
+Two rank changes are excluded from the default chain because they alter game difficulty: order
+ranks (`--rank-orders`) and the homonym corrections. The shipped tree has them. To include them:
+
+```bash
+node scripts/assemble-taxonomy.mjs --rank-orders
+for s in build-names finalize-taxonomy patch-wiki-titles patch-clade-views patch-merged-clades \
+         patch-junction-splits patch-drop-excluded patch-extinct patch-ott-names patch-mdd-names \
+         patch-col-names patch-seprank-homonyms patch-inverted-ranks patch-clade-common \
+         patch-photo-flags stamp-snapshot check-taxonomy-ranks; do
+  node "scripts/$s.mjs"
+done
+```
+
+`patch-seprank-homonyms` and `check-taxonomy-ranks` can exit with status 1 when an entry needs
+review. In the test below both did, and the remaining steps ran normally.
+
+### Differences from the shipped tree
+
+The commands above were tested on 2026-11-09 from a clean clone of commit 5861aa0. The result was
+compared with the committed files:
+
+| Compared | Result |
+|----------|--------|
+| Base tree: node ids, `parentId`, `rank` | No differences (10,870 nodes) |
+| Augment: all fields | No differences (4,928 nodes) |
+| Joined labels (`synthetic`), base tree | 49 absent from the rebuild, 3 new |
+| `cladeViews` | Absent on 21 nodes |
+| `common` | 18 species and 3 clades differ |
+| `sepRank` | 10 nodes differ |
+| `wikiTitle` | 8 nodes differ |
+
+The rebuild therefore reproduces the structure of the tree but not all of its labels. The known
+causes are:
+
+1. Joined labels. `patch-merged-clades` labels an unnamed clade only if no smaller nameable group
+   lies below it and the label has two or three parts. Once a clade is labelled, later runs on the
+   same file leave it alone. Most shipped labels were written before the augment grew from 3,615
+   to 4,928 nodes on 2026-10-04. A rebuild applies the same test against the larger augment. Run
+   against the current augment, 42 of the 49 missing labels fail the test; against the earlier
+   augment, 41 of the 49 pass.
+2. Live lookups. Build steps 1 to 4 query Open Tree and Wikidata on each run, and the frozen inputs
+   do not cover those responses. All 18 species with a different name received it through the P1843
+   lookup. `build-names` takes the first name returned and does not sort them, so a difference can
+   come from an edit on Wikidata or from result order.
+3. One `sepRank` difference (Ascaridida) arises because `patch-seprank-homonyms` found a value it
+   did not expect and skipped the entry.
+
+The remaining `sepRank`, `cladeViews`, `wikiTitle` and clade `common` differences have not been
+traced individually.
+
+Joined labels are the names of Kinship groups, so a rebuild should be compared with the existing
+tree before it replaces it.
+
+## Stages
+
+### A. Selection
+
+These stages query external services and can be resumed. They are needed only to change the
+species selection.
+
+| Step | Script | Output |
 |------|--------|--------|
-| families    | *(one-off, cached)* — all enwiki families + sitelinks + parent | `sel-families.json` |
-| classify    | `classify-families-otl.mjs` then `classify-names.mjs` — kingdom/phylum per family from **OTL** | `sel-classify-otl.json` |
-| family set  | `build-family-set.mjs` — animals+plants: current-data families + ALL prominent classified families | `sel-familyset.json` |
-| species     | `pull-species.mjs` — per-family species (enwiki, sitelinks, gbif, genus); dedup QID, drop fossils | `sel-familyspecies.json` |
-| pageviews   | `pull-pageviews.mjs` — ~60-day views for species+genera+families (drains the `continue` token!) | `sel-pool-pageviews.json` |
-| *(repair)*  | `fix-pageviews.mjs` — re-fetch any zero-valued titles with continue-drain (only if pulled by an older buggy run) | patches the above |
+| Families | None in this repository. The file came from a one-off query of families with English Wikipedia articles, and the release is its only source. | `sel-families.json` |
+| Classification | `classify-families-otl.mjs`, then `classify-names.mjs`. Kingdom and phylum per family, from Open Tree. | `sel-classify-otl.json` |
+| Family set | `build-family-set.mjs`. Animal and plant families. | `sel-familyset.json` |
+| Species | `pull-species.mjs`. Species per family, with Wikipedia title, sitelink count, GBIF key and genus. Removes duplicates and fossils. | `sel-familyspecies.json` |
+| Pageviews | `pull-pageviews.mjs`. Views for species, genera and families. | `sel-pool-pageviews.json` |
+| Repair | `fix-pageviews.mjs`. Refetches titles recorded with zero views. Only needed after a faulty pull. | updates the above |
 
-Run the long ones under `caffeinate -i` (Mac won't sleep). Logs: `/tmp/grebe-*.log`.
+### B. Candidate pool and base set
 
-## B. Pool → in-set + out-of-set
-| step | script | notes |
+| Step | Script | Notes |
 |------|--------|-------|
-| pool    | `build-pool.mjs` | `POOL_MIN` (default 500) view filter → dedup synonyms by redirect-resolved article → clean junk/fossils → `sel-pool.json` |
-| extras  | `inject-extras.mjs` | add curated icons the pull can't reach (article on a non-taxon item: cat, horse, coconut…) from `curated-extras.mjs`. **Run after build-pool, before topology.** |
-| topology| `pull-topology.mjs` | TNRS pool → OTT ids, OTL induced_subtree → `sel-topology.json` |
-| in-set  | `build-inset.mjs` | `INSET_FLOOR` (default 1500) + cap 3/genus + prominence-scaled family cap → `sel-inset.json` |
-| assemble| `assemble-taxonomy.mjs` | prune tree to in-set tips → nodes; rank clades; inject genus, family and parent-taxon names → `sel-nodes.json`. `--rank-orders` additionally stamps order `sepRank` (off by default: changes difficulty, see below) |
-| names   | `build-names.mjs` | species = Wikipedia title else Wikidata P1843; clades = P1843; `common-name-overrides.mjs` win → `sel-nodes-named.json` |
-| finalize| `finalize-taxonomy.mjs` | write `src/data/taxonomy.json` + provenance (OTL synth + Wikidata date) + scopes |
-| wiki titles | `patch-wiki-titles.mjs` | clade `wikiTitle` from Wikidata (P9157 → enwiki article), keyed on the OTT id so homonyms can't collide. Patches `src/data/taxonomy.json` in place |
-| clade views | `patch-clade-views.mjs` | clade `cladeViews` from `sel-pool-pageviews.json`, joined on sciName. A JOIN, no network. Patches BOTH `taxonomy.json` and `taxonomyAugment.json` |
-| merged clades | `patch-merged-clades.mjs` | names ~140 anonymous clades whose children are each too small to be a group, by joining them ("Vicugna & Lama"). Only where nothing below is ALREADY a group, so a name adds a group and costs none. No network |
-| out-of-set | `build-taxon-index.mjs` | pool taxa NOT in in-set → `src/data/guessIndex.generated.json` (graft lineage from topology, + views). Needs `node --max-old-space-size=8192` |
+| Pool | `build-pool.mjs` | Minimum views `POOL_MIN` (default 500). Merges titles that redirect to one article, removes fossils and non-species. Writes `sel-pool.json`, `sel-redirects.json`. |
+| Extras | `inject-extras.mjs` | Adds common species whose Wikipedia article is on a non-taxon Wikidata item, such as cat and horse (`curated-extras.mjs`). Run after the pool and before topology. |
+| Topology | `pull-topology.mjs` | Matches the pool to OTT ids and requests the induced subtree from Open Tree. Writes `sel-topology.json`. |
+| Base set | `build-inset.mjs` | Minimum views `INSET_FLOOR` (default 1500) and the genus and family caps. Writes `sel-inset.json`. |
 
-`npm run build:taxonomy` chains assemble→names→finalize→**wiki-titles→clade-views→merged-clades**.
-`npm run build:guessindex` = build-taxon-index.
+### C. Build chain
 
-The three patches are IN the chain because all three write fields finalize doesn't know
-about, so a rebuild that stops at finalize drops them — losing the merged-clade names alone
-costs ~24 distinct Kinship groups a year. Leaving them as a documented manual step did not
-work: a rebuild on 2026-08-16 dropped 1119 common names and 140 clade labels.
+`npm run build:taxonomy` runs these steps in order.
 
-**A rebuild is verified reproducible** (2026-08-17, full chain against the shipped tree):
-0 id drift, and rank / parentId / sepRank / cladeViews / views identical on all 10850 nodes.
-Named counts land exactly (3332 species, 790 clades). The residue is upstream drift, not
-loss: 9 species where Wikidata now prefers a different vernacular, 1 wikiTitle, and 2 merged
-labels. **Diff before accepting any rebuild** — those merged labels are Kinship group names,
-so losing one silently removes a group.
+| # | Script | Queries | Function |
+|---|--------|---------|----------|
+| 1 | `assemble-taxonomy.mjs` | Open Tree | Prunes the tree to the base set, assigns clade ranks, adds genus, family and parent-taxon names to unlabelled nodes. |
+| 2 | `build-names.mjs` | Wikidata | Species: Wikipedia title, otherwise P1843. Clades: P1843. Entries in `common-name-overrides.mjs` take precedence. |
+| 3 | `finalize-taxonomy.mjs` | Open Tree | Writes `taxonomy.json` with provenance and scopes. |
+| 4 | `patch-wiki-titles.mjs` | Wikidata | Sets the Wikipedia article for clades, matched on OTT id. |
+| 5 | `patch-clade-views.mjs` | | Copies pageviews onto clades, matched on scientific name. |
+| 6 | `patch-merged-clades.mjs` | | Labels small unnamed clades by joining the names of their parts. |
+| 7 | `patch-junction-splits.mjs` | | Adds named sub-clades at unnamed junctions, from `sel-junction-splits.json`. |
+| 8 | `patch-drop-excluded.mjs` | | Removes entries in `exclude-taxa.mjs`. |
+| 9 | `patch-extinct.mjs` | | Flags species listed in `extinct-taxa.json`. |
+| 10 | `patch-ott-names.mjs` | | Names a clade from `ott-lineages.json` when its species are exactly the members of an OTT taxon. |
+| 11 | `patch-mdd-names.mjs` | | The same test for mammals, from `mdd-ranks.json`. |
+| 12 | `patch-col-names.mjs` | | The same test for other groups, from `col-ranks.json`. |
+| 13 | `patch-inverted-ranks.mjs` | | Removes a `sepRank` that is broader than a rank above it. |
+| 14 | `patch-clade-common.mjs` | | Adds English names to clades that have only a Latin name, from `clade-names.json`. |
+| 15 | `patch-photo-flags.mjs` | | Sets `photo` on species with a photograph in `speciesPhotos.json`. |
+| 16 | `stamp-snapshot.mjs` | | Records counts and the data date. |
+| 17 | `check-taxonomy-ranks.mjs` | Wikidata | Checks injected ranks. Reports only. |
 
-Two traps that made an earlier rebuild destructive, both now fixed:
-- `build-names.mjs` built its Latin-synonym test from the 3.8k in-set instead of the 18k
-  pool, and only applied it to Wikipedia titles. Both halves matter — the test needs the
-  first word to be a known genus AND the second a known epithet, so the narrow list simply
-  failed to recognise a synonym.
-- assemble's order-`sepRank` step is a DIFFICULTY change, so it is now off unless you pass
-  `--rank-orders`. The shipped tree carries 164 `sepRank` nodes; that step takes it to 218.
+Not in the chain: `patch-seprank-homonyms.mjs`, and `patch-order-sepranks.mjs`, which applies the
+`--rank-orders` logic to an existing tree.
 
-Without wiki titles, clades fetch Wikipedia by bare Latin name, and uninomial names aren't
-unique: "Linaria" the finch loses to Linaria the toadflax, "Acer" to Acer Inc., "Glycine"
-to the amino acid.
+### D. Committed source snapshots
 
-Without clade views, Kinship rates a group only by the median pageviews of the four SPECIES
-it shows, which underrates any group whose fame lives in the group: clownfish (Amphiprion)
-score 1030 against their own article's 34410, octopus 1319 against 141386. ~85 recognisable
-groups silently drop below `MIN_BOARD_FAME` and stop appearing on boards. It patches the
-augment too, because Amphiprion and Octopus are `auggen_*` nodes.
+The chain reads these files without network access. A pull script needs to be run only to update
+its source.
 
-**Species node-id = GBIF key is load-bearing:** OTL reuses some ott ids for both a clade
-AND a tip, so keying species by ott collides with clade nodes and drops them. GBIF keys
-give species a separate id namespace. Clade ids = OTT.
+| Script | Snapshot | Source |
+|--------|----------|--------|
+| `pull-ott-lineages.mjs` | `scripts/ott-lineages.json` | Open Tree Taxonomy |
+| `pull-mdd.mjs` | `scripts/mdd-ranks.json` | Mammal Diversity Database, at a pinned commit |
+| `pull-col.mjs` | `scripts/col-ranks.json` | Catalogue of Life, through ChecklistBank |
+| `pull-clade-names.mjs` | `scripts/clade-names.json` | Wikipedia and Wikidata. Requires the `WIKIMEDIA_CONTACT` environment variable. |
+| `pull-extinct.mjs` | `scripts/extinct-taxa.json` | Wikidata |
+| `pull-inat-photos.mjs` | `src/data/speciesPhotos.json` | iNaturalist |
 
-## C. Ship to DB  (needs the service-role key — NOT in .env.local by design)
-1. Apply schema: run `supabase/taxon_index.sql` in the Supabase SQL editor (adds `views`, prominence-ranked search). **First.**
-2. Back up: `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/backup-taxon-index.mjs`
-3. Load:    `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/load-guess-index.mjs --replace`
+These scripts write caches that are included in the release: `pull-junction-splits.mjs`,
+`resolve-family-orders.mjs`, `pull-family-anchors.mjs`, `pull-genus-anchors.mjs`,
+`pull-pool-names.mjs`.
 
-## D. Freeze dailies
-`npm run pin` (needs Supabase env) — regenerate frozen daily puzzles for the new tree.
+### E. Augment
 
-### Injected names (assemble steps 3-5)
+The build chain reads the committed `taxonomyAugment.json` and does not regenerate it. To
+regenerate it, run `build-augment.mjs`, then `patch-clade-views.mjs`, since the augment also
+carries `cladeViews`.
 
-OTL labels an internal node only when that node IS a taxon in its taxonomy, so after pruning
-to our tips most internal nodes arrive anonymous and the name CANNOT be looked up by id.
-Three steps name them from what sits underneath, each strictly: a name is injected only if
-every leaf under the node belongs to it, and only if **no other node already carries that
-name** — OTL can split a family across our tips (its `Caprimulgidae` holds 16 of our
-nightjars, a disjoint branch holds 9 more), and without that guard both get named, which
-lands on a Kinship board as two groups with the identical label.
+The augment exists because the base set allows at most 3 species per genus and a Kinship group
+needs 4. Species are attached to existing base nodes, so the two files cannot assign different ids
+to one clade. Two rules apply:
 
-Step 5 (parent taxa, from `sel-families.json`'s Wikidata P171 parent) exists for SEPARATION.
-Kinship reads difficulty off the RANK of the MRCA between two groups, so an unranked stretch
-of tree reads as "trivially separable" however close the groups are — and that is not spread
-evenly: only 4% of plant group-pairs had a ranked MRCA against 29-40% elsewhere, because
-nine of the twenty major plant orders were missing from the tree entirely. Four Asparagales
-families then read as far apart as a bird and a beetle.
+- No new genus node is created for a genus that already has species in the base tree. Some genera
+  are not monophyletic in the topology (*Bison* falls inside *Bos*), so the base tree has no node
+  for them, and their remaining species are attached where their relatives are.
+- No new node is created with a name already present in the base tree.
 
-**The rank from step 4/5 lands in `sepRank`, never in `rank`.** Lineage's
-`nearestAncestorOfRank` stops at the first ancestor ranked ABOVE the one it wants, so a real
-"family"/"order" here would make the search for a species' family fail wherever that family
-crown is one of our injected clades — silently tightening the win target on days already
-pinned. `separationTierOf` reads `sepRank ?? rank`; nothing else looks at it.
+### F. Guess index
 
-## Kept utilities
-`common-name-overrides.mjs` (build-names), `curated-extras.mjs` (inject-extras),
-`patch-wiki-titles.mjs` + `patch-clade-views.mjs` + `patch-merged-clades.mjs` (all post-finalize),
-`load-guess-index.mjs`, `backup-taxon-index.mjs`, `pin-puzzles.ts`, `preview-*.ts`.
+`npm run build:guessindex` runs `build-taxon-index.mjs`. Lineages are computed from the pool
+topology. It requires `node --max-old-space-size=8192`.
 
-## One-time migrations
-`migrate-augment-ids.mjs` — re-points `taxonomyAugment.json` at the corrected clade ids
-after the `parseLabel` mrca fix (an `mrcaottAottB` label used to be parsed down to its
-TRAILING ott number, handing the node an id belonging to an unrelated taxon). Idempotent,
-refuses to write on any ambiguity. **Delete it once the augment is rebuilt** — see TODO.
+## Design notes
 
-## Retired (removed — old GBIF-occurrence pipeline)
-build-taxonomy.mjs, build-guess-index.mjs, enrich-wiki.mjs,
-patch-common-names.mjs, patch-prominence.mjs, and the exploration probes
-(build-select, classify-families [Wikidata], calibrate-*, proto-wiki-select,
-bench-wikidata-names).
+Species ids are GBIF keys because Open Tree sometimes uses one OTT id for both a clade and a tip.
+With OTT ids, those species would collide with clade nodes. Clades use OTT ids.
 
-## E. Kinship/Branches depth — the augment
+Open Tree labels an internal node only if it corresponds to a taxon in its taxonomy, so after
+pruning many internal nodes have no name. Assemble adds genus, family and parent-taxon names, under
+two conditions: every leaf below the node belongs to that taxon, and no other node already has the
+name. The second condition is needed because Open Tree can split a family across separate branches.
 
-`build-augment.mjs` (NOT retired) grafts extra named pool species onto the in-set tree so
-Kinship and Branches get breadth Lineage's curated set can't give them: the in-set caps each
-genus at **3** species and a group needs **4**, so no genus can be a group without it. It
-reads `src/data/taxonomy.json` + `sel-pool.json` + `sel-classify-otl.json` +
-`sel-family-anchors.json` and writes `src/data/taxonomyAugment.json`. **Re-run
-`patch-clade-views.mjs` afterwards** — the augment carries `cladeViews` too.
+Kinship measures the separation of two groups by the rank of their most recent common ancestor. An
+unranked stretch of tree therefore reads as distant even when the groups are close. This affected
+plants most, and it is the reason parent-taxon names are added.
 
-It GRAFTS onto existing base nodes rather than re-pruning, so base and augment cannot
-disagree about a clade's id. Two guards keep it that way:
+Ranks added by assemble are stored in `sepRank`, while `rank` remains `clade`. Lineage's
+`nearestAncestorOfRank` stops at the first ancestor ranked above its target. If injected ranks were
+stored in `rank`, the search could fail for species whose family node was injected, which would
+change the win condition of puzzles already frozen. `separationTierOf` reads `sepRank ?? rank`.
 
-- **Never mint a genus node for a genus the base tree already holds species of.** Genus
-  injection rejects a genus that isn't monophyletic in our topology — *Bison* nests inside
-  *Bos*, the sun bear inside *Ursus* — so there is no `Bos` node even though Bos taurus is in
-  the tree under Bovinae. Minting `auggen_Bos` for the rest produced a board asking you to
-  sort one Bos into "Bovinae" and another into "Bos", and a group that is taxonomically
-  false. Those species graft where their relatives already live instead.
-- **Never mint a node whose NAME already exists in the base tree.**
+`wikiTitle` is needed because names of genera and higher taxa are not unique on Wikipedia: "Linaria"
+is both a finch and a toadflax, and "Glycine" is also an amino acid.
 
-Duplicate scientific names across base+augment: 49 before, 5 after.
+`cladeViews` is needed because Kinship would otherwise rate a group only by the pageviews of its
+species, which underrates groups mainly known by the group name, such as clownfish.
 
-## TODO (not yet done)
-- `migrate-augment-ids.mjs` can be deleted: it existed only to re-point the OLD augment after
-  the parseLabel id fix, and the augment is now rebuilt from the current tree.
-- Variety: ~334 internal nodes sit at usable group size (4-25 named species) above the fame
-  floor with NO name at all, and are therefore invisible to Kinship — a potential +28% on the
-  theme pool, spread across every class. They are intermediate branch points with no Linnaean
-  name, so naming them needs subfamily/tribe data we don't pull yet. Adding SPECIES is the
-  weaker lever by comparison: 2,657 nameable pool species are missing but only ~40 genera
-  would cross the four-species line.
-- `build-augment.mjs` requires a two-word binomial, so hybrids are dropped — that loses
-  Fragaria × ananassa (strawberry, 90k views) and friends.
-- Wire Amphibians + Reptiles (new scopes) into leaderboards/badges.
+## Open items
+
+- Make rebuilds exact at the next change of the species set, when the tree is rebuilt and the
+  puzzles frozen again anyway: store the responses of build steps 1 to 4, sort P1843 names, and
+  store the joined labels.
+- Many internal nodes of group size have no name, so Kinship cannot use them. Naming them needs
+  classification data below family level that the current sources do not provide for every group.
+- `build-augment.mjs` requires a two-part species name, so hybrids such as the garden strawberry
+  are excluded.
+- `migrate-augment-ids.mjs` is no longer needed and can be deleted.

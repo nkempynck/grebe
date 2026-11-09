@@ -6,7 +6,7 @@
 
 Grebe is a platform of daily puzzle games played on the **tree of life**, the
 shared-ancestry tree that connects every living thing. Each game is new every day and the
-same for all players. Three games ship today:
+same for all players. Four games ship today:
 
 - **Lineage**: guess the hidden organism; every wrong guess is placed on a shared-ancestry
   tree at the clade it has in common with the answer, so each miss narrows down where the
@@ -17,8 +17,10 @@ same for all players. Three games ship today:
 - **Branches**: rebuild a slice of the tree: a labelled skeleton of clades (all from one
   class), some showing a worked-example species, and a tray of species to drag onto the branch
   they belong to. A Grebe original.
+- **Mosaic**: name the animal in a photograph cut into shuffled tiles; each wrong guess reports
+  how close it is to the answer on the tree.
 
-All three run on one bundled taxonomy snapshot, built Wikipedia-first: the species are chosen by
+All four run on one bundled taxonomy snapshot, built Wikipedia-first: the species are chosen by
 how widely they're read about on Wikipedia and connected by the Open Tree of Life. Grebe is
 local-first: everything runs in the browser, and an optional account adds cross-device sync and
 leaderboards.
@@ -79,6 +81,32 @@ Wikipedia is free; looking up a species you still have to place is a penalised p
 and the species-to-place tiles carry a Wikipedia thumbnail you can enlarge for free. Branches is an
 original, not modelled on an existing game.
 
+### Mosaic
+
+The player names an animal from a photograph cut into tiles and shuffled. The first view has 24
+tiles per side. Each wrong guess reduces the number of tiles, down to 3 per side on the last guess,
+and the complete photograph is shown when the round ends.
+
+Each guess adds a row to a table comparing it with the answer:
+
+- six traits (legs, in water, flies, warm-blooded, body covering, kind of animal);
+- the continents and biogeographic realms where each is recorded;
+- how closely the two are related on the tree.
+
+Traits and relatedness are reported separately because they differ: a dolphin and a shark match
+on most traits but are not close relatives. The player can restrict the list of candidate names to
+a group on any day.
+
+Answers are animals with a photograph, excluding extinct species, above a Wikipedia pageview
+minimum. Difficulty follows the weekday:
+
+| | Mon, Tue | Wed | Thu, Fri | Sat, Sun |
+|---|---|---|---|---|
+| Relatedness shown as | shared rank and a 0 to 100 score | shared rank | score | score |
+| Lookup of any animal's position on the tree | yes | yes | yes | no |
+| Guesses | 8 | 8 | 9 | 9 |
+| Minimum pageviews | 30,000 | 20,000 | 20,000 | 20,000 |
+
 ## Stack
 
 React 18 + TypeScript, built with Vite. Three runtime dependencies (`react`, `react-dom`,
@@ -94,9 +122,9 @@ npm run typecheck  # types only
 npm test           # vitest unit tests
 ```
 
-Node 18+. The app needs no server of its own: the taxonomy and fonts are bundled and every
-daily is computed client-side, so you can play with no network. (It still fetches a Wikipedia
-blurb when a round ends.)
+Node 18+. The taxonomy and fonts are bundled. Daily puzzles are frozen in advance and fetched
+when available; otherwise the client generates the day's puzzle itself, so a local copy runs
+without a server. A Wikipedia blurb is fetched when a round ends.
 
 ## Architecture
 
@@ -113,6 +141,8 @@ src/
     solver.ts        informed "par" solver for Lineage
     grid.ts          Kinship board generator (pure, deterministic per date + tier)
     branches.ts      Branches board generator (pure, deterministic per date + tier)
+    mosaic.ts        Mosaic answer draw, reveal ladder and weekly aids
+    mosaicChars.ts   Mosaic trait table
     resolve.ts       typed name -> node
     index.ts         public barrel; UI imports from "../core" only
   data/
@@ -128,12 +158,14 @@ src/
     gridProgress.ts  per-day Kinship attempt persistence
     branchesDaily.ts    today's Branches board (tier from the weekday ramp)
     branchesProgress.ts per-day Branches attempt persistence
+    mosaicProgress.ts   per-day Mosaic attempt persistence
     games.ts         optional account + leaderboard calls
     wikipedia.ts     Wikipedia summary + article links for the reveal card
   hooks/
     useGame.ts         couples the Lineage engine to React state
     useGridGame.ts     couples the Kinship board to React state
     useBranchesGame.ts couples the Branches board to React state
+    useMosaicGame.ts   couples the Mosaic board to React state
     useStats.ts      local stats, synced when signed in
     usePlayer.ts     account session and display name
   ui/                presentational components (HomePanel, GridGame, Cladogram, …)
@@ -144,14 +176,15 @@ Because `core/` and `data/` have no UI dependencies, they are portable to a nati
 
 ## Daily puzzles
 
-`dailySchedule.ts` turns a date into a puzzle deterministically, so every player gets the same
-puzzle without a server round-trip:
+`dailySchedule.ts` turns a date into a puzzle deterministically. Puzzles are generated this way
+ahead of time and then frozen, so later changes to the code or the tree do not alter them:
 
 - The **weekday** sets the difficulty. For Lineage that is a win-**resolution** ramp with
   **assist**: family + assist (Mon/Tue) → genus + assist (Wed) → exact species (Thu–Sun, assist
   off at the weekend). The weekday is also the leaderboard's point weight (fixed to the day) and
   the tier Kinship reuses for group-separation and Branches for its grain, look-alike-name floor
-  and label reveal, so all three games get harder across the week together.
+  and label reveal, and Mosaic for its aids and pageview minimum, so all four games get harder
+  across the week together.
 - **Scope is decoupled from difficulty**: a per-day seeded draw over all scopes, with a short
   anti-repeat so no group clusters, purely for variety.
 - The **answer** is a prominence-weighted draw from the scope's leaves (famous species early in
@@ -159,8 +192,8 @@ puzzle without a server round-trip:
   family/genus days, anything whose lineage lacks that rank, so the advertised win tolerance is
   never silently downgraded.
 
-Because this is seeded rather than truly random, each puzzle is a pure function of the date and
-is fully reproducible (and, with the source public, computable in advance).
+The generator is seeded rather than random. For a given version of the code and tree, its output
+depends on the date and on which puzzles have already been used.
 
 ## Taxonomy
 
@@ -175,7 +208,11 @@ to the game comes from how many people read about it, not how often it's recorde
   the [Open Tree of Life](https://tree.opentreeoflife.org) synthetic tree.
 - **Names**: each species' common name is its Wikipedia article title, falling back to the
   Wikidata "common name" property (P1843); clade names come from that same Wikidata property, with
-  a small hand-curated override table on top.
+  a small hand-curated override table on top. Clades Open Tree leaves unnamed take a name from the
+  [Open Tree Taxonomy](https://tree.opentreeoflife.org/about/taxonomy-version), the
+  [Mammal Diversity Database](https://www.mammaldiversity.org) or the
+  [Catalogue of Life](https://www.catalogueoflife.org), only when the species under the clade are
+  exactly that taxon's members.
 - **[GBIF](https://www.gbif.org)** supplies only a stable per-species identifier. It's load-bearing
   (Open Tree reuses some ids for both a clade and a tip, so keying species by their own GBIF id
   keeps them from colliding with clade nodes), but it no longer drives selection or names.
@@ -185,9 +222,68 @@ of ~21,600 guessable taxa (species plus clade groups, each with its graft lineag
 lives in the database and powers guess coverage and the depth behind Kinship and Branches.
 Regenerating either is the only step that touches the network.
 
+### Using the tree
+
+The tree files are committed, so no build is needed to use them:
+
+| File | Contents |
+|------|----------|
+| `src/data/taxonomy.json` | The base tree (Lineage, Mosaic). Complete on its own. Build details are in its top-level `provenance` and `counts`. |
+| `src/data/taxonomyAugment.json` | Extra species and genera grafted onto the base (Kinship, Branches). Only meaningful together with the base. |
+| `src/data/guessIndex.generated.json` | Taxa outside the base tree, each with a lineage to attach it to the base (guess coverage). |
+
+Both tree files hold a flat `nodes` array, and concatenating them gives the larger tree. There is
+one root (`id: "life"`, `parentId: null`).
+
+```js
+import { readFileSync } from "node:fs";
+const read = (f) => JSON.parse(readFileSync(`src/data/${f}.json`, "utf8")).nodes;
+const nodes = [...read("taxonomy"), ...read("taxonomyAugment")];
+const byId = new Map(nodes.map((n) => [n.id, n]));
+
+function lineage(sciName) {
+  let n = nodes.find((x) => x.sciName === sciName);
+  const path = [];
+  for (; n; n = byId.get(n.parentId)) if (n.sciName) path.push(n.sciName);
+  return path;
+}
+console.log(lineage("Tursiops truncatus").join(" < "));
+```
+
+| Field | Meaning |
+|-------|---------|
+| `id` | Species: GBIF key (`ott<N>` for the few without one). Clades: `ott<N>` for an Open Tree taxon, `mrcaott<A>ott<B>` for a branch point of the synthetic tree. Augment nodes: `aug<N>`, `augQ<N>`, `auggen_<Genus>`. |
+| `sciName` | Scientific name. Empty on unnamed branch points. |
+| `parentId` | Parent node's id. |
+| `rank` | Taxonomic rank, or `clade` where there is none. |
+| `common` | English name, if there is a usable one. |
+| `views` / `cladeViews` | English-Wikipedia pageviews over the build's window, for species / clades. |
+| `sepRank` | A rank inferred for an otherwise unranked clade. `rank` stays `clade` on these. |
+| `synthetic` | `common` or `sciName` is a label made by joining the contents ("Vicugna & Lama"), not a taxon name. |
+| `wikiTitle` | English Wikipedia article, where the bare name would reach the wrong one. |
+| `ottTaxon` / `mddTaxon` / `colTaxon` | The name came from that source, and which taxon it was. |
+| `commonSource` | Where a clade's `common` came from. |
+| `extinct`, `photo` | Game flags. |
+
+Limitations:
+
+- The tree was built for a game. It is pruned to species with high English Wikipedia readership,
+  has no branch lengths, and is not a representative sample of life.
+- The app applies name corrections when it loads the tree (`src/data/cladeNames.ts`,
+  `src/data/speciesCommon.ts`), so some names shown in the games differ from the JSON.
+- Ids and names can change when the tree is rebuilt. Use a specific commit if you depend on them.
+
+Licence: the tree files are distributed under the repository's PolyForm Noncommercial licence,
+which applies to Grebe's own contribution. The data they are derived from keeps its sources'
+terms. Open Tree of Life (where no earlier terms apply), Wikidata and Wikimedia pageviews are
+published under CC0. The Mammal Diversity Database and the Catalogue of Life are CC BY 4.0. Photos
+in `speciesPhotos.json` are licensed individually by their photographers.
+
+To regenerate the tree, see [scripts/PIPELINE.md](scripts/PIPELINE.md).
+
 ## Scoring
 
-All three games share a difficulty weight, the day's tier (`90 + 10 × tier`, i.e. 100 on Monday
+All four games share a difficulty weight, the day's tier (`90 + 10 × tier`, i.e. 100 on Monday
 to 160 on Sunday), so scores are comparable across the week.
 
 **Lineage:** `weight × efficiency × hint-factor`, zero for a loss. Efficiency decays gently
@@ -200,6 +296,9 @@ and each mistake shaves a quarter.
 tenth of the weight for a win. A revealed slot forfeits its whole point, and looking up a species
 you still have to place forfeits half. You may submit one wrong board (Mon–Wed) or two (Thu–Sun);
 going over the budget ends the board as a loss, which keeps the slots you'd locked at 35% credit.
+
+**Mosaic:** `weight × (1 − 0.9 × k(k − 1) / G(G − 1))` for a win on guess `k` of `G`, zero for a
+loss, so the last available guess still earns a tenth of the weight.
 
 ## Limitations
 
@@ -238,6 +337,10 @@ board generator (structure, determinism, difficulty ordering, one-away detection
   topology, named clades, and ranks behind the shared-ancestry hints.
 - **[GBIF](https://www.gbif.org)**: Global Biodiversity Information Facility; a stable
   per-species identifier keying the tree.
+- **[Open Tree Taxonomy](https://tree.opentreeoflife.org/about/taxonomy-version)**,
+  **[Mammal Diversity Database](https://www.mammaldiversity.org)** (v2.5) and
+  **[Catalogue of Life](https://www.catalogueoflife.org)** (26.9): names for clades Open Tree
+  leaves unnamed.
 - **Fonts**: Bricolage Grotesque, Spectral, and Spline Sans Mono (SIL Open Font License),
   self-hosted and bundled with the app (no CDN).
 
