@@ -1,13 +1,10 @@
 // Stamp `sepRank: "order"` onto the clades that ARE taxonomic orders, in place.
 //
-// WHY A PATCH AND NOT A REBUILD. This logic also lives in assemble-taxonomy step 6, which is
-// where it belongs for a from-scratch build. But re-running `npm run build:taxonomy` today
-// costs 1119 common names and 140 clade labels — build-names refetches Wikidata, and it
-// currently returns less than it did when taxonomy.json was last built (3332 named species
-// before, 2223 after; Chilean Lantern Tree, Palo santo and Gumbo limbo simply vanish). Those
-// names are what Branches builds its groups from, so a rebuild silently degrades a shipped
-// game. Until that fetch is made resilient, changes of this shape are applied to the file we
-// have rather than regenerated. Nothing here reads the network.
+// WHY A PATCH AND NOT A REBUILD. This logic also lives in assemble-taxonomy step 6, behind
+// --rank-orders, which is where it belongs for a from-scratch build. A rebuild also refetches
+// Wikidata and re-decides the joined Kinship labels, so it changes more than this step
+// intends (scripts/PIPELINE.md lists the differences). Changes of this shape are applied to
+// the file we have rather than regenerated. Nothing here reads the network.
 //
 // WHAT IT FIXES. Kinship and Branches read difficulty off the RANK of the MRCA between two
 // groups, walking up to the first ranked ancestor. Whole order-level nodes are missing that

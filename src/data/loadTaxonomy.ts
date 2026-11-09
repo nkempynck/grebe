@@ -8,9 +8,9 @@ import { SYNONYMS } from "./synonyms";
 
 /**
  * The single place the app gets its tree from. It reads a build-time snapshot
- * (src/data/taxonomy.json) produced by `npm run build:taxonomy`, which pulls a
- * balanced, occurrence-weighted slice of the GBIF backbone. The app itself never
- * hits the network — regenerate the JSON to refresh the data.
+ * (src/data/taxonomy.json) produced by `npm run build:taxonomy`: species chosen
+ * by Wikipedia pageviews, on the Open Tree of Life topology (scripts/PIPELINE.md).
+ * The app never fetches the tree; regenerate the JSON to refresh the data.
  *
  * The built tree is cached (one promise), so every caller shares the SAME tree
  * and node object references. That matters when more than one `useGame` is live
@@ -49,9 +49,9 @@ export function loadRichTree(): Promise<Tree> {
 }
 
 async function build(rawNodes: TaxonNode[]): Promise<Tree> {
-  // Common names are DERIVED at build time (GBIF vernaculars, baked into taxonomy.json).
+  // Common names are baked into taxonomy.json at build time (Wikipedia titles, Wikidata P1843).
   // CLADE_COMMON and SPECIES_COMMON are kept only as a CORRECTION layer: a curated entry
-  // OVERRIDES the baked name, so we can fix GBIF's junk/ambiguous vernaculars without
+  // OVERRIDES the baked name, so we can fix wrong or ambiguous names without
   // regenerating. Taxa with neither stay scientific-only. Both maps apply to the augment
   // as well, which for SPECIES matters more than it looks: species-level fixes otherwise
   // live in scripts/common-name-overrides.mjs, which only build-names.mjs reads, and

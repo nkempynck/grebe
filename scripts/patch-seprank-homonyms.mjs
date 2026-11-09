@@ -1,9 +1,8 @@
 // Correct separation ranks that came from the wrong organism, in place.
 //
-// WHY A PATCH AND NOT A REBUILD. Same reason as patch-order-sepranks: re-running
-// `npm run build:taxonomy` currently loses common names, because build-names refetches
-// Wikidata and returns less than it did when taxonomy.json was last built. Changes of this
-// shape go onto the file we have. Nothing here reads the network.
+// WHY A PATCH AND NOT A REBUILD. Same reason as patch-order-sepranks: a rebuild changes more
+// than this correction intends. Changes of this shape go onto the file we have. Nothing here
+// reads the network.
 //
 // WHAT WENT WRONG. assemble-taxonomy step 5 names an unranked clade after the Wikidata parent
 // taxon (P171) of the families beneath it, then asks Open Tree for that name's RANK — as a
