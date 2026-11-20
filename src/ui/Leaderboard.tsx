@@ -151,6 +151,13 @@ export function Leaderboard({ game, label, me, variant, reloadKey = 0, streak, p
         <p className="stats-empty">Play today’s {label} to see {windowNoun(isToday ? "day" : period)}.</p>
       ) : rows === null ? (
         <p className="stats-empty">Loading…</p>
+      ) : rows.length === 0 && oneDay && completion && completion.played > 0 ? (
+        // Played but nobody solved it: the rows are solvers only, so without this a day
+        // everyone failed read as though nobody had played at all.
+        <>
+          <p className="stats-empty">{isToday ? "Nobody has solved today’s board yet." : "Nobody solved this board."}</p>
+          <div className="lb-foot"><span>{completion.played} played · 0 solved · 0%</span></div>
+        </>
       ) : rows.length === 0 ? (
         <p className="stats-empty">No ranked {label} games {isToday ? "today" : browsingDay ? "on this day" : "here yet"}. Play a signed-in daily to appear.</p>
       ) : (

@@ -189,6 +189,13 @@ export function LeaderboardPanel({ me, variant, canPreview = false, reloadKey = 
         <p className="stats-empty">Play today’s Lineage to see {windowNoun(isToday ? "day" : period)}.</p>
       ) : rows === null ? (
         <p className="stats-empty">Loading…</p>
+      ) : rows.length === 0 && completion && completion.played > 0 ? (
+        // Played but nobody solved it (see Leaderboard.tsx). Completion is only fetched for a
+        // single day on the Overall view, so this never fires on a week or a clade filter.
+        <>
+          <p className="stats-empty">{isToday ? "Nobody has solved today’s puzzle yet." : "Nobody solved this puzzle."}</p>
+          <div className="lb-foot"><span>{completion.played} played · 0 solved · 0%</span></div>
+        </>
       ) : rows.length === 0 ? (
         <p className="stats-empty">No ranked games {isToday ? "today" : browsingDay ? "on this day" : "here yet"}. Play a signed-in daily to appear.</p>
       ) : (

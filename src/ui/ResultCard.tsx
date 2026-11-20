@@ -7,15 +7,11 @@ import { ZoomableShot } from "./PhotoZoom";
 interface Props {
   tree: Tree;
   answer: TaxonNode;
-  won: boolean;
-  guessCount: number;
-  /** Current daily streak, to celebrate on a daily win (null hides it). */
-  streak?: number | null;
-  /** Informed-solver par (guesses) for this puzzle, to benchmark against. */
-  par?: number | null;
 }
 
-export function ResultCard({ tree, answer, won, guessCount, streak, par }: Props) {
+/** Lineage's answer, written up: name, binomial, ancestry and the Wikipedia summary. How the
+ *  round went is not here; it follows in the ResultBlock every game ends with. */
+export function ResultCard({ tree, answer }: Props) {
   const [wiki, setWiki] = useState<WikiSummary | null>(null);
   const [loading, setLoading] = useState(true);
   // A second, better source for the picture: the summary's own thumbnail is
@@ -40,33 +36,13 @@ export function ResultCard({ tree, answer, won, guessCount, streak, par }: Props
   const lineage = ancestryChain(tree, answer.id)
     .reverse()
     .map((id) => tree.byId.get(id)!)
-    .map((n) => n.common ?? n.sciName)
+    // Unnamed clades carry an empty name; joining them printed runs of bare "› › ›".
+    .map((n) => n.common || n.sciName)
+    .filter(Boolean)
     .join(" › ");
 
   return (
     <div className="result">
-      <div className="verdict">
-        {won
-          ? guessCount === 1
-            ? "One guess ace is quite crazy. Too crazy one might think…"
-            : `Solved in ${guessCount} guesses. You're doing great. `
-          : "Revealed 😵‍💫 Next time maybe."}
-        {/* Only a win carries a streak: giving up ends the run, whatever it cost
-            to get there (see deriveStreaks in src/data/stats.ts). */}
-        {won && streak != null && streak > 0 && (
-          <span className="verdict-streak">🔥 {streak}-day streak</span>
-        )}
-      </div>
-      {par != null && (
-        <div className="par">
-          🤖 Solver's par: {par}
-          {won && guessCount <= par && (
-            <span className="par-beat">
-              {guessCount < par ? " · you beat it! 😎" : " · you matched it 🦭"}
-            </span>
-          )}
-        </div>
-      )}
       <h2>{answer.common ?? answer.sciName}</h2>
       <div className="sci" style={{ fontStyle: "italic" }}>{answer.sciName}</div>
       <div className="branch" style={{ marginTop: 10 }}>{lineage}</div>

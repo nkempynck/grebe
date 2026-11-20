@@ -10,6 +10,7 @@ import { WikiCard } from "./WikiCard";
 import { PhotoCredit, usePhotoCredit, usePhotoPager } from "./PhotoZoom";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
+import { ResultBlock } from "./ResultBlock";
 import { DiscussionPanel } from "./DiscussionPanel";
 import { todayKey } from "../core/daily";
 import { KinshipTree } from "./KinshipTree";
@@ -184,7 +185,6 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   const devSettings = useDev();
   const dev = sandbox ? { tier: devSettings.tier, nonce: devSettings.nonce } : null;
   const g = useGridGame(tree, onComplete, dev, userId);
-  const [copied, setCopied] = useState(false);
   // Picture reveals: fetched thumbnails per species, and which tiles show them.
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   // Species with no Wikipedia image (fetch resolved empty) — in picture mode their
@@ -252,6 +252,12 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
   const zoomCredit = usePhotoCredit(zoomImage);
   // Post-game Wikipedia reader.
   const [wikiId, setWikiId] = useState<string | null>(null);
+  // Which part of the page the species was tapped in, so its card opens right there: under the
+  // group bars at the top, or under the tree at the bottom. One fixed spot left a tap in the other
+  // looking like it did nothing.
+  const [wikiFrom, setWikiFrom] = useState<"bars" | "tree">("bars");
+  const pickFromBars = (id: string) => { setWikiFrom("bars"); setWikiId(id); };
+  const pickFromTree = (id: string) => { setWikiFrom("tree"); setWikiId(id); };
   // SOLVE ANIMATION — the four tiles gather and lift into their group bar, as Connections
   // does. It is deliberately a decoration LAYERED OVER the real board rather than part of
   // it: the hook moves a solved group out of `remaining` the instant the guess lands, so
@@ -641,16 +647,6 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
     return `${head}\n${rows}\n${verdict}\n${gameUrl()}`;
   })();
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(shareText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      /* clipboard unavailable */
-    }
-  };
-
   // Tier-specific one-liner on the picture/name reveal mechanic, folded into the
   // header blurb so it's read up front (the in-board note repeats it during play).
   const revealHint = preshow
@@ -690,8 +686,8 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
           <>
             Sixteen species, four hidden groups of four, each a clade. Pick four you think share a group, then guess.
             Four wrong guesses allowed. {revealHint} Solve a group to earn another free peek.
-            {/* Open on every load, so everyone reads it once; collapsing it is not remembered. */}
-            <details className="gamehead-blurb-note is-rule" open>
+            {/* Closed by default: the summary line is the rule, the detail is there if wanted. */}
+            <details className="gamehead-blurb-note is-rule">
               <summary>Please play without looking anything up outside the game.</summary>
               <span className="gamehead-blurb-sub">
                 Work out the groups from what you know and the features the species share. It is more
@@ -730,7 +726,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
           .filter(({ grp }) => grp.cladeId !== fly?.cladeId)
           .sort((a, b) => a.grp.level - b.grp.level)
           .map(({ grp, dimmed }) => (
-            <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === freshBar} onPick={over && !losing ? setWikiId : undefined} onZoom={setZoomId} thumbs={settled ? thumbs : undefined} />
+            <GroupBar key={grp.cladeId} tree={tree} group={grp} dimmed={dimmed} fresh={grp.cladeId === freshBar} onPick={over && !losing ? pickFromBars : undefined} onZoom={setZoomId} thumbs={settled ? thumbs : undefined} />
           ))}
       </div>
       {over && !losing && <p className="grid-peek-note">Tap any species to read about it on Wikipedia.</p>}
@@ -738,7 +734,7 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       {/* Directly under the group bars it was opened from. It used to render last in the
           component, which put it below the result, the share block, the leaderboard and the
           discussion — a tap appeared to do nothing until you scrolled past all of them. */}
-      {wikiNode && (
+      {wikiNode && wikiFrom === "bars" && (
         <div ref={wikiRef}>
           <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} />
         </div>
@@ -901,35 +897,24 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
       {/* Result + share — after a loss, once the reveal has finished. */}
       {over && !losing && (
         <div className="grid-result">
-          <div className="grid-verdict">
-            {g.status === "won"
-              ? `Solved with ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}. Good game 😎`
-              : `Out of guesses. Sad. Found ${g.solvedGroups.length}/4`}
-          </div>
-          <div className="grid-scoreline">
-            🧬 {kinshipPoints(g.status === "won", g.tier, g.mistakes, g.paidReveals)} pts
-            {g.status === "won" && streak != null && streak > 0 && (
-              <span className="grid-streak"> · 🔥 {streak}-day streak</span>
-            )}
-          </div>
-          <div className="share">
-            <div className="share-head">🧩 Grebe Kinship <span>· №{dailyNumber(g.date)}{rules.difficulty ? ` · ${rules.difficulty}` : ""}</span></div>
-            <div className="grid-share-rows">
-              {g.attempts.map((r, i) => (
-                <div key={i} className="grid-share-row">{r.map((l) => LEVEL_SQUARE[l]).join("")}</div>
-              ))}
-            </div>
-            <div className="share-verdict">
-              {g.status === "won" ? `Solved. Nice. · ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}` : `Missed it 🐡 · ${g.solvedGroups.length}/4 groups`}
-              {g.revealed.length > 0 && ` · ${g.revealed.length} reveal${g.revealed.length === 1 ? "" : "s"}`}
-              <span className="share-score"> · {kinshipPoints(g.status === "won", g.tier, g.mistakes, g.paidReveals)} pts</span>
-              {g.status === "won" && streak != null && streak > 0 && <span className="share-streak"> · 🔥{streak}</span>}
-            </div>
-            <button className="share-btn" onClick={copy}>{copied ? "Copied ✓" : "Copy result"}</button>
-          </div>
+          <ResultBlock
+            game="kinship"
+            verdict={g.status === "won"
+              ? `Solved with ${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}. Good job. You did it.`
+              : `Out of guesses. Sad. Maybe tomorrow. Found ${g.solvedGroups.length}/4`}
+            stats={[
+              `№${dailyNumber(g.date)}`,
+              rules.difficulty,
+              `${kinshipPoints(g.status === "won", g.tier, g.mistakes, g.paidReveals)} pts`,
+              g.status === "won" && `${g.mistakes} mistake${g.mistakes === 1 ? "" : "s"}`,
+              g.revealed.length > 0 && `${g.revealed.length} reveal${g.revealed.length === 1 ? "" : "s"}`,
+              g.status === "won" && streak != null && streak > 0 && `🔥 ${streak}`,
+            ]}
+            squares={g.attempts.map((r) => r.map((l) => LEVEL_SQUARE[l]).join(""))}
+            shareText={shareText}
+            locked={g.locked ? "You’ve played today’s Kinship. Come back tomorrow for a new board." : null}
+          />
           <LeaderboardNudge show={!!configured && !me} />
-          <KinshipTree tree={tree} board={g.board} levelOf={g.levelOf} onPick={setWikiId} />
-          {g.locked && <p className="daily-lock">✓ You’ve played today’s Kinship. Come back tomorrow for a new board.</p>}
           {configured && (
             <Leaderboard
               game="kinship" label="Kinship" variant="today" me={me ?? null} reloadKey={reloadKey} streak={streak}
@@ -949,6 +934,19 @@ export function GridGame({ tree, streak, onComplete, me, userId, configured, rel
         played={over}
         label="today’s Kinship"
       />
+
+      {/* The tree comes last, after the result and the talk about it: it is for exploring, and
+          a species tapped in it opens its card underneath. */}
+      {over && !losing && (
+        <>
+          <KinshipTree tree={tree} board={g.board} levelOf={g.levelOf} onPick={pickFromTree} />
+          {wikiNode && wikiFrom === "tree" && (
+            <div ref={wikiRef}>
+              <WikiCard node={wikiNode} tree={tree} onClose={() => setWikiId(null)} />
+            </div>
+          )}
+        </>
+      )}
 
       {/* Solve animation: copies of the four tiles, flying into their group bar. Fixed to
           the viewport because the board reflows underneath them the moment the group is

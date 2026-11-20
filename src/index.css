@@ -829,20 +829,6 @@ body {
   border-top: 2px solid var(--brass);
 }
 .result h2 { font-family: var(--font-display); font-weight: 800; margin: 6px 0 2px; font-size: 30px; }
-.result .verdict {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
-  text-transform: uppercase; color: var(--brass);
-}
-.result .verdict-streak {
-  margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--line);
-  color: var(--vermilion); letter-spacing: 0.1em;
-}
-.result .par {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--ink-soft); margin-top: 6px;
-}
-.result .par .par-beat { color: var(--cold); font-weight: 700; }
-.result .par .par-over { color: var(--ink-faint); }
 .result .sci { color: var(--ink-soft); }
 .result .branch { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); }
 .result .wikirow { display: flex; align-items: flex-start; gap: 18px; margin-top: 18px; }
@@ -1086,12 +1072,6 @@ button.pin-cell:hover { outline: 1px solid var(--brass); outline-offset: 1px; }
   font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); white-space: pre-wrap;
 }
 
-/* "Played today" lock line shown under a finished daily. */
-.daily-lock {
-  margin: 12px 0 0; padding: 8px 12px; border-radius: var(--radius);
-  background: var(--bg-2); border: 1px solid var(--line);
-  font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); text-align: center;
-}
 
 .admin-login {
   margin: 8px 0 24px; padding: 20px 22px;
@@ -1554,29 +1534,6 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   .badge:hover .badge-medal { transform: none; }
 }
 
-/* ---- Shareable result ---- */
-.share {
-  margin: 4px 0 26px; padding: 18px 20px;
-  background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius);
-}
-.share-head {
-  font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--ink);
-}
-.share-head span { color: var(--ink-soft); font-weight: 600; }
-.share-sub {
-  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--ink-soft); margin-top: 3px;
-}
-.share-grid {
-  font-size: 24px; letter-spacing: 2px; line-height: 1.3; margin: 12px 0 8px;
-  word-break: break-word;
-}
-.share-verdict {
-  font-family: var(--font-mono); font-size: 12px; color: var(--brass-bright); margin-bottom: 14px;
-}
-.share-score { color: var(--vermilion); font-weight: 700; }
-.share-dots { color: var(--brass); letter-spacing: 0.12em; }
-.share-streak { color: var(--vermilion); font-weight: 700; }
 
 /* ---- Leaderboard ---- */
 .lb {
@@ -1681,6 +1638,31 @@ button.badge { background: none; border: 0; padding: 0; font: inherit; color: in
   border: none; border-radius: var(--radius); cursor: pointer; transition: background 0.15s ease;
 }
 .share-btn:hover { background: var(--brass-bright); }
+
+/* ---- Result block: how every game ends (ResultBlock.tsx) ----
+   The verdict, one line of facts, the share squares, the copy button; each fact once. A plain
+   panel washed with the game's colour, the same wash as that game's slip on the homepage. */
+.rb {
+  margin: 22px 0 14px; padding: 18px 20px;
+  background: color-mix(in srgb, var(--game, var(--brass)) 14%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--game, var(--brass)) 70%, transparent);
+  border-radius: var(--radius);
+}
+.rb-verdict {
+  font-family: var(--font-display); font-weight: 800; font-size: 22px; line-height: 1.25;
+  color: var(--ink); margin: 0;
+}
+.rb-stats { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-soft); margin: 6px 0 0; }
+/* Upright, not italic: the notes carry emoji (🤖, 😎, 🦫), and a browser slants those along with
+   the text, which only distorts them. */
+.rb-note { font-size: 14px; font-weight: 400; color: var(--ink-soft); margin: 8px 0 0; }
+.rb-squares { font-size: 22px; letter-spacing: 2px; line-height: 1.3; margin: 12px 0 0; word-break: break-word; }
+/* The copy button takes the game's colour, so it belongs to the panel it sits in. */
+.rb-copy { margin-top: 14px; background: var(--game, var(--brass)); }
+.rb-copy:hover { background: var(--game, var(--brass)); filter: brightness(1.08); }
+/* Dark text on Branches' gold in both themes: light text on ochre is too faint to read. */
+.rb[data-game="branches"] .rb-copy { color: #1f1a0e; }
+.rb-lock { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); margin: 10px 0 0; }
 
 /* ---- About ---- */
 .about { display: flex; flex-direction: column; gap: 22px; }
@@ -2069,51 +2051,61 @@ span.grid-end-cap, button.grid-end-cap:not(.grid-tile-cap) { background: none; p
 .grid-submit:hover:not(:disabled) { background: var(--brass-bright); }
 .grid-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.grid-verdict { font-family: var(--font-display); font-weight: 800; font-size: 22px; margin: 4px 0 4px; }
-.grid-scoreline { font-family: var(--font-mono); font-size: 13px; color: var(--vermilion); margin: 0 0 14px; }
-.grid-scoreline .grid-streak { color: var(--brass-bright); }
-.grid-share-rows { font-size: 22px; line-height: 1.35; letter-spacing: 2px; margin: 10px 0 14px; }
 
 /* ---- Home / platform landing ---- */
+/* The intro runs the full column so its edges sit on the same lines as the list below. */
 .home-intro {
-  font-size: 18px; color: var(--ink-soft); line-height: 1.6; max-width: 60ch; margin: 0 0 22px;
+  font-size: 18px; color: var(--ink-soft); line-height: 1.6; margin: 24px 0;
 }
-.home-intro b { color: var(--ink); font-weight: 600; }
-/* The permanent Instagram mention under the game cards: quiet, one line on desktop. */
-.home-social { margin: 18px 0 0; font-size: .84rem; line-height: 1.5; color: var(--ink-soft); text-align: center; }
+/* The permanent Instagram mention under the game list: quiet, aligned with the list. */
+.home-social { margin: 22px 0 0; font-size: .84rem; line-height: 1.5; color: var(--ink-soft); }
 .home-social a { color: var(--brass-bright, var(--brass)); font-weight: 600; }
 .lb-social { margin: 8px 0 4px; font-size: .8rem; color: var(--ink-soft); text-align: center; }
 .lb-social a { color: var(--brass-bright, var(--brass)); font-weight: 600; }
-.home-games {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px;
-}
-.home-card {
-  display: flex; flex-direction: column; gap: 8px; text-align: left;
-  padding: 18px 20px; min-height: 200px;
-  background: var(--bg-2); color: var(--ink);
-  border: 1px solid var(--line); border-radius: var(--radius);
+/* The games as a list of slips, each washed with its game's colour, the name in that colour
+   and the day's number beside it. The whole row is the link. */
+/* Each game is its own slip, washed with its colour, so the four read as sections rather than
+   lines of text on the page. The wash is a mix with transparent, so it tints whichever paper the
+   theme has. */
+.home-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.home-row {
+  display: grid; grid-template-columns: 24px 1fr; gap: 0 12px; align-items: start;
+  width: 100%; padding: 0 16px; text-align: left;
+  background: color-mix(in srgb, var(--game, var(--brass)) 14%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--game, var(--brass)) 70%, transparent);
+  border-radius: var(--radius); overflow: hidden; color: var(--ink);
   font-family: inherit; cursor: pointer;
-  transition: border-color 0.14s ease, background 0.14s ease, transform 0.06s ease;
+  transition: background 0.2s ease;
 }
-.home-card:hover { border-color: var(--game, var(--brass)); background: var(--bg-3); }
-.home-card:active { transform: scale(0.99); }
-.home-card-top { display: flex; align-items: center; justify-content: space-between; }
-.home-card-ico { font-size: 26px; line-height: 1; }
-.home-card-daily {
-  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
-  text-transform: uppercase; color: var(--ink-faint);
+.home-row:hover { background: color-mix(in srgb, var(--game, var(--brass)) 20%, transparent); }
+.home-row:focus-visible { outline: 2px solid var(--game, var(--brass)); outline-offset: 2px; }
+/* Sized and set on the name's line, so it reads as part of the title the way it does in the tabs. */
+.home-row-ico { font-size: 19px; line-height: 27.5px; text-align: center; padding: 20px 0; }
+.home-row-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 20px 0; }
+.home-row-head { display: flex; align-items: baseline; gap: 10px; }
+/* The game colour pulled a little toward the ink: Branches' ochre at full strength is too pale
+   to read as text on the paper. The mix darkens it in light mode and lightens it in dark. */
+.home-row-name {
+  font-family: var(--font-display); font-weight: 800; font-size: 25px; line-height: 1.1;
+  color: color-mix(in srgb, var(--game, var(--brass)) 78%, var(--ink));
 }
-.home-card-name { font-family: var(--font-display); font-weight: 800; font-size: 24px; margin: 2px 0 0; }
-.home-card-tag { font-size: 14.5px; color: var(--ink-soft); line-height: 1.5; margin: 0; flex: 1; }
-.home-card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
-.home-card-inspired {
-  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--ink-faint);
+.home-row-tag { font-size: 15.5px; color: var(--ink-soft); line-height: 1.5; }
+.home-row-credit { font-size: 14px; font-style: italic; font-weight: 400; color: var(--ink-faint); }
+.home-row-no { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+/* An empty slip for the games still to come: dashed, untinted, text set on the names' line. */
+.home-soon {
+  padding: 14px 16px 14px 52px; font-size: 14.5px; line-height: 1.5; color: var(--ink-faint);
+  border: 1px dashed var(--line); border-radius: var(--radius);
 }
-.home-card-play { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--game, var(--brass)); }
-.home-card:hover .home-card-play { filter: brightness(1.15); }
-.home-card.is-soon { cursor: default; opacity: 0.55; border-style: dashed; }
-.home-card.is-soon:hover { border-color: var(--line); background: var(--bg-2); transform: none; }
+.home-soon b { font-weight: 600; color: var(--ink-soft); }
+@media (max-width: 520px) {
+  .home-row { gap: 0 10px; padding: 0 12px; }
+  .home-row-ico, .home-row-body { padding: 16px 0; }
+  .home-soon { padding-left: 46px; }
+  .home-row-ico { font-size: 17px; line-height: 24px; }
+  .home-row-name { font-size: 22px; }
+  .home-row-tag { font-size: 15px; }
+}
 
 /* Per-game blocks in the About tab. */
 .about-games { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
@@ -2223,11 +2215,11 @@ a.announce-go { text-decoration: none; }
 }
 /* The "no lookups" nudge: its own line under the blurb, a touch heavier. */
 .gamehead-blurb-note { display: block; font-weight: 600; margin-top: 4px; }
-/* Kinship and Branches: the play-fair line. Same italic as the blurb, a touch larger, set off by
-   the game-coloured bar rather than by weight, so it is noticed without reading as a warning. */
+/* Kinship and Branches: the play-fair line. Same italic and size as the blurb, set off only by
+   darker ink and a thin game-coloured bar, so it is noticed without reading as a warning. */
 .gamehead-blurb-note.is-rule {
-  font-weight: 600; font-size: 15.5px; color: var(--ink); margin-top: .6rem;
-  border-left: 3px solid var(--game, var(--brass)); padding-left: .6rem;
+  font-weight: 500; font-size: 14.5px; color: var(--ink); margin-top: .6rem;
+  border-left: 2px solid var(--game, var(--brass)); padding-left: .6rem;
 }
 .gamehead-blurb-note.is-rule > summary { cursor: pointer; list-style: none; }
 .gamehead-blurb-note.is-rule > summary::-webkit-details-marker { display: none; }
@@ -2236,8 +2228,8 @@ a.announce-go { text-decoration: none; }
   color: var(--game, var(--brass)); transition: transform .15s;
 }
 .gamehead-blurb-note.is-rule[open] > summary::after { transform: rotate(90deg); }
-/* The why under it: same block, back to the blurb's size and weight. */
-.gamehead-blurb-sub { display: block; font-weight: 400; font-size: 14px; color: var(--ink-soft); margin-top: 2px; }
+/* The why under it: a step smaller and lighter than the line it explains. */
+.gamehead-blurb-sub { display: block; font-weight: 400; font-size: 13.5px; color: var(--ink-soft); margin-top: 2px; }
 /* The beta mark on a game tab. Deliberately tiny and lowercase: it is a footnote on the name,
    not a second word in it, and the row is a horizontal scroller on a phone where every pixel of
    tab width costs a tab. */
@@ -2537,16 +2529,6 @@ a.announce-go { text-decoration: none; }
 .branches-submit:hover:not(:disabled) { filter: brightness(1.06); }
 .branches-submit:disabled { opacity: 0.4; cursor: default; }
 
-.branches-result {
-  padding: 16px 18px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius);
-}
-.branches-score { font-family: var(--font-display); font-size: 18px; color: var(--ink); }
-.branches-score b { font-weight: 800; }
-.branches-result.is-won .branches-score b { color: var(--brass-bright); }
-.branches-result.is-lost .branches-score b { color: var(--danger); }
-.branches-score-detail { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
-.branches-points { font-family: var(--font-mono); font-size: 13px; color: var(--vermilion); font-weight: 700; margin-top: 4px; }
-.branches-result-note { font-size: 12.5px; color: var(--ink-soft); font-style: italic; margin: 8px 0 0; }
 
 /* Branches — confirm dialog before a penalising Wikipedia peek */
 .branches-confirm {
@@ -2568,9 +2550,13 @@ a.announce-go { text-decoration: none; }
    Reuses the leaderboard's visual language (.lb, .stats-sub, .lb-seg, .lb-nudge,
    .lb-note, .lb-youtag) so a board reads as part of the same post-game surface
    rather than a bolted-on widget. Both themes come from the shared tokens. */
-.disc {
-  margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--line-soft);
-}
+/* No divider rule: it usually follows the leaderboard card, whose own edge already separates
+   them, and rule + padding + the card's margin stacked into a gap that read as a page break. */
+.disc { margin-top: 22px; }
+/* Mosaic's column is a flex stack, so the leaderboard's margin adds to its 1rem gap instead of
+   collapsing; trimmed so the step from leaderboard to discussion matches the other games. */
+.mosaic > .lb { margin-bottom: 6px; }
+.mosaic > .disc { margin-top: 0; }
 .disc-head {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
@@ -2728,7 +2714,9 @@ a.announce-go { text-decoration: none; }
 }
 
 /* ---- BLUR (prototype) ---------------------------------------------------- */
-.mosaic { display: flex; flex-direction: column; gap: 1rem; max-width: 34rem; margin: 0 auto; }
+/* Full column width, like the other three games. The prototype's 34rem centred column inset the
+   header and blurb from the nav above them. The picture keeps its own height cap (MosaicPicture). */
+.mosaic { display: flex; flex-direction: column; gap: 1rem; }
 /* No forced aspect ratio. The images now keep the photograph's own shape (see boxFor in
    scripts/mosaic-images.mjs), so the stage follows the picture rather than cropping it into a
    square — which is what removed a barramundi's head. Capped by height so a tall portrait
@@ -2772,37 +2760,15 @@ a.announce-go { text-decoration: none; }
   align-self: flex-start; margin-top: -.5rem;
   color: var(--ink-soft); font-size: .78rem; font-variant-numeric: tabular-nums;
 }
-/* The reveal is the payoff and should look like it. It used to be a stark #fff rectangle —
-   var(--card) is defined nowhere, so it always fell through to white and sat on the cream page
-   like something pasted on. Now it takes the page's own surface, a rail in the outcome's
-   colour, and a real hierarchy: mono label, the name at display size, the binomial under it,
-   and the photographer's credit below a hairline where a credit belongs. */
-.mosaic-verdict {
-  /* gap stays 0: the rows want DIFFERENT spacing (name close to its label, credit set apart
-     below its rule), so each carries its own margin rather than fighting a uniform gap. */
-  display: grid; gap: 0;
-  padding: .85rem 1.1rem;
-  border-radius: 14px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--ink-faint);
-}
-.mosaic-verdict.won { border-left-color: var(--brass); }
-.mosaic-verdict.lost { border-left-color: var(--danger); }
-.mosaic-verdict-tag {
-  font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--ink-faint);
-}
-.mosaic-verdict.won .mosaic-verdict-tag { color: var(--brass); }
+/* The answer as a caption under its photograph: name, binomial, photo credit. No card; how
+   the round went follows in the shared result block (.rb). */
+.mosaic-verdict { display: grid; gap: 0; }
 .mosaic-verdict-name {
   font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; line-height: 1.25;
   color: var(--ink); margin-top: .15rem;
 }
 .mosaic-verdict-sci { font-style: italic; color: var(--ink-soft); font-size: .9rem; }
-.mosaic-verdict-credit {
-  margin-top: .6rem; padding-top: .5rem; border-top: 1px solid var(--line-soft);
-  font-size: .72rem; color: var(--ink-faint);
-}
+.mosaic-verdict-credit { margin-top: .35rem; font-size: .72rem; color: var(--ink-faint); }
 .mosaic-verdict-credit a { color: inherit; text-underline-offset: 2px; }
 .mosaic-verdict-credit a:hover { color: var(--game, var(--brass)); }
 .mosaic-table-wrap { overflow-x: auto; }
@@ -2846,16 +2812,6 @@ a.announce-go { text-decoration: none; }
    whole cell and takes the cell's own weight. */
 .mosaic-table td.prox > span + span.prox-deg { margin-left: .3rem; opacity: .7; }
 .mosaic-table tr.hit tbody th, .mosaic-table tr.hit th { color: #2e7d5b; }
-/* The shared result: the row of squares, then the copy button. Squares are emoji, so they
-   inherit whatever the platform draws them at; the row gets its own letter-spacing rather than
-   a font-size bump, which is what keeps it legible without towering over the verdict. */
-.mosaic-share { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .45rem; }
-.mosaic-share-row { letter-spacing: .08em; line-height: 1; }
-.mosaic-share-btn {
-  padding: .25rem .7rem; font-size: .78rem; cursor: pointer; color: inherit;
-  border: 1px solid var(--line, #ddd); border-radius: 999px; background: transparent;
-}
-.mosaic-share-btn:hover { border-color: var(--game, var(--brass)); color: var(--game, var(--brass)); }
 .mosaic-giveup { align-self: flex-start; background: none; border: 0; color: inherit; opacity: .6; text-decoration: underline; cursor: pointer; font-size: .82rem; }
 /* The armed give-up: the warning line sits above the button and Cancel beside it, so the
    second press is a choice rather than the same tap landing twice. */
@@ -3161,8 +3117,4 @@ a.announce-go { text-decoration: none; }
      has to be the page's own line colour or it is invisible. */
   margin-left: .45rem; padding-left: .45rem; border-left: 1px solid var(--line);
   font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink);
-}
-.mosaic-verdict-pts {
-  font-family: var(--font-mono); font-size: .72rem; letter-spacing: .04em;
-  color: var(--game, var(--brass)); margin-top: .2rem; font-variant-numeric: tabular-nums;
 }

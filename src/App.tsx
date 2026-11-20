@@ -30,7 +30,7 @@ import { useBoardGuard } from "./hooks/useBoardGuard";
 import { ResultCard } from "./ui/ResultCard";
 import { AnswerReveal } from "./ui/AnswerReveal";
 import { Cladogram } from "./ui/Cladogram";
-import { ShareCard } from "./ui/ShareCard";
+import { ResultBlock } from "./ui/ResultBlock";
 import { lineageShare } from "./ui/share";
 import { LeaderboardNudge } from "./ui/LeaderboardNudge";
 import { LeaderboardPanel } from "./ui/LeaderboardPanel";
@@ -549,8 +549,7 @@ export default function App() {
   );
 
   // The finished round's shared text and its points, built once (see lineageShare)
-  // and handed to the reveal. The share card below builds its own from the same
-  // function with the same arguments.
+  // and handed to both the reveal and the result block below, so they cannot disagree.
   const share = useMemo(
     () =>
       roundOver
@@ -706,7 +705,9 @@ export default function App() {
   const resLabel = RESOLUTION_PRESETS.find((r) => r.winWithin === g.config.winWithin)?.label ?? "";
 
   const eyebrow =
-    view === "home" ? "Daily games on the tree of life" :
+    // The PUZZLE date, so it turns over with the boards at 09:00, not at midnight.
+    view === "home"
+      ? new Date(`${today}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }) :
     view === "kinship" ? `Kinship · ${dailyLabel(today)}` :
     view === "branches" ? `Branches · ${dailyLabel(today)}` :
     // Mosaic counts from its OWN launch, so its epoch is passed. Without a case here it fell
@@ -851,19 +852,41 @@ export default function App() {
           {/* Where "See the full result" lands. Zero-height on purpose: the block
               below is a plain flow of cards and must not gain a wrapper. */}
           <div ref={resultRef} aria-hidden="true" />
-          <ResultCard tree={g.tree} answer={answer} won={g.status === "won"} guessCount={g.guesses.length} streak={daily ? stats.daily.currentStreak : null} par={par} />
-          <ShareCard
-            config={g.config}
-            guesses={g.guesses}
-            status={g.status === "won" ? "won" : "gaveup"}
-            hintCount={g.hintIds.length}
-            date={today}
-            mode={g.mode}
-            tier={daily ? g.daily.tier : null}
-            difficulty={daily ? g.daily.difficulty : null}
-            streak={daily ? stats.daily.currentStreak : null}
-          />
-          {daily && <p className="daily-lock">✓ You’ve played today’s Lineage. Come back tomorrow for a new puzzle.</p>}
+          <ResultCard tree={g.tree} answer={answer} />
+          {share && (() => {
+            const won = g.status === "won";
+            const n = g.guesses.length;
+            return (
+              <ResultBlock
+                game="lineage"
+                verdict={won
+                  ? n === 1
+                    ? "One guess ace is quite crazy. Too crazy one might think…"
+                    : `Solved in ${n} guesses. You're doing great.`
+                  : "Revealed 😵‍💫 Next time maybe."}
+                stats={[
+                  share.label,
+                  share.scope,
+                  share.res,
+                  share.score != null && `${share.score} pts`,
+                  `${n} ${n === 1 ? "guess" : "guesses"}`,
+                  g.hintIds.length > 0 && `${g.hintIds.length} hint${g.hintIds.length === 1 ? "" : "s"}`,
+                  share.showStreak && `🔥 ${stats.daily.currentStreak}`,
+                ]}
+                // Its own line, not a stat among stats: how you did against the solver is the
+                // one comparison the round offers, and in the stats line it went unread.
+                note={par != null && (
+                  <>
+                    🤖 Solver's par: {par}
+                    {won && (n < par ? " · you beat it! 😎" : n === par ? " · you matched it 🦭" : " · try to beat it tomorrow.")}
+                  </>
+                )}
+                squares={[share.row]}
+                shareText={share.text}
+                locked={daily ? "You’ve played today’s Lineage. Come back tomorrow for a new puzzle." : null}
+              />
+            );
+          })()}
           {/* Show where you landed among everyone right after a daily. */}
           {daily && player.configured && <LeaderboardPanel me={boardName} variant="today" canPreview={player.isAdmin} reloadKey={boardReload} streak={stats.daily.currentStreak} />}
           {daily && <LeaderboardNudge show={player.configured && !player.session} />}
@@ -895,6 +918,10 @@ export default function App() {
 
       {/* Guess bar sits at the bottom, under the tree, and sticks to the viewport
           so it stays reachable as the tree grows above it. */}
+      {/* A finished daily has nothing left in here, and the empty bar still drew its rule and
+          padding between the leaderboard and the discussion. Free play keeps it for the
+          "New random specimen" button. */}
+      {(!roundOver || !daily) && (
       <div className="playbar">
         {/* Gone once the round is over, rather than sitting there disabled: there
             is nothing left to guess, and it strands an inert box under the
@@ -996,6 +1023,7 @@ export default function App() {
           {!daily && <button className="linkbtn" onClick={g.newRandom}>New random specimen</button>}
         </div>
       </div>
+      )}
 
       {/* One reusable board per surface: same component, different key. Mounted
           during play too, not just after: while unfinished it shows nothing but a

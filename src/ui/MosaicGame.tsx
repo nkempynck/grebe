@@ -24,6 +24,7 @@ import { MosaicPicture } from "./MosaicPicture";
 import { DiscussionPanel } from "./DiscussionPanel";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
+import { ResultBlock } from "./ResultBlock";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 /** Same bands, same words as Lineage's ramp — see DIFFICULTY in data/dailySchedule. */
@@ -58,7 +59,6 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
     userId,
   });
   const [zoom, setZoom] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [reject, setReject] = useState<string | null>(null);
   // A guess costs a rung of the picture and cannot be taken back, and the two lists that can
   // fire one are grids of small chips: on a phone the wrong one is easy to hit, and the whole
@@ -133,15 +133,6 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
       : `Missed it · ${n} ${n === 1 ? "guess" : "guesses"}`;
     return `${head}\n${row}\n${verdict}\n${gameUrl()}`;
   })();
-  const copyShare = async () => {
-    try {
-      await navigator.clipboard.writeText(shareText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      /* clipboard unavailable — no-op */
-    }
-  };
 
   const answer = g.answerId ? tree.byId.get(g.answerId) : undefined;
   const ready = Boolean(g.answerId);
@@ -225,27 +216,13 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
         </span>
       )}
 
+      {/* The answer as a caption under its photograph; how the round went follows in the
+          same result block every game ends with. */}
       {done && (
-        <div className={`mosaic-verdict ${g.status}`}>
-          <span className="mosaic-verdict-tag">
-            {g.status === "won" ? "Got it" : "The answer was"}
-          </span>
+        <div className="mosaic-verdict">
           <span className="mosaic-verdict-name">{answer?.common ?? answer?.sciName}</span>
-          {g.status === "won" && (
-            <span className="mosaic-verdict-pts">
-              {g.points} pts · {g.guesses.length} {g.guesses.length === 1 ? "guess" : "guesses"}
-            </span>
-          )}
           {answer?.common && answer.sciName && (
             <span className="mosaic-verdict-sci">{answer.sciName}</span>
-          )}
-          {/* The server row is a summary, not a replay: it does not keep which species were
-              guessed. Without this line the reveal shows a result with an empty guess table
-              and no explanation for it. */}
-          {g.playedElsewhere && (
-            <span className="mosaic-verdict-sci">
-              Played on another device, so the guesses are not shown here.
-            </span>
           )}
           {g.credit?.licence && (
             <span className="mosaic-verdict-credit">
@@ -255,15 +232,30 @@ export function MosaicGame({ tree, date, onHowItWorks, userId, configured, sandb
               )}
             </span>
           )}
-          <div className="mosaic-share">
-            <span className="mosaic-share-row" aria-label="Your guesses, coldest to warmest">
-              {mosaicShareRow(g.guesses.map((x) => ({ degrees: x.degrees, correct: x.correct })))}
-            </span>
-            <button className="mosaic-share-btn" onClick={copyShare}>
-              {copied ? "Copied" : "Share result"}
-            </button>
-          </div>
         </div>
+      )}
+      {done && (
+        <ResultBlock
+          game="mosaic"
+          verdict={g.status === "won" ? "Got it. You overcame the babboon juice. Good job." : "Missed it"}
+          stats={[
+            `№${dailyNumber(g.date, MOSAIC_LAUNCH)}`,
+            DIFFICULTY[g.aids.tier - 1],
+            `${g.status === "won" ? g.points : 0} pts`,
+            // A round played on another device comes back without its guesses, so a count
+            // here would read 0.
+            !g.playedElsewhere && `${g.guesses.length} ${g.guesses.length === 1 ? "guess" : "guesses"}`,
+            g.status === "won" && streak != null && streak > 0 && `🔥 ${streak}`,
+          ]}
+          // The server row is a summary, not a replay: it does not keep which species were
+          // guessed. Said here, where the guess squares would otherwise be, so the empty spot
+          // and the empty guess table have an explanation.
+          note={g.playedElsewhere ? "Played on another device, so the guesses are not shown here." : null}
+          squares={[mosaicShareRow(g.guesses.map((x) => ({ degrees: x.degrees, correct: x.correct })))]}
+          shareText={shareText}
+          // Mosaic has no free play: a finished board outside the bench is today's daily.
+          locked={sandbox ? null : "You’ve played today’s Mosaic. Come back tomorrow for a new board. Fun will be had."}
+        />
       )}
 
       {/* Naming the animal is the game; narrowing and looking one up are aids to it. So the

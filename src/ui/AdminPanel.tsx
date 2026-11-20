@@ -254,7 +254,7 @@ function LineageBench({ tree }: { tree: Tree }) {
       ) : (
         <Cladogram tree={tree} scopeRootId={g.config.scopeRootId} results={g.guesses} answerId={g.answerId} hintIds={g.hintIds} revealed={over} />
       )}
-      {over && <ResultCard tree={tree} answer={answer} won={g.status === "won"} guessCount={g.guesses.length} streak={null} par={null} />}
+      {over && <ResultCard tree={tree} answer={answer} />}
       <div className="playbar">
         <GuessInput tree={tree} config={g.config} disabled={over} onSubmit={g.submit} onOutOfSetGuess={g.submitGraft} focusCladeId={g.assist ? g.focusCladeId : null} guesses={g.guesses} isRuledOut={g.isRuledOut} onRuleOut={g.toggleRuledOut} />
         <div className="errline">{g.error}</div>

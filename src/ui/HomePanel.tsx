@@ -2,22 +2,32 @@ import { dailyLabel, todayKey } from "../core/daily";
 import { MOSAIC_LAUNCH, mosaicIsLive } from "../core/mosaic";
 import { INSTAGRAM_HANDLE, INSTAGRAM_URL, InstagramIcon } from "./social";
 
+type GameId = "lineage" | "kinship" | "branches" | "mosaic";
+
 interface Props {
-  onPlay: (view: "lineage" | "kinship" | "branches" | "mosaic") => void;
+  onPlay: (view: GameId) => void;
 }
 
-const GAMES = [
+const GAMES: {
+  id: GameId;
+  icon: string;
+  name: string;
+  tagline: string;
+  inspired: string | null;
+  beta: boolean;
+  epoch?: string;
+}[] = [
   {
-    id: "lineage" as const,
+    id: "lineage",
     icon: "🧬",
     name: "Lineage",
     tagline:
-      "Guess the hidden organism. Every miss lands on the tree of life at the clade it shares with the answer, so each guess narrows where the target sits.",
+      "Guess the hidden organism. Every miss lands on the tree at the clade it shares with the answer, so each guess narrows where the target sits.",
     inspired: "Metazooa",
     beta: false,
   },
   {
-    id: "kinship" as const,
+    id: "kinship",
     icon: "🧩",
     name: "Kinship",
     tagline:
@@ -26,7 +36,7 @@ const GAMES = [
     beta: false,
   },
   {
-    id: "branches" as const,
+    id: "branches",
     icon: "🌿",
     name: "Branches",
     tagline:
@@ -35,66 +45,55 @@ const GAMES = [
     beta: false,
   },
   {
-    id: "mosaic" as const,
+    id: "mosaic",
     icon: "🖼",
     name: "Mosaic",
     tagline:
       "Name the animal in a photograph that has been cut into tiles and shuffled. Every wrong guess puts a little more of the picture back together.",
     inspired: null,
     beta: false,
-    // Mosaic opened months after the platform, so its card counts from its OWN first board.
+    // Mosaic opened months after the platform, so its row counts from its OWN first board.
     // The shared epoch called its second day №49, which is Grebe's number, not Mosaic's.
     epoch: MOSAIC_LAUNCH,
   },
 ];
 
-/** The platform landing: what Grebe is, and a card per game to choose from. */
+/** The platform landing: what Grebe is, and a row per game to choose from. */
 export function HomePanel({ onPlay }: Props) {
   const today = todayKey();
   // Per GAME, not per day: three of the four opened with the platform and share its count,
   // Mosaic carries its own.
   const labelFor = (epoch?: string) => dailyLabel(today, epoch);
   // A game that has not opened yet is not offered. Same test the nav uses, on the PUZZLE date,
-  // so the card appears at the 09:00 rollover rather than at midnight.
+  // so the row appears at the 09:00 rollover rather than at midnight.
   const games = GAMES.filter((g) => g.id !== "mosaic" || mosaicIsLive(today));
   return (
     <div className="home">
       <p className="home-intro">
-        Grebe is a set of daily puzzle games played on the <b>tree of life</b>, the
-        shared-ancestry tree that connects every living thing. Each game is new every day and
-        the same for everyone. Pick one, or more, and enjoy!
+        Grebe games are all built on the tree of life. They are updated daily. The goal is to have fun while ideally also learning. Enjoy!!  
       </p>
 
-      <div className="home-games">
+      <ul className="home-list">
         {games.map((game) => (
-          <button key={game.id} className={`home-card is-${game.id}`} data-game={game.id} onClick={() => onPlay(game.id)}>
-            <div className="home-card-top">
-              <span className="home-card-ico" aria-hidden="true">{game.icon}</span>
-              {/* A new game still says which day it is: it IS a daily, and dropping that in
-                  favour of the badge made the card read as a different kind of thing. */}
-              <span className="home-card-daily">
-                {(() => {
-                  const label = labelFor(game.epoch);
-                  return label === "Preview" ? "Preview" : `Daily ${label}`;
-                })()}
-                {game.beta && <span className="home-card-new">New</span>}
+          <li key={game.id}>
+            <button className="home-row" data-game={game.id} onClick={() => onPlay(game.id)}>
+              <span className="home-row-ico" aria-hidden="true">{game.icon}</span>
+              <span className="home-row-body">
+                <span className="home-row-head">
+                  <span className="home-row-name">{game.name}</span>
+                  {game.beta && <span className="home-card-new">New</span>}
+                  <span className="home-row-no">{labelFor(game.epoch)}</span>
+                </span>
+                <span className="home-row-tag">{game.tagline}</span>
+                {game.inspired && <span className="home-row-credit">Inspired by {game.inspired}.</span>}
               </span>
-            </div>
-            <h2 className="home-card-name">{game.name}</h2>
-            <p className="home-card-tag">{game.tagline}</p>
-            <div className="home-card-foot">
-              <span className="home-card-inspired">{game.inspired ? `inspired by ${game.inspired}` : "a Grebe original"}</span>
-              <span className="home-card-play">Play →</span>
-            </div>
-          </button>
+            </button>
+          </li>
         ))}
-
-        <div className="home-card is-soon" aria-hidden="true">
-          <div className="home-card-top"><span className="home-card-ico">🌱</span></div>
-          <h2 className="home-card-name">More to come</h2>
-          <p className="home-card-tag">Further tree-of-life games are in the works.</p>
-        </div>
-      </div>
+        <li className="home-soon">
+          <b>More to come.</b> Further tree-of-life games are in the works. In my mind at least. If you have ideas feel free to share.
+        </li>
+      </ul>
 
       <p className="home-social">
         Follow{" "}

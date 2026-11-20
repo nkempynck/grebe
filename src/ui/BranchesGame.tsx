@@ -12,6 +12,7 @@ import { WikiCard } from "./WikiCard";
 import { PhotoCredit, usePhotoCredit, usePhotoPager } from "./PhotoZoom";
 import { Leaderboard } from "./Leaderboard";
 import { LeaderboardNudge } from "./LeaderboardNudge";
+import { ResultBlock } from "./ResultBlock";
 import { DiscussionPanel } from "./DiscussionPanel";
 import { todayKey } from "../core/daily";
 import { branchesShareRows, gameUrl } from "./share";
@@ -148,7 +149,6 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
   const [pendingHint, setPendingHint] = useState(false);
   const [pendingRead, setPendingRead] = useState<{ id: string; url: string } | null>(null);
   const [mode, setMode] = useState<BranchesView>("radial");
-  const [copied, setCopied] = useState(false);
 
   const skeleton = useMemo<DisplayTreeNode | null>(() => {
     if (!g.board) return null;
@@ -316,18 +316,9 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
       g.result?.peeked ? plural(g.result.peeked, "peek") : "",
     ].filter(Boolean).join(", ");
     const streakLine = won && streak != null && streak > 0 ? ` · 🔥${streak}` : "";
-    const verdict = `${won ? "Solved 😎" : "Missed it"} · ${g.result?.correct}/${g.result?.total} placed${tags ? ` · ${tags}` : ""} · ${points} pts${streakLine}`;
+    const verdict = `${won ? "Solved. Yippie!" : "Missed it. Allez come on. Try again tomorrow."} · ${g.result?.correct}/${g.result?.total} placed${tags ? ` · ${tags}` : ""} · ${points} pts${streakLine}`;
     return `${head}\n${grid}\n${verdict}\n${gameUrl()}`;
   })();
-  const copyShare = async () => {
-    try {
-      await navigator.clipboard.writeText(shareText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      /* clipboard unavailable — no-op */
-    }
-  };
   const wikiNode = wikiId ? tree.byId.get(wikiId) ?? null : null;
   // A clade's summary names its members, and those members are routinely the tray
   // species themselves — free clade peeks would otherwise read out the answers. So
@@ -464,8 +455,8 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
           <>
             Drag each species onto the clade it belongs to. Correct slots lock in. A wrong board costs a
             mistake and sends the misplaced tiles back.
-            {/* Open on every load, so everyone reads it once; collapsing it is not remembered. */}
-            <details className="gamehead-blurb-note is-rule" open>
+            {/* Closed by default: the summary line is the rule, the detail is there if wanted. */}
+            <details className="gamehead-blurb-note is-rule">
               <summary>Please play without looking anything up outside the game.</summary>
               <span className="gamehead-blurb-sub">
                 Work out the tree from what you know and the features the species share. It is more
@@ -700,39 +691,30 @@ export function BranchesGame({ tree, onComplete, onHowItWorks, me, userId, confi
       )}
 
       {over && g.result && (
-        <div className={`branches-result${won ? " is-won" : " is-lost"}`}>
-          <div className="branches-score">
-            <b>{won ? "Solved 😎" : "Missed it"}</b>
-            <span className="branches-score-detail"> · {g.result.correct}/{g.result.total} placed
-              {[
-                g.result.mistakes && `${g.result.mistakes} mistake${g.result.mistakes > 1 ? "s" : ""}`,
-                g.result.hinted && `${g.result.hinted} hint${g.result.hinted > 1 ? "s" : ""}`,
-                g.result.peeked && `${g.result.peeked} peek${g.result.peeked > 1 ? "s" : ""}`,
-              ].filter(Boolean).map((t) => <span key={t as string}> · {t}</span>)}
-            </span>
-          </div>
-          <div className="branches-points">{points} points</div>
-          {won && g.result.mistakes > 0 && g.result.mistakes === g.allowance && (
-            <p className="branches-result-note">Right at the limit, one more would have ended it! A close call one could say. 🦫 </p>
-          )}
-          {!won && (
-            <p className="branches-result-note">Over the {g.allowance}-mistake limit for today. You keep the slots you locked, at 35% credit; each unsolved slot shows its species.</p>
-          )}
-          <div className="share">
-            <div className="share-head">🌿 Grebe Branches <span>· №{dailyNumber(g.date)}{rules.difficulty ? ` · ${rules.difficulty}` : ""}</span></div>
-            <div className="share-grid" aria-label={`placements: ${shareRows.join(", ")}`}>
-              {shareRows.map((row, i) => <div key={i}>{row}</div>)}
-            </div>
-            <div className="share-verdict">
-              {won ? "Solved 😎" : "Missed it"} · {g.result.correct}/{g.result.total} placed
-              {g.result.mistakes > 0 && <> · {g.result.mistakes} mistake{g.result.mistakes > 1 ? "s" : ""}</>}
-              <span className="share-score"> · {points} pts</span>
-              {won && streak != null && streak > 0 && <span className="share-streak"> · 🔥{streak}</span>}
-            </div>
-            <button className="share-btn" onClick={copyShare}>{copied ? "Copied ✓" : "Copy result"}</button>
-          </div>
-          {g.locked && <p className="daily-lock">✓ You’ve played today’s Branches. Come back tomorrow for a new board. Fun will be had.</p>}
-        </div>
+        <ResultBlock
+          game="branches"
+          verdict={won ? "Solved 😎" : "Missed it"}
+          stats={[
+            `№${dailyNumber(g.date)}`,
+            rules.difficulty,
+            `${points} pts`,
+            `${g.result.correct}/${g.result.total} placed`,
+            g.result.mistakes > 0 && plural(g.result.mistakes, "mistake"),
+            g.result.hinted > 0 && plural(g.result.hinted, "hint"),
+            g.result.peeked > 0 && plural(g.result.peeked, "peek"),
+            won && streak != null && streak > 0 && `🔥 ${streak}`,
+          ]}
+          note={
+            !won
+              ? `Over the ${g.allowance}-mistake limit for today. You keep the slots you locked, at 35% credit; each unsolved slot shows its species.`
+              : g.result.mistakes > 0 && g.result.mistakes === g.allowance
+              ? "Right at the limit, one more would have ended it! A close call one could say. 🦫"
+              : null
+          }
+          squares={shareRows}
+          shareText={shareText}
+          locked={g.locked ? "You’ve played today’s Branches. Come back tomorrow for a new board. Fun will be had." : null}
+        />
       )}
 
       {over && <LeaderboardNudge show={!!configured && !me} />}
