@@ -13,7 +13,7 @@ import { catchUpCounts, countPlay } from "./data/playCount";
 import { newDailyWins, type WinSource } from "./data/badges";
 import { todayKey, dailyNumber, dailyLabel, isPreLaunch } from "./core/daily";
 import { dailyAnswerFor, resolveDailyRules } from "./data/dailySchedule";
-import { loadStore } from "./data/stats";
+import { loadStore, resultsOn } from "./data/stats";
 import { loadDailyProgress } from "./data/dailyProgress";
 import { loadGridProgress } from "./data/gridProgress";
 import { loadBranchesProgress } from "./data/branchesProgress";
@@ -1178,7 +1178,9 @@ export default function App() {
         </div>
       ))}
 
-      {view === "home" && <HomePanel onPlay={(v) => setView(v)} />}
+      {/* Today's result per game, null where it hasn't been played: the same frozen points the
+          stats and the vs-field comparison read, so the homepage can't disagree with them. */}
+      {view === "home" && <HomePanel onPlay={(v) => setView(v)} today={resultsOn(store, dayKey)} />}
       {view === "lineage" && <div className="gameview" data-game="lineage">{play}</div>}
       {view === "kinship" && (
         <div className="gameview" data-game="kinship">

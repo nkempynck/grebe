@@ -6,6 +6,8 @@ type GameId = "lineage" | "kinship" | "branches" | "mosaic";
 
 interface Props {
   onPlay: (view: GameId) => void;
+  /** Today's result per game, null for a game not yet played today. */
+  today: Record<GameId, { points: number; won: boolean } | null>;
 }
 
 const GAMES: {
@@ -59,14 +61,17 @@ const GAMES: {
 ];
 
 /** The platform landing: what Grebe is, and a row per game to choose from. */
-export function HomePanel({ onPlay }: Props) {
+export function HomePanel({ onPlay, today: results }: Props) {
   const today = todayKey();
   // Per GAME, not per day: three of the four opened with the platform and share its count,
   // Mosaic carries its own.
   const labelFor = (epoch?: string) => dailyLabel(today, epoch);
   // A game that has not opened yet is not offered. Same test the nav uses, on the PUZZLE date,
   // so the row appears at the 09:00 rollover rather than at midnight.
-  const games = GAMES.filter((g) => g.id !== "mosaic" || mosaicIsLive(today));
+  const live = GAMES.filter((g) => g.id !== "mosaic" || mosaicIsLive(today));
+  // What is still to play comes first; played games drop below, each group in the usual order.
+  const played = (id: GameId) => results[id] != null;
+  const games = [...live.filter((g) => !played(g.id)), ...live.filter((g) => played(g.id))];
   return (
     <div className="home">
       <p className="home-intro">
@@ -76,13 +81,21 @@ export function HomePanel({ onPlay }: Props) {
       <ul className="home-list">
         {games.map((game) => (
           <li key={game.id}>
-            <button className="home-row" data-game={game.id} onClick={() => onPlay(game.id)}>
+            <button className={`home-row${played(game.id) ? " is-played" : ""}`} data-game={game.id} onClick={() => onPlay(game.id)}>
               <span className="home-row-ico" aria-hidden="true">{game.icon}</span>
               <span className="home-row-body">
                 <span className="home-row-head">
                   <span className="home-row-name">{game.name}</span>
                   {game.beta && <span className="home-card-new">New</span>}
                   <span className="home-row-no">{labelFor(game.epoch)}</span>
+                  {(() => {
+                    const r = results[game.id];
+                    return r && (
+                      <span className="home-row-done">
+                        {r.won ? "Played" : "Played (but failed...)"} · {r.points} pts
+                      </span>
+                    );
+                  })()}
                 </span>
                 <span className="home-row-tag">{game.tagline}</span>
                 {game.inspired && <span className="home-row-credit">Inspired by {game.inspired}.</span>}

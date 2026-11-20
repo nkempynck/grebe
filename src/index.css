@@ -2082,7 +2082,8 @@ span.grid-end-cap, button.grid-end-cap:not(.grid-tile-cap) { background: none; p
 /* Sized and set on the name's line, so it reads as part of the title the way it does in the tabs. */
 .home-row-ico { font-size: 19px; line-height: 27.5px; text-align: center; padding: 20px 0; }
 .home-row-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 20px 0; }
-.home-row-head { display: flex; align-items: baseline; gap: 10px; }
+/* Wraps so "✓ Played · 105 pts" drops under the name on a phone rather than overflowing. */
+.home-row-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
 /* The game colour pulled a little toward the ink: Branches' ochre at full strength is too pale
    to read as text on the paper. The mix darkens it in light mode and lightens it in dark. */
 .home-row-name {
@@ -2092,6 +2093,17 @@ span.grid-end-cap, button.grid-end-cap:not(.grid-tile-cap) { background: none; p
 .home-row-tag { font-size: 15.5px; color: var(--ink-soft); line-height: 1.5; }
 .home-row-credit { font-size: 14px; font-style: italic; font-weight: 400; color: var(--ink-faint); }
 .home-row-no { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+/* Played today: the result in the game's colour, and the slip faded to about half strength so
+   the games still to play stand out. Still a link, back to the result and the discussion. */
+.home-row-done {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  color: color-mix(in srgb, var(--game, var(--brass)) 78%, var(--ink));
+}
+.home-row.is-played {
+  background: color-mix(in srgb, var(--game, var(--brass)) 6%, transparent);
+  border-color: color-mix(in srgb, var(--game, var(--brass)) 35%, transparent);
+}
+.home-row.is-played:hover { background: color-mix(in srgb, var(--game, var(--brass)) 12%, transparent); }
 /* An empty slip for the games still to come: dashed, untinted, text set on the names' line. */
 .home-soon {
   padding: 14px 16px 14px 52px; font-size: 14.5px; line-height: 1.5; color: var(--ink-faint);

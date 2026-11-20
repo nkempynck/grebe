@@ -242,6 +242,20 @@ export function pointsByDate(store: StatsStore) {
   };
 }
 
+/** One day's result per game: its frozen points and whether it was won, or null if that game
+ *  wasn't played that day. The homepage marks played games with it. */
+export function resultsOn(store: StatsStore, d: string) {
+  const p = pointsByDate(store);
+  const at = <T,>(e: T | undefined, pts: number | null, won: (e: T) => boolean) =>
+    e && pts != null ? { points: pts, won: won(e) } : null;
+  return {
+    lineage: at(store.history?.[d], p.lineage(d), (e) => e.status === "won"),
+    kinship: at(store.kinship?.[d], p.kinship(d), (e) => e.status === "won"),
+    branches: at(store.branches?.[d], p.branches(d), (e) => e.won),
+    mosaic: at(store.mosaic?.[d], p.mosaic(d), (e) => e.won),
+  };
+}
+
 const emptyStore = (): StatsStore => ({ version: 7, history: {}, clades: {}, kinship: {}, branches: {}, mosaic: {} });
 
 /** Accept a raw payload (localStorage or DB) and coerce to a valid store. Lineage
